@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "zcylas.totality.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+	],
+	"client": [
+		"MouseHandlerMixin",
+		"GameRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

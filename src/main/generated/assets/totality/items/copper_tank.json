@@ -1,0 +1,9 @@
+{
+  "model": {
+    "type": "minecraft:special",
+    "base": "totality:block/copper_tank",
+    "model": {
+      "type": "totality:fluid_tank"
+    }
+  }
+}

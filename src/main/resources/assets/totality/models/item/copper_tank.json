@@ -1,0 +1,50 @@
+{
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
+	"texture_size": [32, 32],
+	"textures": {
+		"0": "totaility:block/copper_tank",
+		"particle": "totality:block/copper_tank"
+	},
+	"elements": [
+		{
+			"from": [4, 0, 4],
+			"to": [12, 12, 12],
+			"rotation": {"angle": 0, "axis": "y", "origin": [4, 0, 4]},
+			"faces": {
+				"north": {"uv": [0, 0, 4, 6], "texture": "#0"},
+				"east": {"uv": [4, 0, 8, 6], "texture": "#0"},
+				"south": {"uv": [0, 6, 4, 12], "texture": "#0"},
+				"west": {"uv": [4, 6, 8, 12], "texture": "#0"},
+				"up": {"uv": [12, 4, 8, 0], "texture": "#0"},
+				"down": {"uv": [12, 4, 8, 8], "texture": "#0"}
+			}
+		},
+		{
+			"from": [5, 12, 5],
+			"to": [11, 13, 11],
+			"rotation": {"angle": 0, "axis": "y", "origin": [5, 12, 5]},
+			"faces": {
+				"north": {"uv": [0, 12, 3, 12.5], "texture": "#0"},
+				"east": {"uv": [12, 0, 15, 0.5], "texture": "#0"},
+				"south": {"uv": [12, 0.5, 15, 1], "texture": "#0"},
+				"west": {"uv": [12, 1, 15, 1.5], "texture": "#0"},
+				"up": {"uv": [11, 11, 8, 8], "texture": "#0"},
+				"down": {"uv": [11, 11, 9, 10.5], "texture": "#0"}
+			}
+		},
+		{
+			"from": [6, 13, 6],
+			"to": [10, 14, 10],
+			"rotation": {"angle": 0, "axis": "y", "origin": [6, 13, 6]},
+			"faces": {
+				"north": {"uv": [12, 1.5, 14, 2], "texture": "#0"},
+				"east": {"uv": [12, 2, 14, 2.5], "texture": "#0"},
+				"south": {"uv": [12, 2.5, 14, 3], "texture": "#0"},
+				"west": {"uv": [3, 12, 5, 12.5], "texture": "#0"},
+				"up": {"uv": [13, 10, 11, 8], "texture": "#0"},
+				"down": {"uv": [13, 10, 11, 12], "texture": "#0"}
+			}
+		}
+	]
+}

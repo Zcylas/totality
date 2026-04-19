@@ -1,0 +1,161 @@
+package zcylas.totality.datagen;
+
+import net.fabricmc.fabric.api.client.datagen.v1.provider.FabricModelProvider;
+import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
+import net.minecraft.client.data.models.BlockModelGenerators;
+import net.minecraft.client.data.models.ItemModelGenerators;
+import net.minecraft.client.data.models.blockstates.MultiPartGenerator;
+import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
+import net.minecraft.client.data.models.blockstates.PropertyDispatch;
+import net.minecraft.client.data.models.model.ItemModelUtils;
+import net.minecraft.client.data.models.model.ModelTemplates;
+import net.minecraft.client.renderer.item.properties.conditional.HasComponent;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import org.jspecify.annotations.NonNull;
+import zcylas.totality.api.energy.UEComponents;
+import zcylas.totality.block.energy.CableBlock;
+import zcylas.totality.block.fluid.FluidTankBlock;
+import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
+import zcylas.totality.init.ModBlocks;
+import zcylas.totality.init.items.EnergyItems;
+
+import net.minecraft.client.data.models.blockstates.ConditionBuilder;
+
+public class ModModelProvider extends FabricModelProvider {
+    public ModModelProvider(FabricPackOutput output) {
+        super(output);
+    }
+
+    @Override
+    public void generateBlockStateModels(@NonNull BlockModelGenerators generators) {
+        registerFluidTank(generators, ModBlocks.COPPER_TANK);
+        // Energy cell — uses furnace model as placeholder, no facing needed
+        generators.createTrivialCube(ModBlocks.COPPER_ENERGY_CELL);
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(ModBlocks.GENERATOR)
+                        .with(PropertyDispatch.initial(BlockStateProperties.LIT, BlockStateProperties.HORIZONTAL_FACING)
+                                .select(false, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator")))
+                                .select(false, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(false, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(false, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator")).with(BlockModelGenerators.Y_ROT_270))
+                                .select(true, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator_active")))
+                                .select(true, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator_active")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(true, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator_active")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(true, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/generator_active")).with(BlockModelGenerators.Y_ROT_270))
+                        )
+        );
+
+        Identifier cableCore = Identifier.fromNamespaceAndPath("totality", "block/copper_cable_core");
+        Identifier cableSide = Identifier.fromNamespaceAndPath("totality", "block/copper_cable_side");
+
+        generators.blockStateOutput.accept(
+                MultiPartGenerator.multiPart(ModBlocks.COPPER_CABLE)
+                        .with(BlockModelGenerators.plainVariant(cableCore))
+                        .with(new ConditionBuilder().term(CableBlock.NORTH, true).build(),
+                                BlockModelGenerators.plainVariant(cableSide))
+                        .with(new ConditionBuilder().term(CableBlock.EAST, true).build(),
+                                BlockModelGenerators.plainVariant(cableSide).with(BlockModelGenerators.Y_ROT_90))
+                        .with(new ConditionBuilder().term(CableBlock.SOUTH, true).build(),
+                                BlockModelGenerators.plainVariant(cableSide).with(BlockModelGenerators.Y_ROT_180))
+                        .with(new ConditionBuilder().term(CableBlock.WEST, true).build(),
+                                BlockModelGenerators.plainVariant(cableSide).with(BlockModelGenerators.Y_ROT_270))
+                        .with(new ConditionBuilder().term(CableBlock.UP, true).build(),
+                                BlockModelGenerators.plainVariant(cableSide).with(BlockModelGenerators.X_ROT_270))
+                        .with(new ConditionBuilder().term(CableBlock.DOWN, true).build(),
+                                BlockModelGenerators.plainVariant(cableSide).with(BlockModelGenerators.X_ROT_90))
+        );
+    }
+
+    @Override
+    public void generateItemModels(@NonNull ItemModelGenerators generators) {
+        Identifier modelLocation = Identifier.fromNamespaceAndPath(
+                "totality", "block/copper_tank");
+        generators.itemModelOutput.accept(
+                ModBlocks.GENERATOR.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/generator")));
+
+        generators.itemModelOutput.accept(
+                ModBlocks.COPPER_TANK.asItem(),
+                ItemModelUtils.specialModel(
+                        modelLocation,
+                        new FluidTankSpecialRenderer.Unbaked()));
+        generators.generateFlatItem(
+                ModBlocks.COPPER_CABLE.asItem(), ModelTemplates.FLAT_ITEM
+        );
+        // Other tanks use same model for now
+
+        generators.itemModelOutput.accept(
+                EnergyItems.COPPER_BATTERY,
+                ItemModelUtils.conditional(
+                        new HasComponent(UEComponents.BATTERY_ACTIVE, false),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/copper_battery_active")),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/copper_battery"))
+                )
+        );
+        generators.itemModelOutput.accept(
+                EnergyItems.IRON_BATTERY,
+                ItemModelUtils.conditional(
+                        new HasComponent(UEComponents.BATTERY_ACTIVE, false),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/iron_battery_active")),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/iron_battery"))
+                )
+        );
+        generators.itemModelOutput.accept(
+                EnergyItems.GOLD_BATTERY,
+                ItemModelUtils.conditional(
+                        new HasComponent(UEComponents.BATTERY_ACTIVE, false),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/gold_battery_active")),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/gold_battery"))
+                )
+        );
+        generators.itemModelOutput.accept(
+                EnergyItems.DIAMOND_BATTERY,
+                ItemModelUtils.conditional(
+                        new HasComponent(UEComponents.BATTERY_ACTIVE, false),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/diamond_battery_active")),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/diamond_battery"))
+                )
+        );
+        generators.itemModelOutput.accept(
+                EnergyItems.NETHERITE_BATTERY,
+                ItemModelUtils.conditional(
+                        new HasComponent(UEComponents.BATTERY_ACTIVE, false),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/netherite_battery_active")),
+                        ItemModelUtils.plainModel(
+                                Identifier.fromNamespaceAndPath("totality", "item/netherite_battery"))
+                )
+        );
+    }
+
+    private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {
+        // Points to your hand-made JSON model, generates blockstate JSON
+        generators.blockStateOutput.accept(
+                BlockModelGenerators.createSimpleBlock(
+                        block,
+                        BlockModelGenerators.plainVariant(
+                                Identifier.fromNamespaceAndPath("totality", "block/copper_tank"))));
+
+        // Generates item model JSON pointing to the block model
+
+    }
+}

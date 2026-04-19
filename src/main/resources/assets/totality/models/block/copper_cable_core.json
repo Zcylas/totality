@@ -1,0 +1,20 @@
+{
+  "textures": {
+    "texture": "totality:block/copper_cable",
+    "particle": "totality:block/copper_cable"
+  },
+  "elements": [
+    {
+      "from": [6, 6, 6],
+      "to": [10, 10, 10],
+      "faces": {
+        "north": {"uv": [1, 1, 5, 5], "texture": "#texture"},
+        "east":  {"uv": [1, 1, 5, 5], "texture": "#texture"},
+        "south": {"uv": [1, 1, 5, 5], "texture": "#texture"},
+        "west":  {"uv": [1, 1, 5, 5], "texture": "#texture"},
+        "up":    {"uv": [1, 1, 5, 5], "texture": "#texture"},
+        "down":  {"uv": [1, 1, 5, 5], "texture": "#texture"}
+      }
+    }
+  ]
+}
