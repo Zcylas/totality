@@ -15,6 +15,8 @@ import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityPackets;
 import zcylas.totality.networking.TotalityServerPacketHandlers;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
+import zcylas.totality.networking.magic.grimoire.GrimoireServerTick;
+import zcylas.totality.networking.mana.ManaServerTick;
 
 public class Totality implements ModInitializer {
 	public static final String MOD_ID = "totality";
@@ -24,8 +26,10 @@ public class Totality implements ModInitializer {
 	public void onInitialize() {
 		TotalityPackets.register();
 		TotalityServerPacketHandlers.register();
+		registerEntities();
+		registerMenus();
+		registerServerTickEvents();
 		registerApi();
-		var ignored = GeneratorMenu.TYPE;
 		registerItemHandlers();
 		registerInits();
 		registerLookups();
@@ -36,6 +40,7 @@ public class Totality implements ModInitializer {
 		ModItems.register();
 		ModBlocks.register();
 		ModBlockEntities.register();
+		ModEntities.register();
 	}
 
 	private void registerLookups(){
@@ -43,6 +48,18 @@ public class Totality implements ModInitializer {
 				(blockEntity, direction) -> blockEntity.getFluidStorage(direction),
 				ModBlockEntities.FLUID_TANK
 		);
+	}
+	private void registerEntities(){
+		var ignored2 = ModEntities.GRIMOIRE_PROJECTILE;
+	}
+
+	private void registerMenus(){
+		var ignored = GeneratorMenu.TYPE;
+	}
+
+	private void registerServerTickEvents(){
+		ManaServerTick.register();
+		GrimoireServerTick.register();
 	}
 
 	private void registerApi(){

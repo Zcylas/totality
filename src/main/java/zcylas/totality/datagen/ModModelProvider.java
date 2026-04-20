@@ -19,9 +19,11 @@ import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.init.ModBlocks;
+import zcylas.totality.init.ModItems;
 import zcylas.totality.init.items.EnergyItems;
 
 import net.minecraft.client.data.models.blockstates.ConditionBuilder;
+import zcylas.totality.init.items.MagicItems;
 
 public class ModModelProvider extends FabricModelProvider {
     public ModModelProvider(FabricPackOutput output) {
@@ -145,6 +147,12 @@ public class ModModelProvider extends FabricModelProvider {
                                 Identifier.fromNamespaceAndPath("totality", "item/netherite_battery"))
                 )
         );
+        generators.itemModelOutput.accept(
+                EnergyItems.UMBRA_VISOR, ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/umbra_visor")
+                )
+        );
+        generators.generateFlatItem(MagicItems.GRIMOIRE, ModelTemplates.FLAT_ITEM);
     }
 
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {

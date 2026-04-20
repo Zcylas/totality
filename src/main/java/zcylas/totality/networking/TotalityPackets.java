@@ -5,6 +5,8 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.config.SideModeSyncPayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
+import zcylas.totality.networking.magic.grimoire.SyncGrimoireHudPayload;
+import zcylas.totality.networking.mana.SyncManaPayload;
 
 public class TotalityPackets {
 
@@ -20,6 +22,8 @@ public class TotalityPackets {
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry){
         registry.register(SideModeSyncPayload.TYPE, SideModeSyncPayload.CODEC);
+        registry.register(SyncManaPayload.TYPE, SyncManaPayload.CODEC);
+        registry.register(SyncGrimoireHudPayload.TYPE, SyncGrimoireHudPayload.CODEC);
     }
 
     private TotalityPackets() {}

@@ -13,9 +13,12 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
+import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
+import zcylas.totality.client.renderer.mana.ManaHudRenderer;
 import zcylas.totality.init.ModBlockEntities;
+import zcylas.totality.init.ModEntities;
 import zcylas.totality.item.fluid.FluidTankItem;
 import zcylas.totality.menu.energy.EnergyCellMenu;
 import zcylas.totality.menu.generator.GeneratorMenu;
@@ -34,6 +37,7 @@ public class TotalityClient implements ClientModInitializer {
         registerRenderers();
         registerScreens();
         registerSpecialRenderers();
+        registerEntityRenderers();
         TotalityClientPacketHandlers.register();
         ClientTickEvents.END_CLIENT_TICK.register(
                 client -> FluidTankScrollHandler.tick());
@@ -45,7 +49,14 @@ public class TotalityClient implements ClientModInitializer {
                 ModBlockEntities.FLUID_TANK,
                 FluidTankRenderer::new
         );
+        ManaHudRenderer.register();
 
+    }
+
+    private void registerEntityRenderers(){
+        net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+                ModEntities.GRIMOIRE_PROJECTILE,
+                GrimoireProjectileRenderer::new);
     }
 
     private void registerSpecialRenderers(){

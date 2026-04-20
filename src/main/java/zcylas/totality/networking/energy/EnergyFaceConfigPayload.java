@@ -1,4 +1,4 @@
-package zcylas.totality.networking.config;
+package zcylas.totality.networking.energy;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;

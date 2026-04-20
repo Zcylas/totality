@@ -23,6 +23,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.diamond_battery", "Diamond Battery");
         translationBuilder.add("item.totality.netherite_battery", "Netherite Battery");
         translationBuilder.add("item.totality.umbra_visor", "Umbra Visor");
+        translationBuilder.add("item.totality.grimoire", "Grimoire");
 
     }
 }
