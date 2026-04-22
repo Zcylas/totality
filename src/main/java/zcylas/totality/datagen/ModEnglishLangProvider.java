@@ -23,7 +23,12 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.diamond_battery", "Diamond Battery");
         translationBuilder.add("item.totality.netherite_battery", "Netherite Battery");
         translationBuilder.add("item.totality.umbra_visor", "Umbra Visor");
-        translationBuilder.add("item.totality.grimoire", "Grimoire");
+        translationBuilder.add("item.totality.novice_grimoire", "Novice Grimoire");
+        translationBuilder.add("item.totality.apprentice_grimoire", "Apprentice Grimoire");
+        translationBuilder.add("item.totality.archmage_grimoire", "Archmage Grimoire");
+        translationBuilder.add("key.totality.open_grimoire", "Open Grimoire");
+        translationBuilder.add("key.category.totality.totality", "Totality");
+        translationBuilder.add("key.totality.open_radial", "Radial Spell Selector");
 
     }
 }

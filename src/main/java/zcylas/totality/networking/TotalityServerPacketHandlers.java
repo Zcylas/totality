@@ -1,11 +1,20 @@
 package zcylas.totality.networking;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.energy.HasSidedEnergy;
+import zcylas.totality.api.magic.GrimoireCaster;
+import zcylas.totality.api.magic.MagicComponents;
 import zcylas.totality.item.fluid.FluidTankItem;
+import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
+import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
+import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class TotalityServerPacketHandlers {
 
@@ -29,8 +38,39 @@ public class TotalityServerPacketHandlers {
                         sided.syncSideModes(context.player(), payload.pos());
                     }
                 }));
+        ServerPlayNetworking.registerGlobalReceiver(
+                UpdateGrimoirePayload.TYPE, (payload, context) -> {
+                    context.server().execute(() -> {
+                        ServerPlayer player = context.player();
+                        ItemStack stack     = findGrimoire(player);
+                        if (!stack.isEmpty()) {
+                            stack.set(MagicComponents.GRIMOIRE_CASTER, payload.caster());
+                        }
+                    });
+                });
+
+        ServerPlayNetworking.registerGlobalReceiver(
+                SwitchGrimoireSlotPayload.TYPE, (payload, context) -> {
+                    context.server().execute(() -> {
+                        ServerPlayer player = context.player();
+                        ItemStack stack     = findGrimoire(player);
+                        if (!stack.isEmpty()) {
+                            GrimoireCaster current = stack.getOrDefault(
+                                    MagicComponents.GRIMOIRE_CASTER, GrimoireCaster.EMPTY);
+                            stack.set(MagicComponents.GRIMOIRE_CASTER,
+                                    current.withCurrentSlot(payload.slot()));
+                        }
+                    });
+                });
     }
 
+    private static ItemStack findGrimoire(ServerPlayer player) {
+        if (player.getMainHandItem().getItem() instanceof GrimoireItem)
+            return player.getMainHandItem();
+        if (player.getOffhandItem().getItem() instanceof GrimoireItem)
+            return player.getOffhandItem();
+        return ItemStack.EMPTY;
+    }
 
     private TotalityServerPacketHandlers() {}
 

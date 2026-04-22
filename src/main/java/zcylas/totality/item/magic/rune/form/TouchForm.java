@@ -1,5 +1,6 @@
 package zcylas.totality.item.magic.rune.form;
 
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -11,6 +12,10 @@ import zcylas.totality.api.magic.context.FormulaContext;
 import zcylas.totality.api.magic.context.FormulaResolver;
 import zcylas.totality.api.magic.formula.FormulaStats;
 import zcylas.totality.api.magic.rune.AbstractFormRune;
+import zcylas.totality.client.gui.TotalityGuiSprites;
+
+import java.util.Map;
+import java.util.Set;
 
 public class TouchForm extends AbstractFormRune {
 
@@ -48,5 +53,23 @@ public class TouchForm extends AbstractFormRune {
                                      FormulaResolver resolver) {
         resolver.onResolveEffect(caster.level(), new EntityHitResult(target));
         return CastResult.SUCCESS;
+    }
+
+    @Override
+    public Identifier getIcon() { return TotalityGuiSprites.RUNE_TOUCH; }
+
+    @Override
+    public int getTier() { return 1; }
+
+    public String getDescription() { return "Applies the spell at the targeted block or entity."; }
+
+    @Override
+    public Set<String> getCompatibleAugments() {
+        return Set.of("sensitive");
+    }
+
+    @Override
+    public void buildAugmentDescriptions(Map<String, String> map) {
+        map.put("sensitive", "Can target fluids and air.");
     }
 }

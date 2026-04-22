@@ -1,5 +1,6 @@
 package zcylas.totality.item.magic.rune.form;
 
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,7 +11,11 @@ import zcylas.totality.api.magic.context.FormulaContext;
 import zcylas.totality.api.magic.context.FormulaResolver;
 import zcylas.totality.api.magic.formula.FormulaStats;
 import zcylas.totality.api.magic.rune.AbstractFormRune;
+import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.entity.magic.GrimoireProjectileEntity;
+
+import java.util.Map;
+import java.util.Set;
 
 public class ProjectileForm extends AbstractFormRune {
 
@@ -69,5 +74,24 @@ public class ProjectileForm extends AbstractFormRune {
                 0f); // 0 inaccuracy = perfectly straight
 
         level.addFreshEntity(projectile);
+    }
+
+    @Override
+    public Identifier getIcon() { return TotalityGuiSprites.RUNE_PROJECTILE; }
+
+    @Override
+    public int getTier() { return 1; }
+
+    public String getDescription() { return "Fires a projectile that applies the spell on impact."; }
+
+    @Override
+    public Set<String> getCompatibleAugments() {
+        return Set.of("pierce", "sensitive");
+    }
+
+    @Override
+    public void buildAugmentDescriptions(Map<String, String> map) {
+        map.put("pierce",    "Projectiles pierce through entities and blocks an additional time.");
+        map.put("sensitive", "Projectiles hit plants and materials that don't block motion.");
     }
 }

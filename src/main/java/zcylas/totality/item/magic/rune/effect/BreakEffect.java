@@ -1,6 +1,7 @@
 package zcylas.totality.item.magic.rune.effect;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -13,6 +14,12 @@ import zcylas.totality.api.magic.context.FormulaContext;
 import zcylas.totality.api.magic.context.FormulaResolver;
 import zcylas.totality.api.magic.formula.FormulaStats;
 import zcylas.totality.api.magic.rune.AbstractEffectRune;
+import zcylas.totality.api.magic.util.SpellUtil;
+import zcylas.totality.client.gui.TotalityGuiSprites;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class BreakEffect extends AbstractEffectRune {
 
@@ -43,35 +50,34 @@ public class BreakEffect extends AbstractEffectRune {
                                FormulaContext context, FormulaResolver resolver) {
         if (!(level instanceof ServerLevel serverLevel)) return;
 
-        BlockPos pos = hit.getBlockPos();
-        BlockState state = level.getBlockState(pos);
-
-        // Don't break air or unbreakable blocks
-        if (state.isAir() || state.getDestroySpeed(level, pos) < 0) return;
-
         int harvestLevel = getHarvestLevel(stats);
-        ItemStack tool = getToolForTier(harvestLevel);
+        List<BlockPos> blocks = SpellUtil.calcAoeBlocks(caster, hit.getBlockPos(), hit, stats.getAoeRadius());
+
+        for (BlockPos pos : blocks) {
+            breakBlock(serverLevel, pos, harvestLevel, caster);
+        }
+    }
+
+    private void breakBlock(ServerLevel serverLevel, BlockPos pos,
+                            int harvestLevel, LivingEntity caster) {
+        BlockState state = serverLevel.getBlockState(pos);
+        if (state.isAir() || state.getDestroySpeed(serverLevel, pos) < 0) return;
 
         if (caster instanceof ServerPlayer player) {
-            // Check if the player's tool or our spell tool can harvest this block
-            boolean canHarvest = player.hasCorrectToolForDrops(state)
-                    || harvestLevel >= getRequiredHarvestLevel(state);
-
-            if (!canHarvest) return;
-
-            ItemStack toolCopy = tool.copy();
-            state.getBlock().playerWillDestroy(serverLevel, pos, state, player);
-            boolean removed = serverLevel.removeBlock(pos, false);
-            if (removed) {
-                state.getBlock().destroy(serverLevel, pos, state);
-                state.getBlock().playerDestroy(
-                        serverLevel, player, pos, state,
-                        serverLevel.getBlockEntity(pos), toolCopy);
+            if (player.hasCorrectToolForDrops(state)
+                    || harvestLevel >= getRequiredHarvestLevel(state)) {
+                ItemStack tool = getToolForTier(harvestLevel).copy();
+                state.getBlock().playerWillDestroy(serverLevel, pos, state, player);
+                boolean removed = serverLevel.removeBlock(pos, false);
+                if (removed) {
+                    state.getBlock().destroy(serverLevel, pos, state);
+                    state.getBlock().playerDestroy(serverLevel, player, pos, state,
+                            serverLevel.getBlockEntity(pos), tool);
+                }
             }
         } else {
-            // Non-player caster — just destroy with drops
             if (harvestLevel >= getRequiredHarvestLevel(state)) {
-                level.destroyBlock(pos, true);
+                serverLevel.destroyBlock(pos, true);
             }
         }
     }
@@ -97,5 +103,27 @@ public class BreakEffect extends AbstractEffectRune {
         if (state.is(net.minecraft.tags.BlockTags.NEEDS_IRON_TOOL))    return 2;
         if (state.is(net.minecraft.tags.BlockTags.NEEDS_STONE_TOOL))   return 1;
         return 0;
+    }
+
+    @Override
+    public Identifier getIcon() { return TotalityGuiSprites.RUNE_BREAK; }
+
+    @Override
+    public int getTier() { return 1; }
+
+    public String getDescription() { return "Breaks blocks at the target location."; }
+
+    @Override
+    public Set<String> getCompatibleAugments() {
+        return Set.of("amplify", "aoe", "dampen", "pierce", "sensitive");
+    }
+
+    @Override
+    public void buildAugmentDescriptions(Map<String, String> map) {
+        map.put("amplify",   "Increases the harvest level.");
+        map.put("aoe",       "Breaks blocks in a larger area.");
+        map.put("dampen",    "Decreases the harvest level.");
+        map.put("pierce",    "Also breaks blocks behind the hit block.");
+        map.put("sensitive", "Breaks blocks with shears instead of a pickaxe.");
     }
 }

@@ -3,11 +3,16 @@
   "block.totality.copper_energy_cell": "Copper Energy Cell",
   "block.totality.copper_tank": "Copper Tank",
   "block.totality.generator": "Generator",
+  "item.totality.apprentice_grimoire": "Apprentice Grimoire",
+  "item.totality.archmage_grimoire": "Archmage Grimoire",
   "item.totality.copper_battery": "Copper Battery",
   "item.totality.diamond_battery": "Diamond Battery",
   "item.totality.gold_battery": "Gold Battery",
-  "item.totality.grimoire": "Grimoire",
   "item.totality.iron_battery": "Iron Battery",
   "item.totality.netherite_battery": "Netherite Battery",
-  "item.totality.umbra_visor": "Umbra Visor"
+  "item.totality.novice_grimoire": "Novice Grimoire",
+  "item.totality.umbra_visor": "Umbra Visor",
+  "key.category.totality.totality": "Totality",
+  "key.totality.open_grimoire": "Open Grimoire",
+  "key.totality.open_radial": "Radial Spell Selector"
 }

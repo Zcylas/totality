@@ -6,7 +6,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import zcylas.totality.Totality;
 import zcylas.totality.item.magic.GrimoireItem;
-import zcylas.totality.networking.magic.grimoire.ClientGrimoireHudManager;
 import zcylas.totality.networking.mana.ClientManaManager;
 
 public class ManaHudRenderer {
@@ -41,12 +40,20 @@ public class ManaHudRenderer {
             int y = screenHeight - 20; // above hotbar
 
             // ── Spell name above bar (only when holding grimoire) ──
+            // ── Spell name above bar (only when holding grimoire) ──
             if (holdingGrimoire) {
-                String spellName = ClientGrimoireHudManager.getSpellName();
-                int slot = ClientGrimoireHudManager.getCurrentSlot() + 1;
-                String display = spellName.isEmpty() || spellName.equals("Unnamed")
-                        ? String.valueOf(slot)
-                        : slot + " " + spellName;
+                net.minecraft.world.item.ItemStack main = client.player.getMainHandItem();
+                net.minecraft.world.item.ItemStack off  = client.player.getOffhandItem();
+                net.minecraft.world.item.ItemStack grimoire =
+                        main.getItem() instanceof GrimoireItem ? main : off;
+
+                zcylas.totality.api.magic.GrimoireCaster caster = grimoire.getOrDefault(
+                        zcylas.totality.api.magic.MagicComponents.GRIMOIRE_CASTER,
+                        zcylas.totality.api.magic.GrimoireCaster.EMPTY);
+
+                int slot       = caster.currentSlot() + 1;
+                String spellName = caster.spellName();
+                String display = spellName.isEmpty() ? String.valueOf(slot) : slot + " " + spellName;
                 context.text(client.font, display, x, y - 12, 0xFFFFFFFF, true);
             }
 

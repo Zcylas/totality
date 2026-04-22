@@ -152,7 +152,9 @@ public class ModModelProvider extends FabricModelProvider {
                         Identifier.fromNamespaceAndPath("totality", "item/umbra_visor")
                 )
         );
-        generators.generateFlatItem(MagicItems.GRIMOIRE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(MagicItems.NOVICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(MagicItems.APPRENTICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(MagicItems.ARCHMAGE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
     }
 
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {

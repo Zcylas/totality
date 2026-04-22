@@ -1,8 +1,10 @@
 package zcylas.totality.item.magic.rune.effect.augment;
 
+import net.minecraft.resources.Identifier;
 import zcylas.totality.api.magic.formula.FormulaStats;
 import zcylas.totality.api.magic.rune.AbstractAugmentRune;
 import zcylas.totality.api.magic.rune.AbstractRune;
+import zcylas.totality.client.gui.TotalityGuiSprites;
 
 public class AmplifyAugment extends AbstractAugmentRune {
 
@@ -23,4 +25,12 @@ public class AmplifyAugment extends AbstractAugmentRune {
         builder.addAmplification(1);
         return builder;
     }
+
+    @Override
+    public Identifier getIcon() { return TotalityGuiSprites.RUNE_AMPLIFY; }
+
+    @Override
+    public int getTier() { return 1; }
+
+    public String getDescription() { return "Increases the power of most spells."; }
 }

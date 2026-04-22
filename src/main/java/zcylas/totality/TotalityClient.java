@@ -18,14 +18,19 @@ import zcylas.totality.client.renderer.fluid.FluidTankRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.client.renderer.mana.ManaHudRenderer;
 import zcylas.totality.init.ModBlockEntities;
+import zcylas.totality.init.ModEffects;
 import zcylas.totality.init.ModEntities;
+import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.item.fluid.FluidTankItem;
+import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.menu.energy.EnergyCellMenu;
 import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityClientPacketHandlers;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.screen.energy.EnergyCellScreen;
 import zcylas.totality.screen.generator.GeneratorScreen;
+import zcylas.totality.screen.magic.GrimoireRadialScreen;
+import zcylas.totality.screen.magic.GrimoireScreen;
 
 public class TotalityClient implements ClientModInitializer {
     private static int scrollCooldown = 0;
@@ -38,6 +43,8 @@ public class TotalityClient implements ClientModInitializer {
         registerScreens();
         registerSpecialRenderers();
         registerEntityRenderers();
+        registerKeybinds();
+        registerEffects();
         TotalityClientPacketHandlers.register();
         ClientTickEvents.END_CLIENT_TICK.register(
                 client -> FluidTankScrollHandler.tick());
@@ -63,6 +70,13 @@ public class TotalityClient implements ClientModInitializer {
         SpecialModelRenderers.ID_MAPPER.put(
                 Identifier.fromNamespaceAndPath("totality", "fluid_tank"),
                 FluidTankSpecialRenderer.Unbaked.CODEC);
+    }
+
+    private void registerEffects(){
+
+        net.fabricmc.fabric.api.entity.event.v1.EntityElytraEvents.CUSTOM.register(
+                (entity, tickElytra) -> entity.hasEffect(ModEffects.GLIDE));
+
     }
 
     private void registerScreens(){
@@ -94,6 +108,37 @@ public class TotalityClient implements ClientModInitializer {
                         .withStyle(insert ? ChatFormatting.GREEN : ChatFormatting.GOLD));
 
         return true;
+    }
+
+    public static void registerKeybinds(){
+        ModKeybinds.register();
+// Handle keybind press
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (ModKeybinds.OPEN_GRIMOIRE.consumeClick()) {
+                if (client.player == null) return;
+                ItemStack main = client.player.getMainHandItem();
+                ItemStack off  = client.player.getOffhandItem();
+                ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
+                        : off.getItem() instanceof GrimoireItem ? off
+                        : ItemStack.EMPTY;
+                if (!grimoire.isEmpty()) {
+                    client.setScreen(new GrimoireScreen(grimoire));
+                }
+            }
+        });
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (ModKeybinds.OPEN_RADIAL.consumeClick()) {
+                if (client.player == null) return;
+                ItemStack main = client.player.getMainHandItem();
+                ItemStack off  = client.player.getOffhandItem();
+                ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
+                        : off.getItem() instanceof GrimoireItem ? off
+                        : ItemStack.EMPTY;
+                if (!grimoire.isEmpty()) {
+                    client.setScreen(new GrimoireRadialScreen(grimoire));
+                }
+            }
+        });
     }
 
 }

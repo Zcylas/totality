@@ -3,8 +3,6 @@ package zcylas.totality.networking;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import zcylas.totality.client.config.SideModeClientCache;
 import zcylas.totality.networking.config.SideModeSyncPayload;
-import zcylas.totality.networking.magic.grimoire.ClientGrimoireHudManager;
-import zcylas.totality.networking.magic.grimoire.SyncGrimoireHudPayload;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
 
@@ -16,13 +14,12 @@ public class TotalityClientPacketHandlers {
                 (payload, context) -> {
                     SideModeClientCache.set(payload.pos(), payload.sideModes());
                 });
+
         ClientPlayNetworking.registerGlobalReceiver(
                 SyncManaPayload.TYPE,
-                (payload, context) -> ClientManaManager.sync(payload.mana(), payload.maxMana()));
-        ClientPlayNetworking.registerGlobalReceiver(
-                SyncGrimoireHudPayload.TYPE,
-                (payload, context) -> ClientGrimoireHudManager.sync(
-                        payload.currentSlot(), payload.spellName()));
+                (payload, context) -> ClientManaManager.sync(payload.mana(), payload.maxMana()
+                ));
+
     }
 
     private TotalityClientPacketHandlers() {}
