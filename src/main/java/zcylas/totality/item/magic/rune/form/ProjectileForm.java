@@ -21,7 +21,9 @@ public class ProjectileForm extends AbstractFormRune {
 
     public static final ProjectileForm INSTANCE = new ProjectileForm();
 
-    private static final float PROJECTILE_SPEED = 1.5f;
+    private static final float BASE_SPEED = 1.5f;
+    private static final float ACCEL_BONUS = 0.5f;
+
 
     private ProjectileForm() {
         super("projectile", "Projectile");
@@ -36,7 +38,7 @@ public class ProjectileForm extends AbstractFormRune {
     public CastResult onCast(ItemStack stack, LivingEntity caster,
                              Level level, FormulaStats stats,
                              FormulaContext context, FormulaResolver resolver) {
-        spawnProjectile(caster, level, context);
+        spawnProjectile(caster, level, context, stats);
         return CastResult.SUCCESS;
     }
 
@@ -44,7 +46,7 @@ public class ProjectileForm extends AbstractFormRune {
     public CastResult onCastOnBlock(BlockHitResult hit, LivingEntity caster,
                                     FormulaStats stats, FormulaContext context,
                                     FormulaResolver resolver) {
-        spawnProjectile(caster, caster.level(), context);
+        spawnProjectile(caster, caster.level(), context, stats);
         return CastResult.SUCCESS;
     }
 
@@ -53,27 +55,44 @@ public class ProjectileForm extends AbstractFormRune {
                                      Entity target, InteractionHand hand,
                                      FormulaStats stats, FormulaContext context,
                                      FormulaResolver resolver) {
-        spawnProjectile(caster, caster.level(), context);
+        spawnProjectile(caster, caster.level(), context, stats);
         return CastResult.SUCCESS;
     }
 
     private void spawnProjectile(LivingEntity caster, Level level,
-                                 FormulaContext context) {
+                                 FormulaContext context, FormulaStats stats) {
         if (level.isClientSide()) return;
 
-        GrimoireProjectileEntity projectile = new GrimoireProjectileEntity(
-                level, caster, context.getFormula());
+        float speed = BASE_SPEED + ACCEL_BONUS * stats.getAccelerationModifier();
+        speed = Math.max(0.1f, speed);
 
-        // Shoot in the direction the caster is looking
-        projectile.shootFromRotation(
-                caster,
-                caster.getXRot(),
-                caster.getYRot(),
-                0f,
-                PROJECTILE_SPEED,
-                0f); // 0 inaccuracy = perfectly straight
+        int count = 1 + stats.getSplitCount();
 
-        level.addFreshEntity(projectile);
+        for (int i = 0; i < count; i++) {
+            GrimoireProjectileEntity projectile = new GrimoireProjectileEntity(
+                    level, caster, context.getFormula());
+
+            float spread = count > 1 ? (i - (count - 1) / 2.0f) * 10.0f : 0f;
+
+            projectile.shootFromRotation(caster, caster.getXRot(),
+                    caster.getYRot() + spread, 0f, speed, 0f);
+
+            level.addFreshEntity(projectile);
+        }
+    }
+
+    @Override
+    public Set<String> getCompatibleAugments() {
+        return Set.of("pierce", "sensitive", "accelerate", "decelerate", "split");
+    }
+
+    @Override
+    public void buildAugmentDescriptions(Map<String, String> map) {
+        map.put("pierce",      "Projectiles pierce through entities and blocks an additional time.");
+        map.put("sensitive",   "Projectiles hit plants and materials that don't block motion.");
+        map.put("accelerate",  "Increases projectile speed.");
+        map.put("decelerate",  "Decreases projectile speed.");
+        map.put("split",       "Fires additional projectiles.");
     }
 
     @Override
@@ -84,14 +103,4 @@ public class ProjectileForm extends AbstractFormRune {
 
     public String getDescription() { return "Fires a projectile that applies the spell on impact."; }
 
-    @Override
-    public Set<String> getCompatibleAugments() {
-        return Set.of("pierce", "sensitive");
-    }
-
-    @Override
-    public void buildAugmentDescriptions(Map<String, String> map) {
-        map.put("pierce",    "Projectiles pierce through entities and blocks an additional time.");
-        map.put("sensitive", "Projectiles hit plants and materials that don't block motion.");
-    }
 }

@@ -1,6 +1,5 @@
 package zcylas.totality.api.magic.context;
 
-
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.HitResult;
@@ -14,10 +13,6 @@ import zcylas.totality.api.mana.PlayerManaManager;
 
 import java.util.List;
 
-/**
- * Executes an ArcaneFormula — checks mana, fires the form,
- * and resolves effects at the hit point.
- */
 public class FormulaResolver {
 
     private final FormulaContext context;
@@ -27,10 +22,6 @@ public class FormulaResolver {
         this.context = context;
     }
 
-    /**
-     * Attempt to cast — called from GrimoireItem.use().
-     * Checks mana, then fires the Form rune.
-     */
     public boolean tryCast(ItemStack stack, AbstractFormRune.CastResult castResult) {
         ArcaneFormula formula = context.getFormula();
         LivingEntity caster = context.getCaster();
@@ -47,38 +38,56 @@ public class FormulaResolver {
 
     /**
      * Called by the Form rune when it hits something.
-     * Walks the remaining runes and resolves all effects.
+     * Resets the context and resolves all effects.
      */
     public void onResolveEffect(net.minecraft.world.level.Level level, HitResult hit) {
         if (level.isClientSide()) return;
         this.hitResult = hit;
-        resolveEffects(level);
+        context.reset();
+        // Start from 1 if there's a form rune, 0 if this is a child context
+        resolveEffectsFrom(level, context.hasForm() ? 1 : 0);
+    }
+
+    /**
+     * Called by effects that want to re-resolve at a new hit point
+     * without resetting the index (e.g. chained effects).
+     */
+    public void onResolveEffect(net.minecraft.world.level.Level level, HitResult hit, int fromIndex) {
+        if (level.isClientSide()) return;
+        this.hitResult = hit;
+        resolveEffectsFrom(level, fromIndex); // use fromIndex directly, no reset
     }
 
     private void resolveEffects(net.minecraft.world.level.Level level) {
+        // Skip the form rune at index 0
+        resolveEffectsFrom(level, 1);
+    }
+
+    private void resolveEffectsFrom(net.minecraft.world.level.Level level, int startIndex) {
         if (level.isClientSide()) return;
+        if (context.isCanceled()) return;
 
         ArcaneFormula formula = context.getFormula();
         List<AbstractRune> runes = formula.getRunes();
         LivingEntity caster = context.getCaster();
-
-        // Start from index 1 — index 0 is always the Form
-        for (int i = 1; i < runes.size(); i++) {
+        for (int i = startIndex; i < runes.size(); i++) {
             AbstractRune rune = runes.get(i);
-
-            // Skip augments — they are consumed by effects
             if (rune instanceof AbstractAugmentRune) continue;
+            if (context.isCanceled()) return;
 
             if (rune instanceof AbstractEffectRune effect) {
-                // Collect augments that immediately follow this effect
                 List<AbstractAugmentRune> augments = formula.getAugments(i);
-
                 FormulaStats stats = new FormulaStats.Builder()
                         .setAugments(augments, effect)
                         .build();
 
                 effect.onResolve(hitResult, level, caster, stats, context, this);
+                if (context.isCanceled()) return;
             }
+
         }
     }
+
+    public HitResult getHitResult() { return hitResult; }
+    public FormulaContext getContext() { return context; }
 }

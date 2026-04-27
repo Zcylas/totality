@@ -24,41 +24,83 @@ import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class GrimoireScreen extends Screen {
 
-    private static final int GUI_WIDTH  = 248;
-    private static final int GUI_HEIGHT = 200;
-    private static final int SLOT_W     = 22;
-    private static final int SLOT_H     = 20;
-    private static final int MAX_RUNES  = 10;
-    private static final int TAB_W      = 16;
-    private static final int TAB_H      = 18;
-    private static final int MAX_SPELLS = 10;
-    private static final int BAR_H      = 24;
-    private static final int RUNE_SIZE  = 16;
+    // ── Layout constants ──────────────────────────────────────────────────────
+    private static final int GUI_WIDTH   = 260;
+    private static final int GUI_HEIGHT  = 230; // taller to fit all sections
+    private static final int SLOT_W      = 22;
+    private static final int SLOT_H      = 20;
+    private static final int MAX_RUNES   = 10;
+    private static final int TAB_W       = 14; // narrower tabs
+    private static final int TAB_H       = 16; // shorter tabs
+    private static final int MAX_SPELLS  = 10;
+    private static final int BAR_H       = 24;
+    private static final int RUNE_SIZE   = 16;
+    private static final int RUNE_STEP   = RUNE_SIZE + 2;
 
-    private final ItemStack grimoireStack;
+    // How many runes fit in one row
+    private static final int RUNES_PER_ROW = 13;
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    private final ItemStack   grimoireStack;
     private final GrimoireItem grimoireItem;
 
-    private AbstractRune[] currentFormula = new AbstractRune[MAX_RUNES];
-    private int currentSpellSlot = 0;
-
+    private AbstractRune[]      currentFormula  = new AbstractRune[MAX_RUNES];
+    private int                 currentSpellSlot = 0;
     private final List<AbstractRune[]> slotFormulas = new ArrayList<>();
-    private final List<String> slotNames = new ArrayList<>();
+    private final List<String>         slotNames    = new ArrayList<>();
 
-    private String typedText = "";
+    // Text field state
+    private String  typedText        = "";
     private boolean textFieldFocused = false;
+    private int     cursorPos        = 0; // character index
 
+    // Search bar state
+    private String  searchText       = "";
+    private boolean searchFocused    = false;
+    private int     searchCursor     = 0;
+
+    // Scroll offsets per rune section (in whole rows)
+    private int scrollForms    = 0;
+    private int scrollEffects  = 0;
+    private int scrollAugments = 0;
+
+    // Filtered rune lists (after search)
+    private List<AbstractRune> filteredForms    = new ArrayList<>();
+    private List<AbstractRune> filteredEffects  = new ArrayList<>();
+    private List<AbstractRune> filteredAugments = new ArrayList<>();
+
+    // Full rune lists
+    private List<AbstractRune> allForms    = new ArrayList<>();
+    private List<AbstractRune> allEffects  = new ArrayList<>();
+    private List<AbstractRune> allAugments = new ArrayList<>();
+
+    // ── Computed layout positions ─────────────────────────────────────────────
     private int guiLeft, guiTop;
     private int slotRowY;
     private int textFieldX, textFieldY, textFieldW;
     private int clearBtnX, clearBtnY, clearBtnW;
     private int createBtnX, createBtnY, createBtnW;
 
-    private List<AbstractRune> formRunes    = new ArrayList<>();
-    private List<AbstractRune> effectRunes  = new ArrayList<>();
-    private List<AbstractRune> augmentRunes = new ArrayList<>();
+    // Section Y positions (relative to guiTop)
+    private static final int FORMS_LABEL_Y    = 8;
+    private static final int FORMS_ROW_Y      = 20;
+    private static final int EFFECTS_LABEL_Y  = 58;
+    private static final int EFFECTS_ROW_Y    = 70;
+    private static final int AUGMENTS_LABEL_Y = 128;
+    private static final int AUGMENTS_ROW_Y   = 140;
+
+    // Visible rows per section
+    private static final int FORMS_VISIBLE_ROWS    = 2;
+    private static final int EFFECTS_VISIBLE_ROWS  = 3;
+    private static final int AUGMENTS_VISIBLE_ROWS = 3;
+
+    // Search bar position (above gui, top-right)
+    private int searchX, searchY, searchW;
+    private static final int SEARCH_H = 14;
 
     public GrimoireScreen(ItemStack grimoireStack) {
         super(Component.literal("Grimoire"));
@@ -69,7 +111,6 @@ public class GrimoireScreen extends Screen {
                 MagicComponents.GRIMOIRE_CASTER, GrimoireCaster.EMPTY);
         this.currentSpellSlot = caster.currentSlot();
 
-        // Load all slots from the item
         for (int i = 0; i < MAX_SPELLS; i++) {
             AbstractRune[] arr   = new AbstractRune[MAX_RUNES];
             List<AbstractRune> r = caster.getFormula(i).getRunes();
@@ -79,7 +120,7 @@ public class GrimoireScreen extends Screen {
         }
         this.currentFormula = slotFormulas.get(currentSpellSlot).clone();
         this.typedText      = slotNames.get(currentSpellSlot);
-
+        this.cursorPos      = typedText.length();
     }
 
     @Override
@@ -90,7 +131,7 @@ public class GrimoireScreen extends Screen {
         guiTop   = (height - GUI_HEIGHT) / 2;
         slotRowY = guiTop + GUI_HEIGHT - BAR_H - SLOT_H - 8;
 
-        int barY = guiTop + GUI_HEIGHT - BAR_H + 4;
+        int barY    = guiTop + GUI_HEIGHT - BAR_H + 4;
         textFieldW  = 80;
         textFieldX  = guiLeft + 8;
         textFieldY  = barY;
@@ -101,13 +142,35 @@ public class GrimoireScreen extends Screen {
         createBtnX  = guiLeft + GUI_WIDTH / 2 + clearBtnW + 12;
         createBtnY  = barY;
 
-        formRunes.clear(); effectRunes.clear(); augmentRunes.clear();
+        // Search bar: top-right, above GUI
+        searchW = 100;
+        searchX = guiLeft + GUI_WIDTH - searchW;
+        searchY = guiTop - SEARCH_H - 4;
+
+        allForms.clear(); allEffects.clear(); allAugments.clear();
         for (AbstractRune rune : RuneRegistry.getAll()) {
-            if (rune instanceof AbstractFormRune)         formRunes.add(rune);
-            else if (rune instanceof AbstractEffectRune)  effectRunes.add(rune);
-            else if (rune instanceof AbstractAugmentRune) augmentRunes.add(rune);
+            if      (rune instanceof AbstractFormRune)    allForms.add(rune);
+            else if (rune instanceof AbstractEffectRune)  allEffects.add(rune);
+            else if (rune instanceof AbstractAugmentRune) allAugments.add(rune);
         }
+        applySearch();
     }
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    private void applySearch() {
+        String q = searchText.toLowerCase();
+        filteredForms    = allForms.stream()
+                .filter(r -> r.getName().toLowerCase().contains(q)).collect(Collectors.toList());
+        filteredEffects  = allEffects.stream()
+                .filter(r -> r.getName().toLowerCase().contains(q)).collect(Collectors.toList());
+        filteredAugments = allAugments.stream()
+                .filter(r -> r.getName().toLowerCase().contains(q)).collect(Collectors.toList());
+        // Reset scroll when search changes
+        scrollForms = scrollEffects = scrollAugments = 0;
+    }
+
+    // ── Rendering ─────────────────────────────────────────────────────────────
 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
@@ -119,11 +182,120 @@ public class GrimoireScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
         super.extractRenderState(graphics, mouseX, mouseY, a);
+        drawSearchBar(graphics, mouseX, mouseY);
         drawSpellTabs(graphics, mouseX, mouseY);
-        drawAvailableRunes(graphics, mouseX, mouseY);
+        drawSection(graphics, "Forms",    filteredForms,    guiLeft + 6, guiTop + FORMS_LABEL_Y,
+                guiTop + FORMS_ROW_Y,    FORMS_VISIBLE_ROWS,    scrollForms,    mouseX, mouseY, false, true);
+        drawSection(graphics, "Effects",  filteredEffects,  guiLeft + 6, guiTop + EFFECTS_LABEL_Y,
+                guiTop + EFFECTS_ROW_Y,  EFFECTS_VISIBLE_ROWS,  scrollEffects,  mouseX, mouseY, false, false);
+        drawSection(graphics, "Augments", filteredAugments, guiLeft + 6, guiTop + AUGMENTS_LABEL_Y,
+                guiTop + AUGMENTS_ROW_Y, AUGMENTS_VISIBLE_ROWS, scrollAugments, mouseX, mouseY, true,  false);
         drawFormulaSlots(graphics, mouseX, mouseY);
         drawBottomBar(graphics, mouseX, mouseY);
         drawTooltips(graphics, mouseX, mouseY);
+    }
+
+    private void drawSearchBar(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        int btnH = SEARCH_H;
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                TotalityGuiSprites.GRIMOIRE_TEXT_FIELD,
+                searchX, searchY, searchW, btnH);
+
+        String placeholder = searchText.isEmpty() && !searchFocused ? "Search runes..." : searchText;
+        int    textColor   = searchText.isEmpty() && !searchFocused ? 0xFF555555 : 0xFFFFFFFF;
+
+        // Cursor
+        String display = searchFocused && (System.currentTimeMillis() / 500) % 2 == 0
+                ? insertCursor(searchText, searchCursor) : searchText;
+        if (searchText.isEmpty() && !searchFocused) display = placeholder;
+
+        graphics.text(font, Component.literal(display),
+                searchX + 4, searchY + (btnH - 8) / 2, textColor, false);
+
+        // Label
+        graphics.text(font, Component.literal("🔍").withStyle(s -> s.withColor(0xFF888888)),
+                searchX - 12, searchY + (btnH - 8) / 2, 0xFF888888, false);
+    }
+
+    private void drawSection(GuiGraphicsExtractor graphics, String label,
+                             List<AbstractRune> runes,
+                             int labelX, int labelY, int rowsStartY,
+                             int visibleRows, int scrollOffset,
+                             int mouseX, int mouseY,
+                             boolean checkAugmentCompat, boolean isFormRow) {
+        graphics.text(font, Component.literal(label), labelX, labelY, 0xFF9966ff, true);
+
+        int maxTier = grimoireItem.getMaxTier();
+
+        // Draw scroll arrows if needed
+        int totalRows = (int) Math.ceil(runes.size() / (double) RUNES_PER_ROW);
+        if (scrollOffset > 0) {
+            // Up arrow
+            graphics.text(font, Component.literal("▲"),
+                    guiLeft + GUI_WIDTH - 14, labelY, 0xFF9966ff, false);
+        }
+        if (scrollOffset + visibleRows < totalRows) {
+            // Down arrow
+            graphics.text(font, Component.literal("▼"),
+                    guiLeft + GUI_WIDTH - 14, labelY + 8, 0xFF9966ff, false);
+        }
+
+        for (int row = 0; row < visibleRows; row++) {
+            int actualRow  = scrollOffset + row;
+            int rowStart   = actualRow * RUNES_PER_ROW;
+            int rowEnd     = Math.min(rowStart + RUNES_PER_ROW, runes.size());
+            int ry         = rowsStartY + row * (RUNE_SIZE + 4);
+
+            for (int i = rowStart; i < rowEnd; i++) {
+                AbstractRune rune = runes.get(i);
+                int rx = labelX + (i - rowStart) * RUNE_STEP;
+
+                boolean locked       = rune.getTier() > maxTier;
+                boolean incompatible = checkAugmentCompat && !isAugmentCompatible(rune);
+                boolean formConflict = isFormRow && hasFormInFormula();
+                boolean blocked      = locked || incompatible || formConflict;
+                boolean hovered      = !blocked
+                        && mouseX >= rx && mouseX <= rx + RUNE_SIZE
+                        && mouseY >= ry && mouseY <= ry + RUNE_SIZE;
+
+                if (hovered)
+                    graphics.fill(rx - 1, ry - 1, rx + RUNE_SIZE + 1, ry + RUNE_SIZE + 1, 0x40FFFFFF);
+
+                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, rune.getIcon(), rx, ry, RUNE_SIZE, RUNE_SIZE);
+
+                if (locked)
+                    graphics.fill(rx, ry, rx + RUNE_SIZE, ry + RUNE_SIZE, 0xAA222222);
+                else if (formConflict)
+                    graphics.fill(rx, ry, rx + RUNE_SIZE, ry + RUNE_SIZE, 0x88880000);
+                else if (incompatible)
+                    graphics.fill(rx, ry, rx + RUNE_SIZE, ry + RUNE_SIZE, 0x88222222);
+            }
+        }
+    }
+
+    private void drawFormulaSlots(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        float spacing = (GUI_WIDTH - MAX_RUNES * SLOT_W) / (float)(MAX_RUNES + 1);
+        for (int i = 0; i < MAX_RUNES; i++) {
+            int sx = guiLeft + Math.round(spacing + i * (SLOT_W + spacing));
+            int sy = slotRowY;
+
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                    TotalityGuiSprites.GRIMOIRE_SLOT, sx, sy, SLOT_W, SLOT_H);
+
+            if (currentFormula[i] != null) {
+                AbstractRune rune = currentFormula[i];
+                int iconX = sx + (SLOT_W - RUNE_SIZE) / 2;
+                int iconY = sy + (SLOT_H - RUNE_SIZE) / 2;
+                boolean hovered = mouseX >= sx && mouseX <= sx + SLOT_W
+                        && mouseY >= sy && mouseY <= sy + SLOT_H;
+
+                if (hovered)
+                    graphics.fill(sx, sy, sx + SLOT_W, sy + SLOT_H, 0x40FF4444);
+
+                graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                        rune.getIcon(), iconX, iconY, RUNE_SIZE, RUNE_SIZE);
+            }
+        }
     }
 
     private void drawSpellTabs(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
@@ -143,72 +315,6 @@ public class GrimoireScreen extends Screen {
         }
     }
 
-    private void drawAvailableRunes(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        int x       = guiLeft + 6;
-        int maxTier = grimoireItem.getMaxTier();
-
-        graphics.text(font, Component.literal("Forms"),
-                x, guiTop + 10, 0xFF9966ff, true);
-        drawRuneRow(graphics, formRunes,    x, guiTop + 20,  maxTier, mouseX, mouseY, false);
-        graphics.text(font, Component.literal("Effects"),
-                x, guiTop + 50, 0xFF9966ff, true);
-        drawRuneRow(graphics, effectRunes,  x, guiTop + 60,  maxTier, mouseX, mouseY, false);
-        graphics.text(font, Component.literal("Augments"),
-                x, guiTop + 90, 0xFF9966ff, true);
-        drawRuneRow(graphics, augmentRunes, x, guiTop + 100, maxTier, mouseX, mouseY, true);    }
-
-    private void drawRuneRow(GuiGraphicsExtractor graphics, List<AbstractRune> runes,
-                             int x, int y, int maxTier, int mouseX, int mouseY,
-                             boolean checkAugmentCompat) {
-        for (int i = 0; i < runes.size(); i++) {
-            AbstractRune rune = runes.get(i);
-            int rx = x + i * (RUNE_SIZE + 2);
-            int ry = y;
-
-            boolean locked       = rune.getTier() > maxTier;
-            boolean incompatible = checkAugmentCompat && !isAugmentCompatible(rune);
-            boolean blocked      = locked || incompatible;
-            boolean hovered      = !blocked
-                    && mouseX >= rx && mouseX <= rx + RUNE_SIZE
-                    && mouseY >= ry && mouseY <= ry + RUNE_SIZE;
-
-            if (hovered)
-                graphics.fill(rx - 1, ry - 1, rx + RUNE_SIZE + 1, ry + RUNE_SIZE + 1, 0x40FFFFFF);
-
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, rune.getIcon(), rx, ry, RUNE_SIZE, RUNE_SIZE);
-
-            if (locked)
-                graphics.fill(rx, ry, rx + RUNE_SIZE, ry + RUNE_SIZE, 0xAA222222);
-            else if (incompatible)
-                graphics.fill(rx, ry, rx + RUNE_SIZE, ry + RUNE_SIZE, 0x88222222);
-        }
-    }
-
-    private void drawFormulaSlots(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        float spacing = (GUI_WIDTH - MAX_RUNES * SLOT_W) / (float)(MAX_RUNES + 1);
-        for (int i = 0; i < MAX_RUNES; i++) {
-            int sx = guiLeft + Math.round(spacing + i * (SLOT_W + spacing));
-            int sy = slotRowY;
-
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
-                    TotalityGuiSprites.GRIMOIRE_SLOT, sx, sy, SLOT_W, SLOT_H);
-
-            if (currentFormula[i] != null) {
-                AbstractRune rune   = currentFormula[i];
-                int iconX           = sx + (SLOT_W - RUNE_SIZE) / 2;
-                int iconY           = sy + (SLOT_H - RUNE_SIZE) / 2;
-                boolean hovered     = mouseX >= sx && mouseX <= sx + SLOT_W
-                        && mouseY >= sy && mouseY <= sy + SLOT_H;
-
-                if (hovered)
-                    graphics.fill(sx, sy, sx + SLOT_W, sy + SLOT_H, 0x40FF4444);
-
-                graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
-                        rune.getIcon(), iconX, iconY, RUNE_SIZE, RUNE_SIZE);
-            }
-        }
-    }
-
     private void drawBottomBar(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
         int btnH = 16;
 
@@ -216,16 +322,25 @@ public class GrimoireScreen extends Screen {
                 TotalityGuiSprites.GRIMOIRE_TEXT_FIELD,
                 textFieldX, textFieldY, textFieldW, btnH);
 
-        String display  = typedText.isEmpty() && !textFieldFocused ? "Spell Name..." : typedText;
-        int textColor   = typedText.isEmpty() && !textFieldFocused ? 0xFF555555 : 0xFFFFFFFF;
-        int maxTW       = textFieldW - 8;
-        int start       = 0;
+        String display;
+        int textColor;
+        if (typedText.isEmpty() && !textFieldFocused) {
+            display   = "Spell Name...";
+            textColor = 0xFF555555;
+        } else {
+            display   = textFieldFocused && (System.currentTimeMillis() / 500) % 2 == 0
+                    ? insertCursor(typedText, cursorPos) : typedText;
+            textColor = 0xFFFFFFFF;
+        }
+
+        // Truncate from left to fit
+        int maxTW = textFieldW - 8;
+        int start = 0;
         while (start < display.length() && font.width(display.substring(start)) > maxTW)
             start++;
-        String truncated  = display.substring(start);
-        String withCursor = textFieldFocused && (System.currentTimeMillis() / 500) % 2 == 0
-                ? truncated + "|" : truncated;
-        graphics.text(font, Component.literal(withCursor),
+        String truncated = display.substring(start);
+
+        graphics.text(font, Component.literal(truncated),
                 textFieldX + 4, textFieldY + (btnH - 8) / 2, textColor, false);
 
         boolean clearHovered = mouseX >= clearBtnX && mouseX <= clearBtnX + clearBtnW
@@ -253,9 +368,12 @@ public class GrimoireScreen extends Screen {
         int maxTier = grimoireItem.getMaxTier();
         int x       = guiLeft + 6;
 
-        checkRuneRowTooltip(graphics, formRunes,    x, guiTop + 20,  maxTier, mouseX, mouseY, false);
-        checkRuneRowTooltip(graphics, effectRunes,  x, guiTop + 60,  maxTier, mouseX, mouseY, false);
-        checkRuneRowTooltip(graphics, augmentRunes, x, guiTop + 100, maxTier, mouseX, mouseY, true);
+        checkSectionTooltip(graphics, filteredForms,    x, guiTop + FORMS_ROW_Y,
+                FORMS_VISIBLE_ROWS,    scrollForms,    maxTier, mouseX, mouseY, false, true);
+        checkSectionTooltip(graphics, filteredEffects,  x, guiTop + EFFECTS_ROW_Y,
+                EFFECTS_VISIBLE_ROWS,  scrollEffects,  maxTier, mouseX, mouseY, false, false);
+        checkSectionTooltip(graphics, filteredAugments, x, guiTop + AUGMENTS_ROW_Y,
+                AUGMENTS_VISIBLE_ROWS, scrollAugments, maxTier, mouseX, mouseY, true,  false);
 
         float spacing = (GUI_WIDTH - MAX_RUNES * SLOT_W) / (float)(MAX_RUNES + 1);
         for (int i = 0; i < MAX_RUNES; i++) {
@@ -263,76 +381,86 @@ public class GrimoireScreen extends Screen {
             int sx = guiLeft + Math.round(spacing + i * (SLOT_W + spacing));
             if (mouseX >= sx && mouseX <= sx + SLOT_W
                     && mouseY >= slotRowY && mouseY <= slotRowY + SLOT_H) {
-                List<Component> slotTooltip = new ArrayList<>();
-                slotTooltip.add(Component.literal(currentFormula[i].getName())
+                List<Component> tt = new ArrayList<>();
+                tt.add(Component.literal(currentFormula[i].getName())
                         .withStyle(s -> s.withColor(0xFF9966FF).withBold(true)));
-                slotTooltip.add(Component.literal(currentFormula[i].getManaCost() + " mana")
+                tt.add(Component.literal(currentFormula[i].getManaCost() + " mana")
                         .withStyle(s -> s.withColor(0xFFAAAAAA)));
-                if (!currentFormula[i].getDescription().isEmpty()) {
-                    slotTooltip.add(Component.literal(currentFormula[i].getDescription())
+                if (!currentFormula[i].getDescription().isEmpty())
+                    tt.add(Component.literal(currentFormula[i].getDescription())
                             .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
-                }
-                graphics.setComponentTooltipForNextFrame(font, slotTooltip, mouseX, mouseY);
+                graphics.setComponentTooltipForNextFrame(font, tt, mouseX, mouseY);
             }
         }
     }
 
-    private void checkRuneRowTooltip(GuiGraphicsExtractor graphics, List<AbstractRune> runes,
-                                     int x, int y, int maxTier, int mouseX, int mouseY,
-                                     boolean checkAugmentCompat) {
-        for (int i = 0; i < runes.size(); i++) {
-            AbstractRune rune = runes.get(i);
-            int rx = x + i * (RUNE_SIZE + 2);
-            int ry = y;
+    private void checkSectionTooltip(GuiGraphicsExtractor graphics, List<AbstractRune> runes,
+                                     int x, int rowsStartY,
+                                     int visibleRows, int scrollOffset,
+                                     int maxTier, int mouseX, int mouseY,
+                                     boolean checkAugmentCompat, boolean isFormRow) {
+        for (int row = 0; row < visibleRows; row++) {
+            int actualRow = scrollOffset + row;
+            int rowStart  = actualRow * RUNES_PER_ROW;
+            int rowEnd    = Math.min(rowStart + RUNES_PER_ROW, runes.size());
+            int ry        = rowsStartY + row * (RUNE_SIZE + 4);
 
-            if (mouseX >= rx && mouseX <= rx + RUNE_SIZE
-                    && mouseY >= ry && mouseY <= ry + RUNE_SIZE) {
-                boolean locked       = rune.getTier() > maxTier;
-                boolean incompatible = checkAugmentCompat && !isAugmentCompatible(rune);
-                String tierName = switch (rune.getTier()) {
-                    case 1 -> "Novice";
-                    case 2 -> "Apprentice";
-                    case 3 -> "Archmage";
-                    default -> "Unknown";
-                };
+            for (int i = rowStart; i < rowEnd; i++) {
+                AbstractRune rune = runes.get(i);
+                int rx = x + (i - rowStart) * RUNE_STEP;
 
-                // Find effect-specific augment description
-                String augDesc = "";
-                if (checkAugmentCompat) {
-                    AbstractRune lastEffect = null;
-                    for (AbstractRune r : currentFormula) {
-                        if (r instanceof AbstractEffectRune) lastEffect = r;
+                if (mouseX >= rx && mouseX <= rx + RUNE_SIZE
+                        && mouseY >= ry && mouseY <= ry + RUNE_SIZE) {
+
+                    boolean locked       = rune.getTier() > maxTier;
+                    boolean incompatible = checkAugmentCompat && !isAugmentCompatible(rune);
+                    boolean formConflict = isFormRow && hasFormInFormula();
+                    String tierName = switch (rune.getTier()) {
+                        case 1 -> "Novice";
+                        case 2 -> "Apprentice";
+                        case 3 -> "Archmage";
+                        case 4 -> "Archon";
+                        default -> "Unknown";
+                    };
+
+                    String augDesc = "";
+                    if (checkAugmentCompat) {
+                        AbstractRune lastEffect = null;
+                        for (AbstractRune r : currentFormula)
+                            if (r instanceof AbstractEffectRune) lastEffect = r;
+                        if (lastEffect != null)
+                            augDesc = lastEffect.getAugmentDescription(rune.getId().getPath());
                     }
-                    if (lastEffect != null) {
-                        augDesc = lastEffect.getAugmentDescription(rune.getId().getPath());
-                    }
-                }
 
-                List<Component> tooltip = new ArrayList<>();
-                tooltip.add(Component.literal(rune.getName())
-                        .withStyle(s -> s.withColor(0xFF9966FF).withBold(true)));
-                tooltip.add(Component.literal("Tier: " + tierName + " | " + rune.getManaCost() + " mana")
-                        .withStyle(s -> s.withColor(0xFFAAAAAA)));
-                if (!augDesc.isEmpty()) {
-                    tooltip.add(Component.literal(augDesc)
-                            .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
-                } else if (!rune.getDescription().isEmpty()) {
-                    tooltip.add(Component.literal(rune.getDescription())
-                            .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
-                }
-                if (locked) {
-                    tooltip.add(Component.literal("Requires " + tierName + " Grimoire")
-                            .withStyle(s -> s.withColor(0xFFFF4444)));
-                } else if (incompatible) {
-                    tooltip.add(Component.literal("Incompatible with current spell")
-                            .withStyle(s -> s.withColor(0xFFFF4444)));
-                }
+                    List<Component> tt = new ArrayList<>();
+                    tt.add(Component.literal(rune.getName())
+                            .withStyle(s -> s.withColor(0xFF9966FF).withBold(true)));
+                    tt.add(Component.literal("Tier: " + tierName + " | " + rune.getManaCost() + " mana")
+                            .withStyle(s -> s.withColor(0xFFAAAAAA)));
+                    if (!augDesc.isEmpty())
+                        tt.add(Component.literal(augDesc)
+                                .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+                    else if (!rune.getDescription().isEmpty())
+                        tt.add(Component.literal(rune.getDescription())
+                                .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+                    if (locked)
+                        tt.add(Component.literal("Requires " + tierName + " Grimoire")
+                                .withStyle(s -> s.withColor(0xFFFF4444)));
+                    else if (formConflict)
+                        tt.add(Component.literal("A spell can only have one Form")
+                                .withStyle(s -> s.withColor(0xFFFF4444)));
+                    else if (incompatible)
+                        tt.add(Component.literal("Incompatible with current spell")
+                                .withStyle(s -> s.withColor(0xFFFF4444)));
 
-                graphics.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
-                return;
+                    graphics.setComponentTooltipForNextFrame(font, tt, mouseX, mouseY);
+                    return;
+                }
             }
         }
     }
+
+    // ── Input ─────────────────────────────────────────────────────────────────
 
     @Override
     public boolean mouseClicked(MouseButtonEvent mouse, boolean doubleClick) {
@@ -341,23 +469,36 @@ public class GrimoireScreen extends Screen {
         int maxTier   = grimoireItem.getMaxTier();
         int x         = guiLeft + 6;
 
+        // Search bar focus
+        if (mouseX >= searchX && mouseX <= searchX + searchW
+                && mouseY >= searchY && mouseY <= searchY + SEARCH_H) {
+            searchFocused    = true;
+            textFieldFocused = false;
+            return true;
+        }
+
+        // Text field focus
         if (mouseX >= textFieldX && mouseX <= textFieldX + textFieldW
                 && mouseY >= textFieldY && mouseY <= textFieldY + 16) {
             textFieldFocused = true;
+            searchFocused    = false;
+            // Place cursor at click position
+            cursorPos = typedText.length(); // simple: put at end
             return true;
-        } else {
-            textFieldFocused = false;
         }
 
+        // Deselect both
+        textFieldFocused = false;
+        searchFocused    = false;
+
+        // Spell tabs
         int tabX = guiLeft + GUI_WIDTH;
         for (int i = 0; i < MAX_SPELLS; i++) {
             int tabY = guiTop + 4 + i * (TAB_H + 2);
             if (mouseX >= tabX && mouseX <= tabX + TAB_W
                     && mouseY >= tabY && mouseY <= tabY + TAB_H) {
                 saveCurrentSlot();
-                // Save current slot to server before switching
                 sendToServer();
-                // Then switch
                 currentSpellSlot = i;
                 loadSlot(i);
                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
@@ -367,10 +508,15 @@ public class GrimoireScreen extends Screen {
             }
         }
 
-        if (clickRuneRow(formRunes,    x, guiTop + 20,  maxTier, mouseX, mouseY, false)) return true;
-        if (clickRuneRow(effectRunes,  x, guiTop + 60,  maxTier, mouseX, mouseY, false)) return true;
-        if (clickRuneRow(augmentRunes, x, guiTop + 100, maxTier, mouseX, mouseY, true))  return true;
+        // Rune section clicks
+        if (clickSection(filteredForms,    x, guiTop + FORMS_ROW_Y,
+                FORMS_VISIBLE_ROWS,    scrollForms,    maxTier, mouseX, mouseY, false, true))  return true;
+        if (clickSection(filteredEffects,  x, guiTop + EFFECTS_ROW_Y,
+                EFFECTS_VISIBLE_ROWS,  scrollEffects,  maxTier, mouseX, mouseY, false, false)) return true;
+        if (clickSection(filteredAugments, x, guiTop + AUGMENTS_ROW_Y,
+                AUGMENTS_VISIBLE_ROWS, scrollAugments, maxTier, mouseX, mouseY, true,  false)) return true;
 
+        // Formula slot removal
         float spacing = (GUI_WIDTH - MAX_RUNES * SLOT_W) / (float)(MAX_RUNES + 1);
         for (int i = 0; i < MAX_RUNES; i++) {
             int sx = guiLeft + Math.round(spacing + i * (SLOT_W + spacing));
@@ -384,14 +530,14 @@ public class GrimoireScreen extends Screen {
             }
         }
 
+        // Clear / Create buttons
         if (mouseX >= clearBtnX && mouseX <= clearBtnX + clearBtnW
                 && mouseY >= clearBtnY && mouseY <= clearBtnY + 16) {
             Arrays.fill(currentFormula, null);
-            typedText = "";
+            typedText = ""; cursorPos = 0;
             playClick();
             return true;
         }
-
         if (mouseX >= createBtnX && mouseX <= createBtnX + createBtnW
                 && mouseY >= createBtnY && mouseY <= createBtnY + 16) {
             saveCurrentSlot();
@@ -403,51 +549,142 @@ public class GrimoireScreen extends Screen {
         return super.mouseClicked(mouse, doubleClick);
     }
 
-    private boolean clickRuneRow(List<AbstractRune> runes, int x, int y,
+    private boolean clickSection(List<AbstractRune> runes, int x, int rowsStartY,
+                                 int visibleRows, int scrollOffset,
                                  int maxTier, double mouseX, double mouseY,
-                                 boolean checkAugmentCompat) {
-        for (int i = 0; i < runes.size(); i++) {
-            AbstractRune rune = runes.get(i);
-            int rx = x + i * (RUNE_SIZE + 2);
-            int ry = y;
+                                 boolean checkAugmentCompat, boolean isFormRow) {
+        for (int row = 0; row < visibleRows; row++) {
+            int actualRow = scrollOffset + row;
+            int rowStart  = actualRow * RUNES_PER_ROW;
+            int rowEnd    = Math.min(rowStart + RUNES_PER_ROW, runes.size());
+            int ry        = rowsStartY + row * (RUNE_SIZE + 4);
 
-            if (mouseX >= rx && mouseX <= rx + RUNE_SIZE
-                    && mouseY >= ry && mouseY <= ry + RUNE_SIZE) {
-                if (rune.getTier() > maxTier) return true;
-                if (checkAugmentCompat && !isAugmentCompatible(rune)) return true;
-                for (int j = 0; j < MAX_RUNES; j++) {
-                    if (currentFormula[j] == null) {
-                        currentFormula[j] = rune;
-                        playClick();
-                        break;
+            for (int i = rowStart; i < rowEnd; i++) {
+                AbstractRune rune = runes.get(i);
+                int rx = x + (i - rowStart) * RUNE_STEP;
+
+                if (mouseX >= rx && mouseX <= rx + RUNE_SIZE
+                        && mouseY >= ry && mouseY <= ry + RUNE_SIZE) {
+                    if (rune.getTier() > maxTier) return true;
+                    if (checkAugmentCompat && !isAugmentCompatible(rune)) return true;
+                    if (isFormRow && hasFormInFormula()) return true;
+                    for (int j = 0; j < MAX_RUNES; j++) {
+                        if (currentFormula[j] == null) {
+                            currentFormula[j] = rune;
+                            playClick();
+                            break;
+                        }
                     }
+                    return true;
                 }
-                return true;
             }
         }
         return false;
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        int x = guiLeft + 6;
+        int delta = scrollY > 0 ? -1 : 1;
+
+        // Check which section the mouse is over and scroll it
+        if (isOverSection(mouseX, mouseY, x, guiTop + FORMS_ROW_Y, FORMS_VISIBLE_ROWS)) {
+            int totalRows = (int) Math.ceil(filteredForms.size() / (double) RUNES_PER_ROW);
+            scrollForms = Math.max(0, Math.min(scrollForms + delta, totalRows - FORMS_VISIBLE_ROWS));
+            return true;
+        }
+        if (isOverSection(mouseX, mouseY, x, guiTop + EFFECTS_ROW_Y, EFFECTS_VISIBLE_ROWS)) {
+            int totalRows = (int) Math.ceil(filteredEffects.size() / (double) RUNES_PER_ROW);
+            scrollEffects = Math.max(0, Math.min(scrollEffects + delta, totalRows - EFFECTS_VISIBLE_ROWS));
+            return true;
+        }
+        if (isOverSection(mouseX, mouseY, x, guiTop + AUGMENTS_ROW_Y, AUGMENTS_VISIBLE_ROWS)) {
+            int totalRows = (int) Math.ceil(filteredAugments.size() / (double) RUNES_PER_ROW);
+            scrollAugments = Math.max(0, Math.min(scrollAugments + delta, totalRows - AUGMENTS_VISIBLE_ROWS));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private boolean isOverSection(double mouseX, double mouseY,
+                                  int x, int rowsStartY, int visibleRows) {
+        int sectionH = visibleRows * (RUNE_SIZE + 4);
+        return mouseX >= x && mouseX <= x + RUNES_PER_ROW * RUNE_STEP
+                && mouseY >= rowsStartY && mouseY <= rowsStartY + sectionH;
+    }
+
+    @Override
     public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-        if (textFieldFocused) {
-            if (event.isEscape()) { textFieldFocused = false; return true; }
-            if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE && !typedText.isEmpty()) {
-                typedText = typedText.substring(0, typedText.length() - 1);
+        int key = event.key();
+
+        if (searchFocused) {
+            if (event.isEscape()) { searchFocused = false; return true; }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE && !searchText.isEmpty()) {
+                if (searchCursor > 0) {
+                    searchText   = searchText.substring(0, searchCursor - 1)
+                            + searchText.substring(searchCursor);
+                    searchCursor = Math.max(0, searchCursor - 1);
+                    applySearch();
+                }
+                return true;
+            }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT)  { searchCursor = Math.max(0, searchCursor - 1); return true; }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT) { searchCursor = Math.min(searchText.length(), searchCursor + 1); return true; }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE && searchCursor < searchText.length()) {
+                searchText = searchText.substring(0, searchCursor) + searchText.substring(searchCursor + 1);
+                applySearch();
                 return true;
             }
             return true;
         }
+
+        if (textFieldFocused) {
+            if (event.isEscape()) { textFieldFocused = false; return true; }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE && !typedText.isEmpty() && cursorPos > 0) {
+                typedText = typedText.substring(0, cursorPos - 1) + typedText.substring(cursorPos);
+                cursorPos = Math.max(0, cursorPos - 1);
+                return true;
+            }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE && cursorPos < typedText.length()) {
+                typedText = typedText.substring(0, cursorPos) + typedText.substring(cursorPos + 1);
+                return true;
+            }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT)  { cursorPos = Math.max(0, cursorPos - 1); return true; }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT) { cursorPos = Math.min(typedText.length(), cursorPos + 1); return true; }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_HOME)  { cursorPos = 0; return true; }
+            if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_END)   { cursorPos = typedText.length(); return true; }
+            return true;
+        }
+
         return super.keyPressed(event);
     }
 
     @Override
     public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
+        if (searchFocused && searchText.length() < 32) {
+            searchText = searchText.substring(0, searchCursor)
+                    + event.codepointAsString()
+                    + searchText.substring(searchCursor);
+            searchCursor++;
+            applySearch();
+            return true;
+        }
         if (textFieldFocused && typedText.length() < 32) {
-            typedText += event.codepointAsString();
+            typedText = typedText.substring(0, cursorPos)
+                    + event.codepointAsString()
+                    + typedText.substring(cursorPos);
+            cursorPos++;
             return true;
         }
         return super.charTyped(event);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Insert a | cursor character at the given position. */
+    private String insertCursor(String text, int pos) {
+        pos = Math.max(0, Math.min(pos, text.length()));
+        return text.substring(0, pos) + "|" + text.substring(pos);
     }
 
     private void saveCurrentSlot() {
@@ -460,28 +697,24 @@ public class GrimoireScreen extends Screen {
                 MagicComponents.GRIMOIRE_CASTER, GrimoireCaster.EMPTY);
         List<AbstractRune> runes = caster.getFormula(slot).getRunes();
         currentFormula = new AbstractRune[MAX_RUNES];
-        for (int j = 0; j < Math.min(runes.size(), MAX_RUNES); j++) {
+        for (int j = 0; j < Math.min(runes.size(), MAX_RUNES); j++)
             currentFormula[j] = runes.get(j);
-        }
-        typedText = caster.getSpellName(slot);
-        // Also update local cache
+        typedText  = caster.getSpellName(slot);
+        cursorPos  = typedText.length();
         slotFormulas.set(slot, currentFormula.clone());
         slotNames.set(slot, typedText);
     }
 
     private void sendToServer() {
-        // Build full updated GrimoireCaster from local slot data
         GrimoireCaster current = grimoireStack.getOrDefault(
                 MagicComponents.GRIMOIRE_CASTER, GrimoireCaster.EMPTY);
         GrimoireCaster updated = current.withCurrentSlot(currentSpellSlot);
-
         for (int i = 0; i < MAX_SPELLS; i++) {
             AbstractRune[] arr   = slotFormulas.get(i);
             List<AbstractRune> r = new ArrayList<>();
             for (AbstractRune rune : arr) if (rune != null) r.add(rune);
             updated = updated.withSlot(i, new ArcaneFormula(r), slotNames.get(i));
         }
-
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
                 new UpdateGrimoirePayload(updated));
     }
@@ -492,16 +725,21 @@ public class GrimoireScreen extends Screen {
     }
 
     private boolean isAugmentCompatible(AbstractRune augment) {
-        // Find the last effect rune in the current formula
-        AbstractRune lastEffect = null;
-        for (AbstractRune rune : currentFormula) {
-            if (rune instanceof AbstractEffectRune) lastEffect = rune;
-        }
-        // If no effect yet, show all augments as available
-        if (lastEffect == null) return true;
-        // Check if this augment is in the effect's compatible set
-        return lastEffect.getCompatibleAugments().contains(augment.getId().getPath());
+        List<AbstractRune> effects = new ArrayList<>();
+        for (AbstractRune rune : currentFormula)
+            if (rune instanceof AbstractEffectRune) effects.add(rune);
+        if (effects.isEmpty()) return true;
+        for (AbstractRune effect : effects)
+            if (effect.getCompatibleAugments().contains(augment.getId().getPath())) return true;
+        return false;
     }
+
+    private boolean hasFormInFormula() {
+        for (AbstractRune rune : currentFormula)
+            if (rune instanceof AbstractFormRune) return true;
+        return false;
+    }
+
     @Override public boolean isInGameUi()    { return true;  }
     @Override public boolean isPauseScreen() { return false; }
 }

@@ -90,6 +90,38 @@ public class TotalityGuiSprites {
             Identifier.fromNamespaceAndPath("totality", "rune/smelt");
     public static final Identifier RUNE_ORBIT =
             Identifier.fromNamespaceAndPath("totality", "rune/orbit");
+    public static final Identifier RUNE_FORTUNE =
+            Identifier.fromNamespaceAndPath("totality", "rune/fortune");
+    public static final Identifier RUNE_RANDOMIZE =
+            Identifier.fromNamespaceAndPath("totality", "rune/randomize");
+    public static final Identifier RUNE_HARM =
+            Identifier.fromNamespaceAndPath("totality", "rune/harm");
+    public static final Identifier RUNE_HEAL =
+            Identifier.fromNamespaceAndPath("totality", "rune/heal");
+    public static final Identifier RUNE_HEX =
+            Identifier.fromNamespaceAndPath("totality", "rune/hex");
+    public static final Identifier RUNE_LIGHTNING =
+            Identifier.fromNamespaceAndPath("totality", "rune/lightning");
+    public static final Identifier RUNE_CHAINING =
+            Identifier.fromNamespaceAndPath("totality", "rune/chaining");
+    public static final Identifier RUNE_EXTRACT =
+            Identifier.fromNamespaceAndPath("totality", "rune/extract");
+    public static final Identifier RUNE_GROW =
+            Identifier.fromNamespaceAndPath("totality", "rune/grow");
+    public static final Identifier RUNE_ACCELERATE =
+            Identifier.fromNamespaceAndPath("totality", "rune/accelerate");
+    public static final Identifier RUNE_DECELERATE =
+            Identifier.fromNamespaceAndPath("totality", "rune/decelerate");
+    public static final Identifier RUNE_LINGER =
+            Identifier.fromNamespaceAndPath("totality", "rune/linger");
+    public static final Identifier RUNE_HARVEST =
+            Identifier.fromNamespaceAndPath("totality", "rune/harvest");
+    public static final Identifier RUNE_SPLIT =
+            Identifier.fromNamespaceAndPath("totality", "rune/split");
+    public static final Identifier RUNE_BURST =
+            Identifier.fromNamespaceAndPath("totality", "rune/burst");
+    public static final Identifier RUNE_SUMMON_UNDEAD =
+            Identifier.fromNamespaceAndPath("totality", "rune/summon_undead");
 
     private TotalityGuiSprites() {}
 }

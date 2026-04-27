@@ -41,11 +41,24 @@ public class LaunchEffect extends AbstractEffectRune {
     public void onResolveEntity(EntityHitResult hit, Level level,
                                 LivingEntity caster, FormulaStats stats,
                                 FormulaContext context, FormulaResolver resolver) {
-        Entity entity = hit.getEntity();
         double knockup = BASE_KNOCKUP + AMP_KNOCKUP * stats.getAmpCount();
-        entity.setDeltaMovement(entity.getDeltaMovement().add(0, knockup, 0));
-        entity.hurtMarked = true;
-        entity.fallDistance = 0.0f;
+
+        if (stats.getAoeRadius() > 0) {
+            // Launch all nearby entities
+            double radius = 2.0 + stats.getAoeRadius();
+            net.minecraft.world.phys.AABB box = hit.getEntity()
+                    .getBoundingBox().inflate(radius);
+            for (Entity entity : level.getEntities(caster, box, Entity::isAlive)) {
+                entity.setDeltaMovement(entity.getDeltaMovement().add(0, knockup, 0));
+                entity.hurtMarked = true;
+                entity.fallDistance = 0.0f;
+            }
+        } else {
+            Entity entity = hit.getEntity();
+            entity.setDeltaMovement(entity.getDeltaMovement().add(0, knockup, 0));
+            entity.hurtMarked = true;
+            entity.fallDistance = 0.0f;
+        }
     }
 
     @Override

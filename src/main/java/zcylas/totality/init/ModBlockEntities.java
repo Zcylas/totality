@@ -12,6 +12,7 @@ import zcylas.totality.blockentity.energy.CableBlockEntity;
 import zcylas.totality.blockentity.energy.EnergyCellBlockEntity;
 import zcylas.totality.blockentity.fluid.FluidTankBlockEntity;
 import zcylas.totality.blockentity.generator.GeneratorBlockEntity;
+import zcylas.totality.init.blocks.EnergyBlocks;
 
 public class ModBlockEntities {
 
@@ -27,14 +28,14 @@ public class ModBlockEntities {
     public static final BlockEntityType<GeneratorBlockEntity> GENERATOR = register(
             "generator",
             FabricBlockEntityTypeBuilder.create(GeneratorBlockEntity::new,
-                    ModBlocks.GENERATOR).build()
+                    EnergyBlocks.GENERATOR).build()
     );
 
     public static final BlockEntityType<CableBlockEntity> CABLE = register(
             "cable",
             FabricBlockEntityTypeBuilder.create(
                     CableBlockEntity::new,
-                    ModBlocks.COPPER_CABLE
+                    EnergyBlocks.COPPER_CABLE
                     // add more cables here as you register them:
                     // ModBlocks.GOLD_CABLE, ModBlocks.IRON_CABLE
             ).build()
@@ -48,7 +49,7 @@ public class ModBlockEntities {
                             ((EnergyCellBlock) state.getBlock()).getCapacity(),
                             ((EnergyCellBlock) state.getBlock()).getMaxInput(),
                             ((EnergyCellBlock) state.getBlock()).getMaxOutput())
-            ).addBlock(ModBlocks.COPPER_ENERGY_CELL).build()
+            ).addBlock(EnergyBlocks.COPPER_ENERGY_CELL).build()
     );
 
     public static void register() {}

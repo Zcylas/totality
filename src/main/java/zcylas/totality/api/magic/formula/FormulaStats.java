@@ -15,6 +15,11 @@ public class FormulaStats {
     private final double durationModifier;
     private final boolean sensitive;
     private final int pierceCount;
+    private final int fortuneLevel;
+    private final boolean randomized;
+    private boolean silkTouch = false;
+    private final float accelerationModifier;
+    private final int splitCount;
 
     private FormulaStats(Builder builder) {
         this.ampCount = builder.ampCount;
@@ -22,7 +27,17 @@ public class FormulaStats {
         this.durationModifier = builder.durationModifier;
         this.sensitive = builder.sensitive;
         this.pierceCount = builder.pierceCount;
+        this.fortuneLevel = builder.fortuneLevel;
+        this.randomized = builder.randomized;
+        this.silkTouch = builder.silkTouch;
+        this.accelerationModifier = builder.accelerationModifier;
+        this.splitCount = builder.splitCount;
     }
+    public int getSplitCount() { return splitCount; }
+
+    public float getAccelerationModifier() { return accelerationModifier; }
+
+    public boolean isRandomized() { return randomized; }
 
     public double getAoeRadius() {
         return aoeRadius;
@@ -35,7 +50,12 @@ public class FormulaStats {
     public int getAmpCount() {
         return ampCount;
     }
+
     public boolean isSensitive() { return sensitive; };
+
+    public int getFortuneLevel() { return fortuneLevel; }
+
+    public boolean isSilkTouch() { return silkTouch; }
 
     public static class Builder {
         private int ampCount = 0;
@@ -43,6 +63,31 @@ public class FormulaStats {
         private double durationModifier = 0;
         private boolean sensitive = false;
         private int pierceCount = 0;
+        private int fortuneLevel = 0;
+        private boolean randomized = false;
+        private boolean silkTouch = false;
+        private float accelerationModifier = 0f;
+        private int splitCount = 0;
+
+        public Builder addSplit(int amount) {
+            this.splitCount += amount; return this;
+        }
+
+        public Builder addAcceleration(float amount) {
+            this.accelerationModifier += amount;
+            return this;
+        }
+        public Builder setRandomized() {
+            this.randomized = true;
+            return this;
+        }
+
+        public Builder setSilkTouch() { this.silkTouch = true; return this; }
+
+        public Builder addFortune(int amount) {
+            this.fortuneLevel += amount;
+            return this;
+        }
 
         public Builder addPierce(int amount) {
             this.pierceCount += amount;

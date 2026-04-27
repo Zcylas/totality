@@ -25,7 +25,7 @@ public class SelfForm extends AbstractFormRune {
     }
 
     @Override
-    public int getManaCost() { return 0; }
+    public int getManaCost() { return 10; }
 
     @Override
     public int getTier() { return 1; }

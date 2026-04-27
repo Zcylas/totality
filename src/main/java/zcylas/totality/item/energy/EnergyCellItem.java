@@ -3,6 +3,7 @@ package zcylas.totality.item.energy;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -67,27 +68,46 @@ public class EnergyCellItem extends BlockItem {
 
         long stored = getStoredEnergy(stack);
         long capacity = getCapacity();
-        int percent = capacity == 0 ? 0 : (int) (stored * 100 / capacity);
 
         if (isShiftDown()) {
-            builder.accept(Component.literal(stored + " / " + capacity + " UE")
+            builder.accept(Component.literal("Energy: " + stored + " / " + capacity + " UE")
                     .withStyle(ChatFormatting.GRAY));
-            builder.accept(Component.literal(percent + "%")
-                    .withStyle(percent <= 5 ? ChatFormatting.RED
-                            : percent <= 50 ? ChatFormatting.GOLD
-                            : ChatFormatting.GREEN));
             builder.accept(Component.literal("I/O: " + getMaxInput() + " / " + getMaxOutput() + " UE/t")
                     .withStyle(ChatFormatting.DARK_GRAY));
         } else {
-            builder.accept(Component.literal(UEFormat.energy(stored) + " / " + UEFormat.energy(capacity) + " UE")
-                    .withStyle(ChatFormatting.GRAY));
-            builder.accept(Component.literal(percent + "%")
-                    .withStyle(percent <= 5 ? ChatFormatting.RED
-                            : percent <= 50 ? ChatFormatting.GOLD
-                            : ChatFormatting.GREEN));
+            builder.accept(Component.literal("Energy: ")
+                    .withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(UEFormat.energy(stored) + " / " + UEFormat.energy(capacity) + " UE")
+                            .withStyle(ChatFormatting.GOLD)));
+        }
+
+        builder.accept(buildEnergyBar(stored, capacity));
+
+        if (!isShiftDown()) {
             builder.accept(Component.literal("Hold SHIFT for details")
                     .withStyle(ChatFormatting.DARK_GRAY));
         }
+    }
+
+    private static MutableComponent buildEnergyBar(long stored, long max) {
+        int totalBars = 20;
+        int filledBars = max > 0 ? (int)((stored * totalBars) / max) : 0;
+
+        float percent = max > 0 ? (float) stored / max : 0f;
+        ChatFormatting filledColor;
+        if (percent <= 0.05f) filledColor = ChatFormatting.RED;
+        else if (percent <= 0.50f) filledColor = ChatFormatting.GOLD;
+        else filledColor = ChatFormatting.GREEN;
+
+        MutableComponent bar = Component.literal("");
+        for (int i = 0; i < totalBars; i++) {
+            if (i < filledBars) {
+                bar.append(Component.literal("█").withStyle(filledColor));
+            } else {
+                bar.append(Component.literal("█").withStyle(ChatFormatting.DARK_GRAY));
+            }
+        }
+        return bar;
     }
 
     private static boolean isShiftDown() {

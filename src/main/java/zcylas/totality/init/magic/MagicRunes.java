@@ -27,6 +27,23 @@ public class MagicRunes {
         RuneRegistry.register(PierceAugment.INSTANCE);
         RuneRegistry.register(SmeltEffect.INSTANCE);
         RuneRegistry.register(OrbitEffect.INSTANCE);
+        RuneRegistry.register(FortuneAugment.INSTANCE);
+        RuneRegistry.register(HarmEffect.INSTANCE);
+        RuneRegistry.register(RandomizeAugment.INSTANCE);
+        RuneRegistry.register(HealEffect.INSTANCE);
+        RuneRegistry.register(HexEffect.INSTANCE);
+        RuneRegistry.register(LightningEffect.INSTANCE);
+        RuneRegistry.register(ChainingEffect.INSTANCE);
+        RuneRegistry.register(ExtractAugment.INSTANCE);
+        RuneRegistry.register(GrowEffect.INSTANCE);
+        RuneRegistry.register(AccelerateAugment.INSTANCE);
+        RuneRegistry.register(DecelerateAugment.INSTANCE);
+        RuneRegistry.register(LingerEffect.INSTANCE);
+        RuneRegistry.register(HarvestEffect.INSTANCE);
+        RuneRegistry.register(SplitAugment.INSTANCE);
+        RuneRegistry.register(BurstEffect.INSTANCE);
+        RuneRegistry.register(SummonUndeadEffect.INSTANCE);
+
     }
 
     private MagicRunes() {}

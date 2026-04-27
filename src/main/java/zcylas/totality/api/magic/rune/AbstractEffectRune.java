@@ -28,9 +28,9 @@ public abstract class AbstractEffectRune extends AbstractRune {
      * Called when the effect resolves at a hit point.
      * Dispatches to onResolveBlock or onResolveEntity.
      */
-    public final void onResolve(HitResult hit, Level level,
-                                LivingEntity caster, FormulaStats stats,
-                                FormulaContext context, FormulaResolver resolver) {
+    public void onResolve(HitResult hit, Level level,
+                          LivingEntity caster, FormulaStats stats,
+                          FormulaContext context, FormulaResolver resolver) {
         if (hit instanceof BlockHitResult blockHit) {
             onResolveBlock(blockHit, level, caster, stats, context, resolver);
         } else if (hit instanceof EntityHitResult entityHit) {

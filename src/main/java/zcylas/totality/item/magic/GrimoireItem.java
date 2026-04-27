@@ -4,7 +4,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -48,26 +51,10 @@ public class GrimoireItem extends Item {
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
 
-        // Shift+right-click on interactive block — skip casting
-        if (player.isSecondaryUseActive() && !level.isClientSide()) {
-            net.minecraft.world.phys.HitResult check = player.pick(
-                    player.getAttributeValue(
-                            net.minecraft.world.entity.ai.attributes.Attributes.BLOCK_INTERACTION_RANGE),
-                    0f, false);
-            if (check.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
-                net.minecraft.core.BlockPos checkPos =
-                        ((net.minecraft.world.phys.BlockHitResult) check).getBlockPos();
-                if (level.getBlockState(checkPos).getMenuProvider(level, checkPos) != null) {
-                    return InteractionResult.PASS;
-                }
-            }
-        }
-
         GrimoireCaster caster = stack.getOrDefault(
                 MagicComponents.GRIMOIRE_CASTER, GrimoireCaster.EMPTY);
 
         if (!caster.formula().isValid()) return InteractionResult.PASS;
-
         if (level.isClientSide()) return InteractionResult.SUCCESS;
 
         ArcaneFormula formula = caster.formula();
@@ -77,16 +64,26 @@ public class GrimoireItem extends Item {
         int cost = formula.getCost();
         if (!player.isCreative() && !PlayerManaManager.hasMana(player, cost)) {
             player.sendSystemMessage(
-                    net.minecraft.network.chat.Component.literal("Not enough mana!")
+                    Component.literal("Not enough mana!")
                             .withStyle(net.minecraft.ChatFormatting.RED));
             return InteractionResult.FAIL;
         }
 
-        // ── Raycast — entities first, then blocks ──
         double range = player.getAttributeValue(
                 net.minecraft.world.entity.ai.attributes.Attributes.BLOCK_INTERACTION_RANGE);
 
-        net.minecraft.world.phys.HitResult blockHit = player.pick(range, 0f, false);
+        // Build stats first so we know if Touch+Sensitive is active
+        FormulaContext context  = new FormulaContext(level, formula, player, stack);
+        FormulaResolver resolver = new FormulaResolver(context);
+        FormulaStats stats = new FormulaStats.Builder()
+                .setAugments(formula.getAugments(0), form)
+                .build();
+
+        boolean touchSensitive = form instanceof zcylas.totality.item.magic.rune.form.TouchForm
+                && stats.isSensitive();
+
+        // Raycast — fluid-sensitive if Touch+Sensitive
+        net.minecraft.world.phys.HitResult blockHit = player.pick(range, 0f, touchSensitive);
 
         net.minecraft.world.phys.Vec3 eyePos  = player.getEyePosition();
         net.minecraft.world.phys.Vec3 lookVec = player.getLookAngle();
@@ -98,8 +95,7 @@ public class GrimoireItem extends Item {
         net.minecraft.world.entity.Entity hitEntity = null;
         double closestDist = range * range;
 
-        for (net.minecraft.world.entity.Entity entity :
-                level.getEntities(player, searchBox)) {
+        for (net.minecraft.world.entity.Entity entity : level.getEntities(player, searchBox)) {
             if (!entity.isPickable()) continue;
             net.minecraft.world.phys.AABB entityBox = entity.getBoundingBox().inflate(0.3);
             java.util.Optional<net.minecraft.world.phys.Vec3> entityHit =
@@ -121,13 +117,6 @@ public class GrimoireItem extends Item {
             hit = blockHit;
         }
 
-        FormulaContext context  = new FormulaContext(level, formula, player, stack);
-        FormulaResolver resolver = new FormulaResolver(context);
-
-        FormulaStats stats = new FormulaStats.Builder()
-                .setAugments(formula.getAugments(0), form)
-                .build();
-
         AbstractFormRune.CastResult result;
         if (hit.getType() == HitResult.Type.BLOCK) {
             result = form.onCastOnBlock((BlockHitResult) hit, player, stats, context, resolver);
@@ -141,7 +130,7 @@ public class GrimoireItem extends Item {
 
         if (result == AbstractFormRune.CastResult.SUCCESS && !player.isCreative()) {
             PlayerManaManager.removeMana(player, cost);
-            if (level instanceof net.minecraft.server.level.ServerLevel) {
+            if (level instanceof ServerLevel) {
                 zcylas.totality.networking.mana.ManaServerTick.syncMana(
                         (net.minecraft.server.level.ServerPlayer) player);
             }
@@ -162,4 +151,15 @@ public class GrimoireItem extends Item {
                     .withStyle(style -> style.withColor(0xaaaaff)));
         }
     }
+
+    @Override
+    public InteractionResult useOn(net.minecraft.world.item.context.UseOnContext context) {
+        Player player = context.getPlayer();
+        if (player == null) return InteractionResult.PASS;
+        if (!player.isSecondaryUseActive()) return InteractionResult.PASS;
+        return use(context.getLevel(), player, context.getHand());
+    }
+
+
+
 }

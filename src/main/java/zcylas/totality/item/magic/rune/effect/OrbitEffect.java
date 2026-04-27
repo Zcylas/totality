@@ -24,8 +24,8 @@ public class OrbitEffect extends AbstractEffectRune {
     private static final int   BASE_COUNT    = 3;
     private static final float BASE_RADIUS   = 1.5f;
     private static final float BASE_SPEED    = 1.0f;
-    private static final int   BASE_LIFETIME = 60 * 20; // 60 seconds
-    private static final int   AMP_LIFETIME  = 30 * 20; // 30 seconds per extend
+    private static final int   BASE_LIFETIME = 60 * 20;
+    private static final int   AMP_LIFETIME  = 30 * 20;
 
     private OrbitEffect() { super("orbit", "Orbit"); }
 
@@ -40,7 +40,8 @@ public class OrbitEffect extends AbstractEffectRune {
 
     @Override
     public Set<String> getCompatibleAugments() {
-        return Set.of("amplify", "aoe", "extend_time", "reduce_time", "sensitive", "pierce", "dampen");
+        return Set.of("amplify", "aoe", "extend_time", "reduce_time",
+                "sensitive", "pierce", "dampen", "split");
     }
 
     @Override
@@ -52,42 +53,50 @@ public class OrbitEffect extends AbstractEffectRune {
         map.put("sensitive",   "Allows orbiting projectiles to hit blocks.");
         map.put("pierce",      "Increases the number of orbiting projectiles.");
         map.put("dampen",      "Decreases the speed of the orbiting projectiles.");
+        map.put("split",       "Increases the number of orbiting projectiles.");
     }
 
     @Override
     public void onResolveBlock(BlockHitResult hit, Level level,
                                LivingEntity caster, FormulaStats stats,
                                FormulaContext context, FormulaResolver resolver) {
-        spawnOrbits(level, caster, context.getFormula(), stats, hit.getLocation());
+        spawnOrbits(level, caster, context.getFormula(), stats, hit.getLocation(), context);
     }
 
     @Override
     public void onResolveEntity(EntityHitResult hit, Level level,
                                 LivingEntity caster, FormulaStats stats,
                                 FormulaContext context, FormulaResolver resolver) {
-        spawnOrbits(level, caster, context.getFormula(), stats, null);
+        int   count    = BASE_COUNT + stats.getPierceCount() + stats.getSplitCount();
+        float radius   = BASE_RADIUS + (float) stats.getAoeRadius();
+        float speed    = Math.max(0.1f, BASE_SPEED + stats.getAmpCount() * 0.5f);
+        int   lifetime = (int) Math.max(20, BASE_LIFETIME + AMP_LIFETIME * stats.getDurationModifier());
+
+        for (int i = 0; i < count; i++) {
+            OrbitProjectileEntity orb = new OrbitProjectileEntity(
+                    level, caster, context.getFormula(),
+                    i, count, radius, speed, lifetime, stats.isSensitive());
+            orb.setTrackedEntity(hit.getEntity());
+            level.addFreshEntity(orb);
+        }
+
+        context.cancel(); // ← was missing!
     }
 
     private void spawnOrbits(Level level, LivingEntity caster, ArcaneFormula formula,
-                             FormulaStats stats, Vec3 groundPos) {
-        int   count    = BASE_COUNT + stats.getPierceCount();
+                             FormulaStats stats, Vec3 groundPos, FormulaContext context) {
+        int   count    = BASE_COUNT + stats.getPierceCount() + stats.getSplitCount();
         float radius   = BASE_RADIUS + (float) stats.getAoeRadius();
-        float speed = BASE_SPEED + stats.getAmpCount() * 0.5f;
-        speed = Math.max(0.1f, speed); // minimum speed
-        int   lifetime = (int)(BASE_LIFETIME + AMP_LIFETIME * stats.getDurationModifier());
-        lifetime       = Math.max(20, lifetime);
-        boolean sensitive = stats.isSensitive();
+        float speed    = Math.max(0.1f, BASE_SPEED + stats.getAmpCount() * 0.5f);
+        int   lifetime = (int) Math.max(20, BASE_LIFETIME + AMP_LIFETIME * stats.getDurationModifier());
 
         for (int i = 0; i < count; i++) {
-            OrbitProjectileEntity orb;
-            if (groundPos != null) {
-                orb = new OrbitProjectileEntity(level, caster, formula,
-                        groundPos, i, count, radius, speed, lifetime, sensitive);
-            } else {
-                orb = new OrbitProjectileEntity(level, caster, formula,
-                        i, count, radius, speed, lifetime, sensitive);
-            }
+            OrbitProjectileEntity orb = new OrbitProjectileEntity(
+                    level, caster, formula,
+                    groundPos, i, count, radius, speed, lifetime, stats.isSensitive());
             level.addFreshEntity(orb);
         }
+
+        context.cancel(); // ← was missing!
     }
 }

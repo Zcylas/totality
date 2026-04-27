@@ -3,6 +3,7 @@ package zcylas.totality.item.energy;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -163,31 +164,53 @@ public class BatteryItem extends Item implements UEItem {
 
         long stored = getStoredEnergy(stack);
         long cap = getEnergyCapacity(stack);
-        int percent = cap == 0 ? 0 : (int) (stored * 100 / cap);
+        int percent = cap == 0 ? 0 : (int)(stored * 100 / cap);
 
         if (isShiftDown()) {
-            builder.accept(Component.literal(stored + " / " + cap + " UE")
+            builder.accept(Component.literal("Energy: " + stored + " / " + cap + " UE")
                     .withStyle(ChatFormatting.GRAY));
-            builder.accept(Component.literal(percent + "%")
-                    .withStyle(percent <= 5 ? ChatFormatting.RED
-                            : percent <= 50 ? ChatFormatting.GOLD
-                            : ChatFormatting.GREEN));
             builder.accept(Component.literal("I/O: " + maxInput + " / " + maxOutput + " UE/t")
                     .withStyle(ChatFormatting.DARK_GRAY));
         } else {
-            builder.accept(Component.literal(UEFormat.energy(stored) + " / " + UEFormat.energy(cap) + " UE")
-                    .withStyle(ChatFormatting.GRAY));
-            builder.accept(Component.literal(percent + "%")
-                    .withStyle(percent <= 5 ? ChatFormatting.RED
-                            : percent <= 50 ? ChatFormatting.GOLD
-                            : ChatFormatting.GREEN));
+            builder.accept(Component.literal("Energy: ")
+                    .withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(UEFormat.energy(stored) + " / " + UEFormat.energy(cap) + " UE")
+                            .withStyle(ChatFormatting.GOLD)));
+        }
+
+        // Energy bar
+        builder.accept(buildEnergyBar(stored, cap, getEnergyBarColor(stack)));
+
+        boolean active = isActive(stack);
+        builder.accept(Component.literal(active ? "▶ Active" : "◼ Inactive")
+                .withStyle(active ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+
+        if (!isShiftDown()) {
             builder.accept(Component.literal("Hold SHIFT for details")
                     .withStyle(ChatFormatting.DARK_GRAY));
         }
+    }
 
-        boolean active = isActive(stack);
-        builder.accept(Component.literal(active ? "Active" : "Inactive")
-                .withStyle(active ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+    private static MutableComponent buildEnergyBar(long stored, long max, int barColor) {
+        int totalBars = 20;
+        int filledBars = max > 0 ? (int)((stored * totalBars) / max) : 0;
+
+        // Convert the int color from getEnergyBarColor to ChatFormatting-compatible hex
+        ChatFormatting filledColor;
+        float percent = max > 0 ? (float) stored / max : 0f;
+        if (percent <= 0.05f) filledColor = ChatFormatting.RED;
+        else if (percent <= 0.50f) filledColor = ChatFormatting.GOLD;
+        else filledColor = ChatFormatting.GREEN;
+
+        MutableComponent bar = Component.literal("");
+        for (int i = 0; i < totalBars; i++) {
+            if (i < filledBars) {
+                bar.append(Component.literal("█").withStyle(filledColor));
+            } else {
+                bar.append(Component.literal("█").withStyle(ChatFormatting.DARK_GRAY));
+            }
+        }
+        return bar;
     }
 
     private static boolean isShiftDown() {

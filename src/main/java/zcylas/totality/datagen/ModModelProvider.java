@@ -20,10 +20,11 @@ import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.ModItems;
-import zcylas.totality.init.items.EnergyItems;
+import zcylas.totality.init.blocks.EnergyBlocks;
+import zcylas.totality.init.blocks.OreBlocks;
+import zcylas.totality.init.items.*;
 
 import net.minecraft.client.data.models.blockstates.ConditionBuilder;
-import zcylas.totality.init.items.MagicItems;
 
 public class ModModelProvider extends FabricModelProvider {
     public ModModelProvider(FabricPackOutput output) {
@@ -34,9 +35,9 @@ public class ModModelProvider extends FabricModelProvider {
     public void generateBlockStateModels(@NonNull BlockModelGenerators generators) {
         registerFluidTank(generators, ModBlocks.COPPER_TANK);
         // Energy cell — uses furnace model as placeholder, no facing needed
-        generators.createTrivialCube(ModBlocks.COPPER_ENERGY_CELL);
+        generators.createTrivialCube(EnergyBlocks.COPPER_ENERGY_CELL);
         generators.blockStateOutput.accept(
-                MultiVariantGenerator.dispatch(ModBlocks.GENERATOR)
+                MultiVariantGenerator.dispatch(EnergyBlocks.GENERATOR)
                         .with(PropertyDispatch.initial(BlockStateProperties.LIT, BlockStateProperties.HORIZONTAL_FACING)
                                 .select(false, Direction.NORTH, BlockModelGenerators.plainVariant(
                                         Identifier.fromNamespaceAndPath("totality", "block/generator")))
@@ -61,7 +62,7 @@ public class ModModelProvider extends FabricModelProvider {
         Identifier cableSide = Identifier.fromNamespaceAndPath("totality", "block/copper_cable_side");
 
         generators.blockStateOutput.accept(
-                MultiPartGenerator.multiPart(ModBlocks.COPPER_CABLE)
+                MultiPartGenerator.multiPart(EnergyBlocks.COPPER_CABLE)
                         .with(BlockModelGenerators.plainVariant(cableCore))
                         .with(new ConditionBuilder().term(CableBlock.NORTH, true).build(),
                                 BlockModelGenerators.plainVariant(cableSide))
@@ -76,6 +77,12 @@ public class ModModelProvider extends FabricModelProvider {
                         .with(new ConditionBuilder().term(CableBlock.DOWN, true).build(),
                                 BlockModelGenerators.plainVariant(cableSide).with(BlockModelGenerators.X_ROT_90))
         );
+
+        //Ores
+        generators.createTrivialCube(OreBlocks.TIN_ORE);
+        generators.createTrivialCube(OreBlocks.GRAPHITE_ORE);
+        generators.createTrivialCube(OreBlocks.DEEPSLATE_GRAPHITE_ORE);
+
     }
 
     @Override
@@ -83,7 +90,7 @@ public class ModModelProvider extends FabricModelProvider {
         Identifier modelLocation = Identifier.fromNamespaceAndPath(
                 "totality", "block/copper_tank");
         generators.itemModelOutput.accept(
-                ModBlocks.GENERATOR.asItem(),
+                EnergyBlocks.GENERATOR.asItem(),
                 ItemModelUtils.plainModel(
                         Identifier.fromNamespaceAndPath("totality", "block/generator")));
 
@@ -93,7 +100,7 @@ public class ModModelProvider extends FabricModelProvider {
                         modelLocation,
                         new FluidTankSpecialRenderer.Unbaked()));
         generators.generateFlatItem(
-                ModBlocks.COPPER_CABLE.asItem(), ModelTemplates.FLAT_ITEM
+                EnergyBlocks.COPPER_CABLE.asItem(), ModelTemplates.FLAT_ITEM
         );
         // Other tanks use same model for now
 
@@ -155,6 +162,24 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(MagicItems.NOVICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.APPRENTICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.ARCHMAGE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(ToolItems.WRENCH, ModelTemplates.FLAT_ITEM);
+        //Basic Weapons
+            //Shuriken
+        generators.generateFlatItem(BasicWeaponItems.COPPER_SHURIKEN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(BasicWeaponItems.IRON_SHURIKEN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(BasicWeaponItems.GOLD_SHURIKEN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(BasicWeaponItems.DIAMOND_SHURIKEN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(BasicWeaponItems.NETHERITE_SHURIKEN, ModelTemplates.FLAT_ITEM);
+        //Ingredients
+            //Gears
+        generators.generateFlatItem(IngredientItems.COPPER_GEAR, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(IngredientItems.IRON_GEAR, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(IngredientItems.GOLD_GEAR, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(IngredientItems.DIAMOND_GEAR, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(IngredientItems.NETHERITE_GEAR, ModelTemplates.FLAT_ITEM);
+            //Raw Ores
+        generators.generateFlatItem(IngredientItems.RAW_TIN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(IngredientItems.GRAPHITE, ModelTemplates.FLAT_ITEM);
     }
 
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {

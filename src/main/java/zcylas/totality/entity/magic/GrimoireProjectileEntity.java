@@ -21,6 +21,7 @@ public class GrimoireProjectileEntity extends Projectile {
     private static final int MAX_LIFETIME_TICKS = 80; // 4 seconds
     private ArcaneFormula formula;
     private int ticksAlive = 0;
+    private boolean sensitive = false;
 
     public GrimoireProjectileEntity(EntityType<? extends GrimoireProjectileEntity> type, Level level) {
         super(type, level);
@@ -43,36 +44,49 @@ public class GrimoireProjectileEntity extends Projectile {
     @Override
     public void tick() {
         super.tick();
-
         ticksAlive++;
+
         if (ticksAlive >= MAX_LIFETIME_TICKS) {
             this.discard();
             return;
         }
 
-        // Particle trail — client side only
         if (this.level().isClientSide()) {
             this.level().addParticle(ParticleTypes.COPPER_FIRE_FLAME,
                     getX(), getY(), getZ(),
-                    (Math.random() - 0.5) * 0.1,  // small random X spread
-                    (Math.random() - 0.5) * 0.1,  // small random Y spread
-                    (Math.random() - 0.5) * 0.1); // small random Z spread
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1);
             this.level().addParticle(ParticleTypes.HAPPY_VILLAGER,
                     getX(), getY(), getZ(), 0, 0, 0);
         }
 
-        // Collision check
-        HitResult hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
-        if (hit.getType() != HitResult.Type.MISS) {
-            onHit(hit);
+        Vec3 start = this.position();
+        Vec3 velocity = this.getDeltaMovement();
+        Vec3 end = start.add(velocity);
+
+        // Sensitive uses OUTLINE to hit non-solid blocks like grass/flowers
+        net.minecraft.world.level.ClipContext clipContext = new net.minecraft.world.level.ClipContext(
+                start, end,
+                sensitive ? net.minecraft.world.level.ClipContext.Block.OUTLINE
+                        : net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE,
+                this);
+        BlockHitResult blockHit = this.level().clip(clipContext);
+
+        HitResult hit;
+        if (blockHit.getType() != HitResult.Type.MISS) {
+            hit = blockHit;
+        } else {
+            hit = ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
         }
 
-        // Move
-        Vec3 velocity = this.getDeltaMovement();
-        this.setPos(
-                this.getX() + velocity.x,
-                this.getY() + velocity.y,
-                this.getZ() + velocity.z);
+        if (hit.getType() != HitResult.Type.MISS) {
+            onHit(hit);
+            return;
+        }
+
+        this.setPos(end.x, end.y, end.z);
         this.updateRotation();
     }
 
@@ -113,6 +127,8 @@ public class GrimoireProjectileEntity extends Projectile {
     public ArcaneFormula getFormula() {
         return formula;
     }
+
+    public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
 
     @Override
     protected void addAdditionalSaveData(

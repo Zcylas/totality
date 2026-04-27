@@ -8,6 +8,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 import zcylas.totality.api.magic.context.FormulaContext;
 import zcylas.totality.api.magic.context.FormulaResolver;
 import zcylas.totality.api.magic.formula.FormulaStats;
@@ -34,8 +35,18 @@ public class TouchForm extends AbstractFormRune {
     public CastResult onCast(ItemStack stack, LivingEntity caster,
                              Level level, FormulaStats stats,
                              FormulaContext context, FormulaResolver resolver) {
-        // Touch requires a target — casting at air does nothing
-        return CastResult.FAILURE;
+        if (!stats.isSensitive()) return CastResult.FAILURE;
+
+        // With Sensitive, cast into air/fluid at look position
+        double range = 5.0;
+        Vec3 eyePos  = caster.getEyePosition();
+        Vec3 lookVec = caster.getLookAngle();
+        Vec3 target  = eyePos.add(lookVec.scale(range));
+        net.minecraft.core.BlockPos blockPos = net.minecraft.core.BlockPos.containing(target);
+
+        resolver.onResolveEffect(level, new BlockHitResult(
+                target, caster.getDirection().getOpposite(), blockPos, true)); // isInside=true for air
+        return CastResult.SUCCESS;
     }
 
     @Override

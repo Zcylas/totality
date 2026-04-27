@@ -1,0 +1,11 @@
+{
+  "item.shuriken.throw": {
+    "sounds": [
+      {
+        "name": "totality:item/short_whoosh",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  }
+}

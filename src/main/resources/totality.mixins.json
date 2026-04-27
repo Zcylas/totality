@@ -6,7 +6,11 @@
 	],
 	"client": [
 		"MouseHandlerMixin",
-		"GameRendererMixin"
+		"GameRendererMixin",
+		"LivingEntityMixin",
+		"EnchantedCountIncreaseFunctionAccessor",
+		"EnchantedCountIncreaseFunctionMixin",
+		"LootItemRandomChanceWithEnchantedBonusConditionMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

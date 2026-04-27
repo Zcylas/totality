@@ -7,6 +7,8 @@ import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.magic.formula.ArcaneFormula;
 import zcylas.totality.api.magic.rune.AbstractRune;
 
+import java.util.List;
+
 /**
  * Runtime state of a formula being cast.
  * Tracks the current position in the rune sequence.
@@ -50,4 +52,24 @@ public class FormulaContext {
         currentIndex = 0;
         canceled = false;
     }
+
+    /**
+     * Creates a new context starting from the given index.
+     * Equivalent to AN's makeChildContext() — the new context's formula
+     * only contains runes from startIndex onwards.
+     */
+    private boolean hasForm = true;
+
+    public FormulaContext makeChildContext(int startIndex) {
+        List<AbstractRune> remaining = new java.util.ArrayList<>(
+                formula.getRunes().subList(
+                        Math.min(startIndex, formula.getRunes().size()),
+                        formula.getRunes().size()));
+        ArcaneFormula childFormula = new ArcaneFormula(remaining);
+        FormulaContext child = new FormulaContext(level, childFormula, caster, casterStack);
+        child.hasForm = false; // child contexts start from index 0
+        return child;
+    }
+
+    public boolean hasForm() { return hasForm; }
 }

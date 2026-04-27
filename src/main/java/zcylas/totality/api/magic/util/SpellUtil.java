@@ -21,9 +21,16 @@ public class SpellUtil {
      */
     public static List<BlockPos> calcAoeBlocks(LivingEntity caster, BlockPos origin,
                                                BlockHitResult hit, double aoeRadius) {
-        int size = (int)(1 + Math.floor(aoeRadius));
+        return calcAoeBlocks(caster, origin, hit, aoeRadius, 0);
+    }
+
+    public static List<BlockPos> calcAoeBlocks(LivingEntity caster, BlockPos origin,
+                                               BlockHitResult hit, double aoeRadius,
+                                               int pierceCount) {
+        int size  = (int)(1 + Math.floor(aoeRadius));
+        int depth = 1 + pierceCount;
         Vec3i facingVec = caster.getDirection().getUnitVec3i();
-        return calcAoeBlocks(facingVec, origin, hit, size, size, 1, -1);
+        return calcAoeBlocks(facingVec, origin, hit, size, size, depth, -1);
     }
 
     public static List<BlockPos> calcAoeBlocks(Vec3i facingVec, BlockPos origin,
@@ -33,7 +40,7 @@ public class SpellUtil {
         int x, y, z;
         BlockPos start = origin;
 
-        switch (hit.getDirection()) {
+        switch (hit.isInside() ? Direction.DOWN : hit.getDirection()) {
             case DOWN, UP -> {
                 x = facingVec.getX() * height + facingVec.getZ() * width;
                 y = hit.getDirection().getAxisDirection().getStep() * -depth;

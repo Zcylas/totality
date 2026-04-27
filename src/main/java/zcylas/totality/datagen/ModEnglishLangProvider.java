@@ -26,9 +26,37 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.novice_grimoire", "Novice Grimoire");
         translationBuilder.add("item.totality.apprentice_grimoire", "Apprentice Grimoire");
         translationBuilder.add("item.totality.archmage_grimoire", "Archmage Grimoire");
+        //Basic Weapons
+            //Shuriken
+        translationBuilder.add("item.totality.copper_shuriken", "Copper Shuriken");
+        translationBuilder.add("item.totality.iron_shuriken", "Iron Shuriken");
+        translationBuilder.add("item.totality.gold_shuriken", "Gold Shuriken");
+        translationBuilder.add("item.totality.diamond_shuriken", "Diamond Shuriken");
+        translationBuilder.add("item.totality.netherite_shuriken", "Netherite Shuriken");
+        //Ores
+        translationBuilder.add("block.totality.tin_ore", "Tin Ore");
+        translationBuilder.add("block.totality.graphite_ore", "Graphite Ore");
+        translationBuilder.add("block.totality.deepslate_graphite_ore", "Deepslate Graphite Ore");
+
+        //Energy Tools
+        translationBuilder.add("item.totality.wrench", "Wrench");
+        //Keys
         translationBuilder.add("key.totality.open_grimoire", "Open Grimoire");
         translationBuilder.add("key.category.totality.totality", "Totality");
         translationBuilder.add("key.totality.open_radial", "Radial Spell Selector");
-
+        //Ingredients
+            //Gears
+        translationBuilder.add("item.totality.copper_gear", "Copper Gear");
+        translationBuilder.add("item.totality.iron_gear", "Iron Gear");
+        translationBuilder.add("item.totality.gold_gear", "Gold Gear");
+        translationBuilder.add("item.totality.diamond_gear", "Diamond Gear");
+        translationBuilder.add("item.totality.netherite_gear", "Netherite Gear");
+            //Raw Items
+        translationBuilder.add("item.totality.graphite", "Graphite");
+        //Tooltips
+            //Base Weapons
+                //Shuriken
+        translationBuilder.add("item.totality.shuriken.tooltip", "A razor-sharp throwing star. Deadly at range.");
+        translationBuilder.add("item.totality.shuriken.damage", "Throw Damage: %s ❤");
     }
 }
