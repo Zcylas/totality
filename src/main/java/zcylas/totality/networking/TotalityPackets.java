@@ -2,6 +2,8 @@ package zcylas.totality.networking;
 
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import zcylas.totality.networking.config.ItemSideModePayload;
+import zcylas.totality.networking.config.ItemSideModeSyncPayload;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.config.SideModeSyncPayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
@@ -21,11 +23,13 @@ public class TotalityPackets {
         registry.register(SideModePayload.TYPE, SideModePayload.CODEC);
         registry.register(UpdateGrimoirePayload.TYPE, UpdateGrimoirePayload.CODEC);
         registry.register(SwitchGrimoireSlotPayload.TYPE, SwitchGrimoireSlotPayload.STREAM_CODEC);
+        registry.register(ItemSideModePayload.TYPE, ItemSideModePayload.CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry){
         registry.register(SideModeSyncPayload.TYPE, SideModeSyncPayload.CODEC);
         registry.register(SyncManaPayload.TYPE, SyncManaPayload.CODEC);
+        registry.register(ItemSideModeSyncPayload.TYPE, ItemSideModeSyncPayload.CODEC);
     }
 
     private TotalityPackets() {}

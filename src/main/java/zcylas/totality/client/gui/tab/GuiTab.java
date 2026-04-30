@@ -3,23 +3,23 @@ package zcylas.totality.client.gui.tab;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 public abstract class GuiTab {
 
-    private static final Set<BlockPos> pinnedPositions = new HashSet<>();
+    private static final Map<BlockPos, String> pinnedTabs = new HashMap<>();
 
-    public static boolean isPinned(BlockPos pos) {
-        return pinnedPositions.contains(pos);
+    public static boolean isPinned(BlockPos pos, String tabId) {
+        return tabId.equals(pinnedTabs.get(pos));
     }
 
-    public static void pin(BlockPos pos) {
-        pinnedPositions.add(pos);
+    public static void pin(BlockPos pos, String tabId) {
+        pinnedTabs.put(pos, tabId);
     }
 
     public static void unpin(BlockPos pos) {
-        pinnedPositions.remove(pos);
+        pinnedTabs.remove(pos);
     }
 
     public void open() {}

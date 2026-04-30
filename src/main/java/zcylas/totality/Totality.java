@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import zcylas.totality.init.*;
 import zcylas.totality.init.magic.MagicRunes;
 import zcylas.totality.item.energy.UmbraVisorItem;
+import zcylas.totality.menu.energy.ElectricFurnaceMenu;
 import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityPackets;
 import zcylas.totality.networking.TotalityServerPacketHandlers;
@@ -62,6 +63,7 @@ public class Totality implements ModInitializer {
 
 	private void registerMenus(){
 		var ignored = GeneratorMenu.TYPE;
+		var _ = ElectricFurnaceMenu.TYPE;
 	}
 
 	private void registerServerTickEvents(){
@@ -85,6 +87,26 @@ public class Totality implements ModInitializer {
 		BiomeSelectors.foundInOverworld(),
 				GenerationStep.Decoration.UNDERGROUND_ORES,
 				ModPlacedFeatures.GRAPHITE_ORE_PLACED_KEY
+		);
+		BiomeModifications.addFeature(
+		BiomeSelectors.foundInOverworld(),
+				GenerationStep.Decoration.UNDERGROUND_ORES,
+				ModPlacedFeatures.LEAD_ORE_PLACED_KEY
+		);
+		BiomeModifications.addFeature(
+		BiomeSelectors.foundInOverworld(),
+				GenerationStep.Decoration.UNDERGROUND_ORES,
+				ModPlacedFeatures.TIN_ORE_PLACED_KEY
+		);
+		BiomeModifications.addFeature(
+		BiomeSelectors.foundInOverworld(),
+				GenerationStep.Decoration.UNDERGROUND_ORES,
+				ModPlacedFeatures.SILVER_ORE_PLACED_KEY
+		);
+		BiomeModifications.addFeature(
+		BiomeSelectors.foundInOverworld(),
+				GenerationStep.Decoration.UNDERGROUND_ORES,
+				ModPlacedFeatures.RUBY_ORE_PLACED_KEY
 		);
 	}
 }

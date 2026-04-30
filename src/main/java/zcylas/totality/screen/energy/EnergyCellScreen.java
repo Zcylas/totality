@@ -38,7 +38,7 @@ public class EnergyCellScreen extends AbstractContainerScreen<EnergyCellMenu> {
     protected void init() {
         super.init();
         energyConfigTab = new EnergyConfigTab(menu.getBlockPos());
-        if (GuiTab.isPinned(menu.getBlockPos())) {
+        if (GuiTab.isPinned(menu.getBlockPos(), "energy")) {
             configTabOpen = true;
             energyConfigTab.open();
         }
@@ -57,7 +57,7 @@ public class EnergyCellScreen extends AbstractContainerScreen<EnergyCellMenu> {
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         // Main background
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
-                TotalityGuiSprites.GUI_BACKGROUND,
+                TotalityGuiSprites.CONFIG_BACKGROUND,
                 leftPos, topPos, imageWidth, imageHeight);
 
         // Config tab button

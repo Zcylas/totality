@@ -13,7 +13,6 @@ import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MappableRingBuffer;
@@ -29,18 +28,18 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.system.MemoryUtil;
 import zcylas.totality.api.energy.base.SimpleSidedUEContainer;
+import zcylas.totality.api.item.ItemSideMode;
+import zcylas.totality.client.config.ItemSideModeClientCache;
 import zcylas.totality.client.config.SideModeClientCache;
-import zcylas.totality.client.gui.tab.EnergyConfigTab;
 import zcylas.totality.client.gui.tab.GuiTab;
 
 import java.util.Map;
-import java.util.Optional;
 
 public class SidedOverlayRenderer {
 
     private static final float INSET = -0.002f;
-    private static final float MIN = 0.0f + INSET;  // = -0.002 (outside)
-    private static final float MAX = 1.0f - INSET;  // = 1.002 (outside)
+    private static final float MIN = 0.0f + INSET;
+    private static final float MAX = 1.0f - INSET;
 
     private static final RenderPipeline PIPELINE = RenderPipelines.register(
             RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
@@ -62,8 +61,9 @@ public class SidedOverlayRenderer {
             Vec3 camera = context.levelState().cameraRenderState.pos;
             PoseStack matrices = context.poseStack();
 
+            // ── Energy overlay ────────────────────────────────────────────────
             for (BlockPos pos : SideModeClientCache.getAllPositions()) {
-                if (!GuiTab.isPinned(pos)) continue;
+                if (!GuiTab.isPinned(pos, "energy")) continue;
 
                 Map<Direction, SimpleSidedUEContainer.SideMode> modes = SideModeClientCache.getAll(pos);
                 boolean anyNonNone = modes.values().stream()
@@ -88,9 +88,37 @@ public class SidedOverlayRenderer {
                 matrices.popPose();
 
                 MeshData built = buffer.build();
-                if (built != null) {
-                    draw(Minecraft.getInstance(), built);
+                if (built != null) draw(Minecraft.getInstance(), built);
+            }
+
+            // ── Item overlay ──────────────────────────────────────────────────
+            for (BlockPos pos : ItemSideModeClientCache.getAllPositions()) {
+                if (!GuiTab.isPinned(pos, "items")) continue;
+
+                Map<Direction, ItemSideMode> modes = ItemSideModeClientCache.getAll(pos);
+                boolean anyNonNone = modes.values().stream()
+                        .anyMatch(m -> m != ItemSideMode.NONE);
+                if (!anyNonNone) continue;
+
+                BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+
+                matrices.pushPose();
+                matrices.translate(pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z);
+
+                for (Direction dir : Direction.values()) {
+                    ItemSideMode mode = modes.getOrDefault(dir, ItemSideMode.NONE);
+                    if (mode == ItemSideMode.NONE) continue;
+                    int color = mode.getColor();
+                    float r = ((color >> 16) & 0xFF) / 255f;
+                    float g = ((color >> 8) & 0xFF) / 255f;
+                    float b = (color & 0xFF) / 255f;
+                    renderFace(matrices.last().pose(), buffer, dir, r, g, b, 0.6f);
                 }
+
+                matrices.popPose();
+
+                MeshData built = buffer.build();
+                if (built != null) draw(Minecraft.getInstance(), built);
             }
         });
     }
@@ -126,7 +154,7 @@ public class SidedOverlayRenderer {
 
         GpuBufferSlice dynamicTransforms = RenderSystem.getDynamicUniforms()
                 .writeTransform(RenderSystem.getModelViewMatrix(),
-                        COLOR_MODULATOR,  // back to (1,1,1,1)
+                        COLOR_MODULATOR,
                         MODEL_OFFSET, TEXTURE_MATRIX);
 
         try (RenderPass renderPass = RenderSystem.getDevice()

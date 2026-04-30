@@ -9,6 +9,7 @@ import zcylas.totality.Totality;
 import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.blockentity.energy.CableBlockEntity;
+import zcylas.totality.blockentity.energy.ElectricFurnaceBlockEntity;
 import zcylas.totality.blockentity.energy.EnergyCellBlockEntity;
 import zcylas.totality.blockentity.fluid.FluidTankBlockEntity;
 import zcylas.totality.blockentity.generator.GeneratorBlockEntity;
@@ -50,6 +51,14 @@ public class ModBlockEntities {
                             ((EnergyCellBlock) state.getBlock()).getMaxInput(),
                             ((EnergyCellBlock) state.getBlock()).getMaxOutput())
             ).addBlock(EnergyBlocks.COPPER_ENERGY_CELL).build()
+    );
+
+    public static final BlockEntityType<ElectricFurnaceBlockEntity> ELECTRIC_FURNACE = register(
+            "electric_furnace",
+            FabricBlockEntityTypeBuilder.create(
+                    ElectricFurnaceBlockEntity::new,
+                    EnergyBlocks.ELECTRIC_FURNACE
+            ).build()
     );
 
     public static void register() {}

@@ -28,14 +28,18 @@ import zcylas.totality.init.ModEntities;
 import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.item.fluid.FluidTankItem;
 import zcylas.totality.item.magic.GrimoireItem;
+import zcylas.totality.menu.energy.ElectricFurnaceMenu;
 import zcylas.totality.menu.energy.EnergyCellMenu;
 import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityClientPacketHandlers;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
+import zcylas.totality.screen.energy.ElectricFurnaceScreen;
 import zcylas.totality.screen.energy.EnergyCellScreen;
 import zcylas.totality.screen.generator.GeneratorScreen;
 import zcylas.totality.screen.magic.GrimoireRadialScreen;
 import zcylas.totality.screen.magic.GrimoireScreen;
+
+import java.awt.*;
 
 public class TotalityClient implements ClientModInitializer {
     private static int scrollCooldown = 0;
@@ -100,6 +104,7 @@ public class TotalityClient implements ClientModInitializer {
     private void registerScreens(){
         MenuScreens.register(GeneratorMenu.TYPE, GeneratorScreen::new);
         MenuScreens.register(EnergyCellMenu.TYPE, EnergyCellScreen::new);
+        MenuScreens.register(ElectricFurnaceMenu.TYPE, ElectricFurnaceScreen::new);
     }
 
     public static boolean onScroll(double scrollDelta) {

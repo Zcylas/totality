@@ -19,6 +19,11 @@ public class UEApiInit {
                 (be, direction) -> be.energy.getSideStorage(direction),
                 ModBlockEntities.ENERGY_CELL
         );
+
+        UEComponents.SIDED_STORAGE.registerForBlockEntity(
+                (be, direction) -> be.energy.getSideStorage(direction),
+                ModBlockEntities.ELECTRIC_FURNACE
+        );
     }
 
     private UEApiInit() {}

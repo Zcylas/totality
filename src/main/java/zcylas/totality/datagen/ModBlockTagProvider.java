@@ -25,7 +25,17 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
                 .add(EnergyBlocks.COPPER_CABLE)
         //Ores
                 .add(OreBlocks.TIN_ORE)
+                .add(OreBlocks.DEEPSLATE_TIN_ORE)
                 .add(OreBlocks.GRAPHITE_ORE)
-                .add(OreBlocks.DEEPSLATE_GRAPHITE_ORE);
+                .add(OreBlocks.DEEPSLATE_GRAPHITE_ORE)
+                .add(OreBlocks.LEAD_ORE)
+                .add(OreBlocks.DEEPSLATE_LEAD_ORE)
+                .add(OreBlocks.SILVER_ORE)
+                .add(OreBlocks.DEEPSLATE_SILVER_ORE)
+                .add(OreBlocks.RUBY_ORE)
+                .add(OreBlocks.DEEPSLATE_RUBY_ORE);
+        valueLookupBuilder(BlockTags.NEEDS_DIAMOND_TOOL)
+                .add(OreBlocks.RUBY_ORE)
+                .add(OreBlocks.DEEPSLATE_RUBY_ORE);
     }
 }

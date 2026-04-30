@@ -80,8 +80,18 @@ public class ModModelProvider extends FabricModelProvider {
 
         //Ores
         generators.createTrivialCube(OreBlocks.TIN_ORE);
+        generators.createTrivialCube(OreBlocks.DEEPSLATE_TIN_ORE);
         generators.createTrivialCube(OreBlocks.GRAPHITE_ORE);
         generators.createTrivialCube(OreBlocks.DEEPSLATE_GRAPHITE_ORE);
+        generators.createTrivialCube(OreBlocks.LEAD_ORE);
+        generators.createTrivialCube(OreBlocks.DEEPSLATE_LEAD_ORE);
+        generators.createTrivialCube(OreBlocks.SILVER_ORE);
+        generators.createTrivialCube(OreBlocks.DEEPSLATE_SILVER_ORE);
+        generators.createTrivialCube(OreBlocks.VIBRANIUM_ORE);
+        generators.createTrivialCube(OreBlocks.DEEPSLATE_VIBRANIUM_ORE);
+        generators.createTrivialCube(OreBlocks.RUBY_ORE);
+        generators.createTrivialCube(OreBlocks.DEEPSLATE_RUBY_ORE);
+
 
     }
 
@@ -180,6 +190,8 @@ public class ModModelProvider extends FabricModelProvider {
             //Raw Ores
         generators.generateFlatItem(IngredientItems.RAW_TIN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(IngredientItems.GRAPHITE, ModelTemplates.FLAT_ITEM);
+            //Rough Gemstones
+        generators.generateFlatItem(IngredientItems.ROUGH_RUBY, ModelTemplates.FLAT_ITEM);
     }
 
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {

@@ -37,7 +37,7 @@ public class GeneratorScreen extends AbstractContainerScreen<GeneratorMenu> {
     protected void init() {
         super.init();
         energyConfigTab = new EnergyConfigTab(menu.getBlockPos(), menu::getFacing);
-        if (GuiTab.isPinned(menu.getBlockPos())) {
+        if (GuiTab.isPinned(menu.getBlockPos(), "energy")) {
             configTabOpen = true;
             energyConfigTab.open();
         }
@@ -51,7 +51,7 @@ public class GeneratorScreen extends AbstractContainerScreen<GeneratorMenu> {
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
-                TotalityGuiSprites.GUI_BACKGROUND,
+                TotalityGuiSprites.CONFIG_BACKGROUND,
                 leftPos, topPos, imageWidth, imageHeight);
 
         // Config tab button

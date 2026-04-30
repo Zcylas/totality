@@ -20,6 +20,22 @@ public class ModConfiguredFeatures {
             Registries.CONFIGURED_FEATURE,
             Identifier.fromNamespaceAndPath(Totality.MOD_ID,"graphite_ore")
     );
+    public static final ResourceKey<ConfiguredFeature<?, ?>> TIN_ORE_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE,
+            Identifier.fromNamespaceAndPath(Totality.MOD_ID,"tin_ore")
+    );
+    public static final ResourceKey<ConfiguredFeature<?, ?>> LEAD_ORE_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE,
+            Identifier.fromNamespaceAndPath(Totality.MOD_ID,"lead_ore")
+    );
+    public static final ResourceKey<ConfiguredFeature<?, ?>> SILVER_ORE_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE,
+            Identifier.fromNamespaceAndPath(Totality.MOD_ID,"silver_ore")
+    );
+    public static final ResourceKey<ConfiguredFeature<?, ?>> RUBY_ORE_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE,
+            Identifier.fromNamespaceAndPath(Totality.MOD_ID,"ruby_ore")
+    );
 
     public static void bootstrap(BootstrapContext<ConfiguredFeature<?,?>> context){
         RuleTest stoneReplaceables = new TagMatchTest(BlockTags.STONE_ORE_REPLACEABLES);
@@ -29,10 +45,42 @@ public class ModConfiguredFeatures {
                 OreConfiguration.target(stoneReplaceables, OreBlocks.GRAPHITE_ORE.defaultBlockState()),
                 OreConfiguration.target(deepslateReplaceables, OreBlocks.DEEPSLATE_GRAPHITE_ORE.defaultBlockState())
         );
+        List<OreConfiguration.TargetBlockState> leadOreTargets = List.of(
+                OreConfiguration.target(stoneReplaceables, OreBlocks.LEAD_ORE.defaultBlockState()),
+                OreConfiguration.target(deepslateReplaceables, OreBlocks.DEEPSLATE_LEAD_ORE.defaultBlockState())
+        );
+        List<OreConfiguration.TargetBlockState> tinOreTargets = List.of(
+                OreConfiguration.target(stoneReplaceables, OreBlocks.TIN_ORE.defaultBlockState()),
+                OreConfiguration.target(deepslateReplaceables, OreBlocks.DEEPSLATE_TIN_ORE.defaultBlockState())
+        );
+        List<OreConfiguration.TargetBlockState> silverOreTargets = List.of(
+                OreConfiguration.target(stoneReplaceables, OreBlocks.SILVER_ORE.defaultBlockState()),
+                OreConfiguration.target(deepslateReplaceables, OreBlocks.DEEPSLATE_SILVER_ORE.defaultBlockState())
+        );
+        List<OreConfiguration.TargetBlockState> rubyOreTargets = List.of(
+                OreConfiguration.target(stoneReplaceables, OreBlocks.RUBY_ORE.defaultBlockState()),
+                OreConfiguration.target(deepslateReplaceables, OreBlocks.DEEPSLATE_RUBY_ORE.defaultBlockState())
+        );
 
         context.register(GRAPHITE_ORE_KEY, new ConfiguredFeature<>(
                 Feature.ORE,
-                new OreConfiguration(graphiteOreTargets, 8)
+                new OreConfiguration(graphiteOreTargets, 6)
+        ));
+        context.register(LEAD_ORE_KEY, new ConfiguredFeature<>(
+                Feature.ORE,
+                new OreConfiguration(leadOreTargets, 6)
+        ));
+        context.register(TIN_ORE_KEY, new ConfiguredFeature<>(
+                Feature.ORE,
+                new OreConfiguration(tinOreTargets, 8)
+        ));
+        context.register(SILVER_ORE_KEY, new ConfiguredFeature<>(
+                Feature.ORE,
+                new OreConfiguration(silverOreTargets, 3)
+        ));
+        context.register(RUBY_ORE_KEY, new ConfiguredFeature<>(
+                Feature.ORE,
+                new OreConfiguration(rubyOreTargets, 3)
         ));
     }
 }

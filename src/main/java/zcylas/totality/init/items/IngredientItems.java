@@ -13,6 +13,9 @@ public class IngredientItems {
     //Raw Ores
     public static final Item RAW_TIN = TotalityRegistry.registerItem("raw_tin", Item::new, new Item.Properties());
     public static final Item GRAPHITE = TotalityRegistry.registerItem("graphite", Item::new, new Item.Properties());
+    //GEMSTONES
+        //ROUGH
+    public static final Item ROUGH_RUBY = TotalityRegistry.registerItem("rough_ruby", Item::new, new Item.Properties());
     public static void register() {}
 
     private IngredientItems() {}

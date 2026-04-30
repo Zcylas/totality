@@ -5,7 +5,14 @@
     "totality:copper_tank",
     "totality:copper_cable",
     "totality:tin_ore",
+    "totality:deepslate_tin_ore",
     "totality:graphite_ore",
-    "totality:deepslate_graphite_ore"
+    "totality:deepslate_graphite_ore",
+    "totality:lead_ore",
+    "totality:deepslate_lead_ore",
+    "totality:silver_ore",
+    "totality:deepslate_silver_ore",
+    "totality:ruby_ore",
+    "totality:deepslate_ruby_ore"
   ]
 }

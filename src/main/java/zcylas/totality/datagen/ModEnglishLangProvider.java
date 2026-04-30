@@ -35,8 +35,19 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.netherite_shuriken", "Netherite Shuriken");
         //Ores
         translationBuilder.add("block.totality.tin_ore", "Tin Ore");
+        translationBuilder.add("block.totality.deepslate_tin_ore", "Deepslate Tin Ore");
         translationBuilder.add("block.totality.graphite_ore", "Graphite Ore");
         translationBuilder.add("block.totality.deepslate_graphite_ore", "Deepslate Graphite Ore");
+        translationBuilder.add("block.totality.lead_ore", "Lead Ore");
+        translationBuilder.add("block.totality.deepslate_lead_ore", "Deepslate Lead Ore");
+        translationBuilder.add("block.totality.silver_ore", "Silver Ore");
+        translationBuilder.add("block.totality.deepslate_silver_ore", "Deepslate Silver Ore");
+        translationBuilder.add("block.totality.vibranium_ore", "Vibranium Ore");
+        translationBuilder.add("block.totality.deepslate_vibranium_ore", "Deepslate Vibranium Ore");
+        translationBuilder.add("block.totality.ruby_ore", "Ruby Ore");
+        translationBuilder.add("block.totality.deepslate_ruby_ore", "Deepslate Ruby Ore");
+
+
 
         //Energy Tools
         translationBuilder.add("item.totality.wrench", "Wrench");
@@ -53,6 +64,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.netherite_gear", "Netherite Gear");
             //Raw Items
         translationBuilder.add("item.totality.graphite", "Graphite");
+            //Rough Gems
+        translationBuilder.add("item.totality.rough_ruby", "Rough Ruby");
         //Tooltips
             //Base Weapons
                 //Shuriken
