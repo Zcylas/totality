@@ -14,6 +14,7 @@ import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import zcylas.totality.init.ModBlocks;
+import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
 import zcylas.totality.init.items.IngredientItems;
@@ -27,10 +28,18 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
 
     @Override
     public void generate() {
-        add(ModBlocks.COPPER_TANK, noDrop());
-        add(EnergyBlocks.COPPER_ENERGY_CELL, noDrop());
+        //Energy Blocks
+            //Generators
         dropSelf(EnergyBlocks.GENERATOR);
+            //Cables
         dropSelf(EnergyBlocks.COPPER_CABLE);
+            //Cells
+        add(EnergyBlocks.COPPER_ENERGY_CELL, noDrop());
+            //Machines
+        dropSelf(EnergyBlocks.ELECTRIC_FURNACE);
+        //Tanks
+        add(ModBlocks.COPPER_TANK, noDrop());
+
 
         //Ores
             //Normal Ores
@@ -40,6 +49,11 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
             //Gemstones
         this.add(OreBlocks.RUBY_ORE, multipleOreDrops(OreBlocks.RUBY_ORE, IngredientItems.ROUGH_RUBY, 1, 3));
         this.add(OreBlocks.DEEPSLATE_RUBY_ORE, multipleOreDrops(OreBlocks.DEEPSLATE_RUBY_ORE, IngredientItems.ROUGH_RUBY, 1, 3));
+        //Alchemy Ingredients
+            //Flowers
+        dropSelf(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER);
+        dropSelf(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER);
+        dropSelf(AlchemyBlocks.RED_MOUNTAIN_FLOWER);
     }
 
 

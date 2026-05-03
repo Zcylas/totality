@@ -11,6 +11,8 @@ public class ModItems {
         ToolItems.register();
         BasicWeaponItems.register();
         IngredientItems.register();
+        CurrencyItems.register();
+        SKIngredientItems.register();
     }
 
 

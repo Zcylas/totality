@@ -10,6 +10,7 @@ import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.block.generator.GeneratorBlock;
+import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
 
@@ -20,6 +21,7 @@ public class ModBlocks {
     public static void register(){
         OreBlocks.register();
         EnergyBlocks.register();
+        AlchemyBlocks.register();
     }
 
     private ModBlocks(){}

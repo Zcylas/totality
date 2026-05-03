@@ -19,10 +19,17 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
     @Override
     protected void addTags(HolderLookup.@NonNull Provider provider) {
         valueLookupBuilder(BlockTags.MINEABLE_WITH_PICKAXE)
+        //Energy Items
+                //Generators
                 .add(EnergyBlocks.GENERATOR)
+                //Cells
                 .add(EnergyBlocks.COPPER_ENERGY_CELL)
+                //Tanks
                 .add(ModBlocks.COPPER_TANK)
+                //Cables
                 .add(EnergyBlocks.COPPER_CABLE)
+                //Machines
+                .add(EnergyBlocks.ELECTRIC_FURNACE)
         //Ores
                 .add(OreBlocks.TIN_ORE)
                 .add(OreBlocks.DEEPSLATE_TIN_ORE)

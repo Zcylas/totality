@@ -6,21 +6,27 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Util;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.FlowerBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import zcylas.totality.Totality;
 import zcylas.totality.api.fluid.FluidTier;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
+import zcylas.totality.init.items.SKIngredientItems;
 import zcylas.totality.item.energy.EnergyCellItem;
 import zcylas.totality.item.fluid.FluidTankItem;
 
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class TotalityRegistry {
 
@@ -36,7 +42,6 @@ public class TotalityRegistry {
     }
 
     public static <T extends Block>T registerBlock(String name, Function<BlockBehaviour.Properties, T> blockFactory, BlockBehaviour.Properties properties, boolean withItem) {
-        // Create a registry key for the block
         ResourceKey<Block> blockKey = keyOfBlock(name);
 
         T block = Registry.register(
@@ -56,6 +61,51 @@ public class TotalityRegistry {
                             .useBlockDescriptionPrefix())
             );
         }
+        return block;
+    }
+
+    /**
+     * Registers a flower block + a custom BlockItem that also implements AlchemyIngredient.
+     * The itemFactory receives (block, properties) so it can pass the block to BlockItem's constructor.
+     * Use this for all alchemy flower ingredients so Red/Purple Mountain Flower follow the same pattern.
+     *
+     * Example:
+     *   registerFlowerIngredient("blue_mountain_flower",
+     *       props -> new BlueMountainFlowerBlock(() -> MobEffects.NIGHT_VISION, 8, props),
+     *       BlueMountainFlowerItem::new)
+     */
+    public static <B extends FlowerBlock, I extends BlockItem> B registerFlowerIngredient(
+            String name,
+            Function<BlockBehaviour.Properties, B> blockFactory,
+            BiFunction<B, Item.Properties, I> itemFactory
+    ) {
+        ResourceKey<Block> blockKey = keyOfBlock(name);
+        ResourceKey<Item> itemKey   = keyOfItem(name);
+
+        B block = Registry.register(
+                BuiltInRegistries.BLOCK,
+                blockKey,
+                blockFactory.apply(
+                        BlockBehaviour.Properties.of()
+                                .mapColor(MapColor.PLANT)
+                                .sound(SoundType.GRASS)
+                                .noCollision()
+                                .instabreak()
+                                .noOcclusion()
+                                .pushReaction(PushReaction.DESTROY)
+                                .setId(blockKey)
+                )
+        );
+
+        I item = itemFactory.apply(block,
+                new Item.Properties()
+                        .setId(itemKey)
+                        .useBlockDescriptionPrefix()
+                        .stacksTo(64)
+                        .food(SKIngredientItems.INGREDIENT_FOOD)
+        );
+        Registry.register(BuiltInRegistries.ITEM, itemKey, item);
+
         return block;
     }
 
@@ -135,5 +185,4 @@ public class TotalityRegistry {
                 true
         );
     }
-
 }

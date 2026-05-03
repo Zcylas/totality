@@ -10,7 +10,10 @@
 		"LivingEntityMixin",
 		"EnchantedCountIncreaseFunctionAccessor",
 		"EnchantedCountIncreaseFunctionMixin",
-		"LootItemRandomChanceWithEnchantedBonusConditionMixin"
+		"LootItemRandomChanceWithEnchantedBonusConditionMixin",
+		"MixinServerPlayer",
+		"MixinLocalPlayer",
+		"ScreenAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

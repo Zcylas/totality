@@ -9,6 +9,7 @@ import zcylas.totality.api.magic.GrimoireCaster;
 import zcylas.totality.api.magic.MagicComponents;
 import zcylas.totality.item.fluid.FluidTankItem;
 import zcylas.totality.item.magic.GrimoireItem;
+import zcylas.totality.networking.alchemy.BrewServerHandler;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
@@ -75,6 +76,7 @@ public class TotalityServerPacketHandlers {
                         sided.syncItemSideModes(context.player(), payload.pos());
                     }
                 }));
+        BrewServerHandler.register();
     }
 
     private static ItemStack findGrimoire(ServerPlayer player) {

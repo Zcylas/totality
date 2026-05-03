@@ -16,15 +16,18 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.api.energy.UEComponents;
 import zcylas.totality.block.energy.CableBlock;
+import zcylas.totality.block.energy.ElectricFurnaceBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.ModItems;
+import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
 import zcylas.totality.init.items.*;
 
 import net.minecraft.client.data.models.blockstates.ConditionBuilder;
+import zcylas.totality.item.tools.CoinItem;
 
 public class ModModelProvider extends FabricModelProvider {
     public ModModelProvider(FabricPackOutput output) {
@@ -55,6 +58,27 @@ public class ModModelProvider extends FabricModelProvider {
                                         Identifier.fromNamespaceAndPath("totality", "block/generator_active")).with(BlockModelGenerators.Y_ROT_180))
                                 .select(true, Direction.WEST, BlockModelGenerators.plainVariant(
                                         Identifier.fromNamespaceAndPath("totality", "block/generator_active")).with(BlockModelGenerators.Y_ROT_270))
+                        )
+        );
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(EnergyBlocks.ELECTRIC_FURNACE)
+                        .with(PropertyDispatch.initial(ElectricFurnaceBlock.ACTIVE, ElectricFurnaceBlock.FACING)
+                                .select(false, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace")))
+                                .select(false, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(false, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(false, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace")).with(BlockModelGenerators.Y_ROT_270))
+                                .select(true, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace_active")))
+                                .select(true, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace_active")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(true, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace_active")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(true, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace_active")).with(BlockModelGenerators.Y_ROT_270))
                         )
         );
 
@@ -91,6 +115,20 @@ public class ModModelProvider extends FabricModelProvider {
         generators.createTrivialCube(OreBlocks.DEEPSLATE_VIBRANIUM_ORE);
         generators.createTrivialCube(OreBlocks.RUBY_ORE);
         generators.createTrivialCube(OreBlocks.DEEPSLATE_RUBY_ORE);
+        //Alchemy Ingredients
+            //Flowers
+        generators.createCrossBlockWithDefaultItem(
+                AlchemyBlocks.BLUE_MOUNTAIN_FLOWER,
+                BlockModelGenerators.PlantType.NOT_TINTED
+        );
+        generators.createCrossBlockWithDefaultItem(
+                AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER,
+                BlockModelGenerators.PlantType.NOT_TINTED
+        );
+        generators.createCrossBlockWithDefaultItem(
+                AlchemyBlocks.RED_MOUNTAIN_FLOWER,
+                BlockModelGenerators.PlantType.NOT_TINTED
+        );
 
 
     }
@@ -103,7 +141,10 @@ public class ModModelProvider extends FabricModelProvider {
                 EnergyBlocks.GENERATOR.asItem(),
                 ItemModelUtils.plainModel(
                         Identifier.fromNamespaceAndPath("totality", "block/generator")));
-
+        generators.itemModelOutput.accept(
+                EnergyBlocks.ELECTRIC_FURNACE.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/electric_furnace")));
         generators.itemModelOutput.accept(
                 ModBlocks.COPPER_TANK.asItem(),
                 ItemModelUtils.specialModel(
@@ -192,6 +233,14 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(IngredientItems.GRAPHITE, ModelTemplates.FLAT_ITEM);
             //Rough Gemstones
         generators.generateFlatItem(IngredientItems.ROUGH_RUBY, ModelTemplates.FLAT_ITEM);
+        //Tools
+            //Coins
+        generators.generateFlatItem(CurrencyItems.COPPER_COIN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(CurrencyItems.SILVER_COIN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(CurrencyItems.GOLD_COIN, ModelTemplates.FLAT_ITEM);
+        //Alchemy Ingredients
+        generators.generateFlatItem(SKIngredientItems.SALMON_ROE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);
     }
 
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {

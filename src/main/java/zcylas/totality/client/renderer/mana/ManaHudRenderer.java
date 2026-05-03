@@ -5,6 +5,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import zcylas.totality.Totality;
+import zcylas.totality.api.component.ComponentProvider;
+import zcylas.totality.api.currency.CurrencyComponents;
+import zcylas.totality.api.currency.CurrencyHelper;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.mana.ClientManaManager;
 
@@ -83,5 +86,6 @@ public class ManaHudRenderer {
                         y + barHeight + 3, 0xFFAAAACC, true);
             }
         });
+
     }
 }

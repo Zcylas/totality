@@ -11,6 +11,8 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zcylas.totality.api.alchemy.AlchemyEffects;
+import zcylas.totality.api.component.PlayerComponentEvents;
 import zcylas.totality.init.*;
 import zcylas.totality.init.magic.MagicRunes;
 import zcylas.totality.item.energy.UmbraVisorItem;
@@ -35,6 +37,7 @@ public class Totality implements ModInitializer {
 		registerApi();
 		registerItemHandlers();
 		registerInits();
+		registerEvents();
 		registerAttributes();
 		registerLookups();
 		registerBiomeModifications();
@@ -49,6 +52,7 @@ public class Totality implements ModInitializer {
 		MagicRunes.register();
 		ModEffects.register();
 		ModSounds.register();
+
 	}
 
 	private void registerLookups(){
@@ -72,6 +76,7 @@ public class Totality implements ModInitializer {
 
 	private void registerApi(){
 		UEApiInit.register();
+		AlchemyEffects.register();
 	}
 
 	private void registerItemHandlers(){
@@ -108,5 +113,8 @@ public class Totality implements ModInitializer {
 				GenerationStep.Decoration.UNDERGROUND_ORES,
 				ModPlacedFeatures.RUBY_ORE_PLACED_KEY
 		);
+	}
+	private void registerEvents(){
+		PlayerComponentEvents.init();
 	}
 }

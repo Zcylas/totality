@@ -4,6 +4,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -16,6 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
+import zcylas.totality.client.renderer.currency.WalletHudRenderer;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
 import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
@@ -66,7 +68,7 @@ public class TotalityClient implements ClientModInitializer {
                 FluidTankRenderer::new
         );
         ManaHudRenderer.register();
-
+        WalletHudRenderer.register();
     }
 
     private void registerEntityRenderers(){

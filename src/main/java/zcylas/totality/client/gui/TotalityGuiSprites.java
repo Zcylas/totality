@@ -9,6 +9,8 @@ public class TotalityGuiSprites {
             Identifier.fromNamespaceAndPath("totality", "background");
     public static final Identifier GUI_BACKGROUND =
             Identifier.fromNamespaceAndPath("totality", "gui_background");
+    public static final Identifier SKYRIM_BACKGROUND =
+            Identifier.fromNamespaceAndPath("totality", "skyrim_background");
     // Energy
     public static final Identifier ENERGY_BAR_BACKGROUND =
             Identifier.fromNamespaceAndPath("totality", "energy_bar_background");
@@ -23,6 +25,7 @@ public class TotalityGuiSprites {
     //Buttons
     public static final Identifier CLOSE_BUTTON = Identifier.fromNamespaceAndPath("totality", "close_button");
     public static final Identifier CLOSE_BUTTON_HOVERED = Identifier.fromNamespaceAndPath("totality", "close_button_hovered");
+    public static final Identifier SKYRIM_BUTTON = Identifier.fromNamespaceAndPath("totality", "skyrim_button");
     // Vanilla slots
     public static final Identifier SLOT =
             Identifier.withDefaultNamespace("container/slot");
