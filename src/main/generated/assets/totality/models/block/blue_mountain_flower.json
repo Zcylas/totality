@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "totality:block/blue_mountain_flower"
+  }
+}

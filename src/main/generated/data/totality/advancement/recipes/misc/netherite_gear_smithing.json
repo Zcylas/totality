@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_diamond_gear": {
+      "conditions": {
+        "items": [
+          {
+            "items": "totality:diamond_gear"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "totality:netherite_gear_smithing"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_diamond_gear"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "totality:netherite_gear_smithing"
+    ]
+  }
+}

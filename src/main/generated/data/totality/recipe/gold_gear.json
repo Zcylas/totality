@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "D": "totality:graphite",
+    "M": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "MDM",
+    "D D",
+    "MDM"
+  ],
+  "result": {
+    "id": "totality:gold_gear"
+  }
+}

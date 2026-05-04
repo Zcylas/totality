@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:smithing_transform",
+  "addition": "minecraft:netherite_ingot",
+  "base": "totality:diamond_gear",
+  "result": {
+    "id": "totality:netherite_gear"
+  },
+  "template": "minecraft:netherite_upgrade_smithing_template"
+}
