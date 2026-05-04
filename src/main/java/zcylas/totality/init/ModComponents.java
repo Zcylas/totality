@@ -5,6 +5,7 @@ import zcylas.totality.api.currency.CurrencyComponents;
 import zcylas.totality.api.energy.UEComponents;
 import zcylas.totality.api.fluid.FluidComponents;
 import zcylas.totality.api.magic.MagicComponents;
+import zcylas.totality.api.potions.PotionDataComponent;
 
 public class ModComponents {
 
@@ -14,6 +15,7 @@ public class ModComponents {
         MagicComponents.register();
         CurrencyComponents.register();
         AlchemyComponents.register();
+        PotionDataComponent.register();
     }
 
     private ModComponents() {}

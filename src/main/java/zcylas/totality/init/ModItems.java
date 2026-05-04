@@ -13,6 +13,7 @@ public class ModItems {
         IngredientItems.register();
         CurrencyItems.register();
         SKIngredientItems.register();
+        PotionItems.register();
     }
 
 

@@ -5,7 +5,9 @@ import net.minecraft.world.entity.LivingEntity;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.ObjIntConsumer;
 
 /**
  * Represents a single alchemy effect definition.
@@ -15,11 +17,9 @@ import java.util.function.Consumer;
  *   - A display name
  *   - A base magnitude and duration (used by brewed potions)
  *   - A type (BENEFICIAL / HARMFUL / NEUTRAL)
- *   - onConsume: weak brief effect applied when the raw ingredient is eaten
- *   - onDrink:   full effect applied when the brewed potion is consumed
- *
- * Both callbacks receive the LivingEntity consuming the item.
- * Values inside should be calculated from entity.getMaxHealth() for future-proofing.
+ *   - onConsume:     weak brief effect applied when the raw ingredient is eaten
+ *   - onDrink:       magnitude-based effect applied when a brewed/registered potion is drunk
+ *   - onDrinkTimed:  duration-based effect applied for timed effects (Waterbreathing etc.)
  */
 public final class AlchemyEffect {
 
@@ -31,9 +31,10 @@ public final class AlchemyEffect {
     private final int baseDurationTicks;
     private final AlchemyEffectType type;
 
-    // Optional callbacks — no-op by default
-    private Consumer<LivingEntity> onConsume = entity -> {};
-    private Consumer<LivingEntity> onDrink   = entity -> {};
+    // Callbacks
+    private Consumer<LivingEntity>             onConsume    = entity -> {};
+    private BiConsumer<LivingEntity, Float>    onDrink      = (entity, magnitude) -> {};
+    private ObjIntConsumer<LivingEntity>       onDrinkTimed = (entity, ticks) -> {};
 
     private AlchemyEffect(
             Identifier id,
@@ -42,11 +43,11 @@ public final class AlchemyEffect {
             int baseDurationTicks,
             AlchemyEffectType type
     ) {
-        this.id = id;
-        this.displayName = displayName;
-        this.baseMagnitude = baseMagnitude;
+        this.id               = id;
+        this.displayName      = displayName;
+        this.baseMagnitude    = baseMagnitude;
         this.baseDurationTicks = baseDurationTicks;
-        this.type = type;
+        this.type             = type;
     }
 
     public static AlchemyEffect register(
@@ -70,14 +71,11 @@ public final class AlchemyEffect {
         return effect;
     }
 
-    // -------------------------------------------------------------------------
-    // Callback builders — call these after register() to set behavior
-    // -------------------------------------------------------------------------
+    // ── Callback builders ─────────────────────────────────────────────────────
 
     /**
-     * Sets the effect applied when the raw ingredient is eaten.
+     * Called when the raw ingredient is eaten.
      * Should be a weak, brief version of the full effect.
-     * Use entity.getMaxHealth() for percentage-based calculations.
      */
     public AlchemyEffect withConsumeEffect(Consumer<LivingEntity> onConsume) {
         this.onConsume = onConsume;
@@ -85,32 +83,56 @@ public final class AlchemyEffect {
     }
 
     /**
-     * Sets the effect applied when the brewed potion is drunk.
-     * Should be the full-strength version of the effect.
-     * Use entity.getMaxHealth() for percentage-based calculations.
+     * Called when a magnitude-based potion is drunk (Restore Health, Damage Health etc.)
+     * magnitude is a fraction of max value (0.0 – 1.0) from MagnitudeTier.
      */
-    public AlchemyEffect withDrinkEffect(Consumer<LivingEntity> onDrink) {
+    public AlchemyEffect withDrinkEffect(BiConsumer<LivingEntity, Float> onDrink) {
         this.onDrink = onDrink;
         return this;
     }
 
-    // -------------------------------------------------------------------------
-    // Application
-    // -------------------------------------------------------------------------
+    /**
+     * Called when a duration-based potion is drunk (Waterbreathing, Invisibility etc.)
+     * durationTicks comes from DurationTier.
+     */
+    public AlchemyEffect withTimedDrinkEffect(ObjIntConsumer<LivingEntity> onDrinkTimed) {
+        this.onDrinkTimed = onDrinkTimed;
+        return this;
+    }
+
+    // ── Application ───────────────────────────────────────────────────────────
 
     /** Called when the raw ingredient is eaten. */
     public void applyConsumeEffect(LivingEntity entity) {
         onConsume.accept(entity);
     }
 
-    /** Called when the brewed potion is drunk. */
+    /**
+     * Called when the brewed potion is drunk — uses baseMagnitude.
+     * For brewed potions where magnitude is derived from ingredient quality.
+     */
     public void applyDrinkEffect(LivingEntity entity) {
-        onDrink.accept(entity);
+        if (baseDurationTicks > 0) {
+            onDrinkTimed.accept(entity, baseDurationTicks);
+        } else {
+            onDrink.accept(entity, baseMagnitude);
+        }
     }
 
-    // -------------------------------------------------------------------------
-    // Accessors
-    // -------------------------------------------------------------------------
+    /**
+     * Called when a registered potion is drunk with explicit magnitude/duration.
+     * magnitude  — fraction of max value (from MagnitudeTier), 0 for timed effects
+     * durationTicks — ticks (from DurationTier), 0 for instant effects
+     */
+    public void applyConsume(LivingEntity entity, float magnitude, int durationTicks) {
+        if (durationTicks > 0) {
+            onDrinkTimed.accept(entity, durationTicks);
+        } else {
+            onDrink.accept(entity, magnitude);
+        }
+    }
+
+    // ── Accessors ─────────────────────────────────────────────────────────────
 
     public Identifier getId()              { return id; }
     public String getDisplayName()         { return displayName; }

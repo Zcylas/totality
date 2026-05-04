@@ -1,6 +1,5 @@
 package zcylas.totality.client.gui;
 
-import net.minecraft.client.resources.model.sprite.SpriteId;
 import net.minecraft.resources.Identifier;
 
 public class TotalityGuiSprites {
@@ -22,21 +21,28 @@ public class TotalityGuiSprites {
             Identifier.fromNamespaceAndPath("totality", "bolt_lit");
     public static final Identifier BOLT_UNLIT =
             Identifier.fromNamespaceAndPath("totality", "bolt_unlit");
-    //Buttons
-    public static final Identifier CLOSE_BUTTON = Identifier.fromNamespaceAndPath("totality", "close_button");
-    public static final Identifier CLOSE_BUTTON_HOVERED = Identifier.fromNamespaceAndPath("totality", "close_button_hovered");
-    public static final Identifier SKYRIM_BUTTON = Identifier.fromNamespaceAndPath("totality", "skyrim_button");
+
+    // Buttons
+    public static final Identifier CLOSE_BUTTON =
+            Identifier.fromNamespaceAndPath("totality", "close_button");
+    public static final Identifier CLOSE_BUTTON_HOVERED =
+            Identifier.fromNamespaceAndPath("totality", "close_button_hovered");
+    public static final Identifier SKYRIM_BUTTON =
+            Identifier.fromNamespaceAndPath("totality", "skyrim_button");
+
     // Vanilla slots
     public static final Identifier SLOT =
             Identifier.withDefaultNamespace("container/slot");
     public static final Identifier SLOT_OUTPUT =
             Identifier.withDefaultNamespace("container/furnace/result");
-    //Tabs
+
+    // Tabs
     public static final Identifier LEFT_TAB =
             Identifier.fromNamespaceAndPath("totality", "left_tab");
     public static final Identifier SLOT_TAB =
             Identifier.fromNamespaceAndPath("totality", "slot_tab");
-    //Icons
+
+    // Icons
     public static final Identifier ICON_CONFIG =
             Identifier.fromNamespaceAndPath("totality", "icon_config");
     public static final Identifier ICON_TUTORIAL =
@@ -55,6 +61,21 @@ public class TotalityGuiSprites {
             Identifier.fromNamespaceAndPath("totality", "spell_tab");
     public static final Identifier SPELL_TAB_SELECTED =
             Identifier.fromNamespaceAndPath("totality", "spell_tab_selected");
+
+    // ── HUD Bars ──────────────────────────────────────────────────────────────
+    // Shared background (165x16) — same sprite for all bars
+    public static final Identifier HUD_BAR_BACKGROUND =
+            Identifier.fromNamespaceAndPath("totality", "hud/bar_background");
+
+    // Fill sprites (144x8) — one per stat, different color gradient
+    public static final Identifier HUD_HEALTH_FILL =
+            Identifier.fromNamespaceAndPath("totality", "hud/health_filled");
+    public static final Identifier HUD_MANA_FILL =
+            Identifier.fromNamespaceAndPath("totality", "hud/mana_filled");
+    public static final Identifier HUD_STAMINA_FILL =
+            Identifier.fromNamespaceAndPath("totality", "hud/stamina_filled");
+    public static final Identifier HUD_HUNGER_FILL =
+            Identifier.fromNamespaceAndPath("totality", "hud/hunger_filled");
 
     // Rune icons
     public static final Identifier RUNE_TOUCH =

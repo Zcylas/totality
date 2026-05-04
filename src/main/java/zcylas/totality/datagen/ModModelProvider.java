@@ -18,6 +18,7 @@ import zcylas.totality.api.energy.UEComponents;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.ElectricFurnaceBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
+import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.ModItems;
@@ -241,6 +242,20 @@ public class ModModelProvider extends FabricModelProvider {
         //Alchemy Ingredients
         generators.generateFlatItem(SKIngredientItems.SALMON_ROE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);
+
+
+        //Defaults
+            //Default Potion
+        Identifier minorPotionModel = Identifier.fromNamespaceAndPath("totality", "item/minor_potion");
+        generators.itemModelOutput.accept(
+                PotionItems.BREWED_POTION,
+                ItemModelUtils.tintedModel(minorPotionModel, PotionTintSource.INSTANCE)
+        );
+            //Minor Potions
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_MINOR_HEALING,
+                ItemModelUtils.tintedModel(minorPotionModel, PotionTintSource.INSTANCE)
+        );
     }
 
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {

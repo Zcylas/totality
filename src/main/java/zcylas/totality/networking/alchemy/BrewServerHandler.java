@@ -11,6 +11,10 @@ import zcylas.totality.api.alchemy.AlchemyIngredient;
 import net.minecraft.resources.Identifier;
 import zcylas.totality.api.alchemy.*;
 import zcylas.totality.api.alchemy.BrewingLogic;
+import zcylas.totality.api.potions.EffectEntry;
+import zcylas.totality.api.potions.PotionData;
+import zcylas.totality.api.potions.PotionDataComponent;
+import zcylas.totality.item.potion.AlchemyPotionItem;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 
 import java.util.ArrayList;
@@ -130,7 +134,52 @@ public final class BrewServerHandler {
         net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
                 new BrewResultPayload(potionName, discovered));
 
-        // TODO: give AlchemyPotionItem
+        // Build and give the potion item
+        boolean isPoison = allEffects.stream().anyMatch(e -> e.effect().isHarmful())
+                && allEffects.stream().noneMatch(e -> e.effect().isBeneficial());
+
+        // Build EffectEntry list from brewed effects using base magnitude/duration
+        List<EffectEntry> entries = new ArrayList<>();
+        for (AlchemyEffectInstance inst : allEffects) {
+            entries.add(EffectEntry.of(
+                    inst.effect(),
+                    inst.effect().getBaseMagnitude(),
+                    inst.effect().getBaseDurationTicks()
+            ));
+        }
+
+        // Determine color from primary effect type
+        int color = isPoison ? PotionData.COLOR_PURPLE : getPotionColor(allEffects);
+
+        PotionData potionData = PotionData.of(potionName, color, entries, isPoison);
+
+        // Create stack from the registered BREWED_POTION base item
+        // and store PotionData as a component so it survives save/load
+        ItemStack potionStack = new ItemStack(zcylas.totality.init.items.PotionItems.BREWED_POTION);
+        potionStack.set(zcylas.totality.api.potions.PotionDataComponent.POTION_DATA, potionData);
+
+        // Give to player
+        if (!player.getInventory().add(potionStack)) {
+            player.drop(potionStack, false);
+        }
+    }
+
+    private static int getPotionColor(List<AlchemyEffectInstance> effects) {
+        // Use the primary effect (highest magnitude * duration) to determine color
+        AlchemyEffectInstance primary = effects.stream()
+                .max(java.util.Comparator.comparingDouble(e ->
+                        (double) e.effect().getBaseMagnitude() *
+                                Math.max(1, e.effect().getBaseDurationTicks())))
+                .orElse(effects.get(0));
+
+        String effectId = primary.effect().getId().getPath();
+        if (effectId.contains("health")) return PotionData.COLOR_RED;
+        if (effectId.contains("mana"))   return PotionData.COLOR_BLUE;
+        if (effectId.contains("stamina")) return PotionData.COLOR_GREEN;
+        if (effectId.contains("water") || effectId.contains("invisible")
+                || effectId.contains("waterbreathing")) return PotionData.COLOR_WHITE;
+        // Default — gold for unusual/mixed effects
+        return PotionData.COLOR_GOLD;
     }
 
     private static String buildPotionName(List<AlchemyEffectInstance> effects) {

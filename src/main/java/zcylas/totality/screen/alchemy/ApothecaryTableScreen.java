@@ -314,14 +314,27 @@ public class ApothecaryTableScreen extends Screen {
     }
 
     private void drawIngredientInfo(GuiGraphicsExtractor g, int x, int y, IngredientEntry entry) {
-        // Name — large, uppercase, white with shadow like Skyrim
+        // Item sprite — 3x scale (48px), centered in the right area
+        int spriteSize = 48;
+        float scale = 3.0f;
+        int centerX = RIGHT_X + RIGHT_W / 2;
+        int spriteX = centerX - spriteSize / 2;
+        g.pose().pushMatrix();
+        g.pose().scale(scale, scale);
+        g.item(entry.stack, (int)(spriteX / scale), (int)(y / scale));
+        g.pose().popMatrix();
+        y += spriteSize + 10;
+
+        // Name — uppercase, centered, white with shadow like Skyrim
         String name = displayName(entry).toUpperCase() + "  (" + entry.count + ")";
+        int nameX = centerX - font.width(name) / 2;
         g.text(font, Component.literal(name).withStyle(ChatFormatting.WHITE),
-                x, y, COLOR_TITLE, true);
+                nameX, y, COLOR_TITLE, true);
         y += 16;
 
-        // Thin separator
-        g.fill(x, y, x + Math.min(RIGHT_W - 8, font.width(name)), y + 1, 0xAAFFFFFF);
+        // Thin separator centered under name
+        int sepW = Math.min(RIGHT_W - 16, font.width(name) + 20);
+        g.fill(centerX - sepW / 2, y, centerX + sepW / 2, y + 1, 0xAAFFFFFF);
         y += 8;
 
         // 2x2 effect grid — no panel, just floating text
@@ -354,21 +367,69 @@ public class ApothecaryTableScreen extends Screen {
     }
 
     private void drawPotionInfo(GuiGraphicsExtractor g, int x, int y) {
+        int centerX = RIGHT_X + RIGHT_W / 2;
+        int spriteY = y;
+
         // Always show POTION OF UNKNOWN EFFECT as default with 2+ ingredients
         if (currentBrewResult == null || !currentBrewResult.isSuccess()
                 || ((BrewingLogic.BrewResult.Success) currentBrewResult).effects().isEmpty()) {
+
+            // Show BREWED_POTION with purple POTION_DATA component
+            net.minecraft.world.item.ItemStack unknownPotion =
+                    new net.minecraft.world.item.ItemStack(
+                            zcylas.totality.init.items.PotionItems.BREWED_POTION);
+            unknownPotion.set(zcylas.totality.api.potions.PotionDataComponent.POTION_DATA,
+                    zcylas.totality.api.potions.PotionData.of(
+                            "Potion of Unknown Effect",
+                            zcylas.totality.api.potions.PotionData.COLOR_PURPLE,
+                            java.util.List.of(), false));
+            g.pose().pushMatrix();
+            g.pose().scale(3.0f, 3.0f);
+            g.item(unknownPotion, (centerX - 24) / 3, spriteY / 3);
+            g.pose().popMatrix();
+            y += 58;
+
+            int nameX = centerX - font.width("POTION OF UNKNOWN EFFECT") / 2;
             g.text(font, net.minecraft.network.chat.Component.literal("POTION OF UNKNOWN EFFECT")
                             .withStyle(net.minecraft.ChatFormatting.WHITE),
-                    x, y, COLOR_TITLE, true);
+                    nameX, y, COLOR_TITLE, true);
             y += 16;
-            g.fill(x, y, x + 160, y + 1, 0xAAFFFFFF);
+            g.fill(centerX - 80, y, centerX + 80, y + 1, 0xAAFFFFFF);
             y += 8;
             g.text(font, net.minecraft.network.chat.Component.literal("Unknown Effect"),
-                    x, y, COLOR_UNKNOWN, true);
+                    centerX - font.width("Unknown Effect") / 2, y, COLOR_UNKNOWN, true);
             return;
         }
 
         BrewingLogic.BrewResult.Success success = (BrewingLogic.BrewResult.Success) currentBrewResult;
+
+        // Show the actual brewed potion item sprite
+        // Build a temporary stack with the correct color for preview
+        net.minecraft.world.item.ItemStack previewStack =
+                new net.minecraft.world.item.ItemStack(
+                        zcylas.totality.init.items.PotionItems.BREWED_POTION);
+        boolean previewIsPoison = success.effects().stream()
+                .anyMatch(e -> e.effect().isHarmful())
+                && success.effects().stream().noneMatch(e -> e.effect().isBeneficial());
+        int previewColor = previewIsPoison
+                ? zcylas.totality.api.potions.PotionData.COLOR_PURPLE
+                : getPotionPreviewColor(success.effects());
+        String previewName = buildPotionName(success.effects());
+        java.util.List<zcylas.totality.api.potions.EffectEntry> previewEntries =
+                success.effects().stream()
+                        .map(e -> zcylas.totality.api.potions.EffectEntry.of(
+                                e.effect(), e.effect().getBaseMagnitude(),
+                                e.effect().getBaseDurationTicks()))
+                        .collect(java.util.stream.Collectors.toList());
+        previewStack.set(zcylas.totality.api.potions.PotionDataComponent.POTION_DATA,
+                zcylas.totality.api.potions.PotionData.of(
+                        previewName, previewColor, previewEntries, previewIsPoison));
+
+        g.pose().pushMatrix();
+        g.pose().scale(3.0f, 3.0f);
+        g.item(previewStack, (centerX - 24) / 3, spriteY / 3);
+        g.pose().popMatrix();
+        y += 58;
 
         // Dead code path kept for safety
         if (success.effects().isEmpty()) {
@@ -405,8 +466,33 @@ public class ApothecaryTableScreen extends Screen {
             g.text(font, Component.literal(effect.getDisplayName()).withStyle(s -> s.withColor(col)),
                     x, y, col, true);
             y += 11;
-            g.text(font, Component.literal("  " + contributors), x, y, COLOR_DIM, false);
-            y += 14;
+
+            // Wrap contributor line if too wide
+            int maxW = RIGHT_W - 8;
+            if (font.width("  " + contributors) <= maxW) {
+                g.text(font, Component.literal("  " + contributors), x, y, COLOR_DIM, false);
+                y += 14;
+            } else {
+                // Split at comma boundaries
+                String[] parts = contributors.split(", ");
+                StringBuilder line = new StringBuilder("  ");
+                for (String part : parts) {
+                    String candidate = line + (line.length() > 2 ? ", " : "") + part;
+                    if (font.width(candidate) > maxW && line.length() > 2) {
+                        g.text(font, Component.literal(line.toString()), x, y, COLOR_DIM, false);
+                        y += 11;
+                        line = new StringBuilder("  " + part);
+                    } else {
+                        if (line.length() > 2) line.append(", ");
+                        line.append(part);
+                    }
+                }
+                if (line.length() > 2) {
+                    g.text(font, Component.literal(line.toString()), x, y, COLOR_DIM, false);
+                    y += 11;
+                }
+                y += 3;
+            }
         }
     }
 
@@ -708,6 +794,21 @@ public class ApothecaryTableScreen extends Screen {
                                 Math.max(1, e.effect().getBaseDurationTicks())))
                 .orElse(effects.get(0));
         return prefix + primary.effect().getDisplayName();
+    }
+
+    private int getPotionPreviewColor(java.util.List<AlchemyEffectInstance> effects) {
+        if (effects.isEmpty()) return zcylas.totality.api.potions.PotionData.COLOR_PURPLE;
+        AlchemyEffectInstance primary = effects.stream()
+                .max(Comparator.comparingDouble(e ->
+                        (double) e.effect().getBaseMagnitude() *
+                                Math.max(1, e.effect().getBaseDurationTicks())))
+                .orElse(effects.get(0));
+        String id = primary.effect().getId().getPath();
+        if (id.contains("health"))    return zcylas.totality.api.potions.PotionData.COLOR_RED;
+        if (id.contains("mana"))      return zcylas.totality.api.potions.PotionData.COLOR_BLUE;
+        if (id.contains("stamina"))   return zcylas.totality.api.potions.PotionData.COLOR_GREEN;
+        if (id.contains("water") || id.contains("invisib")) return zcylas.totality.api.potions.PotionData.COLOR_WHITE;
+        return zcylas.totality.api.potions.PotionData.COLOR_GOLD;
     }
 
     private boolean inBounds(int mx, int my, int x, int y, int w, int h) {

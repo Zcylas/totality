@@ -52,6 +52,7 @@ public class Totality implements ModInitializer {
 		MagicRunes.register();
 		ModEffects.register();
 		ModSounds.register();
+		ModLootTables.register();
 
 	}
 

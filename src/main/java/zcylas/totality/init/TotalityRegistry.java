@@ -7,8 +7,10 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Util;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.component.Consumables;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.FlowerBlock;
 import net.minecraft.world.level.block.SoundType;
@@ -185,4 +187,95 @@ public class TotalityRegistry {
                 true
         );
     }
+
+    // ── Potions ───────────────────────────────────────────────────────────────
+
+    /**
+     * Registers a standard tiered potion — name auto-generated from tier + effect name.
+     * Example: registerPotion("potion_of_minor_healing", MagnitudeTier.MINOR, AlchemyEffects.RESTORE_HEALTH)
+     *          → "Potion of Minor Healing"
+     */
+    public static zcylas.totality.item.potion.AlchemyPotionItem registerPotion(
+            String name,
+            zcylas.totality.api.potions.PotionTier tier,
+            zcylas.totality.api.alchemy.AlchemyEffect effect,
+            int color
+    ) {
+        String displayName = tier.buildName(effect.getDisplayName(), false);
+        float magnitude = 0f;
+        int durationTicks = 0;
+        if (tier instanceof zcylas.totality.api.potions.MagnitudeTier mt) {
+            magnitude = mt.getPercentage();
+        } else if (tier instanceof zcylas.totality.api.potions.DurationTier dt) {
+            durationTicks = dt.getDurationTicks();
+        }
+        zcylas.totality.api.potions.EffectEntry entry =
+                zcylas.totality.api.potions.EffectEntry.of(effect, magnitude, durationTicks);
+        zcylas.totality.api.potions.PotionData data =
+                zcylas.totality.api.potions.PotionData.of(
+                        displayName, color, java.util.List.of(entry), false);
+        return registerItem(name,
+                props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
+                new net.minecraft.world.item.Item.Properties()
+                        .stacksTo(1)
+                        .food(new FoodProperties.Builder().alwaysEdible().build(),
+                                Consumables.DEFAULT_DRINK));
+    }
+
+    /**
+     * Registers a standard tiered poison — name auto-generated from tier + effect name.
+     */
+    public static zcylas.totality.item.potion.AlchemyPotionItem registerPoison(
+            String name,
+            zcylas.totality.api.potions.PotionTier tier,
+            zcylas.totality.api.alchemy.AlchemyEffect effect,
+            int color
+    ) {
+        String displayName = tier.buildName(effect.getDisplayName(), true);
+        float magnitude = 0f;
+        int durationTicks = 0;
+        if (tier instanceof zcylas.totality.api.potions.MagnitudeTier mt) {
+            magnitude = mt.getPercentage();
+        } else if (tier instanceof zcylas.totality.api.potions.DurationTier dt) {
+            durationTicks = dt.getDurationTicks();
+        }
+        zcylas.totality.api.potions.EffectEntry entry =
+                zcylas.totality.api.potions.EffectEntry.of(effect, magnitude, durationTicks);
+        zcylas.totality.api.potions.PotionData data =
+                zcylas.totality.api.potions.PotionData.of(
+                        displayName, color, java.util.List.of(entry), true);
+        return registerItem(name,
+                props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
+                new net.minecraft.world.item.Item.Properties()
+                        .stacksTo(1)
+                        .food(new FoodProperties.Builder().alwaysEdible().build(),
+                                Consumables.DEFAULT_DRINK));
+    }
+
+    /**
+     * Registers a special potion with a custom name and multiple effects.
+     * Example: registerSpecialPotion("elixir_of_the_mage", "Elixir of the Mage",
+     *              PotionData.COLOR_GOLD, false,
+     *              EffectEntry.instant(AlchemyEffects.RESTORE_MANA, 0.5f),
+     *              EffectEntry.timed(AlchemyEffects.FORTIFY_MANA, 1200))
+     */
+    public static zcylas.totality.item.potion.AlchemyPotionItem registerSpecialPotion(
+            String name,
+            String displayName,
+            int color,
+            boolean isPoison,
+            zcylas.totality.api.potions.EffectEntry... effects
+    ) {
+        zcylas.totality.api.potions.PotionData data =
+                zcylas.totality.api.potions.PotionData.of(
+                        displayName, color, java.util.List.of(effects), isPoison);
+        return registerItem(name,
+                props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
+                new net.minecraft.world.item.Item.Properties()
+                        .stacksTo(1)
+                        .food(new FoodProperties.Builder().alwaysEdible().build(),
+                                Consumables.DEFAULT_DRINK));
+    }
+
+
 }

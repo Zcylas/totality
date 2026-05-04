@@ -3,19 +3,17 @@ package zcylas.totality;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.color.item.ItemTintSources;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
-import net.minecraft.client.renderer.entity.NoopRenderer;
-import net.minecraft.client.renderer.entity.SkeletonRenderer;
-import net.minecraft.client.renderer.entity.ThrownItemRenderer;
+import net.minecraft.client.renderer.entity.*;
 import net.minecraft.client.renderer.special.SpecialModelRenderers;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
 import zcylas.totality.client.renderer.currency.WalletHudRenderer;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
@@ -23,7 +21,7 @@ import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
-import zcylas.totality.client.renderer.mana.ManaHudRenderer;
+import zcylas.totality.client.renderer.hud.TotalityHudRenderer;
 import zcylas.totality.init.ModBlockEntities;
 import zcylas.totality.init.ModEffects;
 import zcylas.totality.init.ModEntities;
@@ -56,6 +54,7 @@ public class TotalityClient implements ClientModInitializer {
         registerEntityRenderers();
         registerKeybinds();
         registerEffects();
+        registerTintSources();
         TotalityClientPacketHandlers.register();
         ClientTickEvents.END_CLIENT_TICK.register(
                 client -> FluidTankScrollHandler.tick());
@@ -67,25 +66,25 @@ public class TotalityClient implements ClientModInitializer {
                 ModBlockEntities.FLUID_TANK,
                 FluidTankRenderer::new
         );
-        ManaHudRenderer.register();
+        TotalityHudRenderer.register();
         WalletHudRenderer.register();
     }
 
     private void registerEntityRenderers(){
-        EntityRendererRegistry.register(
+        EntityRenderers.register(
                 ModEntities.GRIMOIRE_PROJECTILE,
                 GrimoireProjectileRenderer::new);
-        EntityRendererRegistry.register(
+        EntityRenderers.register(
                 ModEntities.ORBIT_PROJECTILE,
                 NoopRenderer::new);
-        EntityRendererRegistry.register(ModEntities.LINGER_ENTITY,
+        EntityRenderers.register(ModEntities.LINGER_ENTITY,
                 NoopRenderer::new);
-        EntityRendererRegistry.register(ModEntities.SUMMON_SKELETON,
+        EntityRenderers.register(ModEntities.SUMMON_SKELETON,
                 SkeletonRenderer::new);
 
         //Basic Weapons
             //Shuriken
-        EntityRendererRegistry.register(
+        EntityRenderers.register(
                 ModEntities.THROWN_SHURIKEN,
                 ThrownShurikenRenderer::new);
     }
@@ -164,6 +163,13 @@ public class TotalityClient implements ClientModInitializer {
                 }
             }
         });
+    }
+
+    public void registerTintSources(){
+        ItemTintSources.ID_MAPPER.put(
+                Identifier.fromNamespaceAndPath("totality", "potion_color"),
+                PotionTintSource.MAP_CODEC
+        );
     }
 
 }
