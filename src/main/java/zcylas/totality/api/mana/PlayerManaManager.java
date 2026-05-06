@@ -55,6 +55,13 @@ public class PlayerManaManager {
                 max += manaItem.getMaxMana(stack, ManaSource.ARMOR);
             }
         }
+        if (player.hasEffect(zcylas.totality.init.ModEffects.FORTIFY_MANA)) {
+            net.minecraft.world.effect.MobEffectInstance inst =
+                    player.getEffect(zcylas.totality.init.ModEffects.FORTIFY_MANA);
+            if (inst != null) {
+                max += inst.getAmplifier() + 1;
+            }
+        }
 
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = player.getItemInHand(hand);
@@ -87,6 +94,13 @@ public class PlayerManaManager {
             ItemStack stack = player.getItemBySlot(slot);
             if (stack.getItem() instanceof ManaRegenItem regenItem) {
                 regen += regenItem.getManaRegenMultiplier(stack, ManaSource.ARMOR);
+            }
+        }
+        if (player.hasEffect(zcylas.totality.init.ModEffects.REGENERATE_MANA)) {
+            net.minecraft.world.effect.MobEffectInstance inst =
+                    player.getEffect(zcylas.totality.init.ModEffects.REGENERATE_MANA);
+            if (inst != null) {
+                regen *= (1f + (inst.getAmplifier() + 1) / 100f);
             }
         }
 

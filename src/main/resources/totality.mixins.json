@@ -13,7 +13,11 @@
 		"LootItemRandomChanceWithEnchantedBonusConditionMixin",
 		"MixinServerPlayer",
 		"MixinLocalPlayer",
-		"ScreenAccessor"
+		"ScreenAccessor",
+		"item.TridentItemMixin",
+		"item.KineticWeaponMixin",
+		"item.PiercingWeaponMixin",
+		"item.MaceItemMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

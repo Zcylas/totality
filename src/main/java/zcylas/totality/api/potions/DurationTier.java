@@ -12,10 +12,11 @@ package zcylas.totality.api.potions;
  */
 public enum DurationTier implements PotionTier {
 
-    POTION ("Potion",  15 * 20),   // 300 ticks
-    DRAUGHT("Draught", 30 * 20),   // 600 ticks
-    PHILTER("Philter", 45 * 20),   // 900 ticks
-    ELIXIR ("Elixir",  60 * 20);   // 1200 ticks
+    POTION  ("Potion",   15 * 20),   // 300 ticks
+    DRAUGHT ("Draught",  30 * 20),   // 600 ticks
+    SOLUTION("Solution", 45 * 20),   // 900 ticks
+    PHILTER ("Philter",  60 * 20),   // 1200 ticks
+    ELIXIR  ("Elixir",   75 * 20);   // 1500 ticks
 
     private final String tierWord;
     private final int durationTicks;

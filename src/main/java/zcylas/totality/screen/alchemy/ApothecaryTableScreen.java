@@ -463,7 +463,9 @@ public class ApothecaryTableScreen extends Screen {
                     .map(this::displayName)
                     .collect(Collectors.joining(", "));
 
-            g.text(font, Component.literal(effect.getDisplayName()).withStyle(s -> s.withColor(col)),
+            String desc = effect.buildDescription(
+                    effect.getBaseMagnitude(), effect.getBaseDurationTicks());
+            g.text(font, Component.literal(desc).withStyle(s -> s.withColor(col)),
                     x, y, col, true);
             y += 11;
 

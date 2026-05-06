@@ -11,6 +11,7 @@ import zcylas.totality.api.component.ComponentSync;
 import zcylas.totality.api.component.SyncedComponent;
 import zcylas.totality.client.config.ItemSideModeClientCache;
 import zcylas.totality.client.config.SideModeClientCache;
+import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
@@ -18,6 +19,9 @@ import zcylas.totality.networking.config.SideModeSyncPayload;
 import zcylas.totality.networking.currency.ClientWalletManager;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
+import zcylas.totality.networking.notification.SendNotificationPayload;
+import zcylas.totality.networking.stamina.ClientStaminaManager;
+import zcylas.totality.networking.stamina.SyncStaminaPayload;
 import zcylas.totality.screen.alchemy.ApothecaryTableScreen;
 
 public class TotalityClientPacketHandlers {
@@ -33,6 +37,11 @@ public class TotalityClientPacketHandlers {
                 SyncManaPayload.TYPE,
                 (payload, context) ->
                         ClientManaManager.sync(payload.mana(), payload.maxMana())
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+                SyncStaminaPayload.TYPE,
+                (payload, context) ->
+                        ClientStaminaManager.sync(payload.stamina(), payload.maxStamina())
         );
 
         ClientPlayNetworking.registerGlobalReceiver(
@@ -85,7 +94,9 @@ public class TotalityClientPacketHandlers {
                     }
                 }
         );
-
+        ClientPlayNetworking.registerGlobalReceiver(
+                SendNotificationPayload.TYPE,
+                (payload, ctx) -> NotificationManager.add(payload.message(), payload.color()));
 
     }
 

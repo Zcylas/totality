@@ -20,7 +20,10 @@ public class ManaServerTick {
                         PlayerManaManager.addMana(player,
                                 PlayerManaManager.calculateRegenAmount(player));
                     }
+// Clamp current mana to max in case a Fortify effect just expired
+                    PlayerManaManager.setMana(player, PlayerManaManager.getMana(player));
                     syncMana(player);
+
                 }
             }
         });

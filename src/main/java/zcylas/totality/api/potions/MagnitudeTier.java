@@ -5,42 +5,36 @@ package zcylas.totality.api.potions;
  * Percentages apply to the target's max value (health, mana, stamina).
  *
  * Tier names follow Skyrim convention:
- *   MINOR     → "Potion of Minor Healing"       (15%)
- *   STANDARD  → "Potion of Healing"             (25%)
- *   PLENTIFUL → "Potion of Plentiful Healing"   (40%)
- *   VIGOROUS  → "Potion of Vigorous Healing"    (55%)
- *   EXTREME   → "Potion of Extreme Healing"     (75%)
- *   ULTIMATE  → "Potion of Ultimate Healing"    (100%)
+ *   MINOR     → "Potion of Minor Healing"       (25 points)
+ *   STANDARD  → "Potion of Healing"             (50 points)
+ *   PLENTIFUL → "Potion of Plentiful Healing"   (75 points)
+ *   VIGOROUS  → "Potion of Vigorous Healing"    (100 points)
+ *   EXTREME   → "Potion of Extreme Healing"     (150 points)
+ *   ULTIMATE  → "Potion of Ultimate Healing"    (full restore)
  */
 public enum MagnitudeTier implements PotionTier {
 
-    MINOR    ("Minor",     0.15f),
-    STANDARD ("",         0.25f),  // No tier word — "Potion of Healing"
-    PLENTIFUL("Plentiful", 0.40f),
-    VIGOROUS ("Vigorous",  0.55f),
-    EXTREME  ("Extreme",   0.75f),
-    ULTIMATE ("Ultimate",  1.00f);
+    MINOR    ("Minor",     25f),
+    STANDARD ("",         50f),
+    PLENTIFUL("Plentiful", 75f),
+    VIGOROUS ("Vigorous",  100f),
+    EXTREME  ("Extreme",   150f),
+    ULTIMATE ("Ultimate",  -1f);  // -1 = full restore
 
     private final String tierWord;
-    private final float percentage;
+    private final float points;
 
-    MagnitudeTier(String tierWord, float percentage) {
-        this.tierWord   = tierWord;
-        this.percentage = percentage;
+    MagnitudeTier(String tierWord, float points) {
+        this.tierWord = tierWord;
+        this.points   = points;
     }
 
     @Override
-    public String getTierWord() {
-        return tierWord;
-    }
+    public String getTierWord() { return tierWord; }
 
     @Override
-    public boolean replacesPrefix() {
-        return false;
-    }
+    public boolean replacesPrefix() { return false; }
 
-    /** Percentage of max value to restore/apply (0.0 – 1.0). */
-    public float getPercentage() {
-        return percentage;
-    }
+    /** Flat points to restore. -1 means full restore (ULTIMATE). */
+    public float getPoints() { return points; }
 }

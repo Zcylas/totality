@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer1": "totality:item/ultimate_potion_base",
+    "layer0": "totality:item/ultimate_potion_fill"
+  }
+}

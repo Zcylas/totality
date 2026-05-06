@@ -14,6 +14,8 @@ import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
+import zcylas.totality.networking.notification.SendNotificationPayload;
+import zcylas.totality.networking.stamina.SyncStaminaPayload;
 
 public class TotalityPackets {
 
@@ -33,11 +35,13 @@ public class TotalityPackets {
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry){
         registry.register(SideModeSyncPayload.TYPE, SideModeSyncPayload.CODEC);
+        registry.register(SyncStaminaPayload.TYPE, SyncStaminaPayload.CODEC);
         registry.register(SyncManaPayload.TYPE, SyncManaPayload.CODEC);
         registry.register(ItemSideModeSyncPayload.TYPE, ItemSideModeSyncPayload.CODEC);
         registry.register(ComponentSync.PACKET_TYPE, ComponentSync.STREAM_CODEC);
         registry.register(OpenApothecaryTablePayload.TYPE, OpenApothecaryTablePayload.STREAM_CODEC);
         registry.register(BrewResultPayload.TYPE, BrewResultPayload.STREAM_CODEC);
+        registry.register(SendNotificationPayload.TYPE, SendNotificationPayload.CODEC);
     }
 
     private TotalityPackets() {}

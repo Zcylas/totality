@@ -80,7 +80,8 @@ public class AlchemyPotionItem extends Item {
                 case HARMFUL    -> 0xFFFF6666;
                 case NEUTRAL    -> 0xFFCCCCCC;
             };
-            builder.accept(Component.literal(effect.getDisplayName())
+            String description = effect.buildDescription(entry.magnitude(), entry.durationTicks());
+            builder.accept(Component.literal(description)
                     .withStyle(s -> s.withColor(col)));
         }
     }

@@ -22,6 +22,7 @@ import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer
 import zcylas.totality.client.renderer.fluid.FluidTankRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.client.renderer.hud.TotalityHudRenderer;
+import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.init.ModBlockEntities;
 import zcylas.totality.init.ModEffects;
 import zcylas.totality.init.ModEntities;
@@ -68,6 +69,7 @@ public class TotalityClient implements ClientModInitializer {
         );
         TotalityHudRenderer.register();
         WalletHudRenderer.register();
+        NotificationManager.register();
     }
 
     private void registerEntityRenderers(){

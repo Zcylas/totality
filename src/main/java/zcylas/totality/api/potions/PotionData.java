@@ -13,9 +13,9 @@ public record PotionData(
         boolean isPoison
 ) {
     // Standard potion colors
-    public static final int COLOR_RED    = 0x8B0000; // Dark red — health
-    public static final int COLOR_BLUE   = 0x1B2A8B; // Dark blue — mana
-    public static final int COLOR_GREEN  = 0x1A6B2E; // Dark green — stamina
+    public static final int COLOR_RED    = 0xB43A3A; // Dark red — health
+    public static final int COLOR_BLUE   = 0x4A66C9; // Dark blue — mana
+    public static final int COLOR_GREEN  = 0x7FAF3A; // Dark green — stamina
     public static final int COLOR_PURPLE = 0x4B0082; // Dark purple — poison/unknown
     public static final int COLOR_GOLD   = 0xA67C00; // Dark gold — special
     public static final int COLOR_WHITE  = 0xA0B8C0; // Muted white — neutral

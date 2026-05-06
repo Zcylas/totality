@@ -9,9 +9,11 @@ import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
 import net.minecraft.client.data.models.blockstates.PropertyDispatch;
 import net.minecraft.client.data.models.model.ItemModelUtils;
 import net.minecraft.client.data.models.model.ModelTemplates;
+import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.renderer.item.properties.conditional.HasComponent;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.api.energy.UEComponents;
@@ -130,6 +132,28 @@ public class ModModelProvider extends FabricModelProvider {
                 AlchemyBlocks.RED_MOUNTAIN_FLOWER,
                 BlockModelGenerators.PlantType.NOT_TINTED
         );
+            //Crops
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(AlchemyBlocks.TRUE_WHEAT_CROP)
+                        .with(PropertyDispatch.initial(CropBlock.AGE)
+                                .select(0, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_0")))
+                                .select(1, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_1")))
+                                .select(2, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_2")))
+                                .select(3, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_3")))
+                                .select(4, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_4")))
+                                .select(5, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_5")))
+                                .select(6, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_6")))
+                                .select(7, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_7")))
+                        )
+        );
 
 
     }
@@ -234,6 +258,8 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(IngredientItems.GRAPHITE, ModelTemplates.FLAT_ITEM);
             //Rough Gemstones
         generators.generateFlatItem(IngredientItems.ROUGH_RUBY, ModelTemplates.FLAT_ITEM);
+            //Seeds
+        generators.generateFlatItem(IngredientItems.TRUE_WHEAT_SEEDS, ModelTemplates.FLAT_ITEM);
         //Tools
             //Coins
         generators.generateFlatItem(CurrencyItems.COPPER_COIN, ModelTemplates.FLAT_ITEM);
@@ -242,11 +268,17 @@ public class ModModelProvider extends FabricModelProvider {
         //Alchemy Ingredients
         generators.generateFlatItem(SKIngredientItems.SALMON_ROE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(SKIngredientItems.TRUE_WHEAT, ModelTemplates.FLAT_ITEM);
 
 
         //Defaults
             //Default Potion
         Identifier minorPotionModel = Identifier.fromNamespaceAndPath("totality", "item/minor_potion");
+        Identifier standardPotionModel = Identifier.fromNamespaceAndPath("totality", "item/standard_potion");
+        Identifier plentifulPotionModel = Identifier.fromNamespaceAndPath("totality", "item/plentiful_potion");
+        Identifier vigorousPotionModel = Identifier.fromNamespaceAndPath("totality", "item/vigorous_potion");
+        Identifier extremePotionModel = Identifier.fromNamespaceAndPath("totality", "item/extreme_potion");
+        Identifier ultimatePotionModel = Identifier.fromNamespaceAndPath("totality", "item/ultimate_potion");
         generators.itemModelOutput.accept(
                 PotionItems.BREWED_POTION,
                 ItemModelUtils.tintedModel(minorPotionModel, PotionTintSource.INSTANCE)
@@ -256,7 +288,83 @@ public class ModModelProvider extends FabricModelProvider {
                 PotionItems.POTION_OF_MINOR_HEALING,
                 ItemModelUtils.tintedModel(minorPotionModel, PotionTintSource.INSTANCE)
         );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_MINOR_MANA,
+                ItemModelUtils.tintedModel(minorPotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_MINOR_STAMINA,
+                ItemModelUtils.tintedModel(minorPotionModel, PotionTintSource.INSTANCE)
+        );
+
+        //Standard Potions
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_HEALING,
+                ItemModelUtils.tintedModel(standardPotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_MANA,
+                ItemModelUtils.tintedModel(standardPotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_STAMINA,
+                ItemModelUtils.tintedModel(standardPotionModel, PotionTintSource.INSTANCE)
+        );
+        //Plentiful Potions
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_PLENTIFUL_HEALING,
+                ItemModelUtils.tintedModel(plentifulPotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_PLENTIFUL_MANA,
+                ItemModelUtils.tintedModel(plentifulPotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_PLENTIFUL_STAMINA,
+                ItemModelUtils.tintedModel(plentifulPotionModel, PotionTintSource.INSTANCE)
+        );
+        //Vigorous Potions
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_VIGOROUS_HEALING,
+                ItemModelUtils.tintedModel(vigorousPotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_VIGOROUS_MANA,
+                ItemModelUtils.tintedModel(vigorousPotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_VIGOROUS_STAMINA,
+                ItemModelUtils.tintedModel(vigorousPotionModel, PotionTintSource.INSTANCE)
+        );
+        //Extreme Potions
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_EXTREME_HEALING,
+                ItemModelUtils.tintedModel(extremePotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_EXTREME_MANA,
+                ItemModelUtils.tintedModel(extremePotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_EXTREME_STAMINA,
+                ItemModelUtils.tintedModel(extremePotionModel, PotionTintSource.INSTANCE)
+        );
+        //Ultimate Potions
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_ULTIMATE_HEALING,
+                ItemModelUtils.tintedModel(ultimatePotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_ULTIMATE_MANA,
+                ItemModelUtils.tintedModel(ultimatePotionModel, PotionTintSource.INSTANCE)
+        );
+        generators.itemModelOutput.accept(
+                PotionItems.POTION_OF_ULTIMATE_STAMINA,
+                ItemModelUtils.tintedModel(ultimatePotionModel, PotionTintSource.INSTANCE)
+        );
     }
+    //Helper Classes
+
 
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {
         // Points to your hand-made JSON model, generates blockstate JSON

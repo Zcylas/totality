@@ -6,16 +6,17 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffect;
 import zcylas.totality.Totality;
-import zcylas.totality.effect.GlideEffect;
-import zcylas.totality.effect.HexEffect;
-import zcylas.totality.effect.LightningEffect;
-import zcylas.totality.effect.SummoningSicknessEffect;
+import zcylas.totality.effect.*;
 
 public class ModEffects {
     public static Holder<MobEffect> GLIDE;
     public static Holder<MobEffect> HEX;
     public static Holder<MobEffect> SHOCKED;
     public static Holder<MobEffect> SUMMONING_SICKNESS;
+    public static Holder<MobEffect> FORTIFY_MANA;
+    public static Holder<MobEffect> REGENERATE_MANA;
+    public static Holder<MobEffect> FORTIFY_STAMINA;
+    public static Holder<MobEffect> REGENERATE_STAMINA;
 
     public static void register() {
         GLIDE = net.minecraft.core.Registry.registerForHolder(
@@ -37,7 +38,23 @@ public class ModEffects {
                 BuiltInRegistries.MOB_EFFECT,
                 Identifier.fromNamespaceAndPath(Totality.MOD_ID, "summoning_sickness"),
                 SummoningSicknessEffect.INSTACE);
+        FORTIFY_MANA = Registry.registerForHolder(
+                BuiltInRegistries.MOB_EFFECT,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "fortify_mana"),
+                FortifyManaEffect.INSTANCE);
+        FORTIFY_STAMINA = Registry.registerForHolder(
+                BuiltInRegistries.MOB_EFFECT,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "fortify_stamina"),
+                FortifyStaminaEffect.INSTANCE);
 
+        REGENERATE_MANA = Registry.registerForHolder(
+                BuiltInRegistries.MOB_EFFECT,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "regenerate_mana"),
+                RegenerateManaEffect.INSTANCE);
+        REGENERATE_STAMINA = Registry.registerForHolder(
+                BuiltInRegistries.MOB_EFFECT,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "regenerate_stamina"),
+                RegenerateStaminaEffect.INSTANCE);
     }
 
 

@@ -35,6 +35,9 @@ public final class AlchemyEffect {
     private Consumer<LivingEntity>             onConsume    = entity -> {};
     private BiConsumer<LivingEntity, Float>    onDrink      = (entity, magnitude) -> {};
     private ObjIntConsumer<LivingEntity>       onDrinkTimed = (entity, ticks) -> {};
+    // Called when both magnitude AND duration are present (e.g. RegenerateTier potions)
+    private java.util.function.BiConsumer<LivingEntity, float[]> onDrinkFull = null;
+    private java.util.function.BiFunction<Float, Integer, String> descriptionBuilder = null;
 
     private AlchemyEffect(
             Identifier id,
@@ -100,6 +103,31 @@ public final class AlchemyEffect {
         return this;
     }
 
+    /**
+     * Called when both magnitude AND duration are present (e.g. RegenerateTier potions).
+     * args[0] = magnitude, args[1] = durationTicks (as float)
+     */
+    public AlchemyEffect withFullDrinkEffect(java.util.function.BiConsumer<LivingEntity, float[]> onDrinkFull) {
+        this.onDrinkFull = onDrinkFull;
+        return this;
+    }
+
+    /**
+     * Sets the tooltip description template for this effect.
+     * magnitude — raw magnitude value (e.g. 0.22 for 22%)
+     * ticks     — duration in ticks (divide by 20 for seconds)
+     */
+    public AlchemyEffect withDescription(java.util.function.BiFunction<Float, Integer, String> builder) {
+        this.descriptionBuilder = builder;
+        return this;
+    }
+
+    /** Builds the tooltip description string for this effect with the given values. */
+    public String buildDescription(float magnitude, int durationTicks) {
+        if (descriptionBuilder == null) return displayName + ".";
+        return descriptionBuilder.apply(magnitude, durationTicks);
+    }
+
     // ── Application ───────────────────────────────────────────────────────────
 
     /** Called when the raw ingredient is eaten. */
@@ -125,9 +153,14 @@ public final class AlchemyEffect {
      * durationTicks — ticks (from DurationTier), 0 for instant effects
      */
     public void applyConsume(LivingEntity entity, float magnitude, int durationTicks) {
-        if (durationTicks > 0) {
+        if (magnitude > 0 && durationTicks > 0 && onDrinkFull != null) {
+            // Both magnitude and duration — use full callback if registered
+            onDrinkFull.accept(entity, new float[]{magnitude, durationTicks});
+        } else if (durationTicks > 0 && magnitude <= 0) {
+            // Duration only (e.g. Waterbreathing)
             onDrinkTimed.accept(entity, durationTicks);
         } else {
+            // Magnitude only or fallback
             onDrink.accept(entity, magnitude);
         }
     }

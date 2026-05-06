@@ -11,6 +11,7 @@ import zcylas.totality.Totality;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.client.renderer.hud.context.MagicContextHud;
 import zcylas.totality.networking.mana.ClientManaManager;
+import zcylas.totality.networking.stamina.ClientStaminaManager;
 
 public class TotalityHudRenderer {
 
@@ -46,9 +47,9 @@ public class TotalityHudRenderer {
             int screenH = graphics.guiHeight();
 
             int leftX    = 6;
-            int manaY    = screenH - BOTTOM_MARGIN - BG_HEIGHT;
-            int staminaY = manaY    - BAR_SPACING  - BG_HEIGHT;
-            int hpY      = staminaY - BAR_SPACING  - BG_HEIGHT;
+            int staminaY = screenH - BOTTOM_MARGIN - BG_HEIGHT;  // bottom
+            int manaY    = staminaY - BAR_SPACING  - BG_HEIGHT;  // middle
+            int hpY      = manaY    - BAR_SPACING  - BG_HEIGHT;  // top
 
             // ── LEFT SIDE — HP, Stamina, Mana ──
             drawBar(graphics, client, leftX, hpY,
@@ -56,9 +57,11 @@ public class TotalityHudRenderer {
                     client.player.getHealth(), client.player.getMaxHealth(),
                     (int) client.player.getHealth(), (int) client.player.getMaxHealth());
 
+            int stamina    = ClientStaminaManager.getStamina();
+            int maxStamina = ClientStaminaManager.getMaxStamina();
             drawBar(graphics, client, leftX, staminaY,
                     TotalityGuiSprites.HUD_STAMINA_FILL,
-                    1f, 1f, 100, 100);
+                    stamina, maxStamina, stamina, maxStamina);
 
             int mana    = ClientManaManager.getMana();
             int maxMana = ClientManaManager.getMaxMana();

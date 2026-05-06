@@ -20,6 +20,7 @@ public class TotalityDataGenerator implements DataGeneratorEntrypoint {
 		pack.addProvider(ModWorldGenProvider::new);
 		pack.addProvider(ModBlockTagProvider::new);
 		pack.addProvider(ModBlockLootTableProvider::new);
+		pack.addProvider(ModItemTagProvider::new);
 	}
 
 	@Override

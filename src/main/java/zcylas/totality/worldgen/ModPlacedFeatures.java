@@ -3,6 +3,7 @@ package zcylas.totality.worldgen;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.data.worldgen.placement.PlacementUtils;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.levelgen.VerticalAnchor;
@@ -13,89 +14,71 @@ import zcylas.totality.Totality;
 import java.util.List;
 
 public class ModPlacedFeatures {
+    //Ores
     public static final ResourceKey<PlacedFeature> GRAPHITE_ORE_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE,
-            Identifier.fromNamespaceAndPath(Totality.MOD_ID, "graphite_ore_placed")
-    );
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "graphite_ore_placed"));
     public static final ResourceKey<PlacedFeature> LEAD_ORE_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE,
-            Identifier.fromNamespaceAndPath(Totality.MOD_ID, "lead_ore_placed")
-    );
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "lead_ore_placed"));
     public static final ResourceKey<PlacedFeature> TIN_ORE_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE,
-            Identifier.fromNamespaceAndPath(Totality.MOD_ID, "tin_ore_placed")
-    );
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "tin_ore_placed"));
     public static final ResourceKey<PlacedFeature> SILVER_ORE_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE,
-            Identifier.fromNamespaceAndPath(Totality.MOD_ID, "silver_ore_placed")
-    );
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "silver_ore_placed"));
     public static final ResourceKey<PlacedFeature> RUBY_ORE_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE,
-            Identifier.fromNamespaceAndPath(Totality.MOD_ID, "ruby_ore_placed")
-    );
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "ruby_ore_placed"));
+
+    // Mountain Flowers
+    public static final ResourceKey<PlacedFeature> BLUE_MOUNTAIN_FLOWER_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "blue_mountain_flower_placed"));
+    public static final ResourceKey<PlacedFeature> PURPLE_MOUNTAIN_FLOWER_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "purple_mountain_flower_placed"));
+    public static final ResourceKey<PlacedFeature> RED_MOUNTAIN_FLOWER_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "red_mountain_flower_placed"));
 
     public static void bootstrap(BootstrapContext<PlacedFeature> context){
+        //Ores
         HolderGetter<ConfiguredFeature<?, ?>> configuredFeatures = context.lookup(Registries.CONFIGURED_FEATURE);
 
         context.register(GRAPHITE_ORE_PLACED_KEY, new PlacedFeature(
                 configuredFeatures.getOrThrow(ModConfiguredFeatures.GRAPHITE_ORE_KEY),
-                List.of(
-                        CountPlacement.of(8),
-                        InSquarePlacement.spread(),
-                        HeightRangePlacement.triangle(
-                                VerticalAnchor.absolute(-64),
-                                VerticalAnchor.absolute(0)
-                        ),
-                        BiomeFilter.biome()
-                )
-        ));
+                List.of(CountPlacement.of(8), InSquarePlacement.spread(),
+                        HeightRangePlacement.triangle(VerticalAnchor.absolute(-64), VerticalAnchor.absolute(0)),
+                        BiomeFilter.biome())));
         context.register(LEAD_ORE_PLACED_KEY, new PlacedFeature(
                 configuredFeatures.getOrThrow(ModConfiguredFeatures.LEAD_ORE_KEY),
-                List.of(
-                        CountPlacement.of(6),
-                        InSquarePlacement.spread(),
-                        HeightRangePlacement.triangle(
-                                VerticalAnchor.absolute(-32),
-                                VerticalAnchor.absolute(48)
-                        ),
-                        BiomeFilter.biome()
-                )
-        ));
+                List.of(CountPlacement.of(6), InSquarePlacement.spread(),
+                        HeightRangePlacement.triangle(VerticalAnchor.absolute(-32), VerticalAnchor.absolute(48)),
+                        BiomeFilter.biome())));
         context.register(TIN_ORE_PLACED_KEY, new PlacedFeature(
                 configuredFeatures.getOrThrow(ModConfiguredFeatures.TIN_ORE_KEY),
-                List.of(
-                        CountPlacement.of(8),
-                        InSquarePlacement.spread(),
-                        HeightRangePlacement.triangle(
-                                VerticalAnchor.absolute(0),
-                                VerticalAnchor.absolute(80)
-                        ),
-                        BiomeFilter.biome()
-                )
-        ));
+                List.of(CountPlacement.of(8), InSquarePlacement.spread(),
+                        HeightRangePlacement.triangle(VerticalAnchor.absolute(0), VerticalAnchor.absolute(80)),
+                        BiomeFilter.biome())));
         context.register(SILVER_ORE_PLACED_KEY, new PlacedFeature(
                 configuredFeatures.getOrThrow(ModConfiguredFeatures.SILVER_ORE_KEY),
-                List.of(
-                        CountPlacement.of(4),
-                        InSquarePlacement.spread(),
-                        HeightRangePlacement.triangle(
-                                VerticalAnchor.absolute(-32),
-                                VerticalAnchor.absolute(48)
-                        ),
-                        BiomeFilter.biome()
-                )
-        ));
+                List.of(CountPlacement.of(4), InSquarePlacement.spread(),
+                        HeightRangePlacement.triangle(VerticalAnchor.absolute(-32), VerticalAnchor.absolute(48)),
+                        BiomeFilter.biome())));
         context.register(RUBY_ORE_PLACED_KEY, new PlacedFeature(
                 configuredFeatures.getOrThrow(ModConfiguredFeatures.RUBY_ORE_KEY),
-                List.of(
-                        CountPlacement.of(5),
-                        InSquarePlacement.spread(),
-                        HeightRangePlacement.triangle(
-                                VerticalAnchor.absolute(16),
-                                VerticalAnchor.absolute(64)
-                        ),
-                        BiomeFilter.biome()
-                )
-        ));
+                List.of(CountPlacement.of(5), InSquarePlacement.spread(),
+                        HeightRangePlacement.triangle(VerticalAnchor.absolute(16), VerticalAnchor.absolute(64)),
+                        BiomeFilter.biome())));
+
+        // Mountain Flowers
+        // Blue — plains, forests, meadows
+        context.register(BLUE_MOUNTAIN_FLOWER_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.BLUE_MOUNTAIN_FLOWER_KEY),
+                List.of(RarityFilter.onAverageOnceEvery(6), InSquarePlacement.spread(),
+                        PlacementUtils.HEIGHTMAP_WORLD_SURFACE, BiomeFilter.biome())));
+        // Purple — taiga, snowy biomes
+        context.register(PURPLE_MOUNTAIN_FLOWER_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.PURPLE_MOUNTAIN_FLOWER_KEY),
+                List.of(RarityFilter.onAverageOnceEvery(8), InSquarePlacement.spread(),
+                        PlacementUtils.HEIGHTMAP_WORLD_SURFACE, BiomeFilter.biome())));
+        // Red — forests, warm biomes
+        context.register(RED_MOUNTAIN_FLOWER_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.RED_MOUNTAIN_FLOWER_KEY),
+                List.of(RarityFilter.onAverageOnceEvery(6), InSquarePlacement.spread(),
+                        PlacementUtils.HEIGHTMAP_WORLD_SURFACE, BiomeFilter.biome())));
     }
 }

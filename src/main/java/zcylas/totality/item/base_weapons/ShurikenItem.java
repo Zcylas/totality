@@ -10,12 +10,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
+import zcylas.totality.api.combat.weapon.TotalityWeaponItem;
+import zcylas.totality.api.combat.weapon.WeaponType;
+import zcylas.totality.api.stamina.PlayerStaminaManager;
 import zcylas.totality.entity.base_weapon.ThrownShurikenEntity;
 import zcylas.totality.init.ModSounds;
+import zcylas.totality.networking.stamina.StaminaServerTick;
 
 import java.util.function.Consumer;
 
-public class ShurikenItem extends Item {
+public class ShurikenItem extends Item implements TotalityWeaponItem {
 
     private final float throwDamage;
 
@@ -38,6 +42,11 @@ public class ShurikenItem extends Item {
             shuriken.shootFromRotation(player, player.getXRot(), player.getYRot(), 0.0f, 2.5f, 0.0f);
             level.addFreshEntity(shuriken);
 
+            if (!player.getAbilities().instabuild && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                PlayerStaminaManager.removeStamina(serverPlayer, getThrownAttackCost());
+                StaminaServerTick.syncStamina(serverPlayer);
+            }
+
             if (!player.getAbilities().instabuild) {
                 stack.shrink(1);
             }
@@ -54,5 +63,10 @@ public class ShurikenItem extends Item {
         builder.accept(Component.translatable("item.totality.shuriken.damage",
                         String.format("%.1f", throwDamage))
                 .withStyle(ChatFormatting.DARK_RED));
+    }
+
+    @Override
+    public WeaponType getWeaponType() {
+        return WeaponType.THROWN;
     }
 }

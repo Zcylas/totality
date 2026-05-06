@@ -1,13 +1,11 @@
 package zcylas.totality.init.blocks;
 
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
-import zcylas.totality.block.alchemy.ApothecaryTableBlock;
-import zcylas.totality.block.alchemy.BlueMountainFlowerBlock;
-import zcylas.totality.block.alchemy.PurpleMountainFlowerBlock;
-import zcylas.totality.block.alchemy.RedMountainFlowerBlock;
+import zcylas.totality.block.alchemy.*;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.alchemy.BlueMountainFlowerItem;
 import zcylas.totality.item.alchemy.PurpleMountainFlowerItem;
@@ -44,6 +42,16 @@ public class AlchemyBlocks {
             "red_mountain_flower",
             props -> new RedMountainFlowerBlock(MobEffects.WEAKNESS, 7, props),
             RedMountainFlowerItem::new
+    );
+    public static final Block TRUE_WHEAT_CROP = TotalityRegistry.registerBlock(
+            "true_wheat_crop",
+            TrueWheatCropBlock::new,
+            BlockBehaviour.Properties.of()
+                    .noCollision()
+                    .randomTicks()
+                    .instabreak()
+                    .sound(SoundType.CROP),
+            false
     );
 
     public static void register() {}

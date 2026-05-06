@@ -2,16 +2,18 @@ package zcylas.totality;
 
 import net.fabricmc.api.ModInitializer;
 
-import net.fabricmc.fabric.api.biome.v1.BiomeModification;
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
+import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.alchemy.AlchemyEffects;
+import zcylas.totality.api.combat.weapon.TwoHandedRestriction;
+import zcylas.totality.api.combat.weapon.WeaponStaminaHandler;
 import zcylas.totality.api.component.PlayerComponentEvents;
 import zcylas.totality.init.*;
 import zcylas.totality.init.magic.MagicRunes;
@@ -21,6 +23,7 @@ import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityPackets;
 import zcylas.totality.networking.TotalityServerPacketHandlers;
 import zcylas.totality.networking.mana.ManaServerTick;
+import zcylas.totality.networking.stamina.StaminaServerTick;
 import zcylas.totality.worldgen.ModPlacedFeatures;
 
 public class Totality implements ModInitializer {
@@ -37,6 +40,7 @@ public class Totality implements ModInitializer {
 		registerApi();
 		registerItemHandlers();
 		registerInits();
+		registerCombatApi();
 		registerEvents();
 		registerAttributes();
 		registerLookups();
@@ -73,11 +77,17 @@ public class Totality implements ModInitializer {
 
 	private void registerServerTickEvents(){
 		ManaServerTick.register();
+		StaminaServerTick.register();
 	}
 
 	private void registerApi(){
 		UEApiInit.register();
 		AlchemyEffects.register();
+	}
+
+	private void registerCombatApi(){
+		WeaponStaminaHandler.register();
+		TwoHandedRestriction.register();
 	}
 
 	private void registerItemHandlers(){
@@ -114,6 +124,50 @@ public class Totality implements ModInitializer {
 				GenerationStep.Decoration.UNDERGROUND_ORES,
 				ModPlacedFeatures.RUBY_ORE_PLACED_KEY
 		);
+		// Blue Mountain Flower — plains, forests, meadows
+		BiomeModifications.addFeature(
+				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
+						.and(ctx -> {
+							String path = ctx.getBiomeKey().identifier().getPath();
+
+							return path.contains("plains")
+									|| path.contains("meadow")
+									|| (path.contains("forest")
+									&& !path.contains("birch")
+									&& !path.contains("dark"));
+						}),
+				GenerationStep.Decoration.VEGETAL_DECORATION,
+				ModPlacedFeatures.BLUE_MOUNTAIN_FLOWER_PLACED_KEY
+		);
+		// Purple Mountain Flower — taiga, snowy biomes
+		BiomeModifications.addFeature(
+				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
+						.and(ctx -> {
+							String path = ctx.getBiomeKey().identifier().getPath();
+
+							return path.contains("taiga")
+									|| path.contains("snowy")
+									|| path.contains("frozen");
+						}),
+				GenerationStep.Decoration.VEGETAL_DECORATION,
+				ModPlacedFeatures.PURPLE_MOUNTAIN_FLOWER_PLACED_KEY
+		);
+
+	// Red Mountain Flower — forests, jungles, warm biomes
+		BiomeModifications.addFeature(
+				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
+						.and(ctx -> {
+							String path = ctx.getBiomeKey().identifier().getPath();
+
+							return path.contains("jungle")
+									|| path.contains("birch")
+									|| path.contains("dark_forest")
+									|| path.contains("savanna");
+						}),
+				GenerationStep.Decoration.VEGETAL_DECORATION,
+				ModPlacedFeatures.RED_MOUNTAIN_FLOWER_PLACED_KEY
+		);
+
 	}
 	private void registerEvents(){
 		PlayerComponentEvents.init();
