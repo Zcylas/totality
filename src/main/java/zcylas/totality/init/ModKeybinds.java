@@ -26,6 +26,18 @@ public class ModKeybinds {
                     TOTALITY_CATEGORY
             )
     );
+    /**
+     * Opens the main TAB menu (CHARACTER, CODEX etc.)
+     * TODO: Once fully wired, remove /totality stats command.
+     */
+    public static final KeyMapping OPEN_MENU = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.open_menu",
+                    GLFW.GLFW_KEY_TAB,
+                    TOTALITY_CATEGORY
+            )
+    );
+
 
     public static void register() {}
 

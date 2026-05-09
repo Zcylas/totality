@@ -1,11 +1,14 @@
 package zcylas.totality.init;
 
-import zcylas.totality.api.alchemy.AlchemyComponents;
-import zcylas.totality.api.currency.CurrencyComponents;
-import zcylas.totality.api.energy.UEComponents;
-import zcylas.totality.api.fluid.FluidComponents;
+import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
+import zcylas.totality.api.rpg.skills.core.SkillsComponents;
+import zcylas.totality.api.rpg.stats.StatsComponents;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyComponents;
+import zcylas.totality.api.economy.currency.CurrencyComponents;
+import zcylas.totality.api.industrial.energy.UEComponents;
+import zcylas.totality.api.industrial.fluid.FluidComponents;
 import zcylas.totality.api.magic.MagicComponents;
-import zcylas.totality.api.potions.PotionDataComponent;
+import zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent;
 
 public class ModComponents {
 
@@ -16,6 +19,9 @@ public class ModComponents {
         CurrencyComponents.register();
         AlchemyComponents.register();
         PotionDataComponent.register();
+        StatsComponents.register();
+        SkillsComponents.register();
+        MasteriesComponents.register();
     }
 
     private ModComponents() {}

@@ -14,7 +14,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 import zcylas.totality.Totality;
-import zcylas.totality.api.energy.UEArmorItem;
+import zcylas.totality.api.industrial.energy.UEArmorItem;
 
 public class UmbraVisorItem extends UEArmorItem {
 

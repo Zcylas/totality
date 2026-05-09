@@ -11,10 +11,12 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import zcylas.totality.api.alchemy.AlchemyEffects;
-import zcylas.totality.api.combat.weapon.TwoHandedRestriction;
-import zcylas.totality.api.combat.weapon.WeaponStaminaHandler;
-import zcylas.totality.api.component.PlayerComponentEvents;
+import zcylas.totality.api.rpg.skills.core.OneHandedSkillHandler;
+import zcylas.totality.api.rpg.stats.StatsServerEvents;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
+import zcylas.totality.api.rpg.combat.weapon.TwoHandedRestriction;
+import zcylas.totality.api.rpg.combat.weapon.WeaponStaminaHandler;
+import zcylas.totality.api.core.component.PlayerComponentEvents;
 import zcylas.totality.init.*;
 import zcylas.totality.init.magic.MagicRunes;
 import zcylas.totality.item.energy.UmbraVisorItem;
@@ -22,8 +24,11 @@ import zcylas.totality.menu.energy.ElectricFurnaceMenu;
 import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityPackets;
 import zcylas.totality.networking.TotalityServerPacketHandlers;
+import zcylas.totality.networking.inventory.InventoryActionHandler;
 import zcylas.totality.networking.mana.ManaServerTick;
+import zcylas.totality.networking.skills.UnlockMasteryHandler;
 import zcylas.totality.networking.stamina.StaminaServerTick;
+import zcylas.totality.networking.stats.SpendAttributePointHandler;
 import zcylas.totality.worldgen.ModPlacedFeatures;
 
 public class Totality implements ModInitializer {
@@ -42,6 +47,8 @@ public class Totality implements ModInitializer {
 		registerInits();
 		registerCombatApi();
 		registerEvents();
+		registerRPGHandlers();
+		registerSkillHandlers();
 		registerAttributes();
 		registerLookups();
 		registerBiomeModifications();
@@ -57,7 +64,7 @@ public class Totality implements ModInitializer {
 		ModEffects.register();
 		ModSounds.register();
 		ModLootTables.register();
-
+		TotalityCommands.register();
 	}
 
 	private void registerLookups(){
@@ -88,6 +95,14 @@ public class Totality implements ModInitializer {
 	private void registerCombatApi(){
 		WeaponStaminaHandler.register();
 		TwoHandedRestriction.register();
+	}
+	private void registerRPGHandlers(){
+		UnlockMasteryHandler.register();
+		InventoryActionHandler.register();
+		SpendAttributePointHandler.register();
+	}
+	private void registerSkillHandlers(){
+		OneHandedSkillHandler.register();
 	}
 
 	private void registerItemHandlers(){
@@ -171,5 +186,6 @@ public class Totality implements ModInitializer {
 	}
 	private void registerEvents(){
 		PlayerComponentEvents.init();
+		StatsServerEvents.register();
 	}
 }

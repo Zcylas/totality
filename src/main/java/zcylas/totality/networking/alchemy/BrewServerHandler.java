@@ -7,15 +7,11 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import zcylas.totality.api.alchemy.AlchemyIngredient;
-import net.minecraft.resources.Identifier;
-import zcylas.totality.api.alchemy.*;
-import zcylas.totality.api.alchemy.BrewingLogic;
-import zcylas.totality.api.potions.EffectEntry;
-import zcylas.totality.api.potions.PotionData;
-import zcylas.totality.api.potions.PotionDataComponent;
-import zcylas.totality.item.potion.AlchemyPotionItem;
-import zcylas.totality.networking.alchemy.BrewResultPayload;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyIngredient;
+import zcylas.totality.api.rpg.skills.alchemy.*;
+import zcylas.totality.api.rpg.skills.alchemy.BrewingLogic;
+import zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry;
+import zcylas.totality.api.rpg.skills.alchemy.potions.PotionData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -94,8 +90,8 @@ public final class BrewServerHandler {
             return;
         }
 
-        AlchemyKnowledgeComponent knowledge = zcylas.totality.api.alchemy.AlchemyComponents.KNOWLEDGE.get(
-                (zcylas.totality.api.component.ComponentProvider) player
+        AlchemyKnowledgeComponent knowledge = zcylas.totality.api.rpg.skills.alchemy.AlchemyComponents.KNOWLEDGE.get(
+                (zcylas.totality.api.core.component.ComponentProvider) player
         );
         List<AlchemyEffectInstance> allEffects = ((BrewingLogic.BrewResult.Success) result).effects();
 
@@ -156,7 +152,7 @@ public final class BrewServerHandler {
         // Create stack from the registered BREWED_POTION base item
         // and store PotionData as a component so it survives save/load
         ItemStack potionStack = new ItemStack(zcylas.totality.init.items.PotionItems.BREWED_POTION);
-        potionStack.set(zcylas.totality.api.potions.PotionDataComponent.POTION_DATA, potionData);
+        potionStack.set(zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent.POTION_DATA, potionData);
 
         // Give to player
         if (!player.getInventory().add(potionStack)) {

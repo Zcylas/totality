@@ -29,7 +29,7 @@ import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 import org.jspecify.annotations.Nullable;
-import zcylas.totality.api.fluid.FluidComponents;
+import zcylas.totality.api.industrial.fluid.FluidComponents;
 import zcylas.totality.block.fluid.FluidTankBlock;
 
 import java.util.function.Consumer;

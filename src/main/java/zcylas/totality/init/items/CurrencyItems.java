@@ -1,7 +1,7 @@
 package zcylas.totality.init.items;
 
 import net.minecraft.world.item.Item;
-import zcylas.totality.api.currency.Denomination;
+import zcylas.totality.api.economy.currency.Denomination;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.tools.CoinItem;
 

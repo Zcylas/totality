@@ -9,7 +9,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
 import org.lwjgl.glfw.GLFW;
-import zcylas.totality.api.energy.UEFormat;
+import zcylas.totality.api.industrial.energy.UEFormat;
 import zcylas.totality.block.energy.EnergyCellBlock;
 
 import java.util.function.Consumer;

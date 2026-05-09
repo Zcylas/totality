@@ -23,7 +23,8 @@ public class TrueWheatCropBlock extends CropBlock {
             Block.box(2, 0, 2, 14, 8, 14),   // age 3
             Block.box(2, 0, 2, 14, 10, 14),  // age 4
             Block.box(2, 0, 2, 14, 12, 14),  // age 5
-            Block.box(2, 0, 2, 14, 16, 14)   // age 6
+            Block.box(2, 0, 2, 14, 16, 14),   // age 6
+            Block.box(2, 0, 2, 14, 16, 14)   // age 7
 
     };
 

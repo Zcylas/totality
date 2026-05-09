@@ -9,28 +9,25 @@ import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
 import net.minecraft.client.data.models.blockstates.PropertyDispatch;
 import net.minecraft.client.data.models.model.ItemModelUtils;
 import net.minecraft.client.data.models.model.ModelTemplates;
-import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.renderer.item.properties.conditional.HasComponent;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.NonNull;
-import zcylas.totality.api.energy.UEComponents;
+import zcylas.totality.api.industrial.energy.UEComponents;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.ElectricFurnaceBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.init.ModBlocks;
-import zcylas.totality.init.ModItems;
 import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
 import zcylas.totality.init.items.*;
 
 import net.minecraft.client.data.models.blockstates.ConditionBuilder;
-import zcylas.totality.item.tools.CoinItem;
 
 public class ModModelProvider extends FabricModelProvider {
     public ModModelProvider(FabricPackOutput output) {

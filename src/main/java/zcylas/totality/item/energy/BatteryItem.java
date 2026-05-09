@@ -17,9 +17,9 @@ import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
-import zcylas.totality.api.energy.UEComponents;
-import zcylas.totality.api.energy.UEFormat;
-import zcylas.totality.api.energy.UEItem;
+import zcylas.totality.api.industrial.energy.UEComponents;
+import zcylas.totality.api.industrial.energy.UEFormat;
+import zcylas.totality.api.industrial.energy.UEItem;
 
 import java.util.List;
 import java.util.function.Consumer;

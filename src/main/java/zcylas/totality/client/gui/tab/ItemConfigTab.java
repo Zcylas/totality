@@ -8,7 +8,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundEvents;
-import zcylas.totality.api.item.ItemSideMode;
+import zcylas.totality.api.industrial.item.ItemSideMode;
 import zcylas.totality.client.config.ItemSideModeClientCache;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.networking.config.ItemSideModePayload;

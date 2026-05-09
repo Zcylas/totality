@@ -7,9 +7,9 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import zcylas.totality.api.combat.bow.BowStaminaHandler;
-import zcylas.totality.api.combat.exhaustion.ExhaustionManager;
-import zcylas.totality.api.stamina.PlayerStaminaManager;
+import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
+import zcylas.totality.api.rpg.combat.exhaustion.ExhaustionManager;
+import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 
 public class StaminaServerTick {
     private static int tickCounter = 0;

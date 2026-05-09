@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.Nullable;
-import zcylas.totality.api.energy.UEFormat;
+import zcylas.totality.api.industrial.energy.UEFormat;
 import zcylas.totality.blockentity.energy.EnergyCellBlockEntity;
 import zcylas.totality.init.ModBlockEntities;
 

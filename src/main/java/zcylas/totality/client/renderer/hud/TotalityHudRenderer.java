@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import zcylas.totality.Totality;
+import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.client.renderer.hud.context.MagicContextHud;
 import zcylas.totality.networking.mana.ClientManaManager;
@@ -55,7 +56,8 @@ public class TotalityHudRenderer {
             drawBar(graphics, client, leftX, hpY,
                     TotalityGuiSprites.HUD_HEALTH_FILL,
                     client.player.getHealth(), client.player.getMaxHealth(),
-                    (int) client.player.getHealth(), (int) client.player.getMaxHealth());
+                    RpgDisplayUtils.toDisplayHp(client.player.getHealth()),
+                    RpgDisplayUtils.toDisplayHp(client.player.getMaxHealth()));
 
             int stamina    = ClientStaminaManager.getStamina();
             int maxStamina = ClientStaminaManager.getMaxStamina();

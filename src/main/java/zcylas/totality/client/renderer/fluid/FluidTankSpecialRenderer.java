@@ -20,12 +20,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.FlowingFluid;
 import org.joml.Matrix4f;
 import org.joml.Vector3fc;
 import org.jspecify.annotations.Nullable;
-import zcylas.totality.Totality;
-import zcylas.totality.api.fluid.FluidTier;
 import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.item.fluid.FluidTankItem;
 

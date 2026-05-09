@@ -8,7 +8,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import zcylas.totality.Totality;
-import zcylas.totality.api.energy.base.SimpleSidedUEContainer;
+import zcylas.totality.api.industrial.energy.base.SimpleSidedUEContainer;
 
 public record SideModePayload(BlockPos pos, Direction face, SimpleSidedUEContainer.SideMode mode)
         implements CustomPacketPayload {

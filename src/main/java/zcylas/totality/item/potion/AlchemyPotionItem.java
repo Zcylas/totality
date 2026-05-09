@@ -1,22 +1,18 @@
 package zcylas.totality.item.potion;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemUseAnimation;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
-import zcylas.totality.api.alchemy.AlchemyEffect;
-import zcylas.totality.api.potions.EffectEntry;
-import zcylas.totality.api.potions.PotionData;
-import zcylas.totality.api.potions.PotionDataComponent;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffect;
+import zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry;
+import zcylas.totality.api.rpg.skills.alchemy.potions.PotionData;
+import zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent;
 
-import java.util.List;
 import java.util.function.Consumer;
 
 /**

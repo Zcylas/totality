@@ -2,7 +2,7 @@ package zcylas.totality.client.config;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import zcylas.totality.api.item.ItemSideMode;
+import zcylas.totality.api.industrial.item.ItemSideMode;
 
 import java.util.EnumMap;
 import java.util.HashMap;

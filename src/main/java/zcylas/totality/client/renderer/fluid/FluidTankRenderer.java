@@ -17,14 +17,13 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.jspecify.annotations.Nullable;
-import zcylas.totality.api.fluid.TotalityFluidStorage;
+import zcylas.totality.api.industrial.fluid.TotalityFluidStorage;
 import zcylas.totality.blockentity.fluid.FluidTankBlockEntity;
 
 public class FluidTankRenderer implements BlockEntityRenderer<FluidTankBlockEntity, FluidTankRenderer.FluidTankRenderState> {

@@ -8,9 +8,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
-import zcylas.totality.api.energy.HasSidedEnergy;
-import zcylas.totality.api.energy.UEStorage;
-import zcylas.totality.api.energy.base.UETransaction;
+import zcylas.totality.api.industrial.energy.HasSidedEnergy;
+import zcylas.totality.api.industrial.energy.UEStorage;
+import zcylas.totality.api.industrial.energy.base.UETransaction;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.init.ModBlockEntities;
 

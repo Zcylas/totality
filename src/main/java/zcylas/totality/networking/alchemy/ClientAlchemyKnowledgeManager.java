@@ -43,7 +43,7 @@ public final class ClientAlchemyKnowledgeManager {
     }
 
     /** Build a potion signature from effect IDs — sorted for consistency */
-    public static String buildSignature(List<zcylas.totality.api.alchemy.AlchemyEffectInstance> effects) {
+    public static String buildSignature(List<zcylas.totality.api.rpg.skills.alchemy.AlchemyEffectInstance> effects) {
         return effects.stream()
                 .map(e -> e.effect().getId().toString())
                 .sorted()

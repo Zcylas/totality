@@ -3,7 +3,7 @@ package zcylas.totality.networking.mana;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
-import zcylas.totality.api.mana.PlayerManaManager;
+import zcylas.totality.api.rpg.mana.PlayerManaManager;
 
 public class ManaServerTick {
     private static int tickCounter = 0;

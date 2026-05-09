@@ -99,12 +99,12 @@ public class LightningEffect extends AbstractEffectRune {
                             net.minecraft.world.entity.EquipmentSlot.LEGS,
                             net.minecraft.world.entity.EquipmentSlot.FEET}) {
                         net.minecraft.world.item.ItemStack armorStack = living.getItemBySlot(slot);
-                        if (zcylas.totality.api.energy.UEStorageUtil.isEnergyItem(armorStack))
+                        if (zcylas.totality.api.industrial.energy.UEStorageUtil.isEnergyItem(armorStack))
                             energyMultiplier++;
                     }
-                    if (zcylas.totality.api.energy.UEStorageUtil.isEnergyItem(living.getMainHandItem()))
+                    if (zcylas.totality.api.industrial.energy.UEStorageUtil.isEnergyItem(living.getMainHandItem()))
                         energyMultiplier++;
-                    if (zcylas.totality.api.energy.UEStorageUtil.isEnergyItem(living.getOffhandItem()))
+                    if (zcylas.totality.api.industrial.energy.UEStorageUtil.isEnergyItem(living.getOffhandItem()))
                         energyMultiplier++;
 
                     if (energyMultiplier > 0) bonus *= energyMultiplier;

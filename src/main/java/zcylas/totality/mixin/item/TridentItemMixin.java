@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import zcylas.totality.api.stamina.PlayerStaminaManager;
+import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 
 @Mixin(TridentItem.class)

@@ -12,12 +12,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
-import zcylas.totality.api.component.ComponentProvider;
-import zcylas.totality.api.currency.CurrencyComponents;
-import zcylas.totality.api.currency.CurrencyHelper;
-import zcylas.totality.api.currency.Denomination;
+import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.economy.currency.CurrencyComponents;
+import zcylas.totality.api.economy.currency.CurrencyHelper;
+import zcylas.totality.api.economy.currency.Denomination;
 
-import java.util.List;
 import java.util.function.Consumer;
 
 public class CoinItem extends Item {

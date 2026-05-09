@@ -27,10 +27,10 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 import zcylas.totality.Totality;
-import zcylas.totality.api.energy.HasSidedEnergy;
-import zcylas.totality.api.energy.UEItem;
-import zcylas.totality.api.energy.UETransferTicker;
-import zcylas.totality.api.energy.base.SimpleSidedUEContainer;
+import zcylas.totality.api.industrial.energy.HasSidedEnergy;
+import zcylas.totality.api.industrial.energy.UEItem;
+import zcylas.totality.api.industrial.energy.UETransferTicker;
+import zcylas.totality.api.industrial.energy.base.SimpleSidedUEContainer;
 import zcylas.totality.init.ModBlockEntities;
 import zcylas.totality.menu.energy.EnergyCellMenu;
 

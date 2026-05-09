@@ -2,7 +2,7 @@ package zcylas.totality.client.config;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import zcylas.totality.api.config.FaceConfig;
+import zcylas.totality.api.industrial.energy.config.FaceConfig;
 
 import java.util.EnumMap;
 import java.util.Map;

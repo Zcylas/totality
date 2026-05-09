@@ -6,7 +6,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Util;
-import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.component.Consumables;
@@ -18,7 +17,6 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import zcylas.totality.Totality;
-import zcylas.totality.api.fluid.FluidTier;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
@@ -197,23 +195,23 @@ public class TotalityRegistry {
      */
     public static zcylas.totality.item.potion.AlchemyPotionItem registerPotion(
             String name,
-            zcylas.totality.api.potions.PotionTier tier,
-            zcylas.totality.api.alchemy.AlchemyEffect effect,
+            zcylas.totality.api.rpg.skills.alchemy.potions.PotionTier tier,
+            zcylas.totality.api.rpg.skills.alchemy.AlchemyEffect effect,
             int color,
             String effectName
     ) {
         String displayName = tier.buildName(effectName, false);
         float magnitude = 0f;
         int durationTicks = 0;
-        if (tier instanceof zcylas.totality.api.potions.MagnitudeTier mt) {
+        if (tier instanceof zcylas.totality.api.rpg.skills.alchemy.potions.MagnitudeTier mt) {
             magnitude = mt.getPoints();
-        } else if (tier instanceof zcylas.totality.api.potions.DurationTier dt) {
+        } else if (tier instanceof zcylas.totality.api.rpg.skills.alchemy.potions.DurationTier dt) {
             durationTicks = dt.getDurationTicks();
         }
-        zcylas.totality.api.potions.EffectEntry entry =
-                zcylas.totality.api.potions.EffectEntry.of(effect, magnitude, durationTicks);
-        zcylas.totality.api.potions.PotionData data =
-                zcylas.totality.api.potions.PotionData.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry entry =
+                zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(effect, magnitude, durationTicks);
+        zcylas.totality.api.rpg.skills.alchemy.potions.PotionData data =
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                         displayName, color, java.util.List.of(entry), false);
         return registerItem(name,
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
@@ -230,22 +228,22 @@ public class TotalityRegistry {
      */
     public static zcylas.totality.item.potion.AlchemyPotionItem registerPotion(
             String name,
-            zcylas.totality.api.potions.PotionTier tier,
-            zcylas.totality.api.alchemy.AlchemyEffect effect,
+            zcylas.totality.api.rpg.skills.alchemy.potions.PotionTier tier,
+            zcylas.totality.api.rpg.skills.alchemy.AlchemyEffect effect,
             int color
     ) {
         String displayName = tier.buildName(effect.getDisplayName(), false);
         float magnitude = 0f;
         int durationTicks = 0;
-        if (tier instanceof zcylas.totality.api.potions.MagnitudeTier mt) {
+        if (tier instanceof zcylas.totality.api.rpg.skills.alchemy.potions.MagnitudeTier mt) {
             magnitude = mt.getPoints();
-        } else if (tier instanceof zcylas.totality.api.potions.DurationTier dt) {
+        } else if (tier instanceof zcylas.totality.api.rpg.skills.alchemy.potions.DurationTier dt) {
             durationTicks = dt.getDurationTicks();
         }
-        zcylas.totality.api.potions.EffectEntry entry =
-                zcylas.totality.api.potions.EffectEntry.of(effect, magnitude, durationTicks);
-        zcylas.totality.api.potions.PotionData data =
-                zcylas.totality.api.potions.PotionData.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry entry =
+                zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(effect, magnitude, durationTicks);
+        zcylas.totality.api.rpg.skills.alchemy.potions.PotionData data =
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                         displayName, color, java.util.List.of(entry), false);
         return registerItem(name,
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
@@ -260,22 +258,22 @@ public class TotalityRegistry {
      */
     public static zcylas.totality.item.potion.AlchemyPotionItem registerPoison(
             String name,
-            zcylas.totality.api.potions.PotionTier tier,
-            zcylas.totality.api.alchemy.AlchemyEffect effect,
+            zcylas.totality.api.rpg.skills.alchemy.potions.PotionTier tier,
+            zcylas.totality.api.rpg.skills.alchemy.AlchemyEffect effect,
             int color
     ) {
         String displayName = tier.buildName(effect.getDisplayName(), true);
         float magnitude = 0f;
         int durationTicks = 0;
-        if (tier instanceof zcylas.totality.api.potions.MagnitudeTier mt) {
+        if (tier instanceof zcylas.totality.api.rpg.skills.alchemy.potions.MagnitudeTier mt) {
             magnitude = mt.getPoints();
-        } else if (tier instanceof zcylas.totality.api.potions.DurationTier dt) {
+        } else if (tier instanceof zcylas.totality.api.rpg.skills.alchemy.potions.DurationTier dt) {
             durationTicks = dt.getDurationTicks();
         }
-        zcylas.totality.api.potions.EffectEntry entry =
-                zcylas.totality.api.potions.EffectEntry.of(effect, magnitude, durationTicks);
-        zcylas.totality.api.potions.PotionData data =
-                zcylas.totality.api.potions.PotionData.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry entry =
+                zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(effect, magnitude, durationTicks);
+        zcylas.totality.api.rpg.skills.alchemy.potions.PotionData data =
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                         displayName, color, java.util.List.of(entry), true);
         return registerItem(name,
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
@@ -293,16 +291,16 @@ public class TotalityRegistry {
     public static zcylas.totality.item.potion.AlchemyPotionItem registerRegenPotion(
             String name,
             String effectName,
-            zcylas.totality.api.potions.RegenerateTier tier,
-            zcylas.totality.api.alchemy.AlchemyEffect effect,
+            zcylas.totality.api.rpg.skills.alchemy.potions.RegenerateTier tier,
+            zcylas.totality.api.rpg.skills.alchemy.AlchemyEffect effect,
             int color
     ) {
         String displayName = tier.buildName(effectName, false);
-        zcylas.totality.api.potions.EffectEntry entry =
-                zcylas.totality.api.potions.EffectEntry.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry entry =
+                zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(
                         effect, tier.getRegenBoost(), tier.getDurationTicks());
-        zcylas.totality.api.potions.PotionData data =
-                zcylas.totality.api.potions.PotionData.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.PotionData data =
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                         displayName, color, java.util.List.of(entry), false);
         return registerItem(name,
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
@@ -320,16 +318,16 @@ public class TotalityRegistry {
     public static zcylas.totality.item.potion.AlchemyPotionItem registerFortifyPotion(
             String name,
             String effectName,
-            zcylas.totality.api.potions.FortifyTier tier,
-            zcylas.totality.api.alchemy.AlchemyEffect effect,
+            zcylas.totality.api.rpg.skills.alchemy.potions.FortifyTier tier,
+            zcylas.totality.api.rpg.skills.alchemy.AlchemyEffect effect,
             int color
     ) {
         String displayName = tier.buildName(effectName, false);
-        zcylas.totality.api.potions.EffectEntry entry =
-                zcylas.totality.api.potions.EffectEntry.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry entry =
+                zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(
                         effect, tier.getPoints(), tier.getDurationTicks());
-        zcylas.totality.api.potions.PotionData data =
-                zcylas.totality.api.potions.PotionData.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.PotionData data =
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                         displayName, color, java.util.List.of(entry), false);
         return registerItem(name,
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
@@ -351,10 +349,10 @@ public class TotalityRegistry {
             String displayName,
             int color,
             boolean isPoison,
-            zcylas.totality.api.potions.EffectEntry... effects
+            zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry... effects
     ) {
-        zcylas.totality.api.potions.PotionData data =
-                zcylas.totality.api.potions.PotionData.of(
+        zcylas.totality.api.rpg.skills.alchemy.potions.PotionData data =
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                         displayName, color, java.util.List.of(effects), isPoison);
         return registerItem(name,
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),

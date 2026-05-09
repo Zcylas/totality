@@ -11,6 +11,11 @@ public class ModTags {
     public static final TagKey<Item> ONE_HANDED_WEAPONS = item("one_handed_weapons");
     public static final TagKey<Item> TWO_HANDED_WEAPONS = item("two_handed_weapons");
     public static final TagKey<Item> THROWN_WEAPONS = item("thrown_weapons");
+    public static final TagKey<Item> TOOLS = item("tools");
+    public static final TagKey<Item> BOWS       = item("bows");
+    public static final TagKey<Item> CROSSBOWS  = item("crossbows");
+    public static final TagKey<Item> POTIONS  = item("potions");
+    public static final TagKey<Item> SPECIAL  = item("special");
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     private static TagKey<Item> item(String path) {

@@ -1,12 +1,11 @@
 package zcylas.totality.init.items;
 
-import zcylas.totality.api.alchemy.AlchemyEffects;
-import zcylas.totality.api.potions.DurationTier;
-import zcylas.totality.api.potions.FortifyTier;
-import zcylas.totality.api.potions.RegenerateTier;
-import zcylas.totality.api.potions.EffectEntry;
-import zcylas.totality.api.potions.MagnitudeTier;
-import zcylas.totality.api.potions.PotionData;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
+import zcylas.totality.api.rpg.skills.alchemy.potions.DurationTier;
+import zcylas.totality.api.rpg.skills.alchemy.potions.FortifyTier;
+import zcylas.totality.api.rpg.skills.alchemy.potions.RegenerateTier;
+import zcylas.totality.api.rpg.skills.alchemy.potions.MagnitudeTier;
+import zcylas.totality.api.rpg.skills.alchemy.potions.PotionData;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.potion.AlchemyPotionItem;
 

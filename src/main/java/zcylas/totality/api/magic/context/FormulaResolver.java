@@ -9,7 +9,7 @@ import zcylas.totality.api.magic.rune.AbstractAugmentRune;
 import zcylas.totality.api.magic.rune.AbstractEffectRune;
 import zcylas.totality.api.magic.rune.AbstractFormRune;
 import zcylas.totality.api.magic.rune.AbstractRune;
-import zcylas.totality.api.mana.PlayerManaManager;
+import zcylas.totality.api.rpg.mana.PlayerManaManager;
 
 import java.util.List;
 

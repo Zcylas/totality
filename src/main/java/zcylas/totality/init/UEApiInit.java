@@ -1,11 +1,6 @@
 package zcylas.totality.init;
 
-import net.minecraft.core.Direction;
-import zcylas.totality.api.config.FaceConfig;
-import zcylas.totality.api.energy.UEComponents;
-import zcylas.totality.api.energy.UEStorage;
-import zcylas.totality.blockentity.energy.EnergyCellBlockEntity;
-import zcylas.totality.blockentity.generator.GeneratorBlockEntity;
+import zcylas.totality.api.industrial.energy.UEComponents;
 
 public class UEApiInit {
 

@@ -8,8 +8,8 @@ import net.minecraft.util.ARGB;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
-import zcylas.totality.api.potions.PotionData;
-import zcylas.totality.api.potions.PotionDataComponent;
+import zcylas.totality.api.rpg.skills.alchemy.potions.PotionData;
+import zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent;
 
 /**
  * Reads the potion color from the POTION_DATA component on the stack.

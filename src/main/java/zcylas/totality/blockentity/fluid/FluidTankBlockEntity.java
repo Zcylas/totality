@@ -19,8 +19,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 import zcylas.totality.Totality;
-import zcylas.totality.api.fluid.FluidTier;
-import zcylas.totality.api.fluid.TotalityFluidStorage;
+import zcylas.totality.api.industrial.fluid.TotalityFluidStorage;
 import zcylas.totality.init.ModBlockEntities;
 
 public class FluidTankBlockEntity extends BlockEntity {

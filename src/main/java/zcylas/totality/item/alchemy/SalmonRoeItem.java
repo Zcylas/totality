@@ -11,9 +11,9 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import zcylas.totality.Totality;
-import zcylas.totality.api.alchemy.AlchemyEffectInstance;
-import zcylas.totality.api.alchemy.AlchemyEffects;
-import zcylas.totality.api.alchemy.AlchemyIngredient;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffectInstance;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
+import zcylas.totality.api.rpg.skills.alchemy.AlchemyIngredient;
 
 import java.util.List;
 import java.util.function.Consumer;

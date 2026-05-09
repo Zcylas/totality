@@ -15,7 +15,6 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
-import zcylas.totality.client.renderer.currency.WalletHudRenderer;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
 import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
@@ -39,6 +38,7 @@ import zcylas.totality.screen.energy.EnergyCellScreen;
 import zcylas.totality.screen.generator.GeneratorScreen;
 import zcylas.totality.screen.magic.GrimoireRadialScreen;
 import zcylas.totality.screen.magic.GrimoireScreen;
+import zcylas.totality.screen.menu.MainMenuScreen;
 
 import java.awt.*;
 
@@ -68,7 +68,6 @@ public class TotalityClient implements ClientModInitializer {
                 FluidTankRenderer::new
         );
         TotalityHudRenderer.register();
-        WalletHudRenderer.register();
         NotificationManager.register();
     }
 
@@ -138,7 +137,7 @@ public class TotalityClient implements ClientModInitializer {
 
     public static void registerKeybinds(){
         ModKeybinds.register();
-// Handle keybind press
+    // Handle keybind press
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (ModKeybinds.OPEN_GRIMOIRE.consumeClick()) {
                 if (client.player == null) return;
@@ -162,6 +161,15 @@ public class TotalityClient implements ClientModInitializer {
                         : ItemStack.EMPTY;
                 if (!grimoire.isEmpty()) {
                     client.setScreen(new GrimoireRadialScreen(grimoire));
+                }
+            }
+        });
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (ModKeybinds.OPEN_MENU.consumeClick()) {
+                if (client.player == null) return;
+                // Only open if no screen is currently open
+                if (client.screen == null) {
+                    client.setScreen(new MainMenuScreen());
                 }
             }
         });

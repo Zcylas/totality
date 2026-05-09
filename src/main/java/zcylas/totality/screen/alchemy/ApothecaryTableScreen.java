@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -15,8 +14,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import zcylas.totality.api.alchemy.*;
-import zcylas.totality.client.gui.TotalityGuiSprites;
+import zcylas.totality.api.rpg.skills.alchemy.*;
 import zcylas.totality.networking.alchemy.BrewPayload;
 import zcylas.totality.networking.alchemy.ClientAlchemyKnowledgeManager;
 
@@ -378,10 +376,10 @@ public class ApothecaryTableScreen extends Screen {
             net.minecraft.world.item.ItemStack unknownPotion =
                     new net.minecraft.world.item.ItemStack(
                             zcylas.totality.init.items.PotionItems.BREWED_POTION);
-            unknownPotion.set(zcylas.totality.api.potions.PotionDataComponent.POTION_DATA,
-                    zcylas.totality.api.potions.PotionData.of(
+            unknownPotion.set(zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent.POTION_DATA,
+                    zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                             "Potion of Unknown Effect",
-                            zcylas.totality.api.potions.PotionData.COLOR_PURPLE,
+                            zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE,
                             java.util.List.of(), false));
             g.pose().pushMatrix();
             g.pose().scale(3.0f, 3.0f);
@@ -412,17 +410,17 @@ public class ApothecaryTableScreen extends Screen {
                 .anyMatch(e -> e.effect().isHarmful())
                 && success.effects().stream().noneMatch(e -> e.effect().isBeneficial());
         int previewColor = previewIsPoison
-                ? zcylas.totality.api.potions.PotionData.COLOR_PURPLE
+                ? zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE
                 : getPotionPreviewColor(success.effects());
         String previewName = buildPotionName(success.effects());
-        java.util.List<zcylas.totality.api.potions.EffectEntry> previewEntries =
+        java.util.List<zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry> previewEntries =
                 success.effects().stream()
-                        .map(e -> zcylas.totality.api.potions.EffectEntry.of(
+                        .map(e -> zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(
                                 e.effect(), e.effect().getBaseMagnitude(),
                                 e.effect().getBaseDurationTicks()))
                         .collect(java.util.stream.Collectors.toList());
-        previewStack.set(zcylas.totality.api.potions.PotionDataComponent.POTION_DATA,
-                zcylas.totality.api.potions.PotionData.of(
+        previewStack.set(zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent.POTION_DATA,
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
                         previewName, previewColor, previewEntries, previewIsPoison));
 
         g.pose().pushMatrix();
@@ -799,18 +797,18 @@ public class ApothecaryTableScreen extends Screen {
     }
 
     private int getPotionPreviewColor(java.util.List<AlchemyEffectInstance> effects) {
-        if (effects.isEmpty()) return zcylas.totality.api.potions.PotionData.COLOR_PURPLE;
+        if (effects.isEmpty()) return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE;
         AlchemyEffectInstance primary = effects.stream()
                 .max(Comparator.comparingDouble(e ->
                         (double) e.effect().getBaseMagnitude() *
                                 Math.max(1, e.effect().getBaseDurationTicks())))
                 .orElse(effects.get(0));
         String id = primary.effect().getId().getPath();
-        if (id.contains("health"))    return zcylas.totality.api.potions.PotionData.COLOR_RED;
-        if (id.contains("mana"))      return zcylas.totality.api.potions.PotionData.COLOR_BLUE;
-        if (id.contains("stamina"))   return zcylas.totality.api.potions.PotionData.COLOR_GREEN;
-        if (id.contains("water") || id.contains("invisib")) return zcylas.totality.api.potions.PotionData.COLOR_WHITE;
-        return zcylas.totality.api.potions.PotionData.COLOR_GOLD;
+        if (id.contains("health"))    return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_RED;
+        if (id.contains("mana"))      return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_BLUE;
+        if (id.contains("stamina"))   return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_GREEN;
+        if (id.contains("water") || id.contains("invisib")) return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_WHITE;
+        return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_GOLD;
     }
 
     private boolean inBounds(int mx, int my, int x, int y, int w, int h) {

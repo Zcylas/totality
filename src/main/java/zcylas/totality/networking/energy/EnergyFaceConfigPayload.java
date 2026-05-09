@@ -8,7 +8,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import zcylas.totality.Totality;
-import zcylas.totality.api.config.FaceConfig;
+import zcylas.totality.api.industrial.energy.config.FaceConfig;
 
 public record EnergyFaceConfigPayload(BlockPos pos, Direction face, FaceConfig config)
         implements CustomPacketPayload {

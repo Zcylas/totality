@@ -3,8 +3,8 @@ package zcylas.totality.networking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import zcylas.totality.api.energy.HasSidedEnergy;
-import zcylas.totality.api.item.HasSidedItems;
+import zcylas.totality.api.industrial.energy.HasSidedEnergy;
+import zcylas.totality.api.industrial.item.HasSidedItems;
 import zcylas.totality.api.magic.GrimoireCaster;
 import zcylas.totality.api.magic.MagicComponents;
 import zcylas.totality.item.fluid.FluidTankItem;
@@ -15,9 +15,6 @@ import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class TotalityServerPacketHandlers {
 

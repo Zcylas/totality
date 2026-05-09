@@ -7,7 +7,6 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import zcylas.totality.Totality;
-import zcylas.totality.api.item.ItemSideMode;
 
 public record ItemSideModePayload(BlockPos pos, Direction face)
         implements CustomPacketPayload {

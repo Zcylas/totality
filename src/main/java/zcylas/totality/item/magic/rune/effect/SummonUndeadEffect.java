@@ -1,13 +1,11 @@
 package zcylas.totality.item.magic.rune.effect;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -18,7 +16,6 @@ import zcylas.totality.api.magic.context.FormulaContext;
 import zcylas.totality.api.magic.context.FormulaResolver;
 import zcylas.totality.api.magic.formula.FormulaStats;
 import zcylas.totality.api.magic.rune.AbstractEffectRune;
-import zcylas.totality.api.mana.PlayerManaManager;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.entity.magic.SummonSkeletonEntity;
 import zcylas.totality.init.ModEffects;
