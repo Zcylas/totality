@@ -1,0 +1,11 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "totality:item/standard_potion",
+    "tints": [
+      {
+        "type": "totality:potion_color"
+      }
+    ]
+  }
+}
