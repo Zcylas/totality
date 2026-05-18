@@ -44,6 +44,9 @@ public class RitualDaisRenderer implements BlockEntityRenderer<RitualDaisBlockEn
     public void extractRenderState(RitualDaisBlockEntity blockEntity, DaisRenderState state,
                                    float partialTicks, Vec3 cameraPosition,
                                    ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress) {
+        if (blockEntity.isRitualActive()) {
+            Totality.LOGGER.info("Dais ritualActive=true, ritualActiveTick={}", blockEntity.getRitualActiveTick());
+        }
         BlockEntityRenderState.extractBase(blockEntity, state, breakProgress);
         state.ritualActive = blockEntity.isRitualActive();
         state.heldItem = blockEntity.getHeldItem().copy();

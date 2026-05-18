@@ -46,6 +46,7 @@ public class RitualAltarRenderer implements BlockEntityRenderer<RitualAltarBlock
     public void extractRenderState(RitualAltarBlockEntity blockEntity, AltarRenderState state,
                                    float partialTicks, Vec3 cameraPosition,
                                    ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress) {
+
         BlockEntityRenderState.extractBase(blockEntity, state, breakProgress);
         state.heldItem = blockEntity.getHeldItem().copy();
         state.ritualState = blockEntity.getRitualState();

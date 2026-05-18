@@ -56,8 +56,8 @@ public class RitualDaisBlockEntity extends BlockEntity {
         if (!heldItem.isEmpty()) {
             output.store("HeldItem", ItemStack.CODEC, heldItem);
         }
-        output.putBoolean("RitualActive", ritualActive);
-        output.putInt("RitualActiveTick", ritualActiveTick);
+        output.putBoolean("RitualActive", false); // always save as false
+        output.putInt("RitualActiveTick", 0);     // always save as 0
     }
 
     @Override
@@ -106,7 +106,6 @@ public class RitualDaisBlockEntity extends BlockEntity {
             float t2 = Math.max(0f, (be.ritualActiveTick - 40) / 40f);
             float spinSpeed = 3.0f + (30.0f - 3.0f) * t + (60.0f - 30.0f) * t2;
             be.rotation = (be.rotation + spinSpeed) % 360f;
-            be.tickCount++;
             return;
         }
 

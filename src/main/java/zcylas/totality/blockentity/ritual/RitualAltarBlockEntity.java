@@ -292,9 +292,9 @@ public class RitualAltarBlockEntity extends BlockEntity {
         if (!heldItem.isEmpty()) {
             output.store("HeldItem", ItemStack.CODEC, heldItem);
         }
-        output.putString("RitualState", ritualState.name());
-        output.putInt("AnimTick", animTick);
-        output.putInt("ConsumedCount", consumedCount);
+        output.putString("RitualState", RitualState.IDLE.name());
+        output.putInt("AnimTick", 0);
+        output.putInt("ConsumedCount", 0);
     }
 
     @Override
@@ -305,7 +305,8 @@ public class RitualAltarBlockEntity extends BlockEntity {
             ritualState = RitualState.valueOf(input.getStringOr("RitualState", "IDLE"));
         } catch (Exception e) {
             ritualState = RitualState.IDLE;
-        } try {
+        }
+        try {
             cancelledFromState = RitualState.valueOf(input.getStringOr("CancelledFromState", "IDLE"));
         } catch (Exception e) {
             cancelledFromState = RitualState.IDLE;
