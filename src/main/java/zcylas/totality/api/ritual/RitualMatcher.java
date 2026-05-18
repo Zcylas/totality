@@ -46,8 +46,8 @@ public class RitualMatcher {
                 Totality.LOGGER.info("Wrong color at {}: {} vs {}", chalkPos, state.getValue(ChalkBlock.COLOR), entry.color());
                 return false;
             }
-            if (state.getValue(ChalkBlock.GLYPH) != entry.glyph()) {
-                Totality.LOGGER.info("Wrong glyph at {}: {} vs {}", chalkPos, state.getValue(ChalkBlock.GLYPH), entry.glyph());
+            if (state.getValue(ChalkBlock.SIGIL) != entry.glyph()) {
+                Totality.LOGGER.info("Wrong glyph at {}: {} vs {}", chalkPos, state.getValue(ChalkBlock.SIGIL), entry.glyph());
                 return false;
             }
         }

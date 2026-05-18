@@ -14,10 +14,7 @@ import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import zcylas.totality.init.ModBlocks;
-import zcylas.totality.init.blocks.AlchemyBlocks;
-import zcylas.totality.init.blocks.EnergyBlocks;
-import zcylas.totality.init.blocks.OreBlocks;
-import zcylas.totality.init.blocks.RitualBlocks;
+import zcylas.totality.init.blocks.*;
 import zcylas.totality.init.items.IngredientItems;
 
 import java.util.concurrent.CompletableFuture;
@@ -43,7 +40,6 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         //Functional Blocks
             //Skill Blocks
         dropSelf(AlchemyBlocks.APOTHECARY_TABLE);
-
         //Ores
             //Normal Ores
         this.add(OreBlocks.TIN_ORE, this.createOreDrop(OreBlocks.TIN_ORE, IngredientItems.RAW_TIN));
@@ -60,6 +56,9 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         //Ritual Blocks
         dropSelf(RitualBlocks.RITUAL_ALTAR);
         dropSelf(RitualBlocks.RITUAL_DAIS);
+        // Whitestone
+        this.add(WhitestoneBlocks.WHITESTONE, multipleOreDrops(WhitestoneBlocks.WHITESTONE, IngredientItems.WHITESTONE_CHUNK, 1, 2));
+        this.add(WhitestoneBlocks.FLECKED_WHITESTONE, multipleOreDrops(WhitestoneBlocks.FLECKED_WHITESTONE, IngredientItems.RESIDUUM_FLECKED_CHUNK, 1, 2));
     }
 
 

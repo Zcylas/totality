@@ -2,14 +2,13 @@ package zcylas.totality.api.ritual;
 
 import net.minecraft.util.StringRepresentable;
 
-public enum ChalkGlyph implements StringRepresentable {
-    CONDUIT("conduit_glyph"),
-    INVOCATION("invocation_glyph"),
-    BINDING("binding_glyph");
+public enum ChalkSigil implements StringRepresentable {
+    FOCUS("focus_sigil"),
+    PLACEHOLDER("placeholder_sigil");
 
     private final String name;
 
-    ChalkGlyph(String name) {
+    ChalkSigil(String name) {
         this.name = name;
     }
 
@@ -18,7 +17,7 @@ public enum ChalkGlyph implements StringRepresentable {
         return name;
     }
 
-    public ChalkGlyph next() {
+    public ChalkSigil next() {
         return values()[(this.ordinal() + 1) % values().length];
     }
 }

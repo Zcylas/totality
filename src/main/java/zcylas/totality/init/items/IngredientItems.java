@@ -2,6 +2,7 @@ package zcylas.totality.init.items;
 
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.init.blocks.AlchemyBlocks;
 
@@ -23,6 +24,22 @@ public class IngredientItems {
         //Seeds
     public static final Item TRUE_WHEAT_SEEDS = TotalityRegistry.registerItem("true_wheat_seeds",
             properties -> new BlockItem(AlchemyBlocks.TRUE_WHEAT_CROP, properties), new Item.Properties().stacksTo(64));
+    // Whitestone
+    public static final Item WHITESTONE_CHUNK = TotalityRegistry.registerItem(
+            "whitestone_chunk", Item::new,
+            new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MATERIAL))
+                    .component(ItemComponents.getLore(), new LoreComponent("A raw chunk of whitestone. Sturdy and unrefined."))
+    );
+
+    public static final Item RESIDUUM_FLECKED_CHUNK = TotalityRegistry.registerItem(
+            "residuum_flecked_chunk", Item::new,
+            new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.UNCOMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.REAGENT))
+                    .component(ItemComponents.getLore(), new LoreComponent("A chunk of whitestone with visible residuum inclusions."))
+    );
     public static void register() {}
 
     private IngredientItems() {}

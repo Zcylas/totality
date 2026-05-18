@@ -1,9 +1,9 @@
 {
   "pattern": [
-    {"color": "white", "glyph": "conduit_glyph", "offsetX": 0, "offsetZ": -2},
-    {"color": "white", "glyph": "conduit_glyph", "offsetX": 0, "offsetZ": 2},
-    {"color": "white", "glyph": "conduit_glyph", "offsetX": -2, "offsetZ": 0},
-    {"color": "white", "glyph": "conduit_glyph", "offsetX": 2, "offsetZ": 0}
+    {"color": "white", "glyph": "focus", "offsetX": 0, "offsetZ": -2},
+    {"color": "white", "glyph": "focus", "offsetX": 0, "offsetZ": 2},
+    {"color": "white", "glyph": "focus", "offsetX": -2, "offsetZ": 0},
+    {"color": "white", "glyph": "focus", "offsetX": 2, "offsetZ": 0}
   ],
   "dais": [
     {"item": "minecraft:diamond", "offsetX": 0, "offsetZ": -3},

@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.api.industrial.energy.UEComponents;
 import zcylas.totality.api.ritual.ChalkColor;
-import zcylas.totality.api.ritual.ChalkGlyph;
+import zcylas.totality.api.ritual.ChalkSigil;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.ElectricFurnaceBlock;
 import zcylas.totality.block.energy.EnergyCellBlock;
@@ -26,10 +26,7 @@ import zcylas.totality.block.ritual.ChalkBlock;
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.init.ModBlocks;
-import zcylas.totality.init.blocks.AlchemyBlocks;
-import zcylas.totality.init.blocks.EnergyBlocks;
-import zcylas.totality.init.blocks.OreBlocks;
-import zcylas.totality.init.blocks.RitualBlocks;
+import zcylas.totality.init.blocks.*;
 import zcylas.totality.init.items.*;
 
 import net.minecraft.client.data.models.blockstates.ConditionBuilder;
@@ -161,7 +158,9 @@ public class ModModelProvider extends FabricModelProvider {
                         .with(new ConditionBuilder().term(CableBlock.DOWN, true).build(),
                                 BlockModelGenerators.plainVariant(cableSide).with(BlockModelGenerators.X_ROT_90))
         );
-
+        //Whitestone
+        generators.createTrivialCube(WhitestoneBlocks.WHITESTONE);
+        generators.createTrivialCube(WhitestoneBlocks.FLECKED_WHITESTONE);
         //Ores
         generators.createTrivialCube(OreBlocks.TIN_ORE);
         generators.createTrivialCube(OreBlocks.DEEPSLATE_TIN_ORE);
@@ -214,37 +213,27 @@ public class ModModelProvider extends FabricModelProvider {
         );
         generators.blockStateOutput.accept(
                 MultiVariantGenerator.dispatch(RitualBlocks.CHALK)
-                        .with(PropertyDispatch.initial(ChalkBlock.COLOR, ChalkBlock.GLYPH)
-                                .select(ChalkColor.WHITE, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
-                                .select(ChalkColor.WHITE, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
-                                .select(ChalkColor.WHITE, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
-                                .select(ChalkColor.GOLD, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
-                                .select(ChalkColor.GOLD, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
-                                .select(ChalkColor.GOLD, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
-                                .select(ChalkColor.BLUE, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
-                                .select(ChalkColor.BLUE, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
-                                .select(ChalkColor.BLUE, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
-                                .select(ChalkColor.PURPLE, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
-                                .select(ChalkColor.PURPLE, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
-                                .select(ChalkColor.PURPLE, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
-                                .select(ChalkColor.RED, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
-                                .select(ChalkColor.RED, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
-                                .select(ChalkColor.RED, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
+                        .with(PropertyDispatch.initial(ChalkBlock.COLOR, ChalkBlock.SIGIL)
+                                .select(ChalkColor.WHITE, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.GOLD, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.BLUE, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.PURPLE, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.RED, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.WHITE, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.GOLD, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.BLUE, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.PURPLE, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                .select(ChalkColor.RED, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
                         )
         );
         //Functional Blocks
@@ -370,6 +359,9 @@ public class ModModelProvider extends FabricModelProvider {
             //Raw Ores
         generators.generateFlatItem(IngredientItems.RAW_TIN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(IngredientItems.GRAPHITE, ModelTemplates.FLAT_ITEM);
+            //Whitestone
+        generators.generateFlatItem(IngredientItems.WHITESTONE_CHUNK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(IngredientItems.RESIDUUM_FLECKED_CHUNK, ModelTemplates.FLAT_ITEM);
             //Rough Gemstones
         generators.generateFlatItem(IngredientItems.ROUGH_RUBY, ModelTemplates.FLAT_ITEM);
             //Seeds

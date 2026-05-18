@@ -1,6 +1,5 @@
 package zcylas.totality.api.ritual;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -81,7 +80,7 @@ public class RitualRecipeRegistry {
         for (JsonElement el : json.getAsJsonArray("pattern")) {
             JsonObject obj = el.getAsJsonObject();
             ChalkColor color = ChalkColor.valueOf(obj.get("color").getAsString().toUpperCase());
-            ChalkGlyph glyph = ChalkGlyph.valueOf(
+            ChalkSigil glyph = ChalkSigil.valueOf(
                     obj.get("glyph").getAsString().toUpperCase().replace("_GLYPH", ""));
             int offsetX = obj.get("offsetX").getAsInt();
             int offsetZ = obj.get("offsetZ").getAsInt();

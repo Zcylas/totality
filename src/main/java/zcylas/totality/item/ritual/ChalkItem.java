@@ -8,7 +8,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import zcylas.totality.Totality;
 import zcylas.totality.api.ritual.ChalkColor;
+import zcylas.totality.api.ritual.ChalkSigil;
+import zcylas.totality.block.ritual.ChalkBlock;
 import zcylas.totality.init.blocks.RitualBlocks;
 
 public class ChalkItem extends Item {
@@ -55,10 +58,13 @@ public class ChalkItem extends Item {
             BlockState toPlace = RitualBlocks.CHALK
                     .defaultBlockState()
                     .setValue(zcylas.totality.block.ritual.ChalkBlock.COLOR, color)
-                    .setValue(zcylas.totality.block.ritual.ChalkBlock.GLYPH,
-                            zcylas.totality.api.ritual.ChalkGlyph.CONDUIT);
+                    .setValue(ChalkBlock.SIGIL,
+                            ChalkSigil.FOCUS);
 
             level.setBlock(placePos, toPlace, 3);
+            Totality.LOGGER.info("Placed chalk state: {}", level.getBlockState(placePos));
+            Totality.LOGGER.info("Color serialized: {}", color.getSerializedName());
+            Totality.LOGGER.info("Sigil serialized: {}", ChalkSigil.FOCUS.getSerializedName());
             level.playSound(null, placePos,
                     net.minecraft.sounds.SoundEvents.GRAVEL_PLACE,
                     SoundSource.BLOCKS, 1.0f,

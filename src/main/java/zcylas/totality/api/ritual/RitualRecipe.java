@@ -14,7 +14,7 @@ public record RitualRecipe(
         ItemStack result
 ) {
 
-    public record ChalkEntry(ChalkColor color, ChalkGlyph glyph, int offsetX, int offsetZ) {
+    public record ChalkEntry(ChalkColor color, ChalkSigil glyph, int offsetX, int offsetZ) {
         public BlockPos resolve(BlockPos altarPos) {
             return altarPos.offset(offsetX, 0, offsetZ);
         }

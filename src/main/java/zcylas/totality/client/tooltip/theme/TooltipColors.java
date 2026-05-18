@@ -52,6 +52,9 @@ public final class TooltipColors {
             case COMPONENT   -> 0xFFD8914A;
             case INGREDIENT  -> 0xFF8FD45A;
             case STANDARD    -> 0xFF666666;
+            case BLOCK       -> 0xFFD4C9A8;
+            case DECORATIVE -> 0xFFBAAF96;
+            case REAGENT     -> 0xFF3DAA5A;
             default          -> 0xFF666666;
         };
     }

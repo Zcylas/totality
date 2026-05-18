@@ -47,7 +47,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.gold_shuriken", "Gold Shuriken");
         translationBuilder.add("item.totality.diamond_shuriken", "Diamond Shuriken");
         translationBuilder.add("item.totality.netherite_shuriken", "Netherite Shuriken");
-        //Ores
+        //Blocks
+            //Ores
         translationBuilder.add("block.totality.tin_ore", "Tin Ore");
         translationBuilder.add("block.totality.deepslate_tin_ore", "Deepslate Tin Ore");
         translationBuilder.add("block.totality.graphite_ore", "Graphite Ore");
@@ -60,6 +61,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("block.totality.deepslate_vibranium_ore", "Deepslate Vibranium Ore");
         translationBuilder.add("block.totality.ruby_ore", "Ruby Ore");
         translationBuilder.add("block.totality.deepslate_ruby_ore", "Deepslate Ruby Ore");
+            //Whitestone
+        translationBuilder.add("block.totality.whitestone", "Whitestone");
+        translationBuilder.add("block.totality.flecked_whitestone", "Flecked Whitestone");
 
 
         //Tools
@@ -79,6 +83,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.netherite_gear", "Netherite Gear");
             //Raw Items
         translationBuilder.add("item.totality.graphite", "Graphite");
+        translationBuilder.add("item.totality.whitestone_chunk", "Whitestone Chunk");
+        translationBuilder.add("item.totality.residuum_flecked_chunk", "Residuum-Flecked Chunk");
             //Rough Gems
         translationBuilder.add("item.totality.rough_ruby", "Rough Ruby");
         //Alchemy Ingredients

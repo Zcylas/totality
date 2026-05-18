@@ -7,10 +7,7 @@ import net.minecraft.tags.BlockTags;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.ModTags;
-import zcylas.totality.init.blocks.AlchemyBlocks;
-import zcylas.totality.init.blocks.EnergyBlocks;
-import zcylas.totality.init.blocks.OreBlocks;
-import zcylas.totality.init.blocks.RitualBlocks;
+import zcylas.totality.init.blocks.*;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -47,6 +44,9 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
         //Ritual Blocks
                 .add(RitualBlocks.RITUAL_ALTAR)
                 .add(RitualBlocks.RITUAL_DAIS)
+        //Whitestone
+                .add(WhitestoneBlocks.WHITESTONE)
+                .add(WhitestoneBlocks.FLECKED_WHITESTONE)
         ;
 
         valueLookupBuilder(BlockTags.NEEDS_DIAMOND_TOOL)

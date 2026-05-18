@@ -33,6 +33,11 @@ public class ModPlacedFeatures {
             Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "purple_mountain_flower_placed"));
     public static final ResourceKey<PlacedFeature> RED_MOUNTAIN_FLOWER_PLACED_KEY = ResourceKey.create(
             Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "red_mountain_flower_placed"));
+    //Whitestone
+    public static final ResourceKey<PlacedFeature> WHITESTONE_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "whitestone_placed"));
+    public static final ResourceKey<PlacedFeature> FLECKED_WHITESTONE_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "flecked_whitestone_placed"));
 
     public static void bootstrap(BootstrapContext<PlacedFeature> context){
         //Ores
@@ -80,5 +85,16 @@ public class ModPlacedFeatures {
                 configuredFeatures.getOrThrow(ModConfiguredFeatures.RED_MOUNTAIN_FLOWER_KEY),
                 List.of(RarityFilter.onAverageOnceEvery(6), InSquarePlacement.spread(),
                         PlacementUtils.HEIGHTMAP_WORLD_SURFACE, BiomeFilter.biome())));
+        //Whitestone
+        context.register(WHITESTONE_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.WHITESTONE_KEY),
+                List.of(CountPlacement.of(2), InSquarePlacement.spread(),
+                        HeightRangePlacement.uniform(VerticalAnchor.absolute(-64), VerticalAnchor.absolute(128)),
+                        BiomeFilter.biome())));
+        context.register(FLECKED_WHITESTONE_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.FLECKED_WHITESTONE_KEY),
+                List.of(CountPlacement.of(4), InSquarePlacement.spread(),
+                        HeightRangePlacement.uniform(VerticalAnchor.absolute(-64), VerticalAnchor.absolute(128)),
+                        BiomeFilter.biome())));
     }
 }

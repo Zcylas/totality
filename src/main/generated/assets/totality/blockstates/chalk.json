@@ -1,49 +1,34 @@
 {
   "variants": {
-    "color=blue,glyph=binding_glyph": {
-      "model": "totality:block/binding_glyph"
+    "color=blue,sigil=focus_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=blue,glyph=conduit_glyph": {
-      "model": "totality:block/conduit_glyph"
+    "color=blue,sigil=placeholder_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=blue,glyph=invocation_glyph": {
-      "model": "totality:block/invocation_glyph"
+    "color=gold,sigil=focus_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=gold,glyph=binding_glyph": {
-      "model": "totality:block/binding_glyph"
+    "color=gold,sigil=placeholder_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=gold,glyph=conduit_glyph": {
-      "model": "totality:block/conduit_glyph"
+    "color=purple,sigil=focus_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=gold,glyph=invocation_glyph": {
-      "model": "totality:block/invocation_glyph"
+    "color=purple,sigil=placeholder_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=purple,glyph=binding_glyph": {
-      "model": "totality:block/binding_glyph"
+    "color=red,sigil=focus_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=purple,glyph=conduit_glyph": {
-      "model": "totality:block/conduit_glyph"
+    "color=red,sigil=placeholder_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=purple,glyph=invocation_glyph": {
-      "model": "totality:block/invocation_glyph"
+    "color=white,sigil=focus_sigil": {
+      "model": "totality:block/focus_sigil"
     },
-    "color=red,glyph=binding_glyph": {
-      "model": "totality:block/binding_glyph"
-    },
-    "color=red,glyph=conduit_glyph": {
-      "model": "totality:block/conduit_glyph"
-    },
-    "color=red,glyph=invocation_glyph": {
-      "model": "totality:block/invocation_glyph"
-    },
-    "color=white,glyph=binding_glyph": {
-      "model": "totality:block/binding_glyph"
-    },
-    "color=white,glyph=conduit_glyph": {
-      "model": "totality:block/conduit_glyph"
-    },
-    "color=white,glyph=invocation_glyph": {
-      "model": "totality:block/invocation_glyph"
+    "color=white,sigil=placeholder_sigil": {
+      "model": "totality:block/focus_sigil"
     }
   }
 }

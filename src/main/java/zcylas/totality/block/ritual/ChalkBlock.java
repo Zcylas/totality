@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
@@ -20,13 +20,13 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import zcylas.totality.api.ritual.ChalkColor;
-import zcylas.totality.api.ritual.ChalkGlyph;
+import zcylas.totality.api.ritual.ChalkSigil;
 import zcylas.totality.init.items.RitualItems;
 
 public class ChalkBlock extends Block {
 
-    public static final EnumProperty<ChalkGlyph> GLYPH =
-            EnumProperty.create("glyph", ChalkGlyph.class);
+    public static final EnumProperty<ChalkSigil> SIGIL =
+            EnumProperty.create("sigil", ChalkSigil.class);
     public static final EnumProperty<ChalkColor> COLOR =
             EnumProperty.create("color", ChalkColor.class);
 
@@ -36,8 +36,7 @@ public class ChalkBlock extends Block {
     public ChalkBlock(Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any()
-                .setValue(GLYPH, ChalkGlyph.CONDUIT)
-                .setValue(COLOR, ChalkColor.WHITE));
+                .setValue(SIGIL, ChalkSigil.FOCUS));
     }
 
     @Override
@@ -47,7 +46,7 @@ public class ChalkBlock extends Block {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(GLYPH, COLOR);
+        builder.add(SIGIL, COLOR);
     }
 
     @Override
@@ -70,8 +69,8 @@ public class ChalkBlock extends Block {
         if (!level.isClientSide()) {
             ChalkColor blockColor = state.getValue(COLOR);
             if (isMatchingChalk(stack, blockColor)) {
-                ChalkGlyph next = state.getValue(GLYPH).next();
-                level.setBlock(pos, state.setValue(GLYPH, next), 3);
+                ChalkSigil next = state.getValue(SIGIL).next();
+                level.setBlock(pos, state.setValue(SIGIL, next), 3);
                 level.playSound(null, pos,
                         SoundEvents.GRAVEL_PLACE,
                         net.minecraft.sounds.SoundSource.BLOCKS, 1.0f,

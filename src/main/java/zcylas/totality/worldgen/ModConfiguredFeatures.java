@@ -5,9 +5,13 @@ import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.valueproviders.UniformInt;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.ReplaceBlobsFeature;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
+import net.minecraft.world.level.levelgen.feature.configurations.ReplaceSphereConfiguration;
 import net.minecraft.world.level.levelgen.feature.configurations.SimpleBlockConfiguration;
 import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTest;
@@ -15,6 +19,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
 import zcylas.totality.Totality;
 import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
+import zcylas.totality.init.blocks.WhitestoneBlocks;
 
 import java.util.List;
 
@@ -38,6 +43,11 @@ public class ModConfiguredFeatures {
             Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"purple_mountain_flower"));
     public static final ResourceKey<ConfiguredFeature<?, ?>> RED_MOUNTAIN_FLOWER_KEY = ResourceKey.create(
             Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"red_mountain_flower"));
+    // Whitestone
+    public static final ResourceKey<ConfiguredFeature<?, ?>> WHITESTONE_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "whitestone"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> FLECKED_WHITESTONE_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "flecked_whitestone"));
 
     public static void bootstrap(BootstrapContext<ConfiguredFeature<?,?>> context){
         //Ores
@@ -76,5 +86,19 @@ public class ModConfiguredFeatures {
         context.register(RED_MOUNTAIN_FLOWER_KEY, new ConfiguredFeature<>(
                 Feature.SIMPLE_BLOCK,
                 new SimpleBlockConfiguration(BlockStateProvider.simple(AlchemyBlocks.RED_MOUNTAIN_FLOWER))));
+
+        //Whitestone
+        context.register(WHITESTONE_KEY, new ConfiguredFeature<>(Feature.REPLACE_BLOBS,
+                new ReplaceSphereConfiguration(
+                        Blocks.STONE.defaultBlockState(),
+                        WhitestoneBlocks.WHITESTONE.defaultBlockState(),
+                        UniformInt.of(6,12) // blob radius
+                )));
+        context.register(FLECKED_WHITESTONE_KEY, new ConfiguredFeature<>(Feature.REPLACE_BLOBS,
+                new ReplaceSphereConfiguration(
+                        WhitestoneBlocks.WHITESTONE.defaultBlockState(),
+                        WhitestoneBlocks.FLECKED_WHITESTONE.defaultBlockState(),
+                        UniformInt.of(1, 2) // small blobs, replacing whitestone only
+                )));
     }
 }

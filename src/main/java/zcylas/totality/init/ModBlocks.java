@@ -1,10 +1,7 @@
 package zcylas.totality.init;
 
 import zcylas.totality.block.fluid.FluidTankBlock;
-import zcylas.totality.init.blocks.AlchemyBlocks;
-import zcylas.totality.init.blocks.EnergyBlocks;
-import zcylas.totality.init.blocks.OreBlocks;
-import zcylas.totality.init.blocks.RitualBlocks;
+import zcylas.totality.init.blocks.*;
 
 public class ModBlocks {
 
@@ -15,6 +12,7 @@ public class ModBlocks {
         EnergyBlocks.register();
         AlchemyBlocks.register();
         RitualBlocks.register();
+        WhitestoneBlocks.register();
     }
 
     private ModBlocks(){}

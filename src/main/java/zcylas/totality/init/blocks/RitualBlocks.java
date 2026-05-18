@@ -50,8 +50,9 @@ public class RitualBlocks {
             BlockBehaviour.Properties.of()
                     .mapColor(MapColor.NONE)
                     .strength(0f)
-                    .noCollision()
                     .noOcclusion()
+                    .noCollision()
+                    .forceSolidOn()
                     .instabreak()
                     .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY),
             false

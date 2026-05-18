@@ -205,6 +205,30 @@ public class Totality implements ModInitializer {
 				ModPlacedFeatures.RED_MOUNTAIN_FLOWER_PLACED_KEY
 		);
 
+		// Whitestone — everywhere
+		BiomeModifications.addFeature(
+				BiomeSelectors.foundInOverworld(),
+				GenerationStep.Decoration.UNDERGROUND_ORES,
+				ModPlacedFeatures.WHITESTONE_PLACED_KEY
+		);
+		// Whitestone — mountains more common
+		BiomeModifications.addFeature(
+				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
+						.and(ctx -> {
+							String path = ctx.getBiomeKey().identifier().getPath();
+							return path.contains("mountain") || path.contains("peak") || path.contains("highland");
+						}),
+				GenerationStep.Decoration.UNDERGROUND_ORES,
+				ModPlacedFeatures.WHITESTONE_PLACED_KEY
+		);
+
+		// Flecked Whitestone — everywhere rare
+		BiomeModifications.addFeature(
+				BiomeSelectors.foundInOverworld(),
+				GenerationStep.Decoration.LOCAL_MODIFICATIONS,
+				ModPlacedFeatures.FLECKED_WHITESTONE_PLACED_KEY
+		);
+
 	}
 	private void registerEvents(){
 		PlayerComponentEvents.init();
