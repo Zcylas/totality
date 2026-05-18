@@ -39,6 +39,7 @@ public class PlayerSkills {
      */
     public int addXp(Skill skill, int amount) {
         SkillData data = getData(skill);
+        int levelBefore = data.getLevel();
         boolean leveledUp = data.addXp(skill, amount);
         return leveledUp ? data.getLevel() : -1;
     }

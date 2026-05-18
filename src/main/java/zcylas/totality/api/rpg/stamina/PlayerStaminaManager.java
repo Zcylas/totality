@@ -1,18 +1,33 @@
 package zcylas.totality.api.rpg.stamina;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.rpg.combat.CombatStateManager;
 import zcylas.totality.api.rpg.stamina.base.*;
 
 import java.util.HashMap;
 import java.util.UUID;
 
 public class PlayerStaminaManager {
-    public static final int   BASE_MAX_STAMINA     = 100;
-    // 5% of max stamina per second — matches Skyrim's out-of-combat regen rate
-    public static final float BASE_REGEN_PERCENT   = 0.05f;
+    public static final int   BASE_MAX_STAMINA        = 100;
+
+    /**
+     * Out-of-combat regen: 5% of max per second.
+     * At 100 max stamina → 5/sec → full bar in ~20 seconds.
+     * Future: the out-of-combat regen mastery multiplies this value.
+     */
+    public static final float BASE_REGEN_PERCENT       = 0.05f;
+
+    /**
+     * In-combat regen: 2% of max per second.
+     * At 100 max stamina → 2/sec → full bar in ~50 seconds.
+     * Slower recovery forces stamina management during fights.
+     */
+    public static final float IN_COMBAT_REGEN_PERCENT  = 0.02f;
+
     // Drain 1 stamina every 3 ticks ≈ 6.6 stamina/second ≈ Skyrim's 6s depletion
     public static final float SPRINT_DRAIN_PER_TICK = 0.33f;
 
@@ -63,6 +78,7 @@ public class PlayerStaminaManager {
                 max += staminaItem.getMaxStamina(stack, StaminaSource.ARMOR);
             }
         }
+
         if (player.hasEffect(zcylas.totality.init.ModEffects.FORTIFY_STAMINA)) {
             net.minecraft.world.effect.MobEffectInstance inst =
                     player.getEffect(zcylas.totality.init.ModEffects.FORTIFY_STAMINA);
@@ -70,7 +86,6 @@ public class PlayerStaminaManager {
                 max += inst.getAmplifier() + 1;
             }
         }
-
 
         // Hand slots
         for (InteractionHand hand : InteractionHand.values()) {
@@ -95,8 +110,21 @@ public class PlayerStaminaManager {
         return event.getMax();
     }
 
+    /**
+     * Returns the regen percent for this tick, accounting for combat state.
+     *
+     * Combat state is checked here so all callers (including future masteries
+     * hooking via StaminaRegenCalcEvent) automatically get the right base rate.
+     *
+     * Mastery hook example — subscribe to StaminaRegenCalcEvent and do:
+     *   if (!CombatStateManager.isInCombat((ServerPlayer) player))
+     *       event.setRegenPercent(event.getRegenPercent() * 2f);
+     */
     public static float getRegenPercent(Player player) {
-        float regen = BASE_REGEN_PERCENT;
+        // Pick base rate depending on combat state
+        boolean inCombat = player instanceof ServerPlayer sp
+                && CombatStateManager.isInCombat(sp);
+        float regen = inCombat ? IN_COMBAT_REGEN_PERCENT : BASE_REGEN_PERCENT;
 
         // Armor slots
         for (EquipmentSlot slot : new EquipmentSlot[]{
@@ -115,7 +143,6 @@ public class PlayerStaminaManager {
                 regen *= (1f + (inst.getAmplifier() + 1) / 100f);
             }
         }
-
 
         // Hand slots
         for (InteractionHand hand : InteractionHand.values()) {

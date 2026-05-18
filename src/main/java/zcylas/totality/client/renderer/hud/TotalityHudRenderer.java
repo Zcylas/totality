@@ -10,6 +10,7 @@ import net.minecraft.util.Mth;
 import zcylas.totality.Totality;
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
 import zcylas.totality.client.gui.TotalityGuiSprites;
+import zcylas.totality.client.renderer.hud.context.AbilityContextHud;
 import zcylas.totality.client.renderer.hud.context.MagicContextHud;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.stamina.ClientStaminaManager;
@@ -51,7 +52,12 @@ public class TotalityHudRenderer {
             int staminaY = screenH - BOTTOM_MARGIN - BG_HEIGHT;  // bottom
             int manaY    = staminaY - BAR_SPACING  - BG_HEIGHT;  // middle
             int hpY      = manaY    - BAR_SPACING  - BG_HEIGHT;  // top
-
+            // Power attack flash
+            PowerAttackFlash.tick();
+            if (PowerAttackFlash.isActive()) {
+                int flashColor = (int)(PowerAttackFlash.getAlpha() * 255) << 24 | 0xFF6600;
+                graphics.fill(0, 0, screenW, screenH, flashColor);
+            }
             // ── LEFT SIDE — HP, Stamina, Mana ──
             drawBar(graphics, client, leftX, hpY,
                     TotalityGuiSprites.HUD_HEALTH_FILL,
@@ -84,7 +90,7 @@ public class TotalityHudRenderer {
 
             // ── CONTEXT RENDERERS ──
             MagicContextHud.render(graphics, client, screenW, screenH);
-            // TODO: CombatContextHud.render(graphics, client, screenW, screenH);
+            AbilityContextHud.render(graphics, client, screenW, screenH);
             // TODO: ToolContextHud.render(graphics, client, screenW, screenH);
             // TODO: TargetContextHud.render(graphics, client, screenW, screenH);
         });

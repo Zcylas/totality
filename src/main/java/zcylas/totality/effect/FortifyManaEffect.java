@@ -4,6 +4,7 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.effect.MobEffectInstance;
+import zcylas.totality.init.ModEffects;
 
 /**
  * Temporarily increases max mana.
@@ -33,13 +34,8 @@ public class FortifyManaEffect extends MobEffect {
      *
      * Stores the bonus in the amplifier field so PlayerManaManager can read it.
      */
-    public static void applyBonus(Player player, float magnitude, int durationTicks,
-                                  int currentMaxMana) {
-        int bonus = magnitude > 1
-                ? (int) magnitude
-                : (int)(currentMaxMana * magnitude);
-
-        // Store bonus as amplifier (0-indexed, so bonus-1)
+    public static void applyBonus(Player player, float magnitude, int durationTicks) {
+        int bonus = Math.round(magnitude);
         player.addEffect(new MobEffectInstance(
                 zcylas.totality.init.ModEffects.FORTIFY_MANA,
                 durationTicks, Math.max(0, bonus - 1), false, true, true));

@@ -1,0 +1,25 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "totality:font/icons/flame.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": ["\uE001"]
+    },
+    {
+      "type": "bitmap",
+      "file": "totality:font/icons/energy.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": ["\uE002"]
+    },
+    {
+      "type": "bitmap",
+      "file": "totality:font/icons/weight.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": ["\uE003"]
+    }
+  ]
+}

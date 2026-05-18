@@ -14,10 +14,12 @@
 		"MixinServerPlayer",
 		"MixinLocalPlayer",
 		"ScreenAccessor",
+		"client.MinecraftAttackMixin",
 		"item.TridentItemMixin",
 		"item.KineticWeaponMixin",
 		"item.PiercingWeaponMixin",
-		"item.MaceItemMixin"
+		"item.MaceItemMixin",
+		"client.AbstractContainerScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -1,6 +1,7 @@
 package zcylas.totality.item.alchemy;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
@@ -14,6 +15,7 @@ import zcylas.totality.Totality;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffectInstance;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyIngredient;
+import zcylas.totality.client.tooltip.TooltipExtension;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -27,7 +29,7 @@ import java.util.function.Consumer;
  *   2 — Fortify Magicka    (BENEFICIAL)
  *   3 — Regenerate Magicka (BENEFICIAL)
  */
-public class SalmonRoeItem extends Item implements AlchemyIngredient {
+public class SalmonRoeItem extends Item implements AlchemyIngredient, TooltipExtension {
 
     private static final Identifier INGREDIENT_ID =
             Identifier.fromNamespaceAndPath(Totality.MOD_ID, "salmon_roe");
@@ -57,11 +59,11 @@ public class SalmonRoeItem extends Item implements AlchemyIngredient {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context,
-                                TooltipDisplay display, Consumer<Component> builder,
-                                TooltipFlag flag) {
-        super.appendHoverText(stack, context, display, builder, flag);
-        Player player = Minecraft.getInstance().player;
-        appendAlchemyTooltip(stack, builder, flag, player);
+    public void addTooltipLines(ItemStack stack, Font font, List<Component> lines) {
+        AlchemyIngredient.appendAlchemyTooltip(
+                lines::add,
+                getIngredientId(),
+                getAlchemyEffects()
+        );
     }
 }

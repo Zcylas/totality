@@ -11,7 +11,12 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zcylas.totality.api.ability.Ability;
+import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.ability.AbilityServerTick;
+import zcylas.totality.api.ritual.RitualRecipeRegistry;
 import zcylas.totality.api.rpg.skills.core.OneHandedSkillHandler;
+import zcylas.totality.api.rpg.skills.mining.MiningSkillEvents;
 import zcylas.totality.api.rpg.stats.StatsServerEvents;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
 import zcylas.totality.api.rpg.combat.weapon.TwoHandedRestriction;
@@ -24,6 +29,9 @@ import zcylas.totality.menu.energy.ElectricFurnaceMenu;
 import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityPackets;
 import zcylas.totality.networking.TotalityServerPacketHandlers;
+import zcylas.totality.networking.ability.ActivateAbilityHandler;
+import zcylas.totality.networking.ability.EquipAbilityHandler;
+import zcylas.totality.networking.ability.veinminer.VeinminerKeyHandler;
 import zcylas.totality.networking.inventory.InventoryActionHandler;
 import zcylas.totality.networking.mana.ManaServerTick;
 import zcylas.totality.networking.skills.UnlockMasteryHandler;
@@ -46,9 +54,11 @@ public class Totality implements ModInitializer {
 		registerItemHandlers();
 		registerInits();
 		registerCombatApi();
+		registerSkillEvents();
 		registerEvents();
 		registerRPGHandlers();
 		registerSkillHandlers();
+		registerAbilityClasses();
 		registerAttributes();
 		registerLookups();
 		registerBiomeModifications();
@@ -65,6 +75,7 @@ public class Totality implements ModInitializer {
 		ModSounds.register();
 		ModLootTables.register();
 		TotalityCommands.register();
+		RitualRecipeRegistry.register();
 	}
 
 	private void registerLookups(){
@@ -85,11 +96,13 @@ public class Totality implements ModInitializer {
 	private void registerServerTickEvents(){
 		ManaServerTick.register();
 		StaminaServerTick.register();
+		AbilityServerTick.register();
 	}
 
 	private void registerApi(){
 		UEApiInit.register();
 		AlchemyEffects.register();
+		AbilityRegistry.register();
 	}
 
 	private void registerCombatApi(){
@@ -98,8 +111,14 @@ public class Totality implements ModInitializer {
 	}
 	private void registerRPGHandlers(){
 		UnlockMasteryHandler.register();
+		ActivateAbilityHandler.register();
 		InventoryActionHandler.register();
 		SpendAttributePointHandler.register();
+		EquipAbilityHandler.register();
+	}
+
+	private void registerAbilityClasses(){
+		VeinminerKeyHandler.register();
 	}
 	private void registerSkillHandlers(){
 		OneHandedSkillHandler.register();
@@ -111,6 +130,9 @@ public class Totality implements ModInitializer {
 
 	private void registerAttributes() {
 		FabricDefaultAttributeRegistry.register(ModEntities.SUMMON_SKELETON, Skeleton.createAttributes());
+	}
+	private void registerSkillEvents(){
+		MiningSkillEvents.register();
 	}
 
 	private void registerBiomeModifications(){

@@ -1,5 +1,7 @@
 package zcylas.totality.api.rpg.skills.core;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -15,15 +17,18 @@ public class Mastery {
     private final String id;
     private final String name;
     private final List<MasteryRank> ranks;
+    private final @Nullable String abilityId;
 
-    public Mastery(String id, String name, List<MasteryRank> ranks) {
+    public Mastery(String id, String name, List<MasteryRank> ranks, @Nullable String abilityId) {
         this.id = id;
         this.name = name;
         this.ranks = List.copyOf(ranks);
+        this.abilityId = abilityId;
     }
 
     public String getId()   { return id; }
     public String getName() { return name; }
+    public @Nullable String getAbilityId() { return abilityId; }
 
     /** Total number of ranks. */
     public int getRankCount() { return ranks.size(); }
@@ -52,19 +57,17 @@ public class Mastery {
 
     /** Convenience — single rank mastery constructor. */
     public static Mastery of(String id, String name, int requiredLevel, String description) {
-        return new Mastery(id, name, List.of(new MasteryRank(requiredLevel, description)));
+        return new Mastery(id, name, List.of(new MasteryRank(requiredLevel, description)), null);
     }
 
-    /** Convenience — two rank mastery constructor. */
     public static Mastery of2(String id, String name,
                               int req1, String desc1,
                               int req2, String desc2) {
         return new Mastery(id, name, List.of(
                 new MasteryRank(req1, desc1),
-                new MasteryRank(req2, desc2)));
+                new MasteryRank(req2, desc2)), null);
     }
 
-    /** Convenience — three rank mastery constructor. */
     public static Mastery of3(String id, String name,
                               int req1, String desc1,
                               int req2, String desc2,
@@ -72,6 +75,10 @@ public class Mastery {
         return new Mastery(id, name, List.of(
                 new MasteryRank(req1, desc1),
                 new MasteryRank(req2, desc2),
-                new MasteryRank(req3, desc3)));
+                new MasteryRank(req3, desc3)), null);
+    }
+    public static Mastery ofAbility(String id, String name, int requiredLevel,
+                                    String description, String abilityId) {
+        return new Mastery(id, name, List.of(new MasteryRank(requiredLevel, description)), abilityId);
     }
 }

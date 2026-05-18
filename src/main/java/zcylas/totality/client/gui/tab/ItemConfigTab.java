@@ -17,19 +17,44 @@ import java.util.function.Supplier;
 
 public class ItemConfigTab extends GuiTab {
 
-    private static final int SQUARE_SIZE  = 16;
-    private static final int PADDING      = 3;
-    private static final int PANEL_PADDING = 6;
-    private static final int ORIGIN_X     = 8;
-    private static final int ORIGIN_Y     = 15;
+    private static final int SQUARE_SIZE    = 20;
+    private static final int PADDING        = 5;
+    private static final int PANEL_PADDING  = 6;
+    private static final int ORIGIN_X       = 8;
+    private static final int ORIGIN_Y       = 15;
     private static final int CLOSE_BTN_SIZE = 13;
+    private static final int LABEL_H        = 8;
 
-    private final BlockPos pos;
+    // ── Layout (viewed from front of machine) ─────────────────────────────────
+    //
+    //  col:   0       1        2
+    //  row 0:       [TOP]
+    //  row 1: [LEFT][FRONT][RIGHT]
+    //  row 2:       [BACK] [BOT]
+    //
+    // For non-directional blocks (hasDirectionalFacing = false), labels use
+    // absolute directions: UP/DOWN/NORTH/SOUTH/WEST/EAST.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private final BlockPos            pos;
     private final Supplier<Direction> facingSupplier;
+    private final boolean             hasDirectionalFacing;
+    private final net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
 
+    public ItemConfigTab(BlockPos pos, Supplier<Direction> facingSupplier, boolean hasDirectionalFacing) {
+        this.pos                  = pos;
+        this.facingSupplier       = facingSupplier;
+        this.hasDirectionalFacing = hasDirectionalFacing;
+    }
+
+    /** Directional block — uses FRONT/BACK/LEFT/RIGHT labels. */
     public ItemConfigTab(BlockPos pos, Supplier<Direction> facingSupplier) {
-        this.pos = pos;
-        this.facingSupplier = facingSupplier;
+        this(pos, facingSupplier, true);
+    }
+
+    /** Non-directional block (e.g. Power Cell) — uses absolute direction labels. */
+    public ItemConfigTab(BlockPos pos) {
+        this(pos, () -> Direction.NORTH, false);
     }
 
     @Override
@@ -55,11 +80,13 @@ public class ItemConfigTab extends GuiTab {
 
     @Override
     public void draw(GuiGraphicsExtractor drawContext, int guiLeft, int guiTop, int mouseX, int mouseY) {
-        int step   = SQUARE_SIZE + PADDING;
+        int step  = SQUARE_SIZE + PADDING;
+        int stepY = (SQUARE_SIZE + LABEL_H + 2) + PADDING;
+
         int panelX = guiLeft + ORIGIN_X - PANEL_PADDING;
         int panelY = guiTop  + ORIGIN_Y - PANEL_PADDING;
         int panelW = step * 3 + PANEL_PADDING * 2;
-        int panelH = step * 3 + PANEL_PADDING * 2;
+        int panelH = stepY * 3 + PANEL_PADDING * 2;
 
         drawContext.blitSprite(RenderPipelines.GUI_TEXTURED,
                 TotalityGuiSprites.CONFIG_BACKGROUND,
@@ -81,10 +108,14 @@ public class ItemConfigTab extends GuiTab {
             int y = guiTop  + xy[1];
 
             drawContext.fill(x, y, x + SQUARE_SIZE, y + SQUARE_SIZE, 0xFF000000 | mode.getColor());
-
-            if (mouseX >= x && mouseX < x + SQUARE_SIZE && mouseY >= y && mouseY < y + SQUARE_SIZE) {
+            if (mouseX >= x && mouseX < x + SQUARE_SIZE && mouseY >= y && mouseY < y + SQUARE_SIZE)
                 drawContext.fill(x, y, x + SQUARE_SIZE, y + SQUARE_SIZE, 0x44FFFFFF);
-            }
+
+            // Label below square
+            String label = getFaceLabel(dir);
+            int labelX = x + SQUARE_SIZE / 2 - font.width(label) / 2;
+            int labelY = y + SQUARE_SIZE + 2;
+            drawContext.text(font, label, labelX, labelY, 0xFFAAAAAA, false);
         }
     }
 
@@ -123,23 +154,84 @@ public class ItemConfigTab extends GuiTab {
         return false;
     }
 
+    // ── Face layout ───────────────────────────────────────────────────────────
+    //
+    //  col:   0       1        2
+    //  row 0:       [TOP]
+    //  row 1: [LEFT][FRONT][RIGHT]
+    //  row 2:       [BACK] [BOT]
+
     private int[] getFaceSquarePos(Direction dir) {
         Direction facing = facingSupplier.get();
-        int step = SQUARE_SIZE + PADDING;
+        int step  = SQUARE_SIZE + PADDING;
+        int stepY = (SQUARE_SIZE + LABEL_H + 2) + PADDING;
 
-        if (dir == Direction.UP)                    return new int[]{ORIGIN_X + step,     ORIGIN_Y};
-        if (dir == facing)                          return new int[]{ORIGIN_X + step,     ORIGIN_Y + step};
-        if (dir == facing.getClockWise())           return new int[]{ORIGIN_X,            ORIGIN_Y + step};
-        if (dir == facing.getCounterClockWise())    return new int[]{ORIGIN_X + step * 2, ORIGIN_Y + step};
-        if (dir == facing.getOpposite())            return new int[]{ORIGIN_X + step,     ORIGIN_Y + step * 2};
-        if (dir == Direction.DOWN)                  return new int[]{ORIGIN_X + step * 2, ORIGIN_Y + step * 2};
+        if (facing.getAxis() == Direction.Axis.Y) {
+            return getFaceSquarePosAbsolute(dir);
+        }
+
+        if (dir == Direction.UP)                  return new int[]{ORIGIN_X + step,     ORIGIN_Y};
+        if (dir == facing)                        return new int[]{ORIGIN_X + step,     ORIGIN_Y + stepY};
+        if (dir == facing.getClockWise())         return new int[]{ORIGIN_X,            ORIGIN_Y + stepY};
+        if (dir == facing.getCounterClockWise())  return new int[]{ORIGIN_X + step * 2, ORIGIN_Y + stepY};
+        if (dir == facing.getOpposite())          return new int[]{ORIGIN_X + step,     ORIGIN_Y + stepY * 2};
+        if (dir == Direction.DOWN)                return new int[]{ORIGIN_X + step * 2, ORIGIN_Y + stepY * 2};
 
         return new int[]{0, 0};
     }
+
+    private int[] getFaceSquarePosAbsolute(Direction dir) {
+        int step  = SQUARE_SIZE + PADDING;
+        int stepY = (SQUARE_SIZE + LABEL_H + 2) + PADDING;
+        return switch (dir) {
+            case UP    -> new int[]{ORIGIN_X + step,     ORIGIN_Y};
+            case NORTH -> new int[]{ORIGIN_X + step,     ORIGIN_Y + stepY};
+            case WEST  -> new int[]{ORIGIN_X,            ORIGIN_Y + stepY};
+            case EAST  -> new int[]{ORIGIN_X + step * 2, ORIGIN_Y + stepY};
+            case SOUTH -> new int[]{ORIGIN_X + step,     ORIGIN_Y + stepY * 2};
+            case DOWN  -> new int[]{ORIGIN_X + step * 2, ORIGIN_Y + stepY * 2};
+        };
+    }
+
+    private String getFaceLabel(Direction dir) {
+        Direction facing = facingSupplier.get();
+
+        if (!hasDirectionalFacing || facing.getAxis() == Direction.Axis.Y) {
+            return switch (dir) {
+                case UP    -> "Top";
+                case DOWN  -> "Bot";
+                case NORTH -> "North";
+                case SOUTH -> "South";
+                case WEST  -> "West";
+                case EAST  -> "East";
+            };
+        }
+
+        if (dir == Direction.UP)                  return "Top";
+        if (dir == Direction.DOWN)                return "Bot";
+        if (dir == facing)                        return "Front";
+        if (dir == facing.getOpposite())          return "Back";
+        if (dir == facing.getClockWise())         return "Left";
+        if (dir == facing.getCounterClockWise())  return "Right";
+        return dir.getName();
+    }
+
+    // ── Static state ──────────────────────────────────────────────────────────
 
     private static BlockPos configTabOpenPos = null;
 
     public static boolean isConfigTabOpen(BlockPos pos) {
         return pos.equals(configTabOpenPos);
+    }
+    @Override
+    public boolean isMouseOver(double mouseX, double mouseY) {
+        int step  = SQUARE_SIZE + PADDING;
+        int stepY = (SQUARE_SIZE + LABEL_H + 2) + PADDING;
+        int panelX = ORIGIN_X - PANEL_PADDING;
+        int panelY = ORIGIN_Y - PANEL_PADDING;
+        int panelW = step * 3 + PANEL_PADDING * 2;
+        int panelH = stepY * 3 + PANEL_PADDING * 2;
+        return mouseX >= panelX && mouseX < panelX + panelW
+                && mouseY >= panelY && mouseY < panelY + panelH;
     }
 }

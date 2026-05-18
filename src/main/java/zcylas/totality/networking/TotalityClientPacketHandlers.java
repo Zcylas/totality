@@ -83,6 +83,31 @@ public class TotalityClientPacketHandlers {
                         );
                         ClientWalletManager.sync(buf.readLong());
                     }
+                    // Keep ClientAbilityManager in sync for HUD and screen rendering
+                    if (payload.keyId().toString().equals("totality:abilities")) {
+                        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
+                                Unpooled.wrappedBuffer(payload.data()),
+                                registryAccess
+                        );
+                        // Read unlocked
+                        int unlockedCount = buf.readInt();
+                        java.util.Set<net.minecraft.resources.Identifier> unlocked = new java.util.HashSet<>();
+                        for (int i = 0; i < unlockedCount; i++) {
+                            unlocked.add(buf.readIdentifier());
+                        }
+                        // Read cooldowns
+                        int cooldownCount = buf.readInt();
+                        java.util.Map<net.minecraft.resources.Identifier, Integer> cooldowns = new java.util.HashMap<>();
+                        for (int i = 0; i < cooldownCount; i++) {
+                            net.minecraft.resources.Identifier id = buf.readIdentifier();
+                            int ticks = buf.readInt();
+                            cooldowns.put(id, ticks);
+                        }
+                        // Read equipped
+                        net.minecraft.resources.Identifier equipped = buf.readBoolean() ? buf.readIdentifier() : null;
+
+                        zcylas.totality.networking.ability.ClientAbilityManager.sync(unlocked, cooldowns, equipped);
+                    }
                 }
         );
         ClientPlayNetworking.registerGlobalReceiver(

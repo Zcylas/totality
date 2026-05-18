@@ -1,15 +1,19 @@
 package zcylas.totality.networking.stamina;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import zcylas.totality.api.rpg.combat.CombatStateManager;
 import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
 import zcylas.totality.api.rpg.combat.exhaustion.ExhaustionManager;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
+import zcylas.totality.networking.ability.veinminer.VeinminerKeyHandler;
 
 public class StaminaServerTick {
     private static int tickCounter = 0;
@@ -23,12 +27,31 @@ public class StaminaServerTick {
     private static final double ATTACK_PENALTY = -0.25;
 
     public static void register() {
+
+        // ── Combat state: player attacks something ────────────────────────────
+        // AttackEntityCallback fires on the server when the player left-clicks an entity.
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (player instanceof ServerPlayer sp)
+                CombatStateManager.onDamage(sp);
+            return InteractionResult.PASS;
+        });
+
+        // ── Combat state: player receives damage ──────────────────────────────
+        // LivingDamageEvent fires after armor/resistance reduction, before HP loss.
+        // Using a mixin is the cleanest way in 26.1 — see note below.
+        // For now we register via the Fabric LivingEntityMixin path you already have,
+        // or wire this call from wherever you handle player HP loss.
+        // TODO: wire CombatStateManager.onDamage(player) from your HP damage handler.
+
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             tickCounter++;
 
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 
-                // ── Sprint drain — every 3 ticks, only on ground ──
+                // ── Tick combat timer ─────────────────────────────────────────
+                CombatStateManager.tick(player);
+
+                // ── Sprint drain — every 3 ticks, only on ground ──────────────
                 if (player.isSprinting() && !player.isCreative() && player.onGround()
                         && !BowStaminaHandler.isBowDrawn(player)) {
                     if (tickCounter % 3 == 0) {
@@ -40,23 +63,21 @@ public class StaminaServerTick {
                     }
                 }
 
-                // ── Bow stamina drain ──
+                // ── Bow stamina drain ─────────────────────────────────────────
                 BowStaminaHandler.tick(player, tickCounter);
 
-                // ── Exhaustion state tick ──
+                // ── Exhaustion state tick ─────────────────────────────────────
                 ExhaustionManager.tick(player);
 
-                // ── Exhaustion penalties — applied every tick like vanilla ──
+                // ── Exhaustion attribute penalties ────────────────────────────
                 boolean penalized = ExhaustionManager.isPenalized(player) && !player.isCreative();
 
                 var speedAttr = player.getAttribute(Attributes.MOVEMENT_SPEED);
                 if (speedAttr != null) {
                     if (penalized) {
                         speedAttr.addOrUpdateTransientModifier(new AttributeModifier(
-                                SPEED_MODIFIER_ID,
-                                SPEED_PENALTY,
-                                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
-                        ));
+                                SPEED_MODIFIER_ID, SPEED_PENALTY,
+                                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
                     } else {
                         speedAttr.removeModifier(SPEED_MODIFIER_ID);
                     }
@@ -66,16 +87,16 @@ public class StaminaServerTick {
                 if (attackAttr != null) {
                     if (penalized) {
                         attackAttr.addOrUpdateTransientModifier(new AttributeModifier(
-                                ATTACK_MODIFIER_ID,
-                                ATTACK_PENALTY,
-                                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
-                        ));
+                                ATTACK_MODIFIER_ID, ATTACK_PENALTY,
+                                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
                     } else {
                         attackAttr.removeModifier(ATTACK_MODIFIER_ID);
                     }
                 }
 
-                // ── Regen — every 20 ticks, only when not sprinting or drawing bow ──
+                // ── Stamina regen — every 20 ticks ────────────────────────────
+                // getRegenPercent() picks the right base rate (combat vs out-of-combat)
+                // internally, so no changes needed here.
                 if (tickCounter % 20 == 0) {
                     boolean regenBlocked = player.isSprinting()
                             || BowStaminaHandler.isBowDrawn(player);
@@ -89,7 +110,8 @@ public class StaminaServerTick {
                                     (int)(PlayerStaminaManager.calculateRegenAmount(player)
                                             * regenMultiplier));
                             PlayerStaminaManager.addStamina(player, regenAmount);
-                            PlayerStaminaManager.setStamina(player, PlayerStaminaManager.getStamina(player));
+                            PlayerStaminaManager.setStamina(player,
+                                    PlayerStaminaManager.getStamina(player));
                             syncStamina(player);
                         }
                     }
@@ -99,10 +121,11 @@ public class StaminaServerTick {
             if (tickCounter >= 60) tickCounter = 0;
         });
 
-        // Clean up when player disconnects
+        // ── Cleanup on disconnect ─────────────────────────────────────────────
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             ExhaustionManager.onPlayerLeave(handler.player);
             BowStaminaHandler.onPlayerLeave(handler.player);
+            VeinminerKeyHandler.onPlayerLeave(handler.player);
         });
     }
 

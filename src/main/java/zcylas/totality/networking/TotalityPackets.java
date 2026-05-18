@@ -3,9 +3,13 @@ package zcylas.totality.networking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import zcylas.totality.api.core.component.ComponentSync;
+import zcylas.totality.networking.ability.ActivateAbilityPayload;
+import zcylas.totality.networking.ability.EquipAbilityPayload;
+import zcylas.totality.networking.ability.veinminer.VeinminerKeyPayload;
 import zcylas.totality.networking.alchemy.BrewPayload;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
+import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
 import zcylas.totality.networking.config.SideModePayload;
@@ -43,6 +47,10 @@ public class TotalityPackets {
         registry.register(InventoryEquipPayload.TYPE, InventoryEquipPayload.CODEC);
         registry.register(InventoryUsePayload.TYPE, InventoryUsePayload.CODEC);
         registry.register(InventoryDropPayload.TYPE, InventoryDropPayload.CODEC);
+        registry.register(ActivateAbilityPayload.TYPE, ActivateAbilityPayload.CODEC);
+        registry.register(EquipAbilityPayload.TYPE, EquipAbilityPayload.CODEC);
+        registry.register(VeinminerKeyPayload.TYPE, VeinminerKeyPayload.CODEC);
+        registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry){

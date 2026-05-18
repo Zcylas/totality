@@ -30,4 +30,13 @@ public abstract class GuiTab {
     public boolean click(double mouseX, double mouseY, int button) {
         return false;
     }
+
+    /**
+     * Returns true if the mouse is anywhere inside this tab's panel bounds.
+     * Used by screens to block hover/tooltip detection from reaching slots underneath.
+     * Coordinates are relative to guiLeft/guiTop (same as click()).
+     */
+    public boolean isMouseOver(double mouseX, double mouseY) {
+        return false;
+    }
 }

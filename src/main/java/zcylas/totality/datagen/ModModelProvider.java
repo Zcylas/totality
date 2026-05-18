@@ -16,15 +16,20 @@ import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.api.industrial.energy.UEComponents;
+import zcylas.totality.api.ritual.ChalkColor;
+import zcylas.totality.api.ritual.ChalkGlyph;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.ElectricFurnaceBlock;
+import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
+import zcylas.totality.block.ritual.ChalkBlock;
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
+import zcylas.totality.init.blocks.RitualBlocks;
 import zcylas.totality.init.items.*;
 
 import net.minecraft.client.data.models.blockstates.ConditionBuilder;
@@ -38,7 +43,19 @@ public class ModModelProvider extends FabricModelProvider {
     public void generateBlockStateModels(@NonNull BlockModelGenerators generators) {
         registerFluidTank(generators, ModBlocks.COPPER_TANK);
         // Energy cell — uses furnace model as placeholder, no facing needed
-        generators.createTrivialCube(EnergyBlocks.COPPER_ENERGY_CELL);
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(EnergyBlocks.COPPER_ENERGY_CELL)
+                        .with(PropertyDispatch.initial(EnergyCellBlock.FACING)
+                                .select(Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/copper_energy_cell")))
+                                .select(Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/copper_energy_cell")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/copper_energy_cell")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/copper_energy_cell")).with(BlockModelGenerators.Y_ROT_270))
+                        )
+        );
         generators.blockStateOutput.accept(
                 MultiVariantGenerator.dispatch(EnergyBlocks.GENERATOR)
                         .with(PropertyDispatch.initial(BlockStateProperties.LIT, BlockStateProperties.HORIZONTAL_FACING)
@@ -79,6 +96,49 @@ public class ModModelProvider extends FabricModelProvider {
                                         Identifier.fromNamespaceAndPath("totality", "block/electric_furnace_active")).with(BlockModelGenerators.Y_ROT_180))
                                 .select(true, Direction.WEST, BlockModelGenerators.plainVariant(
                                         Identifier.fromNamespaceAndPath("totality", "block/electric_furnace_active")).with(BlockModelGenerators.Y_ROT_270))
+                        )
+        );
+        // Ritual Altar
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(RitualBlocks.RITUAL_ALTAR)
+                        .with(PropertyDispatch.initial(BlockStateProperties.LIT, BlockStateProperties.HORIZONTAL_FACING)
+                                .select(false, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar")))
+                                .select(false, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(false, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(false, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar")).with(BlockModelGenerators.Y_ROT_270))
+                                .select(true, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar_active")))
+                                .select(true, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar_active")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(true, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar_active")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(true, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar_active")).with(BlockModelGenerators.Y_ROT_270))
+                        )
+        );
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(RitualBlocks.RITUAL_DAIS)
+                        .with(PropertyDispatch.initial(BlockStateProperties.LIT, BlockStateProperties.HORIZONTAL_FACING)
+                                .select(false, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais")))
+                                .select(false, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(false, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(false, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais")).with(BlockModelGenerators.Y_ROT_270))
+                                .select(true, Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais_active")))
+                                .select(true, Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais_active")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(true, Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais_active")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(true, Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais_active")).with(BlockModelGenerators.Y_ROT_270))
                         )
         );
 
@@ -150,8 +210,51 @@ public class ModModelProvider extends FabricModelProvider {
                                 .select(7, BlockModelGenerators.plainVariant(
                                         Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_7")))
                         )
-        );
 
+        );
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(RitualBlocks.CHALK)
+                        .with(PropertyDispatch.initial(ChalkBlock.COLOR, ChalkBlock.GLYPH)
+                                .select(ChalkColor.WHITE, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
+                                .select(ChalkColor.WHITE, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
+                                .select(ChalkColor.WHITE, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
+                                .select(ChalkColor.GOLD, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
+                                .select(ChalkColor.GOLD, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
+                                .select(ChalkColor.GOLD, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
+                                .select(ChalkColor.BLUE, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
+                                .select(ChalkColor.BLUE, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
+                                .select(ChalkColor.BLUE, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
+                                .select(ChalkColor.PURPLE, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
+                                .select(ChalkColor.PURPLE, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
+                                .select(ChalkColor.PURPLE, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
+                                .select(ChalkColor.RED, ChalkGlyph.CONDUIT, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/conduit_glyph")))
+                                .select(ChalkColor.RED, ChalkGlyph.INVOCATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/invocation_glyph")))
+                                .select(ChalkColor.RED, ChalkGlyph.BINDING, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/binding_glyph")))
+                        )
+        );
+        //Functional Blocks
+            //Skill Blocks
+        generators.blockStateOutput.accept(
+                BlockModelGenerators.createSimpleBlock(
+                        AlchemyBlocks.APOTHECARY_TABLE,
+                        BlockModelGenerators.plainVariant(Identifier.fromNamespaceAndPath("totality", "block/apothecary_table"))
+                )
+        );
 
     }
 
@@ -163,6 +266,10 @@ public class ModModelProvider extends FabricModelProvider {
                 EnergyBlocks.GENERATOR.asItem(),
                 ItemModelUtils.plainModel(
                         Identifier.fromNamespaceAndPath("totality", "block/generator")));
+        generators.itemModelOutput.accept(
+                AlchemyBlocks.APOTHECARY_TABLE.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/apothecary_table")));
         generators.itemModelOutput.accept(
                 EnergyBlocks.ELECTRIC_FURNACE.asItem(),
                 ItemModelUtils.plainModel(
@@ -232,6 +339,16 @@ public class ModModelProvider extends FabricModelProvider {
                         Identifier.fromNamespaceAndPath("totality", "item/umbra_visor")
                 )
         );
+        generators.itemModelOutput.accept(
+                RitualBlocks.RITUAL_ALTAR.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/ritual_altar"))
+        );
+        generators.itemModelOutput.accept(
+                RitualBlocks.RITUAL_DAIS.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/ritual_dais"))
+        );
         generators.generateFlatItem(MagicItems.NOVICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.APPRENTICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.ARCHMAGE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
@@ -266,7 +383,17 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(SKIngredientItems.SALMON_ROE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.TRUE_WHEAT, ModelTemplates.FLAT_ITEM);
-
+        generators.generateFlatItem(SKIngredientItems.GARLIC, ModelTemplates.FLAT_ITEM);
+        //Fuels
+        generators.generateFlatItem(FuelItems.TINY_COAL, ModelTemplates.FLAT_ITEM);
+        //Ritual Items
+        generators.generateFlatItem(RitualItems.WHITE_CHALK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(RitualItems.GOLD_CHALK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(RitualItems.BLUE_CHALK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(RitualItems.PURPLE_CHALK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(RitualItems.RED_CHALK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(RitualItems.INCENSE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(ReligiousItems.BLESSED_INCENSE, ModelTemplates.FLAT_ITEM);
 
         //Defaults
             //Default Potion

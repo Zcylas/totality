@@ -2,19 +2,24 @@ package zcylas.totality.block.energy;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.Nullable;
 import zcylas.totality.api.industrial.energy.UEFormat;
@@ -24,6 +29,8 @@ import zcylas.totality.init.ModBlockEntities;
 import java.util.List;
 
 public class EnergyCellBlock extends BaseEntityBlock {
+
+    public static final Property<Direction> FACING = HorizontalDirectionalBlock.FACING;
 
     public static final MapCodec<EnergyCellBlock> CODEC = simpleCodec(
             properties -> new EnergyCellBlock(properties, 500_000, 64, 64));
@@ -37,6 +44,19 @@ public class EnergyCellBlock extends BaseEntityBlock {
         this.capacity = capacity;
         this.maxInput = maxInput;
         this.maxOutput = maxOutput;
+        this.registerDefaultState(this.stateDefinition.any()
+                .setValue(FACING, Direction.NORTH));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING);
+    }
+
+    @Override
+    public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
+        return this.defaultBlockState()
+                .setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
@@ -45,7 +65,7 @@ public class EnergyCellBlock extends BaseEntityBlock {
     }
 
     public long getCapacity() { return capacity; }
-    public long getMaxInput() { return maxInput; }
+    public long getMaxInput()  { return maxInput; }
     public long getMaxOutput() { return maxOutput; }
 
     @Override

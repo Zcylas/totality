@@ -17,6 +17,7 @@ import java.util.function.ObjIntConsumer;
  *   - A display name
  *   - A base magnitude and duration (used by brewed potions)
  *   - A type (BENEFICIAL / HARMFUL / NEUTRAL)
+ *   - An xpValue — how much Alchemy XP this effect contributes when brewed
  *   - onConsume:     weak brief effect applied when the raw ingredient is eaten
  *   - onDrink:       magnitude-based effect applied when a brewed/registered potion is drunk
  *   - onDrinkTimed:  duration-based effect applied for timed effects (Waterbreathing etc.)
@@ -31,11 +32,15 @@ public final class AlchemyEffect {
     private final int baseDurationTicks;
     private final AlchemyEffectType type;
 
+    // XP awarded when this effect appears in a successfully brewed potion.
+    // Scaled from Skyrim's base cost values (proportional to gold value).
+    // Default 5 — override with withXpValue() on each effect registration.
+    private int xpValue = 5;
+
     // Callbacks
     private Consumer<LivingEntity>             onConsume    = entity -> {};
     private BiConsumer<LivingEntity, Float>    onDrink      = (entity, magnitude) -> {};
     private ObjIntConsumer<LivingEntity>       onDrinkTimed = (entity, ticks) -> {};
-    // Called when both magnitude AND duration are present (e.g. RegenerateTier potions)
     private java.util.function.BiConsumer<LivingEntity, float[]> onDrinkFull = null;
     private java.util.function.BiFunction<Float, Integer, String> descriptionBuilder = null;
 
@@ -46,11 +51,11 @@ public final class AlchemyEffect {
             int baseDurationTicks,
             AlchemyEffectType type
     ) {
-        this.id               = id;
-        this.displayName      = displayName;
-        this.baseMagnitude    = baseMagnitude;
+        this.id                = id;
+        this.displayName       = displayName;
+        this.baseMagnitude     = baseMagnitude;
         this.baseDurationTicks = baseDurationTicks;
-        this.type             = type;
+        this.type              = type;
     }
 
     public static AlchemyEffect register(
@@ -74,55 +79,47 @@ public final class AlchemyEffect {
         return effect;
     }
 
-    // ── Callback builders ─────────────────────────────────────────────────────
+    // ── XP value ──────────────────────────────────────────────────────────────
 
     /**
-     * Called when the raw ingredient is eaten.
-     * Should be a weak, brief version of the full effect.
+     * Sets how much Alchemy XP this effect contributes when it appears in a brewed potion.
+     * Based on Skyrim's base cost hierarchy — rarer/more powerful effects give more XP.
+     * Call this immediately after register() in AlchemyEffects.
      */
+    public AlchemyEffect withXpValue(int xp) {
+        this.xpValue = Math.max(1, xp);
+        return this;
+    }
+
+    public int getXpValue() { return xpValue; }
+
+    // ── Callback builders ─────────────────────────────────────────────────────
+
     public AlchemyEffect withConsumeEffect(Consumer<LivingEntity> onConsume) {
         this.onConsume = onConsume;
         return this;
     }
 
-    /**
-     * Called when a magnitude-based potion is drunk (Restore Health, Damage Health etc.)
-     * magnitude is a fraction of max value (0.0 – 1.0) from MagnitudeTier.
-     */
     public AlchemyEffect withDrinkEffect(BiConsumer<LivingEntity, Float> onDrink) {
         this.onDrink = onDrink;
         return this;
     }
 
-    /**
-     * Called when a duration-based potion is drunk (Waterbreathing, Invisibility etc.)
-     * durationTicks comes from DurationTier.
-     */
     public AlchemyEffect withTimedDrinkEffect(ObjIntConsumer<LivingEntity> onDrinkTimed) {
         this.onDrinkTimed = onDrinkTimed;
         return this;
     }
 
-    /**
-     * Called when both magnitude AND duration are present (e.g. RegenerateTier potions).
-     * args[0] = magnitude, args[1] = durationTicks (as float)
-     */
     public AlchemyEffect withFullDrinkEffect(java.util.function.BiConsumer<LivingEntity, float[]> onDrinkFull) {
         this.onDrinkFull = onDrinkFull;
         return this;
     }
 
-    /**
-     * Sets the tooltip description template for this effect.
-     * magnitude — raw magnitude value (e.g. 0.22 for 22%)
-     * ticks     — duration in ticks (divide by 20 for seconds)
-     */
     public AlchemyEffect withDescription(java.util.function.BiFunction<Float, Integer, String> builder) {
         this.descriptionBuilder = builder;
         return this;
     }
 
-    /** Builds the tooltip description string for this effect with the given values. */
     public String buildDescription(float magnitude, int durationTicks) {
         if (descriptionBuilder == null) return displayName + ".";
         return descriptionBuilder.apply(magnitude, durationTicks);
@@ -130,15 +127,10 @@ public final class AlchemyEffect {
 
     // ── Application ───────────────────────────────────────────────────────────
 
-    /** Called when the raw ingredient is eaten. */
     public void applyConsumeEffect(LivingEntity entity) {
         onConsume.accept(entity);
     }
 
-    /**
-     * Called when the brewed potion is drunk — uses baseMagnitude.
-     * For brewed potions where magnitude is derived from ingredient quality.
-     */
     public void applyDrinkEffect(LivingEntity entity) {
         if (baseDurationTicks > 0) {
             onDrinkTimed.accept(entity, baseDurationTicks);
@@ -147,20 +139,12 @@ public final class AlchemyEffect {
         }
     }
 
-    /**
-     * Called when a registered potion is drunk with explicit magnitude/duration.
-     * magnitude  — fraction of max value (from MagnitudeTier), 0 for timed effects
-     * durationTicks — ticks (from DurationTier), 0 for instant effects
-     */
     public void applyConsume(LivingEntity entity, float magnitude, int durationTicks) {
         if (magnitude > 0 && durationTicks > 0 && onDrinkFull != null) {
-            // Both magnitude and duration — use full callback if registered
             onDrinkFull.accept(entity, new float[]{magnitude, durationTicks});
         } else if (durationTicks > 0 && magnitude <= 0) {
-            // Duration only (e.g. Waterbreathing)
             onDrinkTimed.accept(entity, durationTicks);
         } else {
-            // Magnitude only or fallback
             onDrink.accept(entity, magnitude);
         }
     }

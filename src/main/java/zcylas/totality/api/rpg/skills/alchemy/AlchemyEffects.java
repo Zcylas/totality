@@ -3,7 +3,12 @@ package zcylas.totality.api.rpg.skills.alchemy;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Player;
 import zcylas.totality.Totality;
+import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
+import zcylas.totality.effect.FortifyHealthEffect;
+import zcylas.totality.effect.FortifyManaEffect;
+import zcylas.totality.effect.FortifyStaminaEffect;
 
 /**
  * All alchemy effects in Totality.
@@ -29,11 +34,16 @@ public final class AlchemyEffects {
             .withConsumeEffect(entity -> {
                 // Eating raw ingredient: small fixed heal
                 entity.heal(5f);
+
             })
+            .withXpValue(5)
             .withDrinkEffect((entity, magnitude) -> {
-                // magnitude < 0 = ULTIMATE — fully restore
-                float amount = magnitude < 0 ? entity.getMaxHealth() : magnitude;
-                entity.heal(amount);
+                if (magnitude < 0) {
+                    entity.heal(entity.getMaxHealth());
+                } else {
+                    // magnitude is in display HP — convert to vanilla before healing
+                    entity.heal(RpgDisplayUtils.toVanillaHp(Math.round(magnitude)));
+                }
             })
             .withDescription((magnitude, ticks) ->
                     magnitude < 0
@@ -42,26 +52,34 @@ public final class AlchemyEffects {
 
     public static final AlchemyEffect FORTIFY_HEALTH = AlchemyEffect.register(
                     id("fortify_health"), "Fortify Health",
-                    0.17f, 1200, AlchemyEffectType.BENEFICIAL
+                    17f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(6)
             .withConsumeEffect(entity -> {
-                int amplifier = hpPercentToAbsorptionAmplifier(entity, 0.04f);
-                entity.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 3 * 20, amplifier, false, true, true));
+                if (entity instanceof Player player) {
+                    FortifyHealthEffect.applyBonus(player, 4f, 3 * 20);
+                }
             })
             .withDrinkEffect((entity, magnitude) -> {
-                // magnitude > 1 = flat points (FortifyTier), otherwise percentage (brewed)
-                int amplifier = magnitude > 1
-                        ? (int)(magnitude / 4f) - 1
-                        : hpPercentToAbsorptionAmplifier(entity, magnitude);
-                entity.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 1200, Math.max(0, amplifier), false, true, true));
+                if (entity instanceof Player player) {
+                    FortifyHealthEffect.applyBonus(player, magnitude, 1200);
+                }
+            })
+            .withFullDrinkEffect((entity, args) -> {
+                if (entity instanceof Player player) {
+                    FortifyHealthEffect.applyBonus(player, args[0], (int) args[1]);
+                }
             })
             .withDescription((magnitude, ticks) ->
-                    String.format("Health is increased by %.0f points for %d seconds.", magnitude, ticks / 20));
+                    String.format("Health is increased by %.0f points for %d seconds.",
+                            magnitude, ticks / 20));
+
 
     public static final AlchemyEffect RESTORE_STAMINA = AlchemyEffect.register(
                     id("restore_stamina"), "Restore Stamina",
                     22f, 0, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(5)
             .withConsumeEffect(entity -> {
                 if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
                     zcylas.totality.api.rpg.stamina.PlayerStaminaManager.addStamina(player, 5);
@@ -81,27 +99,28 @@ public final class AlchemyEffects {
 
     public static final AlchemyEffect FORTIFY_STAMINA = AlchemyEffect.register(
                     id("fortify_stamina"), "Fortify Stamina",
-                    0.17f, 1200, AlchemyEffectType.BENEFICIAL
+                    17f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(6)
             .withConsumeEffect(entity -> {
-                if (entity instanceof net.minecraft.world.entity.player.Player player) {
-                    int currentMax = zcylas.totality.api.rpg.stamina.PlayerStaminaManager.getMaxStamina(player);
-                    zcylas.totality.effect.FortifyStaminaEffect.applyBonus(player, 0.04f, 3 * 20, currentMax);
+                if (entity instanceof Player player) {
+                    FortifyStaminaEffect.applyBonus(player, 4f, 3 * 20);
                 }
             })
             .withDrinkEffect((entity, magnitude) -> {
-                if (entity instanceof net.minecraft.world.entity.player.Player player) {
-                    int currentMax = zcylas.totality.api.rpg.stamina.PlayerStaminaManager.getMaxStamina(player);
-                    zcylas.totality.effect.FortifyStaminaEffect.applyBonus(player, magnitude, 1200, currentMax);
+                if (entity instanceof Player player) {
+                    FortifyStaminaEffect.applyBonus(player, magnitude, 1200);
                 }
             })
             .withDescription((magnitude, ticks) ->
-                    String.format("Stamina is increased by %.0f points for %d seconds.", magnitude, ticks / 20));
+                    String.format("Stamina is increased by %.0f points for %d seconds.",
+                            magnitude, ticks / 20));
 
     public static final AlchemyEffect FORTIFY_CONJURATION = AlchemyEffect.register(
                     id("fortify_conjuration"), "Fortify Conjuration",
                     0.22f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(10)
             .withDescription((magnitude, ticks) ->
                     String.format("Conjuration spells last %.0f%% longer for %d seconds.", magnitude * 100, ticks / 20));
     // Wired when spell system supports it
@@ -110,6 +129,7 @@ public final class AlchemyEffects {
                     id("restore_mana"), "Restore Mana",
                     22f, 0, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(5)
             .withConsumeEffect(entity -> {
                 if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
                     // Eating raw ingredient: small fixed mana restore
@@ -133,27 +153,28 @@ public final class AlchemyEffects {
 
     public static final AlchemyEffect FORTIFY_MANA = AlchemyEffect.register(
                     id("fortify_mana"), "Fortify Mana",
-                    0.17f, 1200, AlchemyEffectType.BENEFICIAL
+                    17f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(6)
             .withConsumeEffect(entity -> {
-                if (entity instanceof net.minecraft.world.entity.player.Player player) {
-                    int currentMax = zcylas.totality.api.rpg.mana.PlayerManaManager.getMaxMana(player);
-                    zcylas.totality.effect.FortifyManaEffect.applyBonus(player, 0.04f, 3 * 20, currentMax);
+                if (entity instanceof Player player) {
+                    FortifyManaEffect.applyBonus(player, 4f, 3 * 20);
                 }
             })
             .withDrinkEffect((entity, magnitude) -> {
-                if (entity instanceof net.minecraft.world.entity.player.Player player) {
-                    int currentMax = zcylas.totality.api.rpg.mana.PlayerManaManager.getMaxMana(player);
-                    zcylas.totality.effect.FortifyManaEffect.applyBonus(player, magnitude, 1200, currentMax);
+                if (entity instanceof Player player) {
+                    FortifyManaEffect.applyBonus(player, magnitude, 1200);
                 }
             })
             .withDescription((magnitude, ticks) ->
-                    String.format("Mana is increased by %.0f points for %d seconds.", magnitude, ticks / 20));
+                    String.format("Mana is increased by %.0f points for %d seconds.",
+                            magnitude, ticks / 20));
 
     public static final AlchemyEffect REGENERATE_HEALTH = AlchemyEffect.register(
                     id("regenerate_health"), "Regenerate Health",
                     0.22f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(15)
             .withConsumeEffect(entity -> {
                 entity.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 3 * 20, 0, false, true, true));
             })
@@ -172,6 +193,7 @@ public final class AlchemyEffects {
                     id("regenerate_mana"), "Regenerate Mana",
                     0.22f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(15)
             .withConsumeEffect(entity -> {
                 if (entity instanceof net.minecraft.world.entity.player.Player player) {
                     zcylas.totality.effect.RegenerateManaEffect.applyBonus(player, 0.05f, 3 * 20);
@@ -198,6 +220,7 @@ public final class AlchemyEffects {
                     id("damage_health"), "Damage Health",
                     13f, 0, AlchemyEffectType.HARMFUL
             )
+            .withXpValue(18)
             .withConsumeEffect(entity -> {
                 entity.hurt(entity.level().damageSources().magic(), 5f);
             })
@@ -211,6 +234,7 @@ public final class AlchemyEffects {
                     id("damage_stamina_regen"), "Damage Stamina Regen",
                     0.13f, 1200, AlchemyEffectType.HARMFUL
             )
+            .withXpValue(8)
             .withDescription((magnitude, ticks) ->
                     String.format("Stamina regenerates %.0f%% slower for %d seconds.", magnitude * 100, ticks / 20));
 
@@ -218,6 +242,7 @@ public final class AlchemyEffects {
                     id("damage_mana_regen"), "Damage Mana Regen",
                     0.13f, 1200, AlchemyEffectType.HARMFUL
             )
+            .withXpValue(8)
             .withDescription((magnitude, ticks) ->
                     String.format("Mana regenerates %.0f%% slower for %d seconds.", magnitude * 100, ticks / 20));
 
@@ -225,6 +250,7 @@ public final class AlchemyEffects {
                     id("lingering_damage_mana"), "Lingering Damage Mana",
                     0.13f, 1200, AlchemyEffectType.HARMFUL
             )
+            .withXpValue(8)
             .withDescription((magnitude, ticks) ->
                     String.format("Drain mana for %.0f points over %d seconds.", magnitude, ticks / 20));
 
@@ -232,6 +258,7 @@ public final class AlchemyEffects {
                     id("damage_stamina"), "Damage Stamina",
                     13f, 0, AlchemyEffectType.HARMFUL
             )
+            .withXpValue(10)
             .withConsumeEffect(entity -> {
                 if (entity instanceof net.minecraft.server.level.ServerPlayer player) {
                     zcylas.totality.api.rpg.stamina.PlayerStaminaManager.removeStamina(player, 5);
@@ -251,6 +278,7 @@ public final class AlchemyEffects {
                     id("weakness_to_magic"), "Weakness to Magic",
                     0.13f, 1200, AlchemyEffectType.HARMFUL
             )
+            .withXpValue(5)
             .withDescription((magnitude, ticks) ->
                     String.format("Target is %.0f%% weaker to magic damage for %d seconds.", magnitude * 100, ticks / 20));
 
@@ -258,6 +286,7 @@ public final class AlchemyEffects {
                     id("ravage_mana"), "Ravage Mana",
                     0.13f, 1200, AlchemyEffectType.HARMFUL
             )
+            .withXpValue(8)
             .withDescription((magnitude, ticks) ->
                     String.format("Drain mana for %.0f points per second for %d seconds.", magnitude, ticks / 20));
 
@@ -267,6 +296,7 @@ public final class AlchemyEffects {
                     id("waterbreathing"), "Waterbreathing",
                     0f, 5160, AlchemyEffectType.NEUTRAL   // 258 seconds
             )
+            .withXpValue(50)
             .withConsumeEffect(entity -> {
                 entity.addEffect(new MobEffectInstance(MobEffects.WATER_BREATHING, 3 * 20, 0, false, true, true));
             })
@@ -280,6 +310,7 @@ public final class AlchemyEffects {
                     id("invisibility"), "Invisibility",
                     0f, 1200, AlchemyEffectType.NEUTRAL    // 60 seconds base
             )
+            .withXpValue(80)
             .withConsumeEffect(entity -> {
                 entity.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 3 * 20, 0, false, true, true));
             })
@@ -295,6 +326,7 @@ public final class AlchemyEffects {
                     id("fortify_one_handed"), "Fortify One-Handed",
                     0.17f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(10)
             .withDescription((magnitude, ticks) ->
                     String.format("One-handed attacks do %.0f%% more damage for %d seconds.", magnitude * 100, ticks / 20));
 
@@ -304,6 +336,7 @@ public final class AlchemyEffects {
                     id("fortify_sneak"), "Fortify Sneak",
                     0.17f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(10)
             .withDescription((magnitude, ticks) ->
                     String.format("Sneaking is %.0f%% harder to detect for %d seconds.", magnitude * 100, ticks / 20));
 
@@ -311,20 +344,19 @@ public final class AlchemyEffects {
                     id("resist_frost"), "Resist Frost",
                     0.13f, 1200, AlchemyEffectType.BENEFICIAL
             )
+            .withXpValue(8)
             .withDescription((magnitude, ticks) ->
                     String.format("Resist %.0f%% of frost damage for %d seconds.", magnitude * 100, ticks / 20));
+    public static final AlchemyEffect RESIST_POISON = AlchemyEffect.register(
+                    id("resist_posion"), "Resist Poison",
+                    0.13f, 1200, AlchemyEffectType.BENEFICIAL
+            )
+            .withXpValue(8)
+            .withDescription((magnitude, ticks) ->
+                    String.format("Resist %.0f%% of poison damage for %d seconds.", magnitude * 100, ticks / 20));
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /**
-     * Converts a percentage of max HP to an Absorption amplifier.
-     * Absorption I = 4 HP, II = 8 HP etc.
-     */
-    private static int hpPercentToAbsorptionAmplifier(net.minecraft.world.entity.LivingEntity entity, float percent) {
-        float targetHp = entity.getMaxHealth() * percent;
-        int amplifier = (int)(targetHp / 4.0f) - 1;
-        return Math.max(0, amplifier);
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
 

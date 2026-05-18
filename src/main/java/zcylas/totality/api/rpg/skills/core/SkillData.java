@@ -28,12 +28,12 @@ public class SkillData {
      */
     public boolean addXp(Skill skill, int amount) {
         xp += amount;
-        int required = skill.getXpRequired(level);
-        if (xp >= required) {
-            xp -= required;
+        boolean leveledUp = false;
+        while (xp >= skill.getXpRequired(level) && level < 200) {
+            xp -= skill.getXpRequired(level);
             level++;
-            return true;
+            leveledUp = true;
         }
-        return false;
+        return leveledUp;
     }
 }

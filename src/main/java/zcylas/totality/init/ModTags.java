@@ -4,6 +4,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.block.Block;
 
 public class ModTags {
 
@@ -16,12 +17,18 @@ public class ModTags {
     public static final TagKey<Item> CROSSBOWS  = item("crossbows");
     public static final TagKey<Item> POTIONS  = item("potions");
     public static final TagKey<Item> SPECIAL  = item("special");
+    //Block Tags
+    public static final TagKey<Block> HARVESTABLE = block("harvestable");
+    public static final TagKey<Block> VEINMINABLE = block("veinminable");
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     private static TagKey<Item> item(String path) {
         return TagKey.create(Registries.ITEM,
                 Identifier.fromNamespaceAndPath("totality", path));
     }
-
+    private static TagKey<Block> block(String path) {
+        return TagKey.create(Registries.BLOCK,
+                Identifier.fromNamespaceAndPath("totality", path));
+    }
     private ModTags() {}
 }

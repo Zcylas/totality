@@ -67,9 +67,6 @@ public class ModItemTagProvider extends FabricTagsProvider.ItemTagsProvider {
         // Add your custom thrown weapons here as they are registered
         ;
         valueLookupBuilder(ModTags.TOOLS)
-                .add(MagicItems.NOVICE_GRIMOIRE)
-                .add(MagicItems.APPRENTICE_GRIMOIRE)
-                .add(MagicItems.ARCHMAGE_GRIMOIRE)
                 .add(Items.WOODEN_PICKAXE)
                 .add(Items.STONE_PICKAXE)
                 .add(Items.IRON_PICKAXE)

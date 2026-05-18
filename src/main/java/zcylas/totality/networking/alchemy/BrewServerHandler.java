@@ -12,6 +12,8 @@ import zcylas.totality.api.rpg.skills.alchemy.*;
 import zcylas.totality.api.rpg.skills.alchemy.BrewingLogic;
 import zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry;
 import zcylas.totality.api.rpg.skills.alchemy.potions.PotionData;
+import zcylas.totality.api.rpg.skills.core.Skill;
+import zcylas.totality.api.rpg.skills.core.SkillsComponents;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -135,13 +137,15 @@ public final class BrewServerHandler {
                 && allEffects.stream().noneMatch(e -> e.effect().isBeneficial());
 
         // Build EffectEntry list from brewed effects using base magnitude/duration
+        // Build EffectEntry list — scale by Alchemy Mastery potency bonus
+        int alchemyLevel = SkillsComponents.get(player).getSkills().getData(Skill.ALCHEMY).getLevel();
+        float potencyMultiplier = getPotencyMultiplier(player, alchemyLevel);
+
         List<EffectEntry> entries = new ArrayList<>();
         for (AlchemyEffectInstance inst : allEffects) {
-            entries.add(EffectEntry.of(
-                    inst.effect(),
-                    inst.effect().getBaseMagnitude(),
-                    inst.effect().getBaseDurationTicks()
-            ));
+            float scaledMagnitude = inst.effect().getBaseMagnitude() * potencyMultiplier;
+            int scaledDuration = (int)(inst.effect().getBaseDurationTicks() * potencyMultiplier);
+            entries.add(EffectEntry.of(inst.effect(), scaledMagnitude, scaledDuration));
         }
 
         // Determine color from primary effect type
@@ -195,6 +199,12 @@ public final class BrewServerHandler {
         return java.util.Arrays.stream(path.split("_"))
                 .map(w -> Character.toUpperCase(w.charAt(0)) + w.substring(1))
                 .collect(java.util.stream.Collectors.joining(" "));
+    }
+    private static float getPotencyMultiplier(ServerPlayer player, int alchemyLevel) {
+        var masteries = zcylas.totality.api.rpg.skills.core.MasteriesComponents.get(player).getMasteries();
+        int masteryRank = masteries.getUnlockedRank("alchemy_mastery");
+        if (masteryRank <= 0) return 1.0f;
+        return 1.0f + (alchemyLevel * 0.01f);
     }
 
     private BrewServerHandler() {}

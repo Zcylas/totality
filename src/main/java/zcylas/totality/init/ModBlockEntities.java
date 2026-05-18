@@ -13,7 +13,10 @@ import zcylas.totality.blockentity.energy.ElectricFurnaceBlockEntity;
 import zcylas.totality.blockentity.energy.EnergyCellBlockEntity;
 import zcylas.totality.blockentity.fluid.FluidTankBlockEntity;
 import zcylas.totality.blockentity.generator.GeneratorBlockEntity;
+import zcylas.totality.blockentity.ritual.RitualAltarBlockEntity;
+import zcylas.totality.blockentity.ritual.RitualDaisBlockEntity;
 import zcylas.totality.init.blocks.EnergyBlocks;
+import zcylas.totality.init.blocks.RitualBlocks;
 
 public class ModBlockEntities {
 
@@ -58,6 +61,20 @@ public class ModBlockEntities {
             FabricBlockEntityTypeBuilder.create(
                     ElectricFurnaceBlockEntity::new,
                     EnergyBlocks.ELECTRIC_FURNACE
+            ).build()
+    );
+    public static final BlockEntityType<RitualAltarBlockEntity> RITUAL_ALTAR = register(
+            "ritual_altar",
+            FabricBlockEntityTypeBuilder.create(
+                    RitualAltarBlockEntity::new,
+                    RitualBlocks.RITUAL_ALTAR  // we'll add this shortly
+            ).build()
+    );
+    public static final BlockEntityType<RitualDaisBlockEntity> RITUAL_DAIS = register(
+            "ritual_dais",
+            FabricBlockEntityTypeBuilder.create(
+                    RitualDaisBlockEntity::new,
+                    RitualBlocks.RITUAL_DAIS  // we'll add this to RitualBlocks next
             ).build()
     );
 

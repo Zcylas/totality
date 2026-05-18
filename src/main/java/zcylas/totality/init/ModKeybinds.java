@@ -38,6 +38,14 @@ public class ModKeybinds {
             )
     );
 
+    public static final KeyMapping USE_ABILITY = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.use_ability",
+                    GLFW.GLFW_KEY_Z,
+                    TOTALITY_CATEGORY
+            )
+    );
+
 
     public static void register() {}
 

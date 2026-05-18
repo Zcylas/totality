@@ -5,14 +5,16 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import zcylas.totality.api.ability.Ability;
+import zcylas.totality.api.ability.AbilityComponents;
+import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.currency.CurrencyHelper;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
-import zcylas.totality.api.rpg.skills.core.Skill;
-import zcylas.totality.api.rpg.skills.core.SkillData;
-import zcylas.totality.api.rpg.skills.core.SkillsComponents;
+import zcylas.totality.api.rpg.skills.core.*;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
@@ -234,6 +236,211 @@ public class TotalityCommands {
                                         return 1;
                                     })
                             )
+                            // ── /totality unlockability <id> ──────────────────────────────
+                            .then(Commands.literal("unlockability")
+                                    .then(Commands.argument("id", StringArgumentType.word())
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                String idStr = StringArgumentType.getString(ctx, "id");
+                                                Identifier abilityId = Identifier.tryParse("totality:" + idStr);
+                                                if (abilityId == null) {
+                                                    ctx.getSource().sendFailure(Component.literal("Invalid ability id: " + idStr));
+                                                    return 0;
+                                                }
+                                                zcylas.totality.api.ability.AbilityComponent comp =
+                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
+                                                                (ComponentProvider) player);
+                                                comp.unlock(abilityId);
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("Unlocked ability: " + abilityId), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
+
+// ── /totality forgetability <id> ──────────────────────────────
+                            .then(Commands.literal("forgetability")
+                                    .then(Commands.argument("id", StringArgumentType.word())
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                String idStr = StringArgumentType.getString(ctx, "id");
+                                                Identifier abilityId = Identifier.tryParse("totality:" + idStr);
+                                                if (abilityId == null) {
+                                                    ctx.getSource().sendFailure(Component.literal("Invalid ability id: " + idStr));
+                                                    return 0;
+                                                }
+                                                zcylas.totality.api.ability.AbilityComponent comp =
+                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
+                                                                (ComponentProvider) player);
+                                                comp.forget(abilityId);
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("Forgot ability: " + abilityId), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
+                            // ── /totality addmasterypoint <amount> ───────────────────────
+                            .then(Commands.literal("addmasterypoint")
+                                    .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                int amount = IntegerArgumentType.getInteger(ctx, "amount");
+                                                var masteryComp = MasteriesComponents.get(player);
+                                                masteryComp.getMasteries().addMasteryPoints(amount);
+                                                masteryComp.sync();
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("Added " + amount + " mastery points."), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
+
+// ── /totality resetmasterypoints ─────────────────────────────
+                            .then(Commands.literal("resetmasterypoints")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        var masteryComp = MasteriesComponents.get(player);
+                                        masteryComp.getMasteries().setMasteryPointsDirectly(0);
+                                        masteryComp.sync();
+                                        ctx.getSource().sendSuccess(() ->
+                                                Component.literal("Mastery points reset to 0."), false);
+                                        return 1;
+                                    })
+                            )
+
+// ── /totality learnmastery <id> ──────────────────────────────
+                            .then(Commands.literal("learnmastery")
+                                    .then(Commands.argument("id", StringArgumentType.word())
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                String masteryId = StringArgumentType.getString(ctx, "id");
+                                                var masteryComp = MasteriesComponents.get(player);
+
+                                                // Find the mastery across all skills
+                                                Mastery mastery = null;
+                                                for (Skill skill : Skill.values()) {
+                                                    var found = MasteryRegistry.get(skill, masteryId);
+                                                    if (found.isPresent()) { mastery = found.get(); break; }
+                                                }
+                                                if (mastery == null) {
+                                                    ctx.getSource().sendFailure(Component.literal("Unknown mastery: " + masteryId));
+                                                    return 0;
+                                                }
+
+                                                // Unlock all ranks directly
+                                                for (int rank = 1; rank <= mastery.getRankCount(); rank++) {
+                                                    masteryComp.getMasteries().setRankDirectly(masteryId, rank);
+                                                }
+                                                masteryComp.sync();
+
+                                                // Unlock associated ability if any
+                                                if (mastery.getAbilityId() != null) {
+                                                    Identifier abilityId = Identifier.tryParse(mastery.getAbilityId());
+                                                    if (abilityId != null) {
+                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
+                                                                (ComponentProvider) player).unlock(abilityId);
+                                                    }
+                                                }
+
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("Learned mastery: " + masteryId), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
+
+// ── /totality forgetmastery <id> ─────────────────────────────
+                            .then(Commands.literal("forgetmastery")
+                                    .then(Commands.argument("id", StringArgumentType.word())
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                String masteryId = StringArgumentType.getString(ctx, "id");
+                                                var masteryComp = MasteriesComponents.get(player);
+                                                masteryComp.getMasteries().setRankDirectly(masteryId, 0);
+                                                masteryComp.sync();
+
+                                                // Also forget associated ability if any
+                                                Mastery mastery = null;
+                                                for (Skill skill : Skill.values()) {
+                                                    var found = MasteryRegistry.get(skill, masteryId);
+                                                    if (found.isPresent()) { mastery = found.get(); break; }
+                                                }
+                                                if (mastery != null && mastery.getAbilityId() != null) {
+                                                    Identifier abilityId = Identifier.tryParse(mastery.getAbilityId());
+                                                    if (abilityId != null) {
+                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
+                                                                (ComponentProvider) player).forget(abilityId);
+                                                    }
+                                                }
+
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("Forgot mastery: " + masteryId), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
+                            // ── /totality resetall ────────────────────────────────────────
+                            .then(Commands.literal("resetall")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+
+                                        // Reset character stats
+                                        PlayerStats stats = StatsComponents.getStats(player);
+                                        stats.setLevelDirectly(1);
+                                        stats.setCharacterXpDirectly(0);
+                                        stats.setUnspentAttributePointsDirectly(0);
+                                        for (AbilityScore score : AbilityScore.values()) {
+                                            stats.setScore(score, PlayerStats.BASE_SCORE);
+                                        }
+                                        StatAttributeApplier.apply(player);
+                                        StatsComponents.get(player).sync();
+
+                                        // Reset all skills
+                                        var skillsComp = SkillsComponents.get(player);
+                                        for (Skill skill : Skill.values()) {
+                                            SkillData data = skillsComp.getSkills().getData(skill);
+                                            data.setLevelDirectly(10);
+                                            data.setXpDirectly(0);
+                                        }
+                                        skillsComp.sync();
+
+                                        // Reset all masteries and mastery points
+                                        var masteryComp = MasteriesComponents.get(player);
+                                        for (Skill skill : Skill.values()) {
+                                            for (Mastery mastery : MasteryRegistry.getMasteries(skill)) {
+                                                masteryComp.getMasteries().setRankDirectly(mastery.getId(), 0);
+                                            }
+                                        }
+                                        masteryComp.getMasteries().setMasteryPointsDirectly(0);
+                                        masteryComp.sync();
+
+                                        // Reset all abilities — keep only defaults
+                                        var abilityComp = AbilityComponents.ABILITIES.get(
+                                                (ComponentProvider) player);
+                                        for (Identifier id : new java.util.HashSet<>(abilityComp.getUnlocked())) {
+                                            Ability ability = AbilityRegistry.get(id);
+                                            if (ability != null && !ability.isDefault()) {
+                                                abilityComp.forget(id);
+                                            }
+                                        }
+
+                                        // Reset stamina and mana to new max
+                                        int newMaxStamina = PlayerStaminaManager.getMaxStamina(player);
+                                        PlayerStaminaManager.setStamina(player, newMaxStamina);
+                                        StaminaServerTick.syncStamina(player);
+
+                                        int newMaxMana = PlayerManaManager.getMaxMana(player);
+                                        PlayerManaManager.setMana(player, newMaxMana);
+                                        ServerPlayNetworking.send(player, new SyncManaPayload(newMaxMana, newMaxMana));
+
+                                        player.setHealth(player.getMaxHealth());
+
+                                        ctx.getSource().sendSuccess(() ->
+                                                Component.literal("All RPG progress reset."), false);
+                                        return 1;
+                                    })
+                            )
+
 
             );
         });

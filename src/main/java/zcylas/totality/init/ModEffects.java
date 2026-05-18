@@ -17,6 +17,7 @@ public class ModEffects {
     public static Holder<MobEffect> REGENERATE_MANA;
     public static Holder<MobEffect> FORTIFY_STAMINA;
     public static Holder<MobEffect> REGENERATE_STAMINA;
+    public static Holder<MobEffect> FORTIFY_HEALTH;
 
     public static void register() {
         GLIDE = net.minecraft.core.Registry.registerForHolder(
@@ -38,6 +39,10 @@ public class ModEffects {
                 BuiltInRegistries.MOB_EFFECT,
                 Identifier.fromNamespaceAndPath(Totality.MOD_ID, "summoning_sickness"),
                 SummoningSicknessEffect.INSTACE);
+        FORTIFY_HEALTH = Registry.registerForHolder(
+                BuiltInRegistries.MOB_EFFECT,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "fortify_health"),
+                FortifyHealthEffect.INSTANCE);
         FORTIFY_MANA = Registry.registerForHolder(
                 BuiltInRegistries.MOB_EFFECT,
                 Identifier.fromNamespaceAndPath(Totality.MOD_ID, "fortify_mana"),

@@ -17,6 +17,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import zcylas.totality.Totality;
+import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.block.energy.CableBlock;
 import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
@@ -63,6 +64,32 @@ public class TotalityRegistry {
         return block;
     }
 
+    public static <T extends Block> T registerBlock(
+            String name,
+            Function<BlockBehaviour.Properties, T> blockFactory,
+            BlockBehaviour.Properties properties,
+            Item.Properties itemProperties
+    ) {
+        ResourceKey<Block> blockKey = keyOfBlock(name);
+        ResourceKey<Item> itemKey   = keyOfItem(name);
+
+        T block = Registry.register(
+                BuiltInRegistries.BLOCK,
+                blockKey,
+                blockFactory.apply(properties.setId(blockKey))
+        );
+
+        Registry.register(
+                BuiltInRegistries.ITEM,
+                itemKey,
+                new BlockItem(block, itemProperties
+                        .setId(itemKey)
+                        .useBlockDescriptionPrefix())
+        );
+
+        return block;
+    }
+
     /**
      * Registers a flower block + a custom BlockItem that also implements AlchemyIngredient.
      * The itemFactory receives (block, properties) so it can pass the block to BlockItem's constructor.
@@ -76,7 +103,9 @@ public class TotalityRegistry {
     public static <B extends FlowerBlock, I extends BlockItem> B registerFlowerIngredient(
             String name,
             Function<BlockBehaviour.Properties, B> blockFactory,
-            BiFunction<B, Item.Properties, I> itemFactory
+            BiFunction<B, Item.Properties, I> itemFactory,
+            ItemRarity rarity,
+            String lore
     ) {
         ResourceKey<Block> blockKey = keyOfBlock(name);
         ResourceKey<Item> itemKey   = keyOfItem(name);
@@ -102,6 +131,9 @@ public class TotalityRegistry {
                         .useBlockDescriptionPrefix()
                         .stacksTo(64)
                         .food(SKIngredientItems.INGREDIENT_FOOD)
+                        .component(ItemComponents.RARITY, new RarityComponent(rarity))
+                        .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.INGREDIENT))
+                        .component(ItemComponents.getLore(), new LoreComponent(lore))
         );
         Registry.register(BuiltInRegistries.ITEM, itemKey, item);
 

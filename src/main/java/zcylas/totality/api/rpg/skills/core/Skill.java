@@ -10,7 +10,17 @@ public enum Skill {
 
     ONE_HANDED("One-Handed", 10, Category.COMBAT,
             "The art of combat using one-handed weapons such as swords, daggers, war axes and maces. " +
-                    "Those trained in this skill deliver deadlier critical hits.");
+                    "Those trained in this skill deliver deadlier critical hits."),
+    MINING("Mining", 10, Category.GATHERING,
+        "Governs skill with pickaxes and the extraction of ores and stone. " +
+                "Those trained in this skill can unearth materials others would miss."),
+    ALCHEMY("Alchemy", 6, Category.MAGIC,
+            "The art of combining magical ingredients to brew potions and poisons. " +
+                    "Those trained in this skill brew more potent mixtures and discover effects others would miss."),
+    RITUAL_ARTS("Ritual Arts", 8, Category.MAGIC,
+        "The art of drawing chalk glyphs, preparing altars, and performing rituals. " +
+                "Those trained in this skill channel greater power through their ceremonies.");
+
 
     // ── Category ──────────────────────────────────────────────────────────────
 
@@ -18,7 +28,8 @@ public enum Skill {
         COMBAT,   // warm red/orange
         MAGIC,    // blue/purple
         SURVIVAL, // green
-        THIEF     // dark purple/grey
+        THIEF,
+        GATHERING  // earthy green// dark purple/grey
     }
 
     private final String displayName;
@@ -46,7 +57,8 @@ public enum Skill {
             case COMBAT   -> 0xFFFF6633; // warm red/orange
             case MAGIC    -> 0xFF8866FF; // blue/purple
             case SURVIVAL -> 0xFF44BB44; // green
-            case THIEF    -> 0xFF886699; // dark purple/grey
+            case THIEF    -> 0xFF886699;
+            case GATHERING -> 0xFF558833; // earthy green, distinct from SURVIVAL// dark purple/grey
         };
     }
 

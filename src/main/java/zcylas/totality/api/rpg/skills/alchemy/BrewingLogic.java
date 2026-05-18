@@ -37,7 +37,6 @@ public final class BrewingLogic {
             return BrewResult.failure("Need 2–3 ingredients.");
         }
 
-        // Resolve each stack to its ingredient data
         List<ResolvedIngredient> resolved = new ArrayList<>();
         for (ItemStack stack : stacks) {
             if (stack.isEmpty()) continue;
@@ -50,20 +49,34 @@ public final class BrewingLogic {
             return BrewResult.failure("Need at least 2 alchemy ingredients.");
         }
 
-        // Find effects shared by 2+ ingredients
         List<AlchemyEffectInstance> sharedEffects = findSharedEffects(resolved);
 
         if (sharedEffects.isEmpty()) {
             return BrewResult.failure("No shared effects — the mixture fizzles.");
         }
 
-        // Reveal contributing effects on the player's knowledge component
+        // Track XP context before revealing effects
+        int newEffectCount = 0;
+        boolean isNewRecipe = false;
+
         if (player != null) {
-            revealContributingEffects(resolved, sharedEffects, player);
+            newEffectCount = revealContributingEffectsAndCount(resolved, sharedEffects, player);
+
+            AlchemyKnowledgeComponent knowledge = AlchemyComponents.KNOWLEDGE.get(
+                    (zcylas.totality.api.core.component.ComponentProvider) player
+            );
+            isNewRecipe = knowledge.learnPotion(sharedEffects);
+            if (isNewRecipe) {
+                knowledge.sync();
+            }
+
+            // Award Alchemy XP
+            AlchemySkillEvents.onPotionBrewed(player, sharedEffects, newEffectCount, isNewRecipe);
         }
 
         return BrewResult.success(sharedEffects);
     }
+
 
     // -------------------------------------------------------------------------
     // Simulation (no player — for GUI preview)
@@ -163,7 +176,7 @@ public final class BrewingLogic {
      * For each shared effect, find the ingredients that contributed it and reveal
      * only those specific slots on the player's knowledge component.
      */
-    private static void revealContributingEffects(
+    private static int revealContributingEffectsAndCount(
             List<ResolvedIngredient> ingredients,
             List<AlchemyEffectInstance> sharedEffects,
             ServerPlayer player
@@ -177,21 +190,23 @@ public final class BrewingLogic {
                 (zcylas.totality.api.core.component.ComponentProvider) player
         );
 
-        boolean anyNew = false;
+        int newDiscoveries = 0;
         for (ResolvedIngredient ri : ingredients) {
             for (AlchemyEffectInstance instance : ri.effects()) {
                 if (sharedEffectSet.contains(instance.effect())) {
-                    // Reveal only this slot on this ingredient
-                    boolean newDiscovery = knowledge.revealEffect(ri.ingredientId(), instance.slot());
-                    if (newDiscovery) anyNew = true;
+                    boolean isNew = knowledge.revealEffect(ri.ingredientId(), instance.slot());
+                    if (isNew) newDiscoveries++;
                 }
             }
         }
 
-        if (anyNew) {
+        if (newDiscoveries > 0) {
             knowledge.sync();
         }
+
+        return newDiscoveries;
     }
+
 
     /**
      * Resolves an Item to its ingredient data.

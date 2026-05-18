@@ -41,7 +41,6 @@ public final class ComponentSync {
         } finally {
             data.release();
         }
-        System.out.println("[Totality] canSend: " + ServerPlayNetworking.canSend(player, ComponentSync.PACKET_TYPE));
     }
 
     public record Payload(Identifier keyId, byte[] data)

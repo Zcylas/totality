@@ -6,8 +6,11 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.tags.BlockTags;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.init.ModBlocks;
+import zcylas.totality.init.ModTags;
+import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
+import zcylas.totality.init.blocks.RitualBlocks;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -40,9 +43,25 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
                 .add(OreBlocks.SILVER_ORE)
                 .add(OreBlocks.DEEPSLATE_SILVER_ORE)
                 .add(OreBlocks.RUBY_ORE)
-                .add(OreBlocks.DEEPSLATE_RUBY_ORE);
+                .add(OreBlocks.DEEPSLATE_RUBY_ORE)
+        //Ritual Blocks
+                .add(RitualBlocks.RITUAL_ALTAR)
+                .add(RitualBlocks.RITUAL_DAIS)
+        ;
+
         valueLookupBuilder(BlockTags.NEEDS_DIAMOND_TOOL)
                 .add(OreBlocks.RUBY_ORE)
-                .add(OreBlocks.DEEPSLATE_RUBY_ORE);
+                .add(OreBlocks.DEEPSLATE_RUBY_ORE)
+        ;
+
+        valueLookupBuilder(BlockTags.MINEABLE_WITH_AXE)
+                .add(AlchemyBlocks.APOTHECARY_TABLE)
+        ;
+
+        valueLookupBuilder(ModTags.HARVESTABLE)
+                .add(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER)
+                .add(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER)
+                .add(AlchemyBlocks.RED_MOUNTAIN_FLOWER)
+        ;
     }
 }

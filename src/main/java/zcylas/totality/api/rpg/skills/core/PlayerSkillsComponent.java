@@ -9,6 +9,7 @@ import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatsComponents;
+import zcylas.totality.networking.notification.SendNotificationPayload;
 
 /**
  * Player component that stores all skill data.
@@ -33,9 +34,12 @@ public class PlayerSkillsComponent implements SyncedComponent, CopyableComponent
      * Returns true if a level-up occurred.
      */
     public boolean addSkillXp(Skill skill, int xpAmount) {
+        int levelBefore = skills.getLevel(skill);
         int newLevel = skills.addXp(skill, xpAmount);
         if (newLevel > 0) {
-            onSkillLevelUp(skill, newLevel);
+            for (int l = levelBefore + 1; l <= newLevel; l++) {
+                onSkillLevelUp(skill, l);
+            }
             sync();
             return true;
         }
@@ -50,28 +54,28 @@ public class PlayerSkillsComponent implements SyncedComponent, CopyableComponent
     private void onSkillLevelUp(Skill skill, int newLevel) {
         if (player == null) return;
 
-        // Award character XP
         PlayerStats stats = StatsComponents.getStats(player);
         boolean characterLevelUp = stats.addCharacterXp(newLevel);
 
-        // Notify player of skill level up
-        zcylas.totality.networking.notification.SendNotificationPayload.send(
+        // Always sync stats — XP changed regardless of whether character leveled up
+        StatsComponents.get(player).sync();
+
+        SendNotificationPayload.send(
                 player,
                 "📈 " + skill.getDisplayName() + " reached level " + newLevel + "!",
-                zcylas.totality.networking.notification.SendNotificationPayload.GREEN
+                SendNotificationPayload.GREEN
         );
 
-        // Notify player of character level up
         if (characterLevelUp) {
-            zcylas.totality.networking.notification.SendNotificationPayload.send(
+            SendNotificationPayload.send(
                     player,
                     "⭐ Level " + stats.getLevel() + "! +" + stats.getUnspentAttributePoints()
                             + " attribute point, +1 mastery point",
-                    zcylas.totality.networking.notification.SendNotificationPayload.GOLD
+                    SendNotificationPayload.GOLD
             );
             MasteriesComponents.get(player).getMasteries().addMasteryPoints(1);
             MasteriesComponents.get(player).sync();
-            StatsComponents.get(player).sync();
+            // StatsComponents already synced above — no need to sync again here
         }
     }
 
@@ -125,7 +129,7 @@ public class PlayerSkillsComponent implements SyncedComponent, CopyableComponent
         for (Skill skill : Skill.values()) {
             String key = skill.name().toLowerCase();
             SkillData data = skills.getData(skill);
-            data.setLevelDirectly(input.getIntOr("sk_lvl_" + key, 1));
+            data.setLevelDirectly(input.getIntOr("sk_lvl_" + key, 10)); // ← 10 not 1
             data.setXpDirectly(input.getIntOr("sk_xp_"  + key, 0));
         }
     }

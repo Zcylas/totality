@@ -4,6 +4,7 @@ import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
+import zcylas.totality.init.blocks.RitualBlocks;
 
 public class ModBlocks {
 
@@ -13,6 +14,7 @@ public class ModBlocks {
         OreBlocks.register();
         EnergyBlocks.register();
         AlchemyBlocks.register();
+        RitualBlocks.register();
     }
 
     private ModBlocks(){}

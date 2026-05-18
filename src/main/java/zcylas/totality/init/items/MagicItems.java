@@ -1,6 +1,7 @@
 package zcylas.totality.init.items;
 
 import net.minecraft.world.item.Item;
+import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.magic.GrimoireItem;
 
@@ -22,6 +23,11 @@ public class MagicItems {
             "archmage_grimoire",
             properties -> new GrimoireItem(properties, 3),
             new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.LEGENDARY))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "Reserved for those who have mastered the arcane arts. This grimoire unlocks the most powerful runes known to spellkind, capable of reshaping reality itself."
+                    ))
     );
 
     public static void register() {}

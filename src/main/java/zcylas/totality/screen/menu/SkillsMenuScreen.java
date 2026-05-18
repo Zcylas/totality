@@ -108,10 +108,8 @@ public class SkillsMenuScreen extends Screen {
     protected void init() {
         super.init();
         alpha = 0f; fadingOut = false; showConfirm = false;
-        scrollOffset = 0;
         computeNodePositions();
-        int treeAreaH = height - INFO_H - PADDING * 2;
-        scrollOffset = Math.max(0, treeHeight - treeAreaH);
+        scrollToBottom();
     }
 
     private Skill currentSkill() { return skills[skillIndex]; }
@@ -601,25 +599,27 @@ public class SkillsMenuScreen extends Screen {
 
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_A) {
             skillIndex = (skillIndex-1+skills.length)%skills.length;
-            selectedNodeIndex = -1; scrollOffset = 0; computeNodePositions(); playClick(); return true;
+            selectedNodeIndex = -1; computeNodePositions(); scrollToBottom(); playClick(); return true;
         }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_D) {
             skillIndex = (skillIndex+1)%skills.length;
-            selectedNodeIndex = -1; scrollOffset = 0; computeNodePositions(); playClick(); return true;
+            selectedNodeIndex = -1; computeNodePositions(); scrollToBottom(); playClick(); return true;
         }
         // W = up = lower index (toward top of list = lower level)
+        // W = visually UP = toward higher level = lower index in list
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_W) {
             if (!nodePositions.isEmpty()) {
-                selectedNodeIndex = Math.max(0, selectedNodeIndex <= 0 ? 0 : selectedNodeIndex-1);
+                selectedNodeIndex = Math.max(0,
+                        selectedNodeIndex < 0 ? 0 : selectedNodeIndex-1);
                 scrollToSelected();
             }
             playClick(); return true;
         }
-        // S = down = higher index (toward bottom = higher level)
+// S = visually DOWN = toward lower level = higher index in list
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_S) {
             if (!nodePositions.isEmpty()) {
                 selectedNodeIndex = Math.min(nodePositions.size()-1,
-                        selectedNodeIndex < 0 ? 0 : selectedNodeIndex+1);
+                        selectedNodeIndex < 0 ? nodePositions.size()-1 : selectedNodeIndex+1);
                 scrollToSelected();
             }
             playClick(); return true;
@@ -670,6 +670,12 @@ public class SkillsMenuScreen extends Screen {
         ClientPlayNetworking.send(new UnlockMasteryPayload(currentSkill(), mastery.getId()));
         showConfirm = false;
         playClick();
+    }
+    private void scrollToBottom() {
+        int treeBottom = height - INFO_H - PADDING;
+        int treeAreaH  = treeBottom - PADDING;
+        scrollOffset = Math.max(0, treeHeight - treeAreaH);
+        selectedNodeIndex = nodePositions.isEmpty() ? -1 : nodePositions.size() - 1;
     }
 
     private void fadeOutTo(Runnable onDone) { fadingOut = true; onFadeOutDone = onDone; }

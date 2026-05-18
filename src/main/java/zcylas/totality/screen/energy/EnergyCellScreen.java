@@ -6,6 +6,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.player.Inventory;
@@ -37,7 +38,8 @@ public class EnergyCellScreen extends AbstractContainerScreen<EnergyCellMenu> {
     @Override
     protected void init() {
         super.init();
-        energyConfigTab = new EnergyConfigTab(menu.getBlockPos());
+        energyConfigTab = new EnergyConfigTab(menu.getBlockPos(), menu::getFacing);
+
         if (GuiTab.isPinned(menu.getBlockPos(), "energy")) {
             configTabOpen = true;
             energyConfigTab.open();

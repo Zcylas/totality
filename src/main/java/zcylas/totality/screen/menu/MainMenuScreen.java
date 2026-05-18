@@ -279,7 +279,7 @@ public class MainMenuScreen extends Screen {
             case "CHARACTER" -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new CharacterMenuScreen()));
             case "INVENTORY" -> fadeOutTo(() ->
                     Minecraft.getInstance().setScreen(new TotalityInventoryScreen()));
-            case "CODEX",  "ABILITIES" -> { /* TODO */ }
+            case "CODEX",  "ABILITIES" -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new AbilitiesScreen()));
         }
     }
 

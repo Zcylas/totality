@@ -51,14 +51,19 @@ public class AlchemyPotionItem extends Item {
     @Override
     public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity user) {
         ItemStack result = super.finishUsingItem(stack, level, user);
-
         if (!level.isClientSide()) {
             PotionData data = getPotionData(stack);
+            // Timed effects first (fortify buffs — raises max values)
             for (EffectEntry entry : data.effects()) {
-                entry.effect().applyConsume(user, entry.magnitude(), entry.durationTicks());
+                if (entry.durationTicks() > 0)
+                    entry.effect().applyConsume(user, entry.magnitude(), entry.durationTicks());
+            }
+            // Instant effects second (restore — now heals against correct max)
+            for (EffectEntry entry : data.effects()) {
+                if (entry.durationTicks() == 0)
+                    entry.effect().applyConsume(user, entry.magnitude(), entry.durationTicks());
             }
         }
-
         return result;
     }
 

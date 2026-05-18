@@ -1,6 +1,8 @@
 package zcylas.totality.init.items;
 
 import net.minecraft.world.item.Item;
+import zcylas.totality.api.core.rpgutils.WeightComponent;
+import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.energy.BatteryItem;
 import zcylas.totality.item.energy.UmbraVisorItem;
@@ -11,6 +13,10 @@ public class EnergyItems {
             "copper_battery",
             properties -> new BatteryItem(48_000, 32, 32, properties),
             new net.minecraft.world.item.Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.CRUDE))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.BATTERY))
+                    .component(ItemComponents.WEIGHT, new WeightComponent(2))
+                    .component(ItemComponents.getLore(), new LoreComponent("A rudimentary energy cell cobbled together from copper coils and raw ore. It holds a charge, barely."))
     );
 
     public static final BatteryItem IRON_BATTERY = TotalityRegistry.registerItem(

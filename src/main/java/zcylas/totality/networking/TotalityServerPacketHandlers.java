@@ -7,9 +7,11 @@ import zcylas.totality.api.industrial.energy.HasSidedEnergy;
 import zcylas.totality.api.industrial.item.HasSidedItems;
 import zcylas.totality.api.magic.GrimoireCaster;
 import zcylas.totality.api.magic.MagicComponents;
+import zcylas.totality.api.rpg.combat.PowerAttackManager;
 import zcylas.totality.item.fluid.FluidTankItem;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.alchemy.BrewServerHandler;
+import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
@@ -72,6 +74,11 @@ public class TotalityServerPacketHandlers {
                         be.setChanged();
                         sided.syncItemSideModes(context.player(), payload.pos());
                     }
+                }));
+        ServerPlayNetworking.registerGlobalReceiver(
+                PowerAttackPayload.TYPE,
+                (payload, context) -> context.server().execute(() -> {
+                    PowerAttackManager.onPowerAttackReceived(context.player());
                 }));
         BrewServerHandler.register();
     }

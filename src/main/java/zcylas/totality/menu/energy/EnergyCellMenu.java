@@ -2,6 +2,7 @@ package zcylas.totality.menu.energy;
 
 import net.fabricmc.fabric.api.menu.v1.ExtendedMenuType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -16,7 +17,9 @@ import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import zcylas.totality.Totality;
+import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.blockentity.energy.EnergyCellBlockEntity;
 
 public class EnergyCellMenu extends AbstractContainerMenu {
@@ -78,7 +81,15 @@ public class EnergyCellMenu extends AbstractContainerMenu {
             @Override public int getCount() { return DATA_COUNT; }
         }, be.getBlockPos());
     }
-
+    public Direction getFacing() {
+        if (level != null) {
+            BlockState state = level.getBlockState(blockPos);
+            if (state.hasProperty(EnergyCellBlock.FACING)) {
+                return state.getValue(EnergyCellBlock.FACING);
+            }
+        }
+        return Direction.NORTH;
+    }
     private EnergyCellMenu(int syncId, Inventory playerInventory,
                            Container container, ContainerData data, BlockPos blockPos) {
         super(TYPE, syncId);

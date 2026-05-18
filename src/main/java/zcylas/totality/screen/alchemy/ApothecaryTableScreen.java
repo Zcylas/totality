@@ -15,6 +15,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.skills.alchemy.*;
+import zcylas.totality.api.rpg.skills.core.ClientSkillsManager;
+import zcylas.totality.api.rpg.skills.core.Skill;
 import zcylas.totality.networking.alchemy.BrewPayload;
 import zcylas.totality.networking.alchemy.ClientAlchemyKnowledgeManager;
 
@@ -22,16 +24,40 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Apothecary Table screen — Skyrim-faithful layout.
+ * Apothecary Table screen — restyled to match Totality's dark blue/cyan theme.
  *
- * Layout:
- *   - Transparent background (world visible behind)
- *   - Left column: effect filter list with semi-transparent dark backing
- *   - Middle column: ingredient list with semi-transparent dark backing
- *   - Right side: transparent — shows ingredient/potion info as floating text
- *   - Bottom bar: semi-transparent dark strip for buttons
+ * Changes from original:
+ *   - Colors match the rest of the mod UI (dark blue bg, cyan accents, etc.)
+ *   - Alchemy XP bar added bottom-right (like Skyrim's skill bar)
+ *   - Continuous crafting: after brewing, same ingredients are re-selected
+ *     automatically if still available in inventory
  */
 public class ApothecaryTableScreen extends Screen {
+
+    // ── Colors (matching Totality UI theme) ───────────────────────────────────
+    private static final int COLOR_BG           = 0xEE000814;
+    private static final int COLOR_BORDER       = 0xFF0A5070;
+    private static final int COLOR_BORDER_GLOW  = 0x440A8FBF;
+    private static final int COLOR_VALUE        = 0xFF00CCFF;
+    private static final int COLOR_LABEL        = 0xFF5599BB;
+    private static final int COLOR_SEPARATOR    = 0xFF0A3A5A;
+    private static final int COLOR_ROW_SEL      = 0xCC002844;
+    private static final int COLOR_ROW_HOV      = 0x88001830;
+    private static final int COLOR_ROW_EVEN     = 0x11FFFFFF;
+    private static final int COLOR_HEADER_BG    = 0xDD000C1A;
+    private static final int COLOR_CHOSEN       = 0xBB003355;
+    private static final int COLOR_BOTTOM       = 0xDD000C1A;
+    private static final int COLOR_XP_BG        = 0xFF001830;
+    private static final int COLOR_XP_FILL      = 0xFF0066AA;
+    private static final int COLOR_BTN          = 0xFF003355;
+    private static final int COLOR_BTN_HOVER    = 0xFF0066AA;
+    private static final int COLOR_BTN_CRAFT    = 0xFF004422;
+    private static final int COLOR_BTN_CRAFT_H  = 0xFF006633;
+    private static final int COLOR_GREEN        = 0xFF44FF88;
+    private static final int COLOR_RED          = 0xFFFF4444;
+    private static final int COLOR_GOLD         = 0xFFFFCC44;
+    private static final int COLOR_UNKNOWN      = 0xFF334455;
+    private static final int COLOR_POPUP_BG     = 0xEE000C1A;
 
     // ── Layout ────────────────────────────────────────────────────────────────
     private int LEFT_W;
@@ -39,56 +65,41 @@ public class ApothecaryTableScreen extends Screen {
     private int MID_X;
     private int RIGHT_W;
     private int RIGHT_X;
-    private int TOTAL_W;
     private int TOTAL_H;
     private int CONTENT_H;
+    private int guiLeft;
+    private int guiTop;
 
-    private int guiLeft;   // left edge of left column
-    private int guiTop;    // top edge of columns
-
-    private static final int HEADER_H     = 26;
-    private static final int ROW_H        = 18;
+    private static final int HEADER_H     = 24;
+    private static final int ROW_H        = 16;
     private static final int BOTTOM_BAR_H = 28;
-    private static final int COL_GAP      = 2;  // gap between columns
-
-    // Semi-transparent dark panel (like Skyrim's column backing)
-    private static final int BG_PANEL     = 0xCC000000;
-    private static final int BG_HEADER    = 0xDD111111;
-    private static final int BG_HOVER     = 0x55FFFFFF;
-    private static final int BG_SELECTED  = 0x66FFFFFF;
-    private static final int BG_CHOSEN    = 0x55D4AF37;
-    private static final int BG_BOTTOM    = 0xCC000000;
-
-    // Text colors — Skyrim-style
-    private static final int COLOR_TITLE    = 0xFFFFFFFF;
-    private static final int COLOR_NORMAL   = 0xFFCCCCCC;
-    private static final int COLOR_DIM      = 0xFF888888;
-    private static final int COLOR_GOLD     = 0xFFD4AF37;
-    private static final int COLOR_UNKNOWN  = 0xFF777777;
-    private static final int COLOR_GREEN    = 0xFF66FF66;
-    private static final int COLOR_RED      = 0xFFFF6666;
-    private static final int COLOR_WHITE    = 0xFFFFFFFF;
-    private static final int COLOR_SEP      = 0x88FFFFFF;
+    private static final int XP_BAR_W     = 160;
+    private static final int XP_BAR_H     = 5;
+    private static final int COL_GAP      = 6;
 
     // ── State ─────────────────────────────────────────────────────────────────
     private final List<IngredientEntry> allIngredients      = new ArrayList<>();
     private final List<IngredientEntry> filteredIngredients = new ArrayList<>();
     private final List<IngredientEntry> selected            = new ArrayList<>();
 
-    private AlchemyEffect effectFilter        = null;
-    private boolean middleVisible             = false;
+    // For continuous crafting — stores ingredient IDs of last brew
+    private List<Identifier> lastBrewedIngredientIds = new ArrayList<>();
+
+    private AlchemyEffect effectFilter    = null;
+    private boolean middleVisible         = false;
+    private boolean rightVisible  = false;
     private IngredientEntry hoveredIngredient = null;
 
     private int effectScroll     = 0;
     private int ingredientScroll = 0;
 
     private BrewingLogic.BrewResult currentBrewResult = null;
-    private int guiRight; // right edge of middle column (start of transparent right area)
 
     // ── Popup state ───────────────────────────────────────────────────────────
-    private boolean showPopup = false;
+    private boolean showPopup    = false;
     private String popupPotionName = "";
-    private List<zcylas.totality.networking.alchemy.BrewResultPayload.DiscoveredEffect> popupEffects = new ArrayList<>();
+    private List<zcylas.totality.networking.alchemy.BrewResultPayload.DiscoveredEffect>
+            popupEffects = new ArrayList<>();
 
     public ApothecaryTableScreen() {
         super(Component.literal("Alchemy"));
@@ -106,38 +117,28 @@ public class ApothecaryTableScreen extends Screen {
     private void computeLayout() {
         int padding = 22;
 
-        // Left column — effect names + INGREDIENTS header
         int leftContent = font.width("INGREDIENTS");
         for (AlchemyEffect effect : getDiscoveredEffects()) {
             leftContent = Math.max(leftContent, font.width("  " + effect.getDisplayName()));
         }
         LEFT_W = leftContent + padding;
 
-        // Middle column — ingredient names
         int midContent = 80;
         for (IngredientEntry entry : allIngredients) {
-            midContent = Math.max(midContent, font.width("    " + displayName(entry) + " (99)"));
+            midContent = Math.max(midContent,
+                    font.width("    " + displayName(entry) + " (99)"));
         }
         MID_W = midContent + padding;
 
-        // Right area — floating text, transparent, takes remaining screen space
-        MID_X    = LEFT_W + COL_GAP;
-        RIGHT_X  = MID_X + MID_W + COL_GAP;
-        RIGHT_W  = width - RIGHT_X - 20; // leave right margin
-
-        TOTAL_H   = (int)(height * 0.72f);
+        TOTAL_H   = (int)(height * 0.80f);
         CONTENT_H = TOTAL_H - HEADER_H - BOTTOM_BAR_H;
-        TOTAL_W   = RIGHT_X + RIGHT_W;
 
-        // Left-align the two columns to the left side of the screen with margin
         guiLeft = 20;
         guiTop  = (height - TOTAL_H) / 2;
 
-        // Recompute absolute positions
         MID_X   = guiLeft + LEFT_W + COL_GAP;
         RIGHT_X = MID_X + MID_W + COL_GAP;
         RIGHT_W = width - RIGHT_X - 20;
-        guiRight = RIGHT_X;
     }
 
     // ── Inventory ─────────────────────────────────────────────────────────────
@@ -148,7 +149,7 @@ public class ApothecaryTableScreen extends Screen {
         if (player == null) return;
 
         Map<Item, IngredientEntry> seen = new LinkedHashMap<>();
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+        for (int i = 0; i < 36; i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (stack.isEmpty() || !(stack.getItem() instanceof AlchemyIngredient ai)) continue;
             seen.merge(stack.getItem(),
@@ -190,7 +191,7 @@ public class ApothecaryTableScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float a) {
-        // Fully transparent — world renders behind
+        g.fill(0, 0, width, height, COLOR_BG);
     }
 
     @Override
@@ -198,8 +199,9 @@ public class ApothecaryTableScreen extends Screen {
         super.extractRenderState(g, mx, my, a);
         drawLeftColumn(g, mx, my);
         if (middleVisible) drawMiddleColumn(g, mx, my);
-        drawRightArea(g, mx, my);
+        if (rightVisible) drawRightArea(g, mx, my);
         drawBottomBar(g, mx, my);
+        drawXpBar(g);
         if (showPopup) drawPopup(g, mx, my);
     }
 
@@ -210,44 +212,52 @@ public class ApothecaryTableScreen extends Screen {
         int y = guiTop;
         int colH = TOTAL_H - BOTTOM_BAR_H;
 
-        // Dark panel behind entire left column
-        g.fill(x, y, x + LEFT_W, y + colH, BG_PANEL);
+        // Panel background + border
+        g.fill(x, y, x + LEFT_W, y + colH, 0x55001020);
+        drawBorder(g, x, y, LEFT_W, colH);
 
         // INGREDIENTS header
-        boolean headerHov = inBounds(mx, my, x, y, LEFT_W, HEADER_H);
         boolean headerSel = effectFilter == null && middleVisible;
-        g.fill(x, y, x + LEFT_W, y + HEADER_H,
-                headerSel ? BG_SELECTED : (headerHov ? BG_HOVER : BG_HEADER));
-
-        // Thin separator line below header
-        g.fill(x + 6, y + HEADER_H - 1, x + LEFT_W - 6, y + HEADER_H, COLOR_SEP);
+        boolean headerHov = inBounds(mx, my, x, y, LEFT_W, HEADER_H);
+        g.fill(x + 1, y + 1, x + LEFT_W - 1, y + HEADER_H,
+                headerSel ? COLOR_ROW_SEL : headerHov ? COLOR_ROW_HOV : COLOR_HEADER_BG);
+        g.fill(x, y + HEADER_H, x + LEFT_W, y + HEADER_H + 1, COLOR_SEPARATOR);
 
         String headerLabel = "INGREDIENTS";
         g.text(font, Component.literal(headerLabel),
-                x + LEFT_W / 2 - font.width(headerLabel) / 2, y + (HEADER_H - 8) / 2,
-                headerSel ? COLOR_GOLD : COLOR_TITLE, true);
+                x + LEFT_W / 2 - font.width(headerLabel) / 2,
+                y + (HEADER_H - 8) / 2,
+                headerSel ? COLOR_VALUE : COLOR_LABEL, false);
 
         // Effect rows
-        int rowY = y + HEADER_H + 4;
+        int rowY = y + HEADER_H + 1;
         List<AlchemyEffect> effects = getDiscoveredEffects();
-        int visRows = CONTENT_H / ROW_H;
+        int visRows = (colH - HEADER_H - 1) / ROW_H;
 
-        for (int i = effectScroll; i < Math.min(effectScroll + visRows, effects.size()); i++) {
+        for (int i = effectScroll;
+             i < Math.min(effectScroll + visRows, effects.size()); i++) {
             AlchemyEffect effect = effects.get(i);
-            boolean hov = inBounds(mx, my, x, rowY, LEFT_W, ROW_H);
+            boolean hov = inBounds(mx, my, x + 1, rowY, LEFT_W - 2, ROW_H);
             boolean sel = effect == effectFilter;
-            if (hov || sel)
-                g.fill(x, rowY, x + LEFT_W, rowY + ROW_H, sel ? BG_SELECTED : BG_HOVER);
+
+            int rowBg = sel ? COLOR_ROW_SEL : hov ? COLOR_ROW_HOV
+                    : (i % 2 == 0 ? COLOR_ROW_EVEN : 0);
+            if (rowBg != 0)
+                g.fill(x + 1, rowY, x + LEFT_W - 1, rowY + ROW_H, rowBg);
 
             int col = switch (effect.getType()) {
-                case BENEFICIAL -> sel ? COLOR_GREEN  : 0xFF449944;
-                case HARMFUL    -> sel ? COLOR_RED    : 0xFF994444;
-                case NEUTRAL    -> sel ? COLOR_WHITE  : COLOR_NORMAL;
+                case BENEFICIAL -> sel ? COLOR_GREEN  : 0xFF336644;
+                case HARMFUL    -> sel ? COLOR_RED    : 0xFF663333;
+                case NEUTRAL    -> sel ? COLOR_VALUE  : COLOR_LABEL;
             };
-            g.text(font, Component.literal("  " + effect.getDisplayName()),
-                    x + 6, rowY + (ROW_H - 8) / 2, col, false);
+            g.text(font, Component.literal(effect.getDisplayName()),
+                    x + 8, rowY + (ROW_H - 8) / 2, col, false);
             rowY += ROW_H;
         }
+
+        // Scrollbar
+        drawScrollbar(g, x + LEFT_W - 3, y + HEADER_H + 1,
+                colH - HEADER_H - 1, effects.size(), visRows, effectScroll);
     }
 
     // ── Middle column ─────────────────────────────────────────────────────────
@@ -257,19 +267,20 @@ public class ApothecaryTableScreen extends Screen {
         int y = guiTop;
         int colH = TOTAL_H - BOTTOM_BAR_H;
 
-        // Dark panel
-        g.fill(x, y, x + MID_W, y + colH, BG_PANEL);
+        g.fill(x, y, x + MID_W, y + colH, 0x55001020);
+        drawBorder(g, x, y, MID_W, colH);
 
-        // Header — shows current filter name or "All"
-        String label = effectFilter != null ? effectFilter.getDisplayName() : "All Ingredients";
-        g.fill(x, y, x + MID_W, y + HEADER_H, BG_HEADER);
-        g.fill(x + 6, y + HEADER_H - 1, x + MID_W - 6, y + HEADER_H, COLOR_SEP);
+        // Header
+        String label = effectFilter != null
+                ? effectFilter.getDisplayName() : "All Ingredients";
+        g.fill(x + 1, y + 1, x + MID_W - 1, y + HEADER_H, COLOR_HEADER_BG);
+        g.fill(x, y + HEADER_H, x + MID_W, y + HEADER_H + 1, COLOR_SEPARATOR);
         g.text(font, Component.literal(label),
-                x + 8, y + (HEADER_H - 8) / 2, COLOR_TITLE, true);
+                x + 8, y + (HEADER_H - 8) / 2, COLOR_VALUE, false);
 
         // Ingredient rows
-        int rowY = y + HEADER_H;
-        int visRows = CONTENT_H / ROW_H;
+        int rowY = y + HEADER_H + 1;
+        int visRows = (colH - HEADER_H - 1) / ROW_H;
 
         for (int i = ingredientScroll;
              i < Math.min(ingredientScroll + visRows, filteredIngredients.size()); i++) {
@@ -277,294 +288,211 @@ public class ApothecaryTableScreen extends Screen {
             boolean hov    = entry == hoveredIngredient;
             boolean chosen = selected.contains(entry);
 
-            if (chosen)   g.fill(x, rowY, x + MID_W, rowY + ROW_H, BG_CHOSEN);
-            else if (hov) g.fill(x, rowY, x + MID_W, rowY + ROW_H, BG_HOVER);
+            int rowBg = chosen ? COLOR_CHOSEN
+                    : hov    ? COLOR_ROW_HOV
+                    : i % 2 == 0 ? COLOR_ROW_EVEN : 0;
+            if (rowBg != 0)
+                g.fill(x + 1, rowY, x + MID_W - 1, rowY + ROW_H, rowBg);
 
-            if (chosen) g.text(font, Component.literal("◇").withStyle(ChatFormatting.GOLD),
-                    x + 4, rowY + (ROW_H - 8) / 2, COLOR_GOLD, false);
+            // Chosen indicator
+            if (chosen) {
+                g.text(font, Component.literal("◆"),
+                        x + 4, rowY + (ROW_H - 8) / 2, COLOR_VALUE, false);
+            }
 
-            String name = (chosen ? "    " : "  ") + displayName(entry) + " (" + entry.count + ")";
-            int col = chosen ? COLOR_GOLD : (hov ? COLOR_WHITE : COLOR_NORMAL);
-            g.text(font, Component.literal(name), x + 4, rowY + (ROW_H - 8) / 2, col, false);
+            String name = displayName(entry) + " (" + entry.count + ")";
+            int col = chosen ? COLOR_VALUE : hov ? 0xFFFFFFFF : COLOR_LABEL;
+            g.text(font, Component.literal(name),
+                    x + (chosen ? 16 : 8), rowY + (ROW_H - 8) / 2, col, false);
             rowY += ROW_H;
         }
+
+        drawScrollbar(g, x + MID_W - 3, y + HEADER_H + 1,
+                colH - HEADER_H - 1,
+                filteredIngredients.size(), visRows, ingredientScroll);
     }
 
-    // ── Right area — transparent floating info ─────────────────────────────────
+    // ── Right area ────────────────────────────────────────────────────────────
 
     private void drawRightArea(GuiGraphicsExtractor g, int mx, int my) {
-        int x = RIGHT_X + 16; // indent from middle column
-        int y = guiTop + 20;
+        int x = RIGHT_X;
+        int y = guiTop;
+        int colH = TOTAL_H - BOTTOM_BAR_H;
+
+        // Panel
+        g.fill(x, y, x + RIGHT_W, y + colH, 0x55001020);
+        drawBorder(g, x, y, RIGHT_W, colH);
+
+        // Header
+        String header = selected.size() >= 2 ? "Potion Preview" : "Ingredient Details";
+        g.fill(x + 1, y + 1, x + RIGHT_W - 1, y + HEADER_H, COLOR_HEADER_BG);
+        g.fill(x, y + HEADER_H, x + RIGHT_W, y + HEADER_H + 1, COLOR_SEPARATOR);
+        g.text(font, Component.literal(header),
+                x + RIGHT_W / 2 - font.width(header) / 2,
+                y + (HEADER_H - 8) / 2, COLOR_LABEL, false);
+
+        int cy = y + HEADER_H + 12;
 
         if (selected.size() >= 2) {
-            drawPotionInfo(g, x, y);
+            drawPotionInfo(g, x + 8, cy, x + RIGHT_W / 2);
         } else if (hoveredIngredient != null) {
-            drawIngredientInfo(g, x, y, hoveredIngredient);
+            drawIngredientInfo(g, x + 8, cy, hoveredIngredient, x + RIGHT_W / 2);
         } else {
-            // Skyrim-style hint — just text, no panel
-            String title = "Alchemy: Combine ingredients";
-            String sub   = "to make potions";
-            g.text(font, Component.literal(title).withStyle(ChatFormatting.WHITE),
-                    x, y, COLOR_NORMAL, true);
-            g.text(font, Component.literal(sub),
-                    x, y + 14, COLOR_DIM, false);
+            String hint = "Select 2–3 ingredients to brew";
+            g.text(font, Component.literal(hint),
+                    x + RIGHT_W / 2 - font.width(hint) / 2, cy,
+                    COLOR_LABEL, false);
         }
     }
 
-    private void drawIngredientInfo(GuiGraphicsExtractor g, int x, int y, IngredientEntry entry) {
-        // Item sprite — 3x scale (48px), centered in the right area
-        int spriteSize = 48;
-        float scale = 3.0f;
-        int centerX = RIGHT_X + RIGHT_W / 2;
-        int spriteX = centerX - spriteSize / 2;
+    private void drawIngredientInfo(GuiGraphicsExtractor g, int x, int y,
+                                    IngredientEntry entry, int centerX) {
+        // Item sprite 2x
+        float scale = 2.0f;
+        int spriteSize = (int)(16 * scale);
         g.pose().pushMatrix();
         g.pose().scale(scale, scale);
-        g.item(entry.stack, (int)(spriteX / scale), (int)(y / scale));
+        g.item(entry.stack, (int)((centerX - spriteSize / 2f) / scale), (int)(y / scale));
         g.pose().popMatrix();
-        y += spriteSize + 10;
+        y += spriteSize + 8;
 
-        // Name — uppercase, centered, white with shadow like Skyrim
-        String name = displayName(entry).toUpperCase() + "  (" + entry.count + ")";
-        int nameX = centerX - font.width(name) / 2;
-        g.text(font, Component.literal(name).withStyle(ChatFormatting.WHITE),
-                nameX, y, COLOR_TITLE, true);
-        y += 16;
+        // Name
+        String name = displayName(entry).toUpperCase();
+        g.text(font, Component.literal(name),
+                centerX - font.width(name) / 2, y, COLOR_VALUE, true);
+        y += 12;
 
-        // Thin separator centered under name
-        int sepW = Math.min(RIGHT_W - 16, font.width(name) + 20);
-        g.fill(centerX - sepW / 2, y, centerX + sepW / 2, y + 1, 0xAAFFFFFF);
+        // Count
+        String cnt = "In inventory: " + entry.count;
+        g.text(font, Component.literal(cnt),
+                centerX - font.width(cnt) / 2, y, COLOR_LABEL, false);
+        y += 10;
+
+        // Separator
+        g.fill(x, y, x + RIGHT_W - 16, y + 1, COLOR_SEPARATOR);
         y += 8;
 
-        // 2x2 effect grid — no panel, just floating text
+        // Effects — 4 slots
+        g.text(font, Component.literal("Effects"),
+                x, y, COLOR_LABEL, false);
+        y += 11;
+
         List<AlchemyEffectInstance> effects = entry.ai.getAlchemyEffects();
-        int halfW = Math.max(80, RIGHT_W / 2 - 8);
-        int col1X = x;
-        int col2X = x + halfW;
-
-        for (int row = 0; row < 2; row++) {
-            for (int col = 0; col < 2; col++) {
-                int slot = row * 2 + col;
-                if (slot >= effects.size()) continue;
-                int ex = col == 0 ? col1X : col2X;
-                int ey = y + row * 22;
-                AlchemyEffectInstance inst = effects.get(slot);
-
-                if (ClientAlchemyKnowledgeManager.isRevealed(entry.ai.getIngredientId(), slot)) {
-                    AlchemyEffect effect = inst.effect();
-                    int ec = switch (effect.getType()) {
-                        case BENEFICIAL -> COLOR_GREEN;
-                        case HARMFUL    -> COLOR_RED;
-                        case NEUTRAL    -> COLOR_WHITE;
-                    };
-                    g.text(font, Component.literal(effect.getDisplayName()), ex, ey, ec, true);
-                } else {
-                    g.text(font, Component.literal("UNKNOWN"), ex, ey, COLOR_UNKNOWN, true);
-                }
+        for (int slot = 0; slot < 4; slot++) {
+            if (slot >= effects.size()) break;
+            AlchemyEffectInstance inst = effects.get(slot);
+            if (ClientAlchemyKnowledgeManager.isRevealed(
+                    entry.ai.getIngredientId(), slot)) {
+                AlchemyEffect effect = inst.effect();
+                int col = switch (effect.getType()) {
+                    case BENEFICIAL -> COLOR_GREEN;
+                    case HARMFUL    -> COLOR_RED;
+                    case NEUTRAL    -> COLOR_VALUE;
+                };
+                g.text(font, Component.literal("• " + effect.getDisplayName()),
+                        x + 4, y, col, false);
+            } else {
+                g.text(font, Component.literal("• ???"),
+                        x + 4, y, COLOR_UNKNOWN, false);
             }
+            y += 10;
         }
     }
 
-    private void drawPotionInfo(GuiGraphicsExtractor g, int x, int y) {
-        int centerX = RIGHT_X + RIGHT_W / 2;
-        int spriteY = y;
+    private void drawPotionInfo(GuiGraphicsExtractor g, int x, int y, int centerX) {
+        boolean isUnknown = currentBrewResult == null
+                || !currentBrewResult.isSuccess()
+                || ((BrewingLogic.BrewResult.Success) currentBrewResult).effects().isEmpty();
 
-        // Always show POTION OF UNKNOWN EFFECT as default with 2+ ingredients
-        if (currentBrewResult == null || !currentBrewResult.isSuccess()
-                || ((BrewingLogic.BrewResult.Success) currentBrewResult).effects().isEmpty()) {
-
-            // Show BREWED_POTION with purple POTION_DATA component
-            net.minecraft.world.item.ItemStack unknownPotion =
-                    new net.minecraft.world.item.ItemStack(
-                            zcylas.totality.init.items.PotionItems.BREWED_POTION);
-            unknownPotion.set(zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent.POTION_DATA,
-                    zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
-                            "Potion of Unknown Effect",
-                            zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE,
-                            java.util.List.of(), false));
-            g.pose().pushMatrix();
-            g.pose().scale(3.0f, 3.0f);
-            g.item(unknownPotion, (centerX - 24) / 3, spriteY / 3);
-            g.pose().popMatrix();
-            y += 58;
-
-            int nameX = centerX - font.width("POTION OF UNKNOWN EFFECT") / 2;
-            g.text(font, net.minecraft.network.chat.Component.literal("POTION OF UNKNOWN EFFECT")
-                            .withStyle(net.minecraft.ChatFormatting.WHITE),
-                    nameX, y, COLOR_TITLE, true);
-            y += 16;
-            g.fill(centerX - 80, y, centerX + 80, y + 1, 0xAAFFFFFF);
-            y += 8;
-            g.text(font, net.minecraft.network.chat.Component.literal("Unknown Effect"),
-                    centerX - font.width("Unknown Effect") / 2, y, COLOR_UNKNOWN, true);
-            return;
-        }
-
-        BrewingLogic.BrewResult.Success success = (BrewingLogic.BrewResult.Success) currentBrewResult;
-
-        // Show the actual brewed potion item sprite
-        // Build a temporary stack with the correct color for preview
-        net.minecraft.world.item.ItemStack previewStack =
-                new net.minecraft.world.item.ItemStack(
-                        zcylas.totality.init.items.PotionItems.BREWED_POTION);
-        boolean previewIsPoison = success.effects().stream()
-                .anyMatch(e -> e.effect().isHarmful())
-                && success.effects().stream().noneMatch(e -> e.effect().isBeneficial());
-        int previewColor = previewIsPoison
-                ? zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE
-                : getPotionPreviewColor(success.effects());
-        String previewName = buildPotionName(success.effects());
-        java.util.List<zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry> previewEntries =
-                success.effects().stream()
-                        .map(e -> zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(
-                                e.effect(), e.effect().getBaseMagnitude(),
-                                e.effect().getBaseDurationTicks()))
-                        .collect(java.util.stream.Collectors.toList());
-        previewStack.set(zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent.POTION_DATA,
-                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
-                        previewName, previewColor, previewEntries, previewIsPoison));
-
+        // Sprite
+        float scale = 2.0f;
+        int spriteSize = (int)(16 * scale);
+        ItemStack previewStack = buildPreviewStack(isUnknown);
         g.pose().pushMatrix();
-        g.pose().scale(3.0f, 3.0f);
-        g.item(previewStack, (centerX - 24) / 3, spriteY / 3);
+        g.pose().scale(scale, scale);
+        g.item(previewStack, (int)((centerX - spriteSize / 2f) / scale), (int)(y / scale));
         g.pose().popMatrix();
-        y += 58;
+        y += spriteSize + 8;
 
-        // Dead code path kept for safety
-        if (success.effects().isEmpty()) {
-            g.text(font, Component.literal("POTION OF UNKNOWN EFFECT").withStyle(ChatFormatting.WHITE),
-                    x, y, COLOR_TITLE, true);
-            y += 16;
-            g.fill(x, y, x + 160, y + 1, 0xAAFFFFFF);
+        if (isUnknown) {
+            String name = "POTION OF UNKNOWN EFFECT";
+            g.text(font, Component.literal(name),
+                    centerX - font.width(name) / 2, y, COLOR_LABEL, false);
+            y += 12;
+            g.fill(x, y, x + RIGHT_W - 16, y + 1, COLOR_SEPARATOR);
             y += 8;
-            g.text(font, Component.literal("Unknown Effect"), x, y, COLOR_UNKNOWN, true);
+            g.text(font, Component.literal("Unknown Effect"),
+                    x + 4, y, COLOR_UNKNOWN, false);
             return;
         }
 
-        String potionName = buildPotionName(success.effects()).toUpperCase();
-        g.text(font, Component.literal(potionName).withStyle(ChatFormatting.WHITE),
-                x, y, COLOR_TITLE, true);
-        y += 16;
-        g.fill(x, y, x + font.width(potionName), y + 1, 0xAAFFFFFF);
-        y += 10;
+        BrewingLogic.BrewResult.Success success =
+                (BrewingLogic.BrewResult.Success) currentBrewResult;
+        String name = buildPotionName(success.effects()).toUpperCase();
+        g.text(font, Component.literal(name),
+                centerX - font.width(name) / 2, y, COLOR_VALUE, true);
+        y += 12;
 
-        // List effects with contributing ingredients
+        g.fill(x, y, x + RIGHT_W - 16, y + 1, COLOR_SEPARATOR);
+        y += 8;
+
+        // Effects list
+        g.text(font, Component.literal("Effects"), x, y, COLOR_LABEL, false);
+        y += 11;
+
         for (AlchemyEffectInstance inst : success.effects()) {
             AlchemyEffect effect = inst.effect();
             int col = switch (effect.getType()) {
                 case BENEFICIAL -> COLOR_GREEN;
                 case HARMFUL    -> COLOR_RED;
-                case NEUTRAL    -> COLOR_WHITE;
+                case NEUTRAL    -> COLOR_VALUE;
             };
-            String contributors = selected.stream()
-                    .filter(e -> e.ai.getAlchemyEffects().stream()
-                            .anyMatch(i -> i.effect() == effect))
-                    .map(this::displayName)
-                    .collect(Collectors.joining(", "));
-
+            g.text(font, Component.literal("• " + effect.getDisplayName()),
+                    x + 4, y, col, false);
+            y += 10;
             String desc = effect.buildDescription(
                     effect.getBaseMagnitude(), effect.getBaseDurationTicks());
-            g.text(font, Component.literal(desc).withStyle(s -> s.withColor(col)),
-                    x, y, col, true);
+            g.text(font, Component.literal("  " + desc),
+                    x + 4, y, COLOR_LABEL, false);
             y += 11;
-
-            // Wrap contributor line if too wide
-            int maxW = RIGHT_W - 8;
-            if (font.width("  " + contributors) <= maxW) {
-                g.text(font, Component.literal("  " + contributors), x, y, COLOR_DIM, false);
-                y += 14;
-            } else {
-                // Split at comma boundaries
-                String[] parts = contributors.split(", ");
-                StringBuilder line = new StringBuilder("  ");
-                for (String part : parts) {
-                    String candidate = line + (line.length() > 2 ? ", " : "") + part;
-                    if (font.width(candidate) > maxW && line.length() > 2) {
-                        g.text(font, Component.literal(line.toString()), x, y, COLOR_DIM, false);
-                        y += 11;
-                        line = new StringBuilder("  " + part);
-                    } else {
-                        if (line.length() > 2) line.append(", ");
-                        line.append(part);
-                    }
-                }
-                if (line.length() > 2) {
-                    g.text(font, Component.literal(line.toString()), x, y, COLOR_DIM, false);
-                    y += 11;
-                }
-                y += 3;
-            }
         }
     }
 
-    // ── Popup ─────────────────────────────────────────────────────────────────
+    // ── XP bar (bottom right, like Skyrim) ────────────────────────────────────
 
-    private int popupHeight() {
-        boolean isFailed = popupPotionName.equals("Potion creation failed");
-        int lineH = 14;
-        int effectLines = (!isFailed && !popupEffects.isEmpty())
-                ? 1 + popupEffects.size() // "Discovered effects:" + each effect
-                : 0;
-        return 30 + 16 + effectLines * lineH + 24;
-    }
+    private void drawXpBar(GuiGraphicsExtractor g) {
+        int barX = width - XP_BAR_W - 12;
+        int barY = height - 18;
 
-    private void drawPopup(GuiGraphicsExtractor g, int mx, int my) {
-        // Measure popup size
-        int popupW = 220;
-        int lineH   = 14;
-        int popupH  = popupHeight();
+        int level = ClientSkillsManager.getLevel(Skill.ALCHEMY);
+        int xp    = ClientSkillsManager.getXp(Skill.ALCHEMY);
+        int req   = ClientSkillsManager.getXpRequired(Skill.ALCHEMY);
 
-        int px = width  / 2 - popupW / 2;
-        int py = height / 2 - popupH / 2;
+        // Label: "Alchemy 16"
+        String label = "Alchemy " + level;
+        g.text(font, Component.literal(label),
+                barX, barY - 10, COLOR_LABEL, false);
 
-        // Dark panel
-        g.fill(px, py, px + popupW, py + popupH, 0xEE000000);
+        // XP bar background
+        g.fill(barX, barY, barX + XP_BAR_W, barY + XP_BAR_H, COLOR_XP_BG);
+
+        // XP bar fill
+        if (req > 0 && xp > 0) {
+            int fill = Math.min((int)((float) xp / req * XP_BAR_W), XP_BAR_W);
+            g.fill(barX, barY, barX + fill, barY + XP_BAR_H, COLOR_XP_FILL);
+        }
+
         // Border
-        g.fill(px,              py,              px + popupW,     py + 1,          0xAAFFFFFF);
-        g.fill(px,              py + popupH - 1, px + popupW,     py + popupH,     0xAAFFFFFF);
-        g.fill(px,              py,              px + 1,          py + popupH,     0xAAFFFFFF);
-        g.fill(px + popupW - 1, py,              px + popupW,     py + popupH,     0xAAFFFFFF);
+        g.fill(barX,             barY,             barX + XP_BAR_W, barY + 1,         COLOR_BORDER);
+        g.fill(barX,             barY + XP_BAR_H,  barX + XP_BAR_W, barY + XP_BAR_H + 1, COLOR_BORDER);
+        g.fill(barX,             barY,             barX + 1,         barY + XP_BAR_H, COLOR_BORDER);
+        g.fill(barX + XP_BAR_W, barY,             barX + XP_BAR_W + 1, barY + XP_BAR_H, COLOR_BORDER);
 
-        int cy = py + 10;
-
-        boolean isFailed = popupPotionName.equals("Potion creation failed");
-
-        // Title — "Potion creation failed" or "Created Potion of X"
-        String title = isFailed ? popupPotionName : "Created " + popupPotionName;
-        g.text(font, net.minecraft.network.chat.Component.literal(title)
-                        .withStyle(net.minecraft.ChatFormatting.WHITE),
-                px + popupW / 2 - font.width(title) / 2, cy,
-                isFailed ? COLOR_RED : COLOR_TITLE, true);
-        cy += 18;
-
-        // Separator
-        g.fill(px + 16, cy, px + popupW - 16, cy + 1, COLOR_SEP);
-        cy += 8;
-
-        // Only show discovered effects if not a failure
-        if (!isFailed && !popupEffects.isEmpty()) {
-            String sub = "Discovered effects:";
-            g.text(font, net.minecraft.network.chat.Component.literal(sub),
-                    px + popupW / 2 - font.width(sub) / 2, cy, COLOR_NORMAL, false);
-            cy += lineH;
-
-            for (var de : popupEffects) {
-                String line = de.effectName() + " (" + de.ingredientName() + ")";
-                g.text(font, net.minecraft.network.chat.Component.literal(line)
-                                .withStyle(net.minecraft.ChatFormatting.WHITE),
-                        px + popupW / 2 - font.width(line) / 2, cy, COLOR_GREEN, true);
-                cy += lineH;
-            }
-        }
-
-        // Ok button — position matches click handler: py + popupH - 18
-        int btnW = 50;
-        int okY  = py + popupH - 18;
-        int btnX = px + popupW / 2 - btnW / 2;
-        boolean okHov = inBounds(mx, my, btnX, okY, btnW, 14);
-        g.fill(btnX, okY, btnX + btnW, okY + 14, okHov ? 0x88FFFFFF : 0x44FFFFFF);
-        g.text(font, net.minecraft.network.chat.Component.literal("Ok"),
-                btnX + btnW / 2 - font.width("Ok") / 2, okY + 3,
-                okHov ? COLOR_WHITE : COLOR_NORMAL, false);
+        // XP text centered on bar
+        String xpStr = xp + " / " + req;
+        g.text(font, Component.literal(xpStr),
+                barX + XP_BAR_W / 2 - font.width(xpStr) / 2,
+                barY + XP_BAR_H + 2, COLOR_LABEL, false);
     }
 
     // ── Bottom bar ────────────────────────────────────────────────────────────
@@ -572,55 +500,197 @@ public class ApothecaryTableScreen extends Screen {
     private void drawBottomBar(GuiGraphicsExtractor g, int mx, int my) {
         int barY = guiTop + TOTAL_H - BOTTOM_BAR_H;
 
-        // Semi-transparent dark strip full width
-        g.fill(0, barY, width, barY + BOTTOM_BAR_H, BG_BOTTOM);
-        g.fill(0, barY, width, barY + 1, 0x88FFFFFF);
+        g.fill(0, barY, width, barY + BOTTOM_BAR_H, COLOR_BOTTOM);
+        g.fill(0, barY, width, barY + 1, COLOR_BORDER);
 
-        int btnY      = barY + 4;
-        int btnH      = BOTTOM_BAR_H - 8;
+        int btnY      = barY + 5;
+        int btnH      = BOTTOM_BAR_H - 10;
         int rightEdge = width - 8;
 
-        // Craft
+        // Craft button
         boolean canCraft = selected.size() >= 2;
         if (canCraft) {
-            int bw = 52;
-            drawBtn(g, mx, my, rightEdge - bw, btnY, bw, btnH, "[R] Craft", true);
-            rightEdge -= bw + 8;
-        }
-        // Clear
-        if (!selected.isEmpty()) {
-            int bw = 60;
-            drawBtn(g, mx, my, rightEdge - bw, btnY, bw, btnH, "[F] Clear", false);
-            rightEdge -= bw + 8;
-        }
-        // Exit
-        {
-            int bw = 62;
-            drawBtn(g, mx, my, rightEdge - bw, btnY, bw, btnH, "[Esc] Exit", false);
+            int bw = 56;
+            boolean hov = inBounds(mx, my, rightEdge - bw, btnY, bw, btnH);
+            drawButton(g, rightEdge - bw, btnY, bw, btnH, "[R] Craft",
+                    COLOR_BTN_CRAFT, COLOR_BTN_CRAFT_H, COLOR_GREEN, hov);
+            rightEdge -= bw + 6;
         }
 
-        // Left side — show selected ingredient names like Skyrim's "Requires:" line
+        // Clear button
         if (!selected.isEmpty()) {
-            String req = "Requires: " + selected.stream()
+            int bw = 56;
+            boolean hov = inBounds(mx, my, rightEdge - bw, btnY, bw, btnH);
+            drawButton(g, rightEdge - bw, btnY, bw, btnH, "[F] Clear",
+                    COLOR_BTN, COLOR_BTN_HOVER, COLOR_VALUE, hov);
+            rightEdge -= bw + 6;
+        }
+
+        // Exit button
+        {
+            int bw = 60;
+            boolean hov = inBounds(mx, my, rightEdge - bw, btnY, bw, btnH);
+            drawButton(g, rightEdge - bw, btnY, bw, btnH, "[Esc] Exit",
+                    COLOR_BTN, COLOR_BTN_HOVER, COLOR_LABEL, hov);
+        }
+
+        // Left side: selected ingredients
+        if (!selected.isEmpty()) {
+            String req = "Selected: " + selected.stream()
                     .map(this::displayName)
                     .collect(Collectors.joining(", "));
-            if (selected.size() < 2) req += ", Ingredient";
-            if (selected.size() < 3) req += ", Optional";
+            if (selected.size() < 2) req += " (need 1 more)";
             g.text(font, Component.literal(req),
-                    8, btnY + (btnH - 8) / 2, COLOR_NORMAL, false);
+                    8, btnY + (btnH - 8) / 2, COLOR_LABEL, false);
+        } else {
+            g.text(font, Component.literal("Select 2–3 ingredients to brew"),
+                    8, btnY + (btnH - 8) / 2, COLOR_LABEL, false);
         }
     }
 
-    private void drawBtn(GuiGraphicsExtractor g, int mx, int my,
-                         int x, int y, int w, int h, String label, boolean highlight) {
-        boolean hov = inBounds(mx, my, x, y, w, h);
-        g.fill(x, y, x + w, y + h, hov ? 0x88FFFFFF : 0x44FFFFFF);
-        int col = highlight
-                ? (hov ? COLOR_GREEN  : 0xFF44AA44)
-                : (hov ? COLOR_WHITE  : COLOR_NORMAL);
+    private void drawButton(GuiGraphicsExtractor g, int x, int y, int w, int h,
+                            String label, int bgNorm, int bgHov, int textCol,
+                            boolean hovered) {
+        int bg = hovered ? bgHov : bgNorm;
+        g.fill(x, y, x + w, y + h, bg);
+        g.fill(x,       y,       x + w, y + 1,     COLOR_BORDER);
+        g.fill(x,       y + h - 1, x + w, y + h,   COLOR_BORDER);
+        g.fill(x,       y,       x + 1, y + h,     COLOR_BORDER);
+        g.fill(x + w - 1, y,     x + w, y + h,     COLOR_BORDER);
         g.text(font, Component.literal(label),
                 x + w / 2 - font.width(label) / 2,
-                y + (h - 8) / 2, col, false);
+                y + (h - 8) / 2, textCol, false);
+    }
+
+    // ── Popup ─────────────────────────────────────────────────────────────────
+
+    private int popupHeight() {
+        boolean isFailed = popupPotionName.equals("Potion creation failed");
+        int effectLines = (!isFailed && !popupEffects.isEmpty())
+                ? 1 + popupEffects.size() : 0;
+        return 30 + 16 + effectLines * 14 + 24;
+    }
+
+    private void drawPopup(GuiGraphicsExtractor g, int mx, int my) {
+        int popupW = 240;
+        int popupH = popupHeight();
+        int px = width  / 2 - popupW / 2;
+        int py = height / 2 - popupH / 2;
+
+        g.fill(px - 2, py - 2, px + popupW + 2, py + popupH + 2,
+                COLOR_BORDER_GLOW);
+        g.fill(px, py, px + popupW, py + popupH, COLOR_POPUP_BG);
+        drawBorder(g, px, py, popupW, popupH);
+
+        int cy = py + 12;
+        boolean isFailed = popupPotionName.equals("Potion creation failed");
+        String title = isFailed ? popupPotionName : "Created " + popupPotionName;
+        g.text(font, Component.literal(title),
+                px + popupW / 2 - font.width(title) / 2, cy,
+                isFailed ? COLOR_RED : COLOR_VALUE, true);
+        cy += 18;
+
+        g.fill(px + 16, cy, px + popupW - 16, cy + 1, COLOR_SEPARATOR);
+        cy += 8;
+
+        if (!isFailed && !popupEffects.isEmpty()) {
+            String sub = "Newly discovered:";
+            g.text(font, Component.literal(sub),
+                    px + popupW / 2 - font.width(sub) / 2, cy, COLOR_LABEL, false);
+            cy += 14;
+            for (var de : popupEffects) {
+                String line = de.effectName() + " (" + de.ingredientName() + ")";
+                g.text(font, Component.literal(line),
+                        px + popupW / 2 - font.width(line) / 2, cy, COLOR_GREEN, true);
+                cy += 14;
+            }
+        }
+
+        // Ok button
+        int btnW = 60;
+        int okY  = py + popupH - 20;
+        int btnX = px + popupW / 2 - btnW / 2;
+        boolean okHov = inBounds(mx, my, btnX, okY, btnW, 14);
+        drawButton(g, btnX, okY, btnW, 14, "Ok",
+                COLOR_BTN, COLOR_BTN_HOVER, COLOR_VALUE, okHov);
+    }
+
+    // ── Brew ──────────────────────────────────────────────────────────────────
+
+    private void sendBrew() {
+        // Remember ingredient IDs for re-selection after brew
+        lastBrewedIngredientIds = selected.stream()
+                .map(e -> BuiltInRegistries.ITEM.getKey(e.stack.getItem()))
+                .collect(Collectors.toList());
+
+        List<Identifier> ids = new ArrayList<>(lastBrewedIngredientIds);
+        ClientPlayNetworking.send(new BrewPayload(ids));
+
+        // Decrement counts client-side immediately
+        for (IngredientEntry entry : selected) {
+            entry.count--;
+            entry.stack.shrink(1);
+        }
+        selected.clear();
+        currentBrewResult = null;
+
+        // Rescan and try to re-select the same ingredients (continuous crafting)
+        scanInventory();
+        computeLayout();
+        reSelectLastIngredients();
+        playClick();
+    }
+
+    /**
+     * After brewing, tries to re-select the same ingredient types automatically
+     * if they are still available in the player's inventory.
+     * This enables continuous crafting without manual re-selection.
+     */
+    private void reSelectLastIngredients() {
+        if (lastBrewedIngredientIds.isEmpty()) return;
+        selected.clear();
+        for (Identifier id : lastBrewedIngredientIds) {
+            for (IngredientEntry entry : allIngredients) {
+                if (BuiltInRegistries.ITEM.getKey(entry.stack.getItem()).equals(id)
+                        && entry.count > 0
+                        && !selected.contains(entry)) {
+                    selected.add(entry);
+                    break;
+                }
+            }
+        }
+        recomputeBrew();
+        rightVisible = !selected.isEmpty();
+
+        // If we couldn't re-select enough ingredients, reset the middle column too
+        // so the filter header doesn't linger showing a now-irrelevant effect
+        if (selected.isEmpty() && filteredIngredients.isEmpty()) {
+            middleVisible = false;
+            effectFilter  = null;
+        }
+    }
+
+    // ── Popup callback ────────────────────────────────────────────────────────
+
+    public void onBrewResult(String potionName,
+                             List<zcylas.totality.networking.alchemy.BrewResultPayload.DiscoveredEffect>
+                                     discovered) {
+        if (!discovered.isEmpty()
+                && discovered.get(0).effectName().equals("FAILED")) {
+            this.popupPotionName = "Potion creation failed";
+            this.popupEffects    = List.of();
+            this.showPopup       = true;
+            return;
+        }
+        if (discovered.isEmpty()) {
+            Minecraft.getInstance().player.sendSystemMessage(
+                    Component.literal(potionName + " — Added to inventory")
+                            .withStyle(ChatFormatting.AQUA));
+        } else {
+            this.popupPotionName = potionName;
+            this.popupEffects    = discovered;
+            this.showPopup       = true;
+        }
     }
 
     // ── Input ─────────────────────────────────────────────────────────────────
@@ -630,58 +700,57 @@ public class ApothecaryTableScreen extends Screen {
         int mx = (int) mouse.x();
         int my = (int) mouse.y();
 
-        // Popup Ok button
         if (showPopup) {
-            int popupW = 220;
-            int popupH = popupHeight();
-            int px = width  / 2 - popupW / 2;
-            int py = height / 2 - popupH / 2;
-            int btnW = 50;
-            int btnX = px + popupW / 2 - btnW / 2;
-            int btnY2 = py + popupH - 18;
-            if (inBounds(mx, my, btnX, btnY2, btnW, 14)) {
-                showPopup = false;
-                playClick();
-                return true;
+            int popupW = 240, popupH = popupHeight();
+            int px = width / 2 - popupW / 2, py = height / 2 - popupH / 2;
+            int btnW = 60, btnX = px + popupW / 2 - btnW / 2, btnY = py + popupH - 20;
+            if (inBounds(mx, my, btnX, btnY, btnW, 14)) {
+                showPopup = false; playClick(); return true;
             }
-            return true; // block clicks behind popup
+            return true;
         }
 
-        // Bottom bar buttons
-        int barY      = guiTop + TOTAL_H - BOTTOM_BAR_H;
-        int btnY      = barY + 4;
-        int btnH      = BOTTOM_BAR_H - 8;
-        int rightEdge = width - 8;
+        int barY = guiTop + TOTAL_H - BOTTOM_BAR_H;
+        int btnY = barY + 5, btnH = BOTTOM_BAR_H - 10, rightEdge = width - 8;
 
         boolean canCraft = selected.size() >= 2;
         if (canCraft) {
-            int bw = 52;
-            if (inBounds(mx, my, rightEdge - bw, btnY, bw, btnH)) { sendBrew(); return true; }
-            rightEdge -= bw + 8;
+            int bw = 56;
+            if (inBounds(mx, my, rightEdge - bw, btnY, bw, btnH)) {
+                sendBrew(); return true;
+            }
+            rightEdge -= bw + 6;
         }
         if (!selected.isEmpty()) {
-            int bw = 60;
+            int bw = 56;
             if (inBounds(mx, my, rightEdge - bw, btnY, bw, btnH)) {
-                selected.clear(); currentBrewResult = null; playClick(); return true;
+                selected.clear(); currentBrewResult = null;
+                lastBrewedIngredientIds.clear();
+                rightVisible = hoveredIngredient != null;
+                playClick(); return true;
             }
-            rightEdge -= bw + 8;
+            rightEdge -= bw + 6;
         }
         {
-            int bw = 62;
-            if (inBounds(mx, my, rightEdge - bw, btnY, bw, btnH)) { onClose(); return true; }
+            int bw = 60;
+            if (inBounds(mx, my, rightEdge - bw, btnY, bw, btnH)) {
+                onClose(); return true;
+            }
         }
 
         // Left column — INGREDIENTS header
         if (inBounds(mx, my, guiLeft, guiTop, LEFT_W, HEADER_H)) {
-            effectFilter = null; middleVisible = true; applyFilter(); playClick(); return true;
+            effectFilter = null; middleVisible = true;
+            applyFilter(); playClick(); return true;
         }
 
         // Left column — effect rows
-        int effectRowStart = guiTop + HEADER_H + 4;
-        int visRows = CONTENT_H / ROW_H;
+        int colH = TOTAL_H - BOTTOM_BAR_H;
+        int visRows = (colH - HEADER_H - 1) / ROW_H;
         List<AlchemyEffect> effects = getDiscoveredEffects();
-        for (int i = effectScroll; i < Math.min(effectScroll + visRows, effects.size()); i++) {
-            int rowY = effectRowStart + (i - effectScroll) * ROW_H;
+        for (int i = effectScroll;
+             i < Math.min(effectScroll + visRows, effects.size()); i++) {
+            int rowY = guiTop + HEADER_H + 1 + (i - effectScroll) * ROW_H;
             if (inBounds(mx, my, guiLeft, rowY, LEFT_W, ROW_H)) {
                 effectFilter = effects.get(i); middleVisible = true;
                 applyFilter(); playClick(); return true;
@@ -690,14 +759,15 @@ public class ApothecaryTableScreen extends Screen {
 
         // Middle column — ingredient rows
         if (middleVisible) {
-            int ingVisRows = CONTENT_H / ROW_H;
+            int ingVisRows = (colH - HEADER_H - 1) / ROW_H;
             for (int i = ingredientScroll;
                  i < Math.min(ingredientScroll + ingVisRows, filteredIngredients.size()); i++) {
-                int rowY = guiTop + HEADER_H + (i - ingredientScroll) * ROW_H;
+                int rowY = guiTop + HEADER_H + 1 + (i - ingredientScroll) * ROW_H;
                 if (inBounds(mx, my, MID_X, rowY, MID_W, ROW_H)) {
                     IngredientEntry entry = filteredIngredients.get(i);
                     if (selected.contains(entry)) selected.remove(entry);
                     else if (selected.size() < 3) selected.add(entry);
+                    rightVisible = !selected.isEmpty() || hoveredIngredient != null;
                     recomputeBrew(); playClick(); return true;
                 }
             }
@@ -707,15 +777,37 @@ public class ApothecaryTableScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+        int key = event.key();
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_R && selected.size() >= 2) {
+            sendBrew(); return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_F && !selected.isEmpty()) {
+            selected.clear(); currentBrewResult = null;
+            lastBrewedIngredientIds.clear();
+            rightVisible = hoveredIngredient != null;
+            playClick(); return true;
+        }
+        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            onClose(); return true;
+        }
+        return super.keyPressed(event);
+    }
+
+    @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
         int delta = sy > 0 ? -1 : 1;
         if (mx >= guiLeft && mx < guiLeft + LEFT_W) {
-            int max = Math.max(0, getDiscoveredEffects().size() - CONTENT_H / ROW_H);
+            int colH = TOTAL_H - BOTTOM_BAR_H;
+            int visRows = (colH - HEADER_H - 1) / ROW_H;
+            int max = Math.max(0, getDiscoveredEffects().size() - visRows);
             effectScroll = Math.max(0, Math.min(effectScroll + delta, max));
             return true;
         }
         if (middleVisible && mx >= MID_X && mx < MID_X + MID_W) {
-            int max = Math.max(0, filteredIngredients.size() - CONTENT_H / ROW_H);
+            int colH = TOTAL_H - BOTTOM_BAR_H;
+            int visRows = (colH - HEADER_H - 1) / ROW_H;
+            int max = Math.max(0, filteredIngredients.size() - visRows);
             ingredientScroll = Math.max(0, Math.min(ingredientScroll + delta, max));
             return true;
         }
@@ -726,40 +818,39 @@ public class ApothecaryTableScreen extends Screen {
     public void mouseMoved(double mx, double my) {
         if (!middleVisible) { hoveredIngredient = null; return; }
         hoveredIngredient = null;
-        int ingVisRows = CONTENT_H / ROW_H;
+        if (selected.isEmpty()) rightVisible = false;
+        int colH = TOTAL_H - BOTTOM_BAR_H;
+        int visRows = (colH - HEADER_H - 1) / ROW_H;
         for (int i = ingredientScroll;
-             i < Math.min(ingredientScroll + ingVisRows, filteredIngredients.size()); i++) {
-            int rowY = guiTop + HEADER_H + (i - ingredientScroll) * ROW_H;
-            if (mx >= MID_X && mx < MID_X + MID_W && my >= rowY && my < rowY + ROW_H) {
+             i < Math.min(ingredientScroll + visRows, filteredIngredients.size()); i++) {
+            int rowY = guiTop + HEADER_H + 1 + (i - ingredientScroll) * ROW_H;
+            if (mx >= MID_X && mx < MID_X + MID_W
+                    && my >= rowY && my < rowY + ROW_H) {
                 hoveredIngredient = filteredIngredients.get(i);
+                rightVisible = true;
                 return;
             }
         }
     }
 
-    // ── Brew ──────────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private void sendBrew() {
-        List<Identifier> ids = selected.stream()
-                .map(e -> BuiltInRegistries.ITEM.getKey(e.stack.getItem()))
-                .collect(Collectors.toList());
-        ClientPlayNetworking.send(new BrewPayload(ids));
-
-        // Immediately decrement counts client-side so the GUI updates right away
-        // The server will sync the real inventory shortly after
-        for (IngredientEntry entry : selected) {
-            entry.count--;
-            entry.stack.shrink(1);
-        }
-        selected.clear();
-        currentBrewResult = null;
-        // Rescan to reflect the decremented counts
-        scanInventory();
-        computeLayout();
-        playClick();
+    private void drawBorder(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+        g.fill(x,         y,         x + w,     y + 1,     COLOR_BORDER);
+        g.fill(x,         y + h - 1, x + w,     y + h,     COLOR_BORDER);
+        g.fill(x,         y,         x + 1,     y + h,     COLOR_BORDER);
+        g.fill(x + w - 1, y,         x + w,     y + h,     COLOR_BORDER);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    private void drawScrollbar(GuiGraphicsExtractor g, int x, int y,
+                               int trackH, int totalItems, int visItems, int scroll) {
+        if (totalItems <= visItems) return;
+        int thumbH = Math.max(10, trackH * visItems / totalItems);
+        int maxScroll = totalItems - visItems;
+        int thumbY = y + (int)((float) scroll / maxScroll * (trackH - thumbH));
+        g.fill(x, y, x + 2, y + trackH, COLOR_XP_BG);
+        g.fill(x, thumbY, x + 2, thumbY + thumbH, COLOR_BORDER);
+    }
 
     private List<AlchemyEffect> getDiscoveredEffects() {
         Set<AlchemyEffect> found = new LinkedHashSet<>();
@@ -782,32 +873,62 @@ public class ApothecaryTableScreen extends Screen {
 
     private String buildPotionName(List<AlchemyEffectInstance> effects) {
         if (effects.isEmpty()) return "Potion of Unknown Effect";
-        // Skyrim naming priority: highest (magnitude * duration) effect wins the name
-        // Harmful effects → Poison, Beneficial/Neutral → Potion
-        boolean anyHarmful = effects.stream().anyMatch(e -> e.effect().isHarmful());
-        boolean anyBeneficial = effects.stream().anyMatch(e -> e.effect().isBeneficial());
+        boolean anyHarmful     = effects.stream().anyMatch(e -> e.effect().isHarmful());
+        boolean anyBeneficial  = effects.stream().anyMatch(e -> e.effect().isBeneficial());
         String prefix = (anyHarmful && !anyBeneficial) ? "Poison of " : "Potion of ";
-
         AlchemyEffectInstance primary = effects.stream()
                 .max(Comparator.comparingDouble(e ->
-                        (double) e.effect().getBaseMagnitude() *
-                                Math.max(1, e.effect().getBaseDurationTicks())))
+                        (double) e.effect().getBaseMagnitude()
+                                * Math.max(1, e.effect().getBaseDurationTicks())))
                 .orElse(effects.get(0));
         return prefix + primary.effect().getDisplayName();
     }
 
-    private int getPotionPreviewColor(java.util.List<AlchemyEffectInstance> effects) {
-        if (effects.isEmpty()) return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE;
+    private ItemStack buildPreviewStack(boolean unknown) {
+        ItemStack stack = new ItemStack(
+                zcylas.totality.init.items.PotionItems.BREWED_POTION);
+        int color;
+        String name;
+        List<zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry> entries;
+        boolean isPoison = false;
+
+        if (unknown || currentBrewResult == null || !currentBrewResult.isSuccess()) {
+            color   = zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE;
+            name    = "Potion of Unknown Effect";
+            entries = List.of();
+        } else {
+            var success = (BrewingLogic.BrewResult.Success) currentBrewResult;
+            isPoison = success.effects().stream().anyMatch(e -> e.effect().isHarmful())
+                    && success.effects().stream().noneMatch(e -> e.effect().isBeneficial());
+            color   = getPotionPreviewColor(success.effects());
+            name    = buildPotionName(success.effects());
+            entries = success.effects().stream()
+                    .map(e -> zcylas.totality.api.rpg.skills.alchemy.potions.EffectEntry.of(
+                            e.effect(), e.effect().getBaseMagnitude(),
+                            e.effect().getBaseDurationTicks()))
+                    .collect(Collectors.toList());
+        }
+        stack.set(
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionDataComponent.POTION_DATA,
+                zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.of(
+                        name, color, entries, isPoison));
+        return stack;
+    }
+
+    private int getPotionPreviewColor(List<AlchemyEffectInstance> effects) {
+        if (effects.isEmpty())
+            return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_PURPLE;
         AlchemyEffectInstance primary = effects.stream()
                 .max(Comparator.comparingDouble(e ->
-                        (double) e.effect().getBaseMagnitude() *
-                                Math.max(1, e.effect().getBaseDurationTicks())))
+                        (double) e.effect().getBaseMagnitude()
+                                * Math.max(1, e.effect().getBaseDurationTicks())))
                 .orElse(effects.get(0));
         String id = primary.effect().getId().getPath();
-        if (id.contains("health"))    return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_RED;
-        if (id.contains("mana"))      return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_BLUE;
-        if (id.contains("stamina"))   return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_GREEN;
-        if (id.contains("water") || id.contains("invisib")) return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_WHITE;
+        if (id.contains("health"))  return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_RED;
+        if (id.contains("mana"))    return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_BLUE;
+        if (id.contains("stamina")) return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_GREEN;
+        if (id.contains("water") || id.contains("invisib"))
+            return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_WHITE;
         return zcylas.totality.api.rpg.skills.alchemy.potions.PotionData.COLOR_GOLD;
     }
 
@@ -820,34 +941,8 @@ public class ApothecaryTableScreen extends Screen {
                 SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
     }
 
-    /** Called by the client packet handler after a successful brew. */
-    public void onBrewResult(String potionName,
-                             List<zcylas.totality.networking.alchemy.BrewResultPayload.DiscoveredEffect> discovered) {
-        // Check for failure sentinel
-        if (!discovered.isEmpty() && discovered.get(0).effectName().equals("FAILED")) {
-            this.popupPotionName = "Potion creation failed";
-            this.popupEffects = java.util.List.of();
-            this.showPopup = true;
-            return;
-        }
-        if (discovered.isEmpty()) {
-            // Already known — just show toast in chat
-            net.minecraft.client.Minecraft.getInstance().player.sendSystemMessage(
-                    net.minecraft.network.chat.Component.literal(potionName + " Added")
-                            .withStyle(net.minecraft.ChatFormatting.WHITE));
-        } else {
-            // New potion — show popup
-            this.popupPotionName = potionName;
-            this.popupEffects = discovered;
-            this.showPopup = true;
-        }
-        // Inventory already updated in sendBrew() — nothing to do here
-    }
-
-    @Override public boolean isInGameUi()    { return true;  }
+    @Override public boolean isInGameUi()    { return false;  }
     @Override public boolean isPauseScreen() { return false; }
-
-    // ── Inner class ───────────────────────────────────────────────────────────
 
     private static class IngredientEntry {
         final AlchemyIngredient ai;

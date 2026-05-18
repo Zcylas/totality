@@ -23,6 +23,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("block.totality.electric_furnace", "Electric Furnace");
             //Cables
         translationBuilder.add("block.totality.copper_cable","Copper Cable");
+        //Functional Blocks
+            //Skill Blocks
+        translationBuilder.add("block.totality.apothecary_table", "Apothecary Table");
         //Energy Items
             //Batteries
         translationBuilder.add("item.totality.copper_battery","Copper Battery");
@@ -85,7 +88,19 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("block.totality.red_mountain_flower","Red Mountain Flower");
         translationBuilder.add("item.totality.true_wheat","True Wheat");
         translationBuilder.add("item.totality.rock_warbler_egg","Rock Warbler Egg");
-        //Tools
+        translationBuilder.add("item.totality.garlic","Garlic");
+        //Fuel
+        translationBuilder.add("item.totality.tiny_coal", "Tiny Coal");
+        //Ritual Items
+        translationBuilder.add("item.totality.blessed_incense", "Blessed Incense");
+        translationBuilder.add("item.totality.incense","Incense");
+        translationBuilder.add("item.totality.white_chalk", "White Chalk");
+        translationBuilder.add("item.totality.gold_chalk", "Golden Chalk");
+        translationBuilder.add("item.totality.blue_chalk", "Blue Chalk");
+        translationBuilder.add("item.totality.purple_chalk", "Purple Chalk");
+        translationBuilder.add("item.totality.red_chalk", "Red Chalk");
+        //Ritual Blocks
+        translationBuilder.add("block.totality.ritual_altar", "Ritual Altar");
 
         //Tooltips
             //Base Weapons
@@ -97,5 +112,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("key.totality.open_grimoire", "Open Grimoire");
         translationBuilder.add("key.category.totality.totality", "Totality");
         translationBuilder.add("key.totality.open_radial", "Radial Spell Selector");
+        //Effects
+        translationBuilder.add("effect.totality.glide", "Glide");
     }
 }

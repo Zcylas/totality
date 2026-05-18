@@ -1,0 +1,7 @@
+{
+  "parent": "totality:block/template_cross_crop",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "cross": "totality:block/garlic_stage2"
+  }
+}

@@ -35,12 +35,27 @@ public interface AlchemyIngredient {
             AlchemyKnowledgeComponent knowledge = AlchemyComponents.KNOWLEDGE.get(
                     (zcylas.totality.api.core.component.ComponentProvider) player
             );
-            if (knowledge.revealEffect(getIngredientId(), 0)) {
+
+            // Always reveal slot 0
+            boolean isNewDiscovery = knowledge.revealEffect(getIngredientId(), 0);
+
+            // Experimenter — also reveal slot 1
+            int experimenterRank = zcylas.totality.api.rpg.skills.core.MasteriesComponents
+                    .get(player).getMasteries().getUnlockedRank("experimenter");
+            if (experimenterRank > 0 && getAlchemyEffects().size() > 1) {
+                boolean slot1New = knowledge.revealEffect(getIngredientId(), 1);
+                isNewDiscovery = isNewDiscovery || slot1New;
+            }
+
+            if (isNewDiscovery) {
                 knowledge.sync();
             }
+
+            AlchemySkillEvents.onIngredientEaten(player, isNewDiscovery);
         }
         return stack;
     }
+
 
     // -------------------------------------------------------------------------
     // Tooltip — call from appendHoverText()

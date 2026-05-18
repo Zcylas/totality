@@ -17,6 +17,7 @@ import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
+import zcylas.totality.init.blocks.RitualBlocks;
 import zcylas.totality.init.items.IngredientItems;
 
 import java.util.concurrent.CompletableFuture;
@@ -39,7 +40,9 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         dropSelf(EnergyBlocks.ELECTRIC_FURNACE);
         //Tanks
         add(ModBlocks.COPPER_TANK, noDrop());
-
+        //Functional Blocks
+            //Skill Blocks
+        dropSelf(AlchemyBlocks.APOTHECARY_TABLE);
 
         //Ores
             //Normal Ores
@@ -54,6 +57,9 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         dropSelf(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER);
         dropSelf(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER);
         dropSelf(AlchemyBlocks.RED_MOUNTAIN_FLOWER);
+        //Ritual Blocks
+        dropSelf(RitualBlocks.RITUAL_ALTAR);
+        dropSelf(RitualBlocks.RITUAL_DAIS);
     }
 
 

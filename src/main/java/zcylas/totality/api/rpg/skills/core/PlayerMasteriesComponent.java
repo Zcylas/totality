@@ -46,6 +46,7 @@ public class PlayerMasteriesComponent implements SyncedComponent, CopyableCompon
     @Override
     public void applySyncPacket(RegistryFriendlyByteBuf buf) {
         masteries.setMasteryPointsDirectly(buf.readInt());
+        masteries.clearRanks();
         int count = buf.readInt();
         for (int i = 0; i < count; i++) {
             String id = buf.readUtf();

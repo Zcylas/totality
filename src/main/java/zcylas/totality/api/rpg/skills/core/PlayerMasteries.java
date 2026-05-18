@@ -82,4 +82,8 @@ public class PlayerMasteries {
     public Map<String, Integer> getAllUnlockedRanks() {
         return Map.copyOf(unlockedRanks);
     }
+
+    public void clearRanks() {
+        unlockedRanks.clear();
+    }
 }
