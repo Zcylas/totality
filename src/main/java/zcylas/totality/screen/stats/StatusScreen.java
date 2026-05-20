@@ -20,11 +20,11 @@ import zcylas.totality.networking.stats.SpendAttributePointPayload;
  */
 public class StatusScreen extends Screen {
 
-    private static final int COLOR_BG           = 0xCC000814;
+    private static final int COLOR_BG           = 0xFF000005;
     private static final int COLOR_BORDER       = 0xFF0A5070;
     private static final int COLOR_BORDER_GLOW  = 0x440A8FBF;
-    private static final int COLOR_HEADER_BG    = 0xDD000C1A;
-    private static final int COLOR_TITLE        = 0xFFCCEEFF;
+    private static final int COLOR_HEADER_BG    = 0xFF000005;
+    private static final int COLOR_TITLE        = 0xFF00CCFF;
     private static final int COLOR_LABEL        = 0xFF5599BB;
     private static final int COLOR_VALUE        = 0xFF00CCFF;
     private static final int COLOR_MODIFIER_POS = 0xFF44FFAA;
@@ -32,8 +32,8 @@ public class StatusScreen extends Screen {
     private static final int COLOR_MODIFIER_NEU = 0xFF888888;
     private static final int COLOR_XP_BAR_BG   = 0xFF002244;
     private static final int COLOR_XP_BAR_FILL = 0xFF0088CC;
-    private static final int COLOR_XP_BORDER   = 0xFF0A4060;
-    private static final int COLOR_HP_BG        = 0xFF3A0000;
+    private static final int COLOR_XP_BORDER   = 0xFF0A5070;
+    private static final int COLOR_HP_BG        = 0xFF001020;
     private static final int COLOR_HP_FILL      = 0xFFDD3333;
     private static final int COLOR_STA_BG       = 0xFF003A00;
     private static final int COLOR_STA_FILL     = 0xFF33BB33;
@@ -43,7 +43,7 @@ public class StatusScreen extends Screen {
     private static final int COLOR_BTN_HOVER    = 0xFF0066AA;
     private static final int COLOR_BTN_TEXT     = 0xFF00CCFF;
     private static final int COLOR_SEPARATOR    = 0xFF0A3A5A;
-    private static final int COLOR_BAR_BORDER   = 0xFF0A4060;
+    private static final int COLOR_BAR_BORDER   = 0xFF0A5070;
 
     // SL bar dimensions — icon + bar + number below
     private static final int BAR_H       = 7;
@@ -81,13 +81,15 @@ public class StatusScreen extends Screen {
         // title(16) + sep(7) + header(44) + gap(4) + sep(6) +
         // 3 SL bars (each SL_BAR_H + 8 gap) + sep(6) +
         // 4 stat rows + sep(5) + close(11) + padding*2
+        int unspent = ClientStatsManager.getUnspentPoints();
         panelH = 16 + 7 + 44 + 4 + 6
                 + 3 * (SL_BAR_H + 8)
                 + 6
+                + (unspent > 0 ? 10 : 0)  // points available line
                 + 4 * STAT_ROW_H
                 + 5 + 11
                 + PADDING * 2
-                - 70; // trim unused bottom space
+                - 70;
         panelX = (width  - PANEL_W) / 2;
         panelY = (height - panelH) / 2; // perfectly centered
     }

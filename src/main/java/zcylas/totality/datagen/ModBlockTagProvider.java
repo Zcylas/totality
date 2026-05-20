@@ -47,6 +47,10 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
         //Whitestone
                 .add(WhitestoneBlocks.WHITESTONE)
                 .add(WhitestoneBlocks.FLECKED_WHITESTONE)
+                .add(WhitestoneBlocks.POLISHED_WHITESTONE)
+                .add(WhitestoneBlocks.POLISHED_WHITESTONE_BRICKS)
+        //Natural Blocks
+                .add(NaturalBlocks.LIMESTONE)
         ;
 
         valueLookupBuilder(BlockTags.NEEDS_DIAMOND_TOOL)

@@ -18,6 +18,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTest;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
 import zcylas.totality.Totality;
 import zcylas.totality.init.blocks.AlchemyBlocks;
+import zcylas.totality.init.blocks.NaturalBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
 import zcylas.totality.init.blocks.WhitestoneBlocks;
 
@@ -48,6 +49,10 @@ public class ModConfiguredFeatures {
             Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "whitestone"));
     public static final ResourceKey<ConfiguredFeature<?, ?>> FLECKED_WHITESTONE_KEY = ResourceKey.create(
             Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "flecked_whitestone"));
+    //Natural Blocks
+        //Limestone
+    public static final ResourceKey<ConfiguredFeature<?, ?>> LIMESTONE_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "limestone"));
 
     public static void bootstrap(BootstrapContext<ConfiguredFeature<?,?>> context){
         //Ores
@@ -99,6 +104,14 @@ public class ModConfiguredFeatures {
                         WhitestoneBlocks.WHITESTONE.defaultBlockState(),
                         WhitestoneBlocks.FLECKED_WHITESTONE.defaultBlockState(),
                         UniformInt.of(1, 2) // small blobs, replacing whitestone only
+                )));
+        //Natural Blocks
+            //Limestone
+        context.register(LIMESTONE_KEY, new ConfiguredFeature<>(Feature.REPLACE_BLOBS,
+                new ReplaceSphereConfiguration(
+                        Blocks.STONE.defaultBlockState(),
+                        NaturalBlocks.LIMESTONE.defaultBlockState(),
+                        UniformInt.of(6, 12)
                 )));
     }
 }

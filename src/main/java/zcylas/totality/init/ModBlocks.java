@@ -13,6 +13,7 @@ public class ModBlocks {
         AlchemyBlocks.register();
         RitualBlocks.register();
         WhitestoneBlocks.register();
+        NaturalBlocks.register();
     }
 
     private ModBlocks(){}

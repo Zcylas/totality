@@ -46,6 +46,7 @@ import zcylas.totality.screen.generator.GeneratorScreen;
 import zcylas.totality.screen.magic.GrimoireRadialScreen;
 import zcylas.totality.screen.magic.GrimoireScreen;
 import zcylas.totality.screen.menu.MainMenuScreen;
+import zcylas.totality.screen.menu.SkillsMenuScreen;
 
 import java.awt.*;
 
@@ -69,6 +70,7 @@ public class TotalityClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(
                 client -> FluidTankScrollHandler.tick());
         SidedOverlayRenderer.register();
+
     }
 
     private void registerRenderers(){

@@ -38,6 +38,10 @@ public class ModPlacedFeatures {
             Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "whitestone_placed"));
     public static final ResourceKey<PlacedFeature> FLECKED_WHITESTONE_PLACED_KEY = ResourceKey.create(
             Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "flecked_whitestone_placed"));
+    //Natural Blocks
+        //Limestone
+    public static final ResourceKey<PlacedFeature> LIMESTONE_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "limestone_placed"));
 
     public static void bootstrap(BootstrapContext<PlacedFeature> context){
         //Ores
@@ -95,6 +99,13 @@ public class ModPlacedFeatures {
                 configuredFeatures.getOrThrow(ModConfiguredFeatures.FLECKED_WHITESTONE_KEY),
                 List.of(CountPlacement.of(4), InSquarePlacement.spread(),
                         HeightRangePlacement.uniform(VerticalAnchor.absolute(-64), VerticalAnchor.absolute(128)),
+                        BiomeFilter.biome())));
+        //Natural Blocks
+            //Limestone
+        context.register(LIMESTONE_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.LIMESTONE_KEY),
+                List.of(CountPlacement.of(4), InSquarePlacement.spread(),
+                        HeightRangePlacement.uniform(VerticalAnchor.absolute(0), VerticalAnchor.absolute(80)),
                         BiomeFilter.biome())));
     }
 }

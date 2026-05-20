@@ -13,6 +13,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ItemLike;
 import org.jspecify.annotations.NonNull;
+import zcylas.totality.init.blocks.WhitestoneBlocks;
 import zcylas.totality.init.items.IngredientItems;
 
 import java.util.concurrent.CompletableFuture;
@@ -42,8 +43,13 @@ public class ModRecipeProvider extends FabricRecipeProvider {
                 )
                         .unlocks(getHasName(IngredientItems.DIAMOND_GEAR),has(IngredientItems.DIAMOND_GEAR))
                         .save(output,getItemName(IngredientItems.NETHERITE_GEAR) + "_smithing");
-
+                //Blocks
+                    //Whitestone
+                twoByTwoRecipe(WhitestoneBlocks.WHITESTONE, IngredientItems.WHITESTONE_CHUNK, 1);
+                twoByTwoRecipe(WhitestoneBlocks.POLISHED_WHITESTONE, WhitestoneBlocks.WHITESTONE, 4);
+                twoByTwoRecipe(WhitestoneBlocks.POLISHED_WHITESTONE_BRICKS, WhitestoneBlocks.POLISHED_WHITESTONE, 4);
             }
+
 
             //Helper Methods
             //Gears
@@ -57,6 +63,14 @@ public class ModRecipeProvider extends FabricRecipeProvider {
                         .define('M', material)
                         .define('D', graphite)
                         .unlockedBy(getHasName(material), has(material))
+                        .save(output);
+            }
+            private void twoByTwoRecipe(ItemLike result, ItemLike ingredient, int count) {
+                ShapedRecipeBuilder.shaped(items, RecipeCategory.BUILDING_BLOCKS, result, count)
+                        .pattern("XX")
+                        .pattern("XX")
+                        .define('X', ingredient)
+                        .unlockedBy(getHasName(ingredient), has(ingredient))
                         .save(output);
             }
         };

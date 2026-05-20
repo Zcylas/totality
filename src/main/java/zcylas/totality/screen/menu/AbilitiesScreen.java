@@ -20,21 +20,20 @@ import java.util.List;
 public class AbilitiesScreen extends net.minecraft.client.gui.screens.Screen {
 
     // ── Colors ────────────────────────────────────────────────────────────────
-    private static final int COLOR_BG           = 0xCC001020;
+    private static final int COLOR_BG           = 0xFF000005;
     private static final int COLOR_BORDER       = 0xFF0A5070;
     private static final int COLOR_BORDER_GLOW  = 0x440A8FBF;
     private static final int COLOR_VALUE        = 0xFF00CCFF;
     private static final int COLOR_LABEL        = 0xFF5599BB;
-    private static final int COLOR_PANEL_NORMAL = 0xBB001828;
-    private static final int COLOR_PANEL_HOVER  = 0xCC002844;
+    private static final int COLOR_PANEL_NORMAL = 0xBB000010;
+    private static final int COLOR_PANEL_HOVER  = 0xCC001830;
     private static final int COLOR_PANEL_SEL    = 0xFF00CCFF;
-    private static final int COLOR_EQUIPPED_BG  = 0xCC002030;
-    private static final int COLOR_EQUIPPED_BDR = 0xFF00CCFF;
+    private static final int COLOR_EQUIPPED_BG  = 0xCC001020;
     private static final int COLOR_DESC         = 0xFF88AABB;
     private static final int COLOR_TYPE_ACTIVE  = 0xFF00CCFF;
     private static final int COLOR_TYPE_PASSIVE = 0xFF44BB88;
     private static final int COLOR_TYPE_CHANNEL = 0xFFCC8800;
-    private static final int COLOR_CARD_EQUIP   = 0x330A8FBF;
+    private static final int COLOR_CARD_EQUIP   = 0x33005580;
     private static final int COLOR_TYPE_TOGGLE = 0xFF9944FF; // purple
 
     // ── Layout ────────────────────────────────────────────────────────────────
@@ -149,7 +148,7 @@ public class AbilitiesScreen extends net.minecraft.client.gui.screens.Screen {
                 withAlpha(COLOR_BORDER_GLOW, ba / 2));
 
         // ── Row 1: Title bar — ABILITIES + ✕ ──
-        g.fill(px, py, px + PANEL_W, py + TITLE_BAR_H, withAlpha(0xAA001828, ba));
+        g.fill(px, py, px + PANEL_W, py + TITLE_BAR_H, withAlpha(0xAA000010, ba));
         g.fill(px, py + TITLE_BAR_H - 1, px + PANEL_W, py + TITLE_BAR_H,
                 withAlpha(COLOR_BORDER, ba));
         String title = "ABILITIES";

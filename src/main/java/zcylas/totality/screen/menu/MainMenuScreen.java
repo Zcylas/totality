@@ -20,12 +20,12 @@ public class MainMenuScreen extends Screen {
     private static final int COLOR_BORDER_GLOW  = 0x440A8FBF;
     private static final int COLOR_VALUE        = 0xFF00CCFF;
     private static final int COLOR_LABEL        = 0xFF5599BB;
-    private static final int COLOR_PANEL_NORMAL = 0xBB001020;
-    private static final int COLOR_PANEL_HOVER  = 0xCC002844;
+    private static final int COLOR_PANEL_NORMAL = 0xBB000000;
+    private static final int COLOR_PANEL_HOVER  = 0xCC001020;
     private static final int COLOR_PANEL_BORDER = 0xFF0A5070;
     private static final int COLOR_PANEL_SEL    = 0xFF00CCFF;
-    private static final int COLOR_CENTER_BG    = 0xFF003355;
-    private static final int COLOR_CENTER_HOV   = 0xFF0066AA;
+    private static final int COLOR_CENTER_BG    = 0xFF1A1A1A;
+    private static final int COLOR_CENTER_HOV   = 0xFF333333;
     private static final int COLOR_TRIANGLE     = 0xFF00CCFF;
 
     private static final int CELL_W   = 120;
@@ -45,9 +45,9 @@ public class MainMenuScreen extends Screen {
             { "",         "ABILITIES",  ""          }
     };
     private static final String[][] DESCS = {
-            { "",            "Stats & Skills",  ""           },
-            { "Coming Soon", null,              "Coming Soon" },
-            { "",            "Coming Soon",     ""           }
+            { "",              "Stats & Skills",   ""               },
+            { "",              null,               "Items & Equipment" },
+            { "",              "Active & Passive", ""               }
     };
 
     private int curRow = 1, curCol = 1;

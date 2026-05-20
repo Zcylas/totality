@@ -40,6 +40,43 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.novice_grimoire", "Novice Grimoire");
         translationBuilder.add("item.totality.apprentice_grimoire", "Apprentice Grimoire");
         translationBuilder.add("item.totality.archmage_grimoire", "Archmage Grimoire");
+            // Rune Items — Forms
+        translationBuilder.add("item.totality.rune_touch", "Touch Rune");
+        translationBuilder.add("item.totality.rune_projectile", "Projectile Rune");
+        translationBuilder.add("item.totality.rune_self", "Self Rune");
+            // Rune Items — Effects
+        translationBuilder.add("item.totality.rune_break", "Break Rune");
+        translationBuilder.add("item.totality.rune_pickup", "Pickup Rune");
+        translationBuilder.add("item.totality.rune_launch", "Launch Rune");
+        translationBuilder.add("item.totality.rune_ignite", "Ignite Rune");
+        translationBuilder.add("item.totality.rune_explosion", "Explosion Rune");
+        translationBuilder.add("item.totality.rune_glide", "Glide Rune");
+        translationBuilder.add("item.totality.rune_smelt", "Smelt Rune");
+        translationBuilder.add("item.totality.rune_orbit", "Orbit Rune");
+        translationBuilder.add("item.totality.rune_harm", "Harm Rune");
+        translationBuilder.add("item.totality.rune_heal", "Heal Rune");
+        translationBuilder.add("item.totality.rune_hex", "Hex Rune");
+        translationBuilder.add("item.totality.rune_lightning", "Lightning Rune");
+        translationBuilder.add("item.totality.rune_chaining", "Chaining Rune");
+        translationBuilder.add("item.totality.rune_grow", "Grow Rune");
+        translationBuilder.add("item.totality.rune_linger", "Linger Rune");
+        translationBuilder.add("item.totality.rune_harvest", "Harvest Rune");
+        translationBuilder.add("item.totality.rune_burst", "Burst Rune");
+        translationBuilder.add("item.totality.rune_summon_undead", "Summon Undead Rune");
+            // Rune Items — Augments
+        translationBuilder.add("item.totality.rune_amplify", "Amplify Rune");
+        translationBuilder.add("item.totality.rune_aoe", "Area of Effect Rune");
+        translationBuilder.add("item.totality.rune_reduce_time", "Reduce Time Rune");
+        translationBuilder.add("item.totality.rune_extend_time", "Extend Time Rune");
+        translationBuilder.add("item.totality.rune_dampen", "Dampen Rune");
+        translationBuilder.add("item.totality.rune_sensitive", "Sensitive Rune");
+        translationBuilder.add("item.totality.rune_pierce", "Pierce Rune");
+        translationBuilder.add("item.totality.rune_fortune", "Fortune Rune");
+        translationBuilder.add("item.totality.rune_randomize", "Randomize Rune");
+        translationBuilder.add("item.totality.rune_extract", "Extract Rune");
+        translationBuilder.add("item.totality.rune_accelerate", "Accelerate Rune");
+        translationBuilder.add("item.totality.rune_decelerate", "Decelerate Rune");
+        translationBuilder.add("item.totality.rune_split", "Split Rune");
         //Basic Weapons
             //Shuriken
         translationBuilder.add("item.totality.copper_shuriken", "Copper Shuriken");
@@ -64,6 +101,11 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
             //Whitestone
         translationBuilder.add("block.totality.whitestone", "Whitestone");
         translationBuilder.add("block.totality.flecked_whitestone", "Flecked Whitestone");
+        translationBuilder.add("block.totality.polished_whitestone", "Polished Whitestone");
+        translationBuilder.add("block.totality.polished_whitestone_bricks", "Polished Whitestone Bricks");
+            //Natural Blocks
+        translationBuilder.add("block.totality.limestone", "Limestone");
+        translationBuilder.add("item.totality.limestone_chunk","Limestone Chunk");
 
 
         //Tools
@@ -105,8 +147,10 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.blue_chalk", "Blue Chalk");
         translationBuilder.add("item.totality.purple_chalk", "Purple Chalk");
         translationBuilder.add("item.totality.red_chalk", "Red Chalk");
+        translationBuilder.add("item.totality.residuum_chalk", "Residuum Chalk");
         //Ritual Blocks
         translationBuilder.add("block.totality.ritual_altar", "Ritual Altar");
+        translationBuilder.add("block.totality.ritual_dais", "Ritual Dais");
 
         //Tooltips
             //Base Weapons

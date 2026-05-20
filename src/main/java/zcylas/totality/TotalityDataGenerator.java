@@ -6,6 +6,7 @@ import net.minecraft.core.RegistrySetBuilder;
 import net.minecraft.core.registries.Registries;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.datagen.*;
+import zcylas.totality.init.ModBlocks;
 import zcylas.totality.worldgen.ModConfiguredFeatures;
 import zcylas.totality.worldgen.ModPlacedFeatures;
 

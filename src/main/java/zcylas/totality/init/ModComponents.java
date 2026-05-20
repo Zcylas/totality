@@ -3,6 +3,7 @@ package zcylas.totality.init;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
+import zcylas.totality.api.magic.rune.RuneComponents;
 import zcylas.totality.api.rpg.combat.CombatComponents;
 import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
 import zcylas.totality.api.rpg.skills.core.SkillsComponents;
@@ -29,6 +30,7 @@ public class ModComponents {
         AbilityComponents.register();
         CombatComponents.register();
         ItemComponents.register();
+        RuneComponents.register();
     }
 
     private ModComponents() {}

@@ -1,34 +1,58 @@
 {
   "variants": {
     "color=blue,sigil=focus_sigil": {
-      "model": "totality:block/focus_sigil"
+      "model": "totality:block/sigils/focus_sigil"
     },
-    "color=blue,sigil=placeholder_sigil": {
-      "model": "totality:block/focus_sigil"
+    "color=blue,sigil=inquisition_sigil": {
+      "model": "totality:block/sigils/inquisition_sigil"
+    },
+    "color=blue,sigil=transformation_sigil": {
+      "model": "totality:block/sigils/transformation_sigil"
     },
     "color=gold,sigil=focus_sigil": {
-      "model": "totality:block/focus_sigil"
+      "model": "totality:block/sigils/focus_sigil"
     },
-    "color=gold,sigil=placeholder_sigil": {
-      "model": "totality:block/focus_sigil"
+    "color=gold,sigil=inquisition_sigil": {
+      "model": "totality:block/sigils/inquisition_sigil"
+    },
+    "color=gold,sigil=transformation_sigil": {
+      "model": "totality:block/sigils/transformation_sigil"
     },
     "color=purple,sigil=focus_sigil": {
-      "model": "totality:block/focus_sigil"
+      "model": "totality:block/sigils/focus_sigil"
     },
-    "color=purple,sigil=placeholder_sigil": {
-      "model": "totality:block/focus_sigil"
+    "color=purple,sigil=inquisition_sigil": {
+      "model": "totality:block/sigils/inquisition_sigil"
+    },
+    "color=purple,sigil=transformation_sigil": {
+      "model": "totality:block/sigils/transformation_sigil"
     },
     "color=red,sigil=focus_sigil": {
-      "model": "totality:block/focus_sigil"
+      "model": "totality:block/sigils/focus_sigil"
     },
-    "color=red,sigil=placeholder_sigil": {
-      "model": "totality:block/focus_sigil"
+    "color=red,sigil=inquisition_sigil": {
+      "model": "totality:block/sigils/inquisition_sigil"
+    },
+    "color=red,sigil=transformation_sigil": {
+      "model": "totality:block/sigils/transformation_sigil"
+    },
+    "color=residuum,sigil=focus_sigil": {
+      "model": "totality:block/sigils/focus_sigil"
+    },
+    "color=residuum,sigil=inquisition_sigil": {
+      "model": "totality:block/sigils/inquisition_sigil"
+    },
+    "color=residuum,sigil=transformation_sigil": {
+      "model": "totality:block/sigils/transformation_sigil"
     },
     "color=white,sigil=focus_sigil": {
-      "model": "totality:block/focus_sigil"
+      "model": "totality:block/sigils/focus_sigil"
     },
-    "color=white,sigil=placeholder_sigil": {
-      "model": "totality:block/focus_sigil"
+    "color=white,sigil=inquisition_sigil": {
+      "model": "totality:block/sigils/inquisition_sigil"
+    },
+    "color=white,sigil=transformation_sigil": {
+      "model": "totality:block/sigils/transformation_sigil"
     }
   }
 }

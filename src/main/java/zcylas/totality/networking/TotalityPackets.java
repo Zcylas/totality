@@ -64,7 +64,6 @@ public class TotalityPackets {
         registry.register(SendNotificationPayload.TYPE, SendNotificationPayload.CODEC);
         registry.register(OpenStatusScreenPayload.TYPE, OpenStatusScreenPayload.CODEC);
         registry.register(OpenMainMenuPayload.TYPE, OpenMainMenuPayload.CODEC);
-
     }
 
     private TotalityPackets() {}

@@ -1,6 +1,6 @@
 {
   "parent": "totality:block/template/chalk_sigil",
   "textures": {
-    "texture": "totality:block/focus_sigil"
+    "texture": "totality:block/sigils/inquisition_sigil"
   }
 }

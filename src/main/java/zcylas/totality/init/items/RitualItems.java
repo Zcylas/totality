@@ -79,6 +79,17 @@ public class RitualItems {
                             "Red chalk for blood rituals. Costs more than just chalk."
                     ))
     );
+    public static final Item RESIDUUM_CHALK = TotalityRegistry.registerItem(
+            "residuum_chalk",
+            props -> new ChalkItem(props, ChalkColor.RESIDUUM),
+            new Item.Properties()
+                    .durability(32)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.RARE))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.RITUAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "Chalk infused with residuum. Marks the tier of a ritual."
+                    ))
+    );
 
     public static void register() {}
 

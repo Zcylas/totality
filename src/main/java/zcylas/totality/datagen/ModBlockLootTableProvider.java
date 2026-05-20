@@ -59,6 +59,11 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         // Whitestone
         this.add(WhitestoneBlocks.WHITESTONE, multipleOreDrops(WhitestoneBlocks.WHITESTONE, IngredientItems.WHITESTONE_CHUNK, 1, 2));
         this.add(WhitestoneBlocks.FLECKED_WHITESTONE, multipleOreDrops(WhitestoneBlocks.FLECKED_WHITESTONE, IngredientItems.RESIDUUM_FLECKED_CHUNK, 1, 2));
+        dropSelf(WhitestoneBlocks.POLISHED_WHITESTONE);
+        dropSelf(WhitestoneBlocks.POLISHED_WHITESTONE_BRICKS);
+        //Natural Blocks
+            //Limestone
+        this.add(NaturalBlocks.LIMESTONE, multipleOreDrops(NaturalBlocks.LIMESTONE, IngredientItems.LIMESTONE_CHUNK, 1, 2));
     }
 
 

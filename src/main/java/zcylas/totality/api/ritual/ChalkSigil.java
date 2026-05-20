@@ -4,7 +4,8 @@ import net.minecraft.util.StringRepresentable;
 
 public enum ChalkSigil implements StringRepresentable {
     FOCUS("focus_sigil"),
-    PLACEHOLDER("placeholder_sigil");
+    TRANSFORMATION("transformation_sigil"),
+    INQUISITION("inquisition_sigil");
 
     private final String name;
 

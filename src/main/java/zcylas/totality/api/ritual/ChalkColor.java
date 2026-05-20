@@ -3,11 +3,12 @@ package zcylas.totality.api.ritual;
 import net.minecraft.util.StringRepresentable;
 
 public enum ChalkColor implements StringRepresentable {
-    WHITE("white",  0xFFC8C8C8),
-    GOLD("gold",    0xFFC8A83C),
-    BLUE("blue",    0xFF3A5FAA),
-    PURPLE("purple",0xFF7A3A9A),
-    RED("red",      0xFF9A2020);
+    WHITE("white",  0xFFE8E8E8),
+    GOLD("gold",    0xFFD4A030),
+    BLUE("blue",    0xFF4A6AC8),
+    PURPLE("purple",0xFF8844BB),
+    RED("red",      0xFFAA3828),
+    RESIDUUM("residuum", 0xFF2D8A4E);
 
     private final String name;
     private final int tint;

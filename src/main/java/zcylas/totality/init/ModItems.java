@@ -17,6 +17,7 @@ public class ModItems {
         FuelItems.register();
         ReligiousItems.register();
         RitualItems.register();
+        RuneItems.register();
     }
 
 

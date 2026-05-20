@@ -228,6 +228,13 @@ public class Totality implements ModInitializer {
 				GenerationStep.Decoration.LOCAL_MODIFICATIONS,
 				ModPlacedFeatures.FLECKED_WHITESTONE_PLACED_KEY
 		);
+		//Natural Blocks
+			//Limestone
+		BiomeModifications.addFeature(
+				BiomeSelectors.foundInOverworld(),
+				GenerationStep.Decoration.UNDERGROUND_ORES,
+				ModPlacedFeatures.LIMESTONE_PLACED_KEY
+		);
 
 	}
 	private void registerEvents(){

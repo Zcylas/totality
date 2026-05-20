@@ -18,6 +18,9 @@
     "totality:ritual_altar",
     "totality:ritual_dais",
     "totality:whitestone",
-    "totality:flecked_whitestone"
+    "totality:flecked_whitestone",
+    "totality:polished_whitestone",
+    "totality:polished_whitestone_bricks",
+    "totality:limestone"
   ]
 }

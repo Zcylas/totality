@@ -9,6 +9,7 @@ import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
 import net.minecraft.client.data.models.blockstates.PropertyDispatch;
 import net.minecraft.client.data.models.model.ItemModelUtils;
 import net.minecraft.client.data.models.model.ModelTemplates;
+import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.renderer.item.properties.conditional.HasComponent;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
@@ -161,6 +162,10 @@ public class ModModelProvider extends FabricModelProvider {
         //Whitestone
         generators.createTrivialCube(WhitestoneBlocks.WHITESTONE);
         generators.createTrivialCube(WhitestoneBlocks.FLECKED_WHITESTONE);
+        generators.createTrivialCube(WhitestoneBlocks.POLISHED_WHITESTONE);
+        generators.createTrivialCube(WhitestoneBlocks.POLISHED_WHITESTONE_BRICKS);
+        //Natural Blocks
+        generators.createTrivialCube(NaturalBlocks.LIMESTONE);
         //Ores
         generators.createTrivialCube(OreBlocks.TIN_ORE);
         generators.createTrivialCube(OreBlocks.DEEPSLATE_TIN_ORE);
@@ -215,25 +220,42 @@ public class ModModelProvider extends FabricModelProvider {
                 MultiVariantGenerator.dispatch(RitualBlocks.CHALK)
                         .with(PropertyDispatch.initial(ChalkBlock.COLOR, ChalkBlock.SIGIL)
                                 .select(ChalkColor.WHITE, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/focus_sigil")))
                                 .select(ChalkColor.GOLD, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/focus_sigil")))
                                 .select(ChalkColor.BLUE, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/focus_sigil")))
                                 .select(ChalkColor.PURPLE, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/focus_sigil")))
                                 .select(ChalkColor.RED, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
-                                .select(ChalkColor.WHITE, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
-                                .select(ChalkColor.GOLD, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
-                                .select(ChalkColor.BLUE, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
-                                .select(ChalkColor.PURPLE, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
-                                .select(ChalkColor.RED, ChalkSigil.PLACEHOLDER, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/focus_sigil")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/focus_sigil")))
+                                .select(ChalkColor.RESIDUUM, ChalkSigil.FOCUS, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/focus_sigil")))
+                                .select(ChalkColor.WHITE, ChalkSigil.TRANSFORMATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/transformation_sigil")))
+                                .select(ChalkColor.GOLD, ChalkSigil.TRANSFORMATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/transformation_sigil")))
+                                .select(ChalkColor.BLUE, ChalkSigil.TRANSFORMATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/transformation_sigil")))
+                                .select(ChalkColor.PURPLE, ChalkSigil.TRANSFORMATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/transformation_sigil")))
+                                .select(ChalkColor.RED, ChalkSigil.TRANSFORMATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/transformation_sigil")))
+                                .select(ChalkColor.RESIDUUM, ChalkSigil.TRANSFORMATION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/transformation_sigil")))
+                                .select(ChalkColor.WHITE, ChalkSigil.INQUISITION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/inquisition_sigil")))
+                                .select(ChalkColor.GOLD, ChalkSigil.INQUISITION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/inquisition_sigil")))
+                                .select(ChalkColor.BLUE, ChalkSigil.INQUISITION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/inquisition_sigil")))
+                                .select(ChalkColor.PURPLE, ChalkSigil.INQUISITION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/inquisition_sigil")))
+                                .select(ChalkColor.RED, ChalkSigil.INQUISITION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/inquisition_sigil")))
+                                .select(ChalkColor.RESIDUUM, ChalkSigil.INQUISITION, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/sigils/inquisition_sigil")))
+
                         )
         );
         //Functional Blocks
@@ -362,6 +384,8 @@ public class ModModelProvider extends FabricModelProvider {
             //Whitestone
         generators.generateFlatItem(IngredientItems.WHITESTONE_CHUNK, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(IngredientItems.RESIDUUM_FLECKED_CHUNK, ModelTemplates.FLAT_ITEM);
+            //Limestone
+        generators.generateFlatItem(IngredientItems.LIMESTONE_CHUNK, ModelTemplates.FLAT_ITEM);
             //Rough Gemstones
         generators.generateFlatItem(IngredientItems.ROUGH_RUBY, ModelTemplates.FLAT_ITEM);
             //Seeds
@@ -384,8 +408,46 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(RitualItems.BLUE_CHALK, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(RitualItems.PURPLE_CHALK, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(RitualItems.RED_CHALK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(RitualItems.RESIDUUM_CHALK, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(RitualItems.INCENSE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(ReligiousItems.BLESSED_INCENSE, ModelTemplates.FLAT_ITEM);
+        // Rune Items — Forms
+        generateRuneItem(generators, RuneItems.RUNE_TOUCH, "touch");
+        generateRuneItem(generators, RuneItems.RUNE_PROJECTILE, "projectile");
+        generateRuneItem(generators, RuneItems.RUNE_SELF, "self");
+        // Rune Items — Effects
+        generateRuneItem(generators, RuneItems.RUNE_BREAK, "break");
+        generateRuneItem(generators, RuneItems.RUNE_PICKUP, "pickup");
+        generateRuneItem(generators, RuneItems.RUNE_LAUNCH, "launch");
+        generateRuneItem(generators, RuneItems.RUNE_IGNITE, "ignite");
+        generateRuneItem(generators, RuneItems.RUNE_EXPLOSION, "explosion");
+        generateRuneItem(generators, RuneItems.RUNE_GLIDE, "glide");
+        generateRuneItem(generators, RuneItems.RUNE_SMELT, "smelt");
+        generateRuneItem(generators, RuneItems.RUNE_ORBIT, "orbit");
+        generateRuneItem(generators, RuneItems.RUNE_HARM, "harm");
+        generateRuneItem(generators, RuneItems.RUNE_HEAL, "heal");
+        generateRuneItem(generators, RuneItems.RUNE_HEX, "hex");
+        generateRuneItem(generators, RuneItems.RUNE_LIGHTNING, "lightning");
+        generateRuneItem(generators, RuneItems.RUNE_CHAINING, "chaining");
+        generateRuneItem(generators, RuneItems.RUNE_GROW, "grow");
+        generateRuneItem(generators, RuneItems.RUNE_LINGER, "linger");
+        generateRuneItem(generators, RuneItems.RUNE_HARVEST, "harvest");
+        generateRuneItem(generators, RuneItems.RUNE_BURST, "burst");
+        generateRuneItem(generators, RuneItems.RUNE_SUMMON_UNDEAD, "summon_undead");
+        // Rune Items — Augments
+        generateRuneItem(generators, RuneItems.RUNE_AMPLIFY, "amplify");
+        generateRuneItem(generators, RuneItems.RUNE_AOE, "aoe");
+        generateRuneItem(generators, RuneItems.RUNE_REDUCE_TIME, "reduce_time");
+        generateRuneItem(generators, RuneItems.RUNE_EXTEND_TIME, "extend_time");
+        generateRuneItem(generators, RuneItems.RUNE_DAMPEN, "dampen");
+        generateRuneItem(generators, RuneItems.RUNE_SENSITIVE, "sensitive");
+        generateRuneItem(generators, RuneItems.RUNE_PIERCE, "pierce");
+        generateRuneItem(generators, RuneItems.RUNE_FORTUNE, "fortune");
+        generateRuneItem(generators, RuneItems.RUNE_RANDOMIZE, "randomize");
+        generateRuneItem(generators, RuneItems.RUNE_EXTRACT, "extract");
+        generateRuneItem(generators, RuneItems.RUNE_ACCELERATE, "accelerate");
+        generateRuneItem(generators, RuneItems.RUNE_DECELERATE, "decelerate");
+        generateRuneItem(generators, RuneItems.RUNE_SPLIT, "split");
 
         //Defaults
             //Default Potion
@@ -480,8 +542,14 @@ public class ModModelProvider extends FabricModelProvider {
         );
     }
     //Helper Classes
-
-
+    private void generateRuneItem(ItemModelGenerators generators, net.minecraft.world.item.Item item, String runeId) {
+        Identifier modelId = Identifier.fromNamespaceAndPath("totality", "item/rune_" + runeId);
+        Identifier textureId = Identifier.fromNamespaceAndPath("totality", "gui/sprites/rune/" + runeId);
+        ModelTemplates.FLAT_ITEM.create(modelId, TextureMapping.layer0(
+                        new net.minecraft.client.resources.model.sprite.Material(textureId)),
+                generators.modelOutput);
+        generators.itemModelOutput.accept(item, ItemModelUtils.plainModel(modelId));
+    }
     private void registerFluidTank(BlockModelGenerators generators, FluidTankBlock block) {
         // Points to your hand-made JSON model, generates blockstate JSON
         generators.blockStateOutput.accept(

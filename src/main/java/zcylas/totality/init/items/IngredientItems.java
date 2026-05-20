@@ -40,6 +40,13 @@ public class IngredientItems {
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.REAGENT))
                     .component(ItemComponents.getLore(), new LoreComponent("A chunk of whitestone with visible residuum inclusions."))
     );
+    public static final Item LIMESTONE_CHUNK = TotalityRegistry.registerItem(
+            "limestone_chunk", Item::new,
+            new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MATERIAL))
+                    .component(ItemComponents.getLore(), new LoreComponent("A raw chunk of limestone, useful for processing into building materials."))
+    );
     public static void register() {}
 
     private IngredientItems() {}

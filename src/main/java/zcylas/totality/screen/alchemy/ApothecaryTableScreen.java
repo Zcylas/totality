@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 public class ApothecaryTableScreen extends Screen {
 
     // ── Colors (matching Totality UI theme) ───────────────────────────────────
-    private static final int COLOR_BG           = 0xEE000814;
+    private static final int COLOR_BG           = 0xFF000005;
     private static final int COLOR_BORDER       = 0xFF0A5070;
     private static final int COLOR_BORDER_GLOW  = 0x440A8FBF;
     private static final int COLOR_VALUE        = 0xFF00CCFF;
@@ -44,9 +44,9 @@ public class ApothecaryTableScreen extends Screen {
     private static final int COLOR_ROW_SEL      = 0xCC002844;
     private static final int COLOR_ROW_HOV      = 0x88001830;
     private static final int COLOR_ROW_EVEN     = 0x11FFFFFF;
-    private static final int COLOR_HEADER_BG    = 0xDD000C1A;
+    private static final int COLOR_HEADER_BG    = 0xDD000005;
     private static final int COLOR_CHOSEN       = 0xBB003355;
-    private static final int COLOR_BOTTOM       = 0xDD000C1A;
+    private static final int COLOR_BOTTOM       = 0xDD000005;
     private static final int COLOR_XP_BG        = 0xFF001830;
     private static final int COLOR_XP_FILL      = 0xFF0066AA;
     private static final int COLOR_BTN          = 0xFF003355;
@@ -57,7 +57,7 @@ public class ApothecaryTableScreen extends Screen {
     private static final int COLOR_RED          = 0xFFFF4444;
     private static final int COLOR_GOLD         = 0xFFFFCC44;
     private static final int COLOR_UNKNOWN      = 0xFF334455;
-    private static final int COLOR_POPUP_BG     = 0xEE000C1A;
+    private static final int COLOR_POPUP_BG     = 0xEE000005;
 
     // ── Layout ────────────────────────────────────────────────────────────────
     private int LEFT_W;

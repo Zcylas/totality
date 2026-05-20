@@ -14,36 +14,35 @@ import zcylas.totality.screen.stats.StatusScreen;
  */
 public class CharacterMenuScreen extends Screen {
 
-    private static final int COLOR_BORDER       = 0xFF0A5070;
     private static final int COLOR_BORDER_GLOW  = 0x440A8FBF;
     private static final int COLOR_VALUE        = 0xFF00CCFF;
     private static final int COLOR_LABEL        = 0xFF5599BB;
-    private static final int COLOR_PANEL_NORMAL = 0xBB001020;
-    private static final int COLOR_PANEL_HOVER  = 0xCC002844;
+    private static final int COLOR_PANEL_NORMAL = 0xCC000000;
+    private static final int COLOR_PANEL_HOVER  = 0xDD0A0A08;
     private static final int COLOR_PANEL_BORDER = 0xFF0A5070;
     private static final int COLOR_PANEL_SEL    = 0xFF00CCFF;
-    private static final int COLOR_CENTER_BG    = 0xFF003355;
-    private static final int COLOR_CENTER_HOV   = 0xFF0066AA;
-    private static final int COLOR_TRIANGLE     = 0xFF00CCFF;
+    private static final int COLOR_CENTER_BG    = 0xFF0A0A08;
+    private static final int COLOR_CENTER_HOV   = 0xFF1A1A16;
+    private static final int COLOR_TRIANGLE     = 0xFF0A5070;
 
-    private static final int CELL_W        = 90;
-    private static final int CELL_H        = 42;
-    private static final int GAP           = 8;
-    private static final int CENTER_W      = 28;
-    private static final int CENTER_H      = 28;
-    private static final int TRI_GAP       = 5;
-    private static final int TRI_SIZE      = 4;
+    private static final int CELL_W         = 90;
+    private static final int CELL_H         = 42;
+    private static final int GAP            = 8;
+    private static final int CENTER_W       = 28;
+    private static final int CENTER_H       = 28;
+    private static final int TRI_GAP        = 5;
+    private static final int TRI_SIZE       = 4;
     private static final int DIAMOND_OFFSET = 6;
 
     private static final String[][] LABELS = {
             { "",      "STATS",  ""      },
-            { "TEST1", null,     "TEST2" },
+            { "FORMS", null,     "CLASS" },
             { "",      "SKILLS", ""      }
     };
     private static final String[][] DESCS = {
             { "", "Ability Scores", "" },
             { "", null,             "" },
-            { "", "Coming Soon",    "" }
+            { "", "",               "" }
     };
 
     private int curRow = 1, curCol = 1;
@@ -109,7 +108,6 @@ public class CharacterMenuScreen extends Screen {
                 topSlot[1] - 13,
                 withAlpha(COLOR_VALUE, ba), true);
 
-        // Only update hover when mouse actually moves
         if (mx != lastMx || my != lastMy) {
             lastMx = mx; lastMy = my;
             updateHover(mx, my);
@@ -183,7 +181,6 @@ public class CharacterMenuScreen extends Screen {
         boolean isCorner = curRow != 1 && curCol != 1;
 
         if (isCorner) {
-            // Diamond at fixed offset from inner corner of selected panel
             int[] pb = drawnBounds(curRow, curCol);
             int icx = (curCol == 0) ? pb[0] + pb[2] : pb[0];
             int icy = (curRow == 0) ? pb[1] + pb[3] : pb[1];
@@ -193,11 +190,7 @@ public class CharacterMenuScreen extends Screen {
             g.fill(dmx - 1, dmy - 1, dmx + 2, dmy + 2, color);
             g.fill(dmx,     dmy - 2, dmx + 1, dmy + 3, color);
         } else if (curRow == 0) {
-            // TOP — base near center (bottom), tip far from center (top)
-            // baseY is just above center top edge
             int baseY = cb[1] - TRI_GAP;
-            // i=0: full width at base (near center)
-            // i=TRI_SIZE-1: 1 pixel at tip (far from center)
             for (int i = 0; i < TRI_SIZE; i++)
                 g.fill(cx - (TRI_SIZE-1-i), baseY - i,
                         cx + (TRI_SIZE-1-i) + 1, baseY - i + 1, color);
@@ -276,12 +269,12 @@ public class CharacterMenuScreen extends Screen {
         switch (label) {
             case "STATS"  -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new StatusScreen()));
             case "SKILLS" -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new SkillsMenuScreen()));
-            case "TEST1", "TEST2" -> { /* TODO */ }
+            case "FORMS", "CLASS" -> { /* TODO */ }
         }
     }
 
-    private void goBack()                  { fadeOutTo(() -> Minecraft.getInstance().setScreen(new MainMenuScreen())); }
-    private void fadeOutTo(Runnable onDone){ fadingOut = true; onFadeOutDone = onDone; }
+    private void goBack()                   { fadeOutTo(() -> Minecraft.getInstance().setScreen(new MainMenuScreen())); }
+    private void fadeOutTo(Runnable onDone) { fadingOut = true; onFadeOutDone = onDone; }
 
     private boolean inBounds(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x+w && my >= y && my < y+h;

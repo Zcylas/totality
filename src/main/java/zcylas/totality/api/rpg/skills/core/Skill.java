@@ -61,7 +61,14 @@ public enum Skill {
             case GATHERING -> 0xFF558833; // earthy green, distinct from SURVIVAL// dark purple/grey
         };
     }
-
+    public net.minecraft.world.item.ItemStack getIconItem() {
+        return switch (this) {
+            case ONE_HANDED  -> new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_SWORD);
+            case MINING      -> new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_PICKAXE);
+            case ALCHEMY     -> new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.POTION);
+            case RITUAL_ARTS -> new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ENDER_EYE);
+        };
+    }
     /**
      * XP required to reach the next level from currentLevel.
      * Formula: skillImproveMult × currentLevel^1.95
