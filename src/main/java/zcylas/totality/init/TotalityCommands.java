@@ -14,6 +14,7 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.currency.CurrencyHelper;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
+import zcylas.totality.api.rpg.race.RaceComponents;
 import zcylas.totality.api.rpg.skills.core.*;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.api.rpg.stats.AbilityScore;
@@ -21,6 +22,7 @@ import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatAttributeApplier;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.networking.mana.SyncManaPayload;
+import zcylas.totality.networking.race.OpenRaceSelectionPayload;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
@@ -47,6 +49,7 @@ public class TotalityCommands {
                                             data.setXpDirectly(0);
                                         }
                                         component.sync();
+                                        RaceComponents.get(player).reapplyBonuses();
                                         ctx.getSource().sendSuccess(() ->
                                                 Component.literal("All skills reset to level 10."), false);
                                         return 1;
@@ -131,7 +134,17 @@ public class TotalityCommands {
                                             )
                                     )
                             )
-
+                            // ── /totality showracemenu ────────────────────────────────────
+                            .then(Commands.literal("showracemenu")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        RaceComponents.get(player).clearRace();
+                                        ServerPlayNetworking.send(player, new OpenRaceSelectionPayload());
+                                        ctx.getSource().sendSuccess(() ->
+                                                Component.literal("Race selection reset. Reopening menu..."), false);
+                                        return 1;
+                                    })
+                            )
                             // ── /totality addcharxp <amount> ──────────────────────────
                             .then(Commands.literal("addcharxp")
                                     .then(Commands.argument("amount", IntegerArgumentType.integer(1))
@@ -403,6 +416,7 @@ public class TotalityCommands {
                                             data.setXpDirectly(0);
                                         }
                                         skillsComp.sync();
+                                        RaceComponents.get(player).reapplyBonuses();
 
                                         // Reset all masteries and mastery points
                                         var masteryComp = MasteriesComponents.get(player);

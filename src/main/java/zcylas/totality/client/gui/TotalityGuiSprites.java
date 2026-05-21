@@ -79,73 +79,73 @@ public class TotalityGuiSprites {
 
     // Rune icons
     public static final Identifier RUNE_TOUCH =
-            Identifier.fromNamespaceAndPath("totality", "rune/touch");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/touch");
     public static final Identifier RUNE_PROJECTILE =
-            Identifier.fromNamespaceAndPath("totality", "rune/projectile");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/projectile");
     public static final Identifier RUNE_BREAK =
-            Identifier.fromNamespaceAndPath("totality", "rune/break");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/break");
     public static final Identifier RUNE_AMPLIFY =
-            Identifier.fromNamespaceAndPath("totality", "rune/amplify");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/amplify");
     public static final Identifier RUNE_SELF =
-            Identifier.fromNamespaceAndPath("totality", "rune/self");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/self");
     public static final Identifier RUNE_AOE =
-            Identifier.fromNamespaceAndPath("totality", "rune/aoe");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/aoe");
     public static final Identifier RUNE_PICKUP =
-            Identifier.fromNamespaceAndPath("totality", "rune/pickup");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/pickup");
     public static final Identifier RUNE_LAUNCH =
-            Identifier.fromNamespaceAndPath("totality", "rune/launch");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/launch");
     public static final Identifier RUNE_IGNITE =
-            Identifier.fromNamespaceAndPath("totality", "rune/ignite");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/ignite");
     public static final Identifier RUNE_EXPLOSION =
-            Identifier.fromNamespaceAndPath("totality", "rune/explosion");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/explosion");
     public static final Identifier RUNE_GLIDE =
-            Identifier.fromNamespaceAndPath("totality", "rune/glide");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/glide");
     public static final Identifier RUNE_EXTEND_TIME =
-            Identifier.fromNamespaceAndPath("totality", "rune/extend_time");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/extend_time");
     public static final Identifier RUNE_REDUCE_TIME =
-            Identifier.fromNamespaceAndPath("totality", "rune/reduce_time");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/reduce_time");
     public static final Identifier RUNE_DAMPEN =
-            Identifier.fromNamespaceAndPath("totality", "rune/dampen");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/dampen");
     public static final Identifier RUNE_SENSITIVE =
-            Identifier.fromNamespaceAndPath("totality", "rune/sensitive");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/sensitive");
     public static final Identifier RUNE_PIERCE =
-            Identifier.fromNamespaceAndPath("totality", "rune/pierce");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/pierce");
     public static final Identifier RUNE_SMELT =
-            Identifier.fromNamespaceAndPath("totality", "rune/smelt");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/smelt");
     public static final Identifier RUNE_ORBIT =
-            Identifier.fromNamespaceAndPath("totality", "rune/orbit");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/orbit");
     public static final Identifier RUNE_FORTUNE =
-            Identifier.fromNamespaceAndPath("totality", "rune/fortune");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/fortune");
     public static final Identifier RUNE_RANDOMIZE =
-            Identifier.fromNamespaceAndPath("totality", "rune/randomize");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/randomize");
     public static final Identifier RUNE_HARM =
-            Identifier.fromNamespaceAndPath("totality", "rune/harm");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/harm");
     public static final Identifier RUNE_HEAL =
-            Identifier.fromNamespaceAndPath("totality", "rune/heal");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/heal");
     public static final Identifier RUNE_HEX =
-            Identifier.fromNamespaceAndPath("totality", "rune/hex");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/hex");
     public static final Identifier RUNE_LIGHTNING =
-            Identifier.fromNamespaceAndPath("totality", "rune/lightning");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/lightning");
     public static final Identifier RUNE_CHAINING =
-            Identifier.fromNamespaceAndPath("totality", "rune/chaining");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/chaining");
     public static final Identifier RUNE_EXTRACT =
-            Identifier.fromNamespaceAndPath("totality", "rune/extract");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/extract");
     public static final Identifier RUNE_GROW =
-            Identifier.fromNamespaceAndPath("totality", "rune/grow");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/grow");
     public static final Identifier RUNE_ACCELERATE =
-            Identifier.fromNamespaceAndPath("totality", "rune/accelerate");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/accelerate");
     public static final Identifier RUNE_DECELERATE =
-            Identifier.fromNamespaceAndPath("totality", "rune/decelerate");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/decelerate");
     public static final Identifier RUNE_LINGER =
-            Identifier.fromNamespaceAndPath("totality", "rune/linger");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/linger");
     public static final Identifier RUNE_HARVEST =
-            Identifier.fromNamespaceAndPath("totality", "rune/harvest");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/harvest");
     public static final Identifier RUNE_SPLIT =
-            Identifier.fromNamespaceAndPath("totality", "rune/split");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/split");
     public static final Identifier RUNE_BURST =
-            Identifier.fromNamespaceAndPath("totality", "rune/burst");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/burst");
     public static final Identifier RUNE_SUMMON_UNDEAD =
-            Identifier.fromNamespaceAndPath("totality", "rune/summon_undead");
+            Identifier.fromNamespaceAndPath("totality", "gui/rune/summon_undead");
 
     private TotalityGuiSprites() {}
 }

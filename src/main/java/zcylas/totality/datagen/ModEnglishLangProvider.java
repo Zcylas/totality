@@ -40,6 +40,10 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.novice_grimoire", "Novice Grimoire");
         translationBuilder.add("item.totality.apprentice_grimoire", "Apprentice Grimoire");
         translationBuilder.add("item.totality.archmage_grimoire", "Archmage Grimoire");
+            //Rune Items - Blanks
+        translationBuilder.add("item.totality.blank_form", "Blank Form Rune");
+        translationBuilder.add("item.totality.blank_effect", "Blank Effect Rune");
+        translationBuilder.add("item.totality.blank_augment", "Blank Augment Rune");
             // Rune Items — Forms
         translationBuilder.add("item.totality.rune_touch", "Touch Rune");
         translationBuilder.add("item.totality.rune_projectile", "Projectile Rune");

@@ -20,6 +20,7 @@ import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.init.magic.RuneRegistry;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
+import zcylas.totality.networking.magic.rune.ClientRuneKnowledgeManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -149,6 +150,7 @@ public class GrimoireScreen extends Screen {
 
         allForms.clear(); allEffects.clear(); allAugments.clear();
         for (AbstractRune rune : RuneRegistry.getAll()) {
+            if (!ClientRuneKnowledgeManager.knowsRune(rune.getId().getPath())) continue;
             if      (rune instanceof AbstractFormRune)    allForms.add(rune);
             else if (rune instanceof AbstractEffectRune)  allEffects.add(rune);
             else if (rune instanceof AbstractAugmentRune) allAugments.add(rune);
@@ -387,8 +389,7 @@ public class GrimoireScreen extends Screen {
                 tt.add(Component.literal(currentFormula[i].getManaCost() + " mana")
                         .withStyle(s -> s.withColor(0xFFAAAAAA)));
                 if (!currentFormula[i].getDescription().isEmpty())
-                    tt.add(Component.literal(currentFormula[i].getDescription())
-                            .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+                    tt.addAll(wrapDescription(currentFormula[i].getDescription(), 160));
                 graphics.setComponentTooltipForNextFrame(font, tt, mouseX, mouseY);
             }
         }
@@ -438,11 +439,9 @@ public class GrimoireScreen extends Screen {
                     tt.add(Component.literal("Tier: " + tierName + " | " + rune.getManaCost() + " mana")
                             .withStyle(s -> s.withColor(0xFFAAAAAA)));
                     if (!augDesc.isEmpty())
-                        tt.add(Component.literal(augDesc)
-                                .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+                        tt.addAll(wrapDescription(augDesc, 160));
                     else if (!rune.getDescription().isEmpty())
-                        tt.add(Component.literal(rune.getDescription())
-                                .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+                        tt.addAll(wrapDescription(rune.getDescription(), 160));
                     if (locked)
                         tt.add(Component.literal("Requires " + tierName + " Grimoire")
                                 .withStyle(s -> s.withColor(0xFFFF4444)));
@@ -739,7 +738,32 @@ public class GrimoireScreen extends Screen {
             if (rune instanceof AbstractFormRune) return true;
         return false;
     }
+    private List<Component> wrapDescription(String text, int maxWidth) {
+        List<Component> lines = new ArrayList<>();
+        String[] words = text.split(" ");
+        StringBuilder line = new StringBuilder();
+        for (String word : words) {
+            String test = line.isEmpty() ? word : line + " " + word;
+            if (font.width(test) > maxWidth) {
+                if (!line.isEmpty()) {
+                    lines.add(Component.literal(line.toString())
+                            .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+                    line = new StringBuilder(word);
+                } else {
+                    lines.add(Component.literal(word)
+                            .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+                }
+            } else {
+                line = new StringBuilder(test);
+            }
+        }
+        if (!line.isEmpty()) {
+            lines.add(Component.literal(line.toString())
+                    .withStyle(s -> s.withColor(0xFFCCCCCC).withItalic(true)));
+        }
+        return lines;
+    }
 
-    @Override public boolean isInGameUi()    { return true;  }
+    @Override public boolean isInGameUi()    { return false;  }
     @Override public boolean isPauseScreen() { return false; }
 }

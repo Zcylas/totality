@@ -17,7 +17,39 @@ import zcylas.totality.item.magic.rune.effect.augment.*;
 public class RuneItems {
 
     // ── Forms ─────────────────────────────────────────────────────────────────
-
+    public static final Item BLANK_FORM = TotalityRegistry.registerItem(
+            "blank_form",
+            Item::new,
+            new Item.Properties()
+                    .stacksTo(16)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A blank form rune. Used in rituals to craft specific form runes."
+                    ))
+    );
+    public static final Item BLANK_EFFECT = TotalityRegistry.registerItem(
+            "blank_effect",
+            Item::new,
+            new Item.Properties()
+                    .stacksTo(16)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A blank effect rune. Used in rituals to craft specific effect runes."
+                    ))
+    );
+    public static final Item BLANK_AUGMENT = TotalityRegistry.registerItem(
+            "blank_augment",
+            Item::new,
+            new Item.Properties()
+                    .stacksTo(16)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A blank augment rune. Used in rituals to craft specific augment runes."
+                    ))
+    );
     public static final Item RUNE_TOUCH = TotalityRegistry.registerItem(
             "rune_touch",
             props -> new RuneItem(TouchForm.INSTANCE, props),

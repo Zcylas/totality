@@ -2,8 +2,8 @@
   "sources": [
     {
       "type": "directory",
-      "source": "item/rune",
-      "prefix": "item/rune/"
+      "source": "gui/sprites",
+      "prefix": ""
     }
   ]
 }

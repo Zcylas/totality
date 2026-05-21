@@ -1,7 +1,6 @@
 package zcylas.totality.entity.magic;
 
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -10,13 +9,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import zcylas.totality.api.magic.context.FormulaContext;
 import zcylas.totality.api.magic.context.FormulaResolver;
@@ -40,10 +37,10 @@ public class OrbitProjectileEntity extends Projectile {
             SynchedEntityData.defineId(OrbitProjectileEntity.class, EntityDataSerializers.BOOLEAN);
 
     private ArcaneFormula formula;
-    private int ticksAlive   = 0;
-    private int maxLifetime  = 60 * 20; // 60 seconds default
+    private int ticksAlive  = 0;
+    private int maxLifetime = 60 * 20; // 60 seconds default
     private boolean tracksGround = false;
-    private Vec3 groundPos   = Vec3.ZERO;
+    private Vec3 groundPos  = Vec3.ZERO;
     private int trackedEntityId = -1;
 
     public OrbitProjectileEntity(EntityType<? extends OrbitProjectileEntity> type, Level level) {
@@ -54,13 +51,13 @@ public class OrbitProjectileEntity extends Projectile {
                                  int offset, int total, float radius, float speed,
                                  int lifetime, boolean sensitive) {
         super(ModEntities.ORBIT_PROJECTILE, level);
-        this.formula   = formula;
+        this.formula     = formula;
         this.maxLifetime = lifetime;
         this.setOwner(owner);
-        this.entityData.set(OFFSET, offset);
-        this.entityData.set(TOTAL, total);
-        this.entityData.set(RADIUS, radius);
-        this.entityData.set(SPEED, speed);
+        this.entityData.set(OFFSET,    offset);
+        this.entityData.set(TOTAL,     total);
+        this.entityData.set(RADIUS,    radius);
+        this.entityData.set(SPEED,     speed);
         this.entityData.set(SENSITIVE, sensitive);
         this.setPos(owner.getX(), owner.getEyeY(), owner.getZ());
     }
@@ -97,8 +94,17 @@ public class OrbitProjectileEntity extends Projectile {
         this.setPos(orbitPos.x, orbitPos.y, orbitPos.z);
 
         if (this.level().isClientSide()) {
+            // ── Subtle orbit trail — witch particles ──────────────────────────
             this.level().addParticle(ParticleTypes.WITCH,
                     getX(), getY(), getZ(), 0, 0, 0);
+            // ── Occasional enchant sparkle — every 3 ticks ────────────────────
+            if (ticksAlive % 3 == 0) {
+                this.level().addParticle(ParticleTypes.ENCHANT,
+                        getX() + (Math.random() - 0.5) * 0.15,
+                        getY() + (Math.random() - 0.5) * 0.15,
+                        getZ() + (Math.random() - 0.5) * 0.15,
+                        0, 0, 0);
+            }
             return;
         }
 
@@ -139,13 +145,12 @@ public class OrbitProjectileEntity extends Projectile {
         Vec3 center = getCenter();
         return new Vec3(
                 center.x + radius * Math.cos(angle),
-                center.y + 1.0, // fixed Y offset from center, no oscillation
+                center.y + 1.0,
                 center.z + radius * Math.sin(angle));
     }
 
     private Vec3 getCenter() {
         if (tracksGround) return groundPos;
-        // Try tracked entity first
         if (trackedEntityId >= 0) {
             Entity tracked = level().getEntity(trackedEntityId);
             if (tracked != null && !tracked.isRemoved()) return tracked.position();
@@ -157,6 +162,7 @@ public class OrbitProjectileEntity extends Projectile {
 
     @Override
     protected void onHitEntity(EntityHitResult hit) {
+        spawnImpactParticles();
         if (formula == null) return;
         if (!(level() instanceof ServerLevel)) return;
         if (hit.getEntity().equals(getOwner()) && !tracksGround) return;
@@ -167,13 +173,14 @@ public class OrbitProjectileEntity extends Projectile {
         if (orbitIndex < 0 || orbitIndex >= formula.getRunes().size() - 1) return;
 
         FormulaContext parentContext = new FormulaContext(level(), formula, caster, caster.getMainHandItem());
-        FormulaContext childContext = parentContext.makeChildContext(orbitIndex + 1);
+        FormulaContext childContext  = parentContext.makeChildContext(orbitIndex + 1);
         new FormulaResolver(childContext).onResolveEffect(level(), hit);
-        this.discard(); // consume orb like AN does
+        this.discard();
     }
 
     @Override
     protected void onHitBlock(BlockHitResult hit) {
+        spawnImpactParticles();
         if (!entityData.get(SENSITIVE)) return;
         if (formula == null) return;
         if (!(level() instanceof ServerLevel)) return;
@@ -183,9 +190,24 @@ public class OrbitProjectileEntity extends Projectile {
         if (orbitIndex < 0 || orbitIndex >= formula.getRunes().size() - 1) return;
 
         FormulaContext parentContext = new FormulaContext(level(), formula, caster, caster.getMainHandItem());
-        FormulaContext childContext = parentContext.makeChildContext(orbitIndex + 1);
+        FormulaContext childContext  = parentContext.makeChildContext(orbitIndex + 1);
         new FormulaResolver(childContext).onResolveEffect(level(), hit);
-        this.discard(); // consume orb like AN does
+        this.discard();
+    }
+
+    // ── Impact burst — server-side so all clients see it ─────────────────────
+    private void spawnImpactParticles() {
+        if (level() instanceof ServerLevel serverLevel) {
+            serverLevel.sendParticles(ParticleTypes.WITCH,
+                    getX(), getY(), getZ(),
+                    8, 0.2, 0.2, 0.2, 0.08);
+            serverLevel.sendParticles(ParticleTypes.ENCHANT,
+                    getX(), getY(), getZ(),
+                    12, 0.3, 0.3, 0.3, 0.3);
+            serverLevel.sendParticles(ParticleTypes.POOF,
+                    getX(), getY(), getZ(),
+                    1, 0, 0, 0, 0);
+        }
     }
 
     private int findOrbitIndex() {
@@ -205,12 +227,11 @@ public class OrbitProjectileEntity extends Projectile {
     }
 
     @Override
-    protected boolean canHitEntity(net.minecraft.world.entity.Entity entity) {
+    protected boolean canHitEntity(Entity entity) {
         if (!super.canHitEntity(entity)) return false;
         if (trackedEntityId >= 0 && entity.getId() == trackedEntityId) return false;
         return true;
     }
-
 
     @Override
     protected void addAdditionalSaveData(ValueOutput output) {}

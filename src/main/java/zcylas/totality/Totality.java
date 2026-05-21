@@ -11,17 +11,14 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import net.minecraft.world.level.levelgen.GenerationStep;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.ability.AbilityServerTick;
 import zcylas.totality.api.ritual.RitualRecipeRegistry;
 import zcylas.totality.api.rpg.skills.core.OneHandedSkillHandler;
 import zcylas.totality.api.rpg.skills.mining.MiningSkillEvents;
-import zcylas.totality.api.rpg.stats.StatsServerEvents;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
 import zcylas.totality.api.rpg.combat.weapon.TwoHandedRestriction;
 import zcylas.totality.api.rpg.combat.weapon.WeaponStaminaHandler;
-import zcylas.totality.api.core.component.PlayerComponentEvents;
 import zcylas.totality.init.*;
 import zcylas.totality.init.magic.MagicRunes;
 import zcylas.totality.item.energy.UmbraVisorItem;
@@ -55,7 +52,6 @@ public class Totality implements ModInitializer {
 		registerInits();
 		registerCombatApi();
 		registerSkillEvents();
-		registerEvents();
 		registerRPGHandlers();
 		registerSkillHandlers();
 		registerAbilityClasses();
@@ -76,6 +72,7 @@ public class Totality implements ModInitializer {
 		ModLootTables.register();
 		TotalityCommands.register();
 		RitualRecipeRegistry.register();
+		ModEvents.register();
 	}
 
 	private void registerLookups(){
@@ -236,9 +233,5 @@ public class Totality implements ModInitializer {
 				ModPlacedFeatures.LIMESTONE_PLACED_KEY
 		);
 
-	}
-	private void registerEvents(){
-		PlayerComponentEvents.init();
-		StatsServerEvents.register();
 	}
 }

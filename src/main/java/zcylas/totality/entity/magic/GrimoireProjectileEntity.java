@@ -52,13 +52,21 @@ public class GrimoireProjectileEntity extends Projectile {
         }
 
         if (this.level().isClientSide()) {
-            this.level().addParticle(ParticleTypes.COPPER_FIRE_FLAME,
+            // ── Main trail — purple witch particles ───────────────────────────
+            this.level().addParticle(ParticleTypes.WITCH,
                     getX(), getY(), getZ(),
+                    (Math.random() - 0.5) * 0.05,
+                    (Math.random() - 0.5) * 0.05,
+                    (Math.random() - 0.5) * 0.05);
+
+            // ── Sparkle trail — enchant particles with slight spread ───────────
+            this.level().addParticle(ParticleTypes.ENCHANT,
+                    getX() + (Math.random() - 0.5) * 0.2,
+                    getY() + (Math.random() - 0.5) * 0.2,
+                    getZ() + (Math.random() - 0.5) * 0.2,
                     (Math.random() - 0.5) * 0.1,
-                    (Math.random() - 0.5) * 0.1,
+                    Math.random() * 0.05,
                     (Math.random() - 0.5) * 0.1);
-            this.level().addParticle(ParticleTypes.HAPPY_VILLAGER,
-                    getX(), getY(), getZ(), 0, 0, 0);
         }
 
         Vec3 start = this.position();
@@ -93,6 +101,7 @@ public class GrimoireProjectileEntity extends Projectile {
     @Override
     protected void onHitBlock(BlockHitResult hit) {
         super.onHitBlock(hit);
+        spawnImpactParticles();
         if (formula == null) { this.discard(); return; }
         if (!(level() instanceof ServerLevel)) { this.discard(); return; }
 
@@ -108,6 +117,7 @@ public class GrimoireProjectileEntity extends Projectile {
     @Override
     protected void onHitEntity(EntityHitResult hit) {
         super.onHitEntity(hit);
+        spawnImpactParticles();
         if (formula == null) { this.discard(); return; }
         if (!(level() instanceof ServerLevel)) { this.discard(); return; }
 
@@ -120,14 +130,26 @@ public class GrimoireProjectileEntity extends Projectile {
         this.discard();
     }
 
-    public void setFormula(ArcaneFormula formula) {
-        this.formula = formula;
+    // ── Impact burst — server-side so all clients see it ─────────────────────a
+    private void spawnImpactParticles() {
+        if (level() instanceof ServerLevel serverLevel) {
+            // Purple burst
+            serverLevel.sendParticles(ParticleTypes.WITCH,
+                    getX(), getY(), getZ(),
+                    12, 0.3, 0.3, 0.3, 0.1);
+            // Sparkle burst
+            serverLevel.sendParticles(ParticleTypes.ENCHANT,
+                    getX(), getY(), getZ(),
+                    20, 0.5, 0.5, 0.5, 0.5);
+            // Flash center
+            serverLevel.sendParticles(ParticleTypes.POOF,
+                    getX(), getY(), getZ(),
+                    1, 0, 0, 0, 0);
+        }
     }
 
-    public ArcaneFormula getFormula() {
-        return formula;
-    }
-
+    public void setFormula(ArcaneFormula formula) { this.formula = formula; }
+    public ArcaneFormula getFormula() { return formula; }
     public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
 
     @Override

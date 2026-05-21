@@ -8,6 +8,7 @@
 		"MouseHandlerMixin",
 		"GameRendererMixin",
 		"LivingEntityMixin",
+		"client.PlayerScaleMixin",
 		"EnchantedCountIncreaseFunctionAccessor",
 		"EnchantedCountIncreaseFunctionMixin",
 		"LootItemRandomChanceWithEnchantedBonusConditionMixin",

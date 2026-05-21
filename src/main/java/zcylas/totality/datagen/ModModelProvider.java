@@ -411,6 +411,10 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(RitualItems.RESIDUUM_CHALK, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(RitualItems.INCENSE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(ReligiousItems.BLESSED_INCENSE, ModelTemplates.FLAT_ITEM);
+        //Rune Items - Blanks
+        generateRuneItem(generators, RuneItems.BLANK_FORM, "blank_form");
+        generateRuneItem(generators, RuneItems.BLANK_AUGMENT, "blank_augment");
+        generateRuneItem(generators, RuneItems.BLANK_EFFECT, "blank_effect");
         // Rune Items — Forms
         generateRuneItem(generators, RuneItems.RUNE_TOUCH, "touch");
         generateRuneItem(generators, RuneItems.RUNE_PROJECTILE, "projectile");
@@ -544,7 +548,7 @@ public class ModModelProvider extends FabricModelProvider {
     //Helper Classes
     private void generateRuneItem(ItemModelGenerators generators, net.minecraft.world.item.Item item, String runeId) {
         Identifier modelId = Identifier.fromNamespaceAndPath("totality", "item/rune_" + runeId);
-        Identifier textureId = Identifier.fromNamespaceAndPath("totality", "gui/sprites/rune/" + runeId);
+        Identifier textureId = Identifier.fromNamespaceAndPath("totality", "item/rune/" + runeId);
         ModelTemplates.FLAT_ITEM.create(modelId, TextureMapping.layer0(
                         new net.minecraft.client.resources.model.sprite.Material(textureId)),
                 generators.modelOutput);
