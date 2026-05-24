@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "harvested=false": {
+      "model": "totality:block/bush/blue_mountain_flower_bush"
+    },
+    "harvested=true": {
+      "model": "totality:block/bush/mountain_flower_bush_bare"
+    }
+  }
+}
