@@ -8,10 +8,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
-import zcylas.totality.api.magic.context.FormulaContext;
-import zcylas.totality.api.magic.context.FormulaResolver;
-import zcylas.totality.api.magic.formula.FormulaStats;
-import zcylas.totality.api.magic.rune.AbstractFormRune;
+import zcylas.totality.api.magic.grimoire.context.FormulaContext;
+import zcylas.totality.api.magic.grimoire.context.FormulaResolver;
+import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
+import zcylas.totality.api.magic.grimoire.rune.AbstractFormRune;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 
 import java.util.Set;

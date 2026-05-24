@@ -10,10 +10,10 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import zcylas.totality.api.magic.context.FormulaContext;
-import zcylas.totality.api.magic.context.FormulaResolver;
-import zcylas.totality.api.magic.formula.FormulaStats;
-import zcylas.totality.api.magic.rune.AbstractEffectRune;
+import zcylas.totality.api.magic.grimoire.context.FormulaContext;
+import zcylas.totality.api.magic.grimoire.context.FormulaResolver;
+import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
+import zcylas.totality.api.magic.grimoire.rune.AbstractEffectRune;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 
 import java.util.Map;

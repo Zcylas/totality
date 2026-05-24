@@ -3,8 +3,8 @@ package zcylas.totality.client.renderer.hud.context;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.ItemStack;
-import zcylas.totality.api.magic.GrimoireCaster;
-import zcylas.totality.api.magic.MagicComponents;
+import zcylas.totality.api.magic.grimoire.GrimoireCaster;
+import zcylas.totality.api.magic.grimoire.MagicComponents;
 import zcylas.totality.item.magic.GrimoireItem;
 
 public class MagicContextHud {

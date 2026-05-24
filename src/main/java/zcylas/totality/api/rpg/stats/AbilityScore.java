@@ -52,4 +52,6 @@ public enum AbilityScore {
     public static int getModifier(int score) {
         return Math.floorDiv(score - 10, 2);
     }
+
+
 }

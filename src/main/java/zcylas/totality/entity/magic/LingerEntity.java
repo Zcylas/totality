@@ -1,8 +1,6 @@
 package zcylas.totality.entity.magic;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -15,13 +13,11 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import zcylas.totality.api.magic.context.FormulaContext;
-import zcylas.totality.api.magic.context.FormulaResolver;
-import zcylas.totality.api.magic.formula.ArcaneFormula;
-import zcylas.totality.api.magic.formula.FormulaStats;
+import zcylas.totality.api.magic.grimoire.context.FormulaContext;
+import zcylas.totality.api.magic.grimoire.context.FormulaResolver;
+import zcylas.totality.api.magic.grimoire.formula.ArcaneFormula;
+import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
 import zcylas.totality.init.ModEntities;
-
-import org.jspecify.annotations.Nullable;
 
 public class LingerEntity extends Entity {
 

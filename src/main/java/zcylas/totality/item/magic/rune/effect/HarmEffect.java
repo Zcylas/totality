@@ -8,10 +8,10 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.EntityHitResult;
-import zcylas.totality.api.magic.context.FormulaContext;
-import zcylas.totality.api.magic.context.FormulaResolver;
-import zcylas.totality.api.magic.formula.FormulaStats;
-import zcylas.totality.api.magic.rune.AbstractEffectRune;
+import zcylas.totality.api.magic.grimoire.context.FormulaContext;
+import zcylas.totality.api.magic.grimoire.context.FormulaResolver;
+import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
+import zcylas.totality.api.magic.grimoire.rune.AbstractEffectRune;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 
 import java.util.Map;
@@ -80,8 +80,8 @@ public class HarmEffect extends AbstractEffectRune {
             net.minecraft.core.Holder<net.minecraft.world.damagesource.DamageType> type =
                     registry.getOrThrow(net.minecraft.world.damagesource.DamageTypes.MAGIC);
 
-            zcylas.totality.api.magic.damage.SpellDamageSource source =
-                    new zcylas.totality.api.magic.damage.SpellDamageSource(type, caster, caster);
+            zcylas.totality.api.magic.grimoire.damage.SpellDamageSource source =
+                    new zcylas.totality.api.magic.grimoire.damage.SpellDamageSource(type, caster, caster);
             source.setLuckLevel(stats.getFortuneLevel());
 
             target.hurtServer(serverLevel, source, damage);

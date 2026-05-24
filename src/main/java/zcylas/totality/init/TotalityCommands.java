@@ -13,16 +13,16 @@ import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.currency.CurrencyHelper;
+import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
-import zcylas.totality.api.rpg.race.RaceComponents;
 import zcylas.totality.api.rpg.skills.core.*;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatAttributeApplier;
 import zcylas.totality.api.rpg.stats.StatsComponents;
+import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
-import zcylas.totality.networking.race.OpenRaceSelectionPayload;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
@@ -49,7 +49,7 @@ public class TotalityCommands {
                                             data.setXpDirectly(0);
                                         }
                                         component.sync();
-                                        RaceComponents.get(player).reapplyBonuses();
+                                        AncestryComponents.get(player).reapplyBonuses();
                                         ctx.getSource().sendSuccess(() ->
                                                 Component.literal("All skills reset to level 10."), false);
                                         return 1;
@@ -66,9 +66,13 @@ public class TotalityCommands {
                                         stats.setLevelDirectly(1);
                                         stats.setCharacterXpDirectly(0);
                                         stats.setUnspentAttributePointsDirectly(0);
+                                        stats.clearOriginBonus();
+                                        stats.clearClassBonus();
+                                        stats.clearItemBonus();
                                         for (AbilityScore score : AbilityScore.values()) {
-                                            stats.setScore(score, PlayerStats.BASE_SCORE);
+                                            stats.setSpentPointsDirectly(score, 0);
                                         }
+                                        stats.recalculate();
 
                                         // Reapply attribute modifiers (CON → HP etc.)
                                         StatAttributeApplier.apply(player);
@@ -135,13 +139,33 @@ public class TotalityCommands {
                                     )
                             )
                             // ── /totality showracemenu ────────────────────────────────────
-                            .then(Commands.literal("showracemenu")
+                            // Replace showracemenu:
+                            .then(Commands.literal("showancestry")
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                        RaceComponents.get(player).clearRace();
-                                        ServerPlayNetworking.send(player, new OpenRaceSelectionPayload());
+                                        AncestryComponents.get(player).clearAncestry();
+                                        ServerPlayNetworking.send(player, new OpenAncestrySelectionPayload());
                                         ctx.getSource().sendSuccess(() ->
-                                                Component.literal("Race selection reset. Reopening menu..."), false);
+                                                Component.literal("Ancestry selection reset. Reopening menu..."), false);
+                                        return 1;
+                                    })
+                            )
+                            .then(Commands.literal("ancestry")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        var comp = AncestryComponents.get(player);
+                                        if (!comp.hasAncestry()) {
+                                            ctx.getSource().sendSuccess(() ->
+                                                    Component.literal("No ancestry selected."), false);
+                                            return 0;
+                                        }
+                                        String originName = comp.getOrigin() != null
+                                                ? comp.getOrigin().getDisplayName()
+                                                : "None";
+                                        ctx.getSource().sendSuccess(() ->
+                                                Component.literal("Species: " + comp.getSpecies().getDisplayName() +
+                                                        " | Origin: " + originName +
+                                                        " | Height Scale: " + String.format("%.3f", comp.getHeightScale())), false);
                                         return 1;
                                     })
                             )
@@ -174,7 +198,9 @@ public class TotalityCommands {
                                                         int value = IntegerArgumentType.getInteger(ctx, "value");
                                                         try {
                                                             AbilityScore score = AbilityScore.valueOf(scoreName);
-                                                            StatsComponents.getStats(player).setScore(score, value);
+                                                            // Set as spent points offset from base
+                                                            StatsComponents.getStats(player).setSpentPointsDirectly(score, value - PlayerStats.BASE_SCORE);
+                                                            StatsComponents.getStats(player).recalculate();
                                                             StatAttributeApplier.apply(player);
                                                             StatsComponents.get(player).sync();
                                                             ctx.getSource().sendSuccess(() ->
@@ -402,9 +428,14 @@ public class TotalityCommands {
                                         stats.setLevelDirectly(1);
                                         stats.setCharacterXpDirectly(0);
                                         stats.setUnspentAttributePointsDirectly(0);
+                                        stats.clearOriginBonus();
+                                        stats.clearClassBonus();
+                                        stats.clearItemBonus();
+// Reset spent points
                                         for (AbilityScore score : AbilityScore.values()) {
-                                            stats.setScore(score, PlayerStats.BASE_SCORE);
+                                            stats.setSpentPointsDirectly(score, 0);
                                         }
+                                        stats.recalculate();
                                         StatAttributeApplier.apply(player);
                                         StatsComponents.get(player).sync();
 
@@ -416,7 +447,7 @@ public class TotalityCommands {
                                             data.setXpDirectly(0);
                                         }
                                         skillsComp.sync();
-                                        RaceComponents.get(player).reapplyBonuses();
+                                        AncestryComponents.get(player).reapplyBonuses();
 
                                         // Reset all masteries and mastery points
                                         var masteryComp = MasteriesComponents.get(player);

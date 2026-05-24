@@ -5,22 +5,22 @@
 	"mixins": [
 	],
 	"client": [
-		"MouseHandlerMixin",
-		"GameRendererMixin",
-		"LivingEntityMixin",
-		"client.PlayerScaleMixin",
 		"EnchantedCountIncreaseFunctionAccessor",
 		"EnchantedCountIncreaseFunctionMixin",
+		"EntityDimensionsMixin",
+		"GameRendererMixin",
+		"client.LivingEntityScaleMixin",
 		"LootItemRandomChanceWithEnchantedBonusConditionMixin",
-		"MixinServerPlayer",
 		"MixinLocalPlayer",
+		"MixinServerPlayer",
+		"MouseHandlerMixin",
 		"ScreenAccessor",
+		"client.AbstractContainerScreenMixin",
 		"client.MinecraftAttackMixin",
-		"item.TridentItemMixin",
 		"item.KineticWeaponMixin",
-		"item.PiercingWeaponMixin",
 		"item.MaceItemMixin",
-		"client.AbstractContainerScreenMixin"
+		"item.PiercingWeaponMixin",
+		"item.TridentItemMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

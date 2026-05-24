@@ -8,6 +8,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
@@ -16,6 +17,7 @@ import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.blocks.*;
 import zcylas.totality.init.items.IngredientItems;
+import zcylas.totality.init.items.SKIngredientItems;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -50,9 +52,7 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         this.add(OreBlocks.DEEPSLATE_RUBY_ORE, multipleOreDrops(OreBlocks.DEEPSLATE_RUBY_ORE, IngredientItems.ROUGH_RUBY, 1, 3));
         //Alchemy Ingredients
             //Flowers
-        dropSelf(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER);
-        dropSelf(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER);
-        dropSelf(AlchemyBlocks.RED_MOUNTAIN_FLOWER);
+
         //Ritual Blocks
         dropSelf(RitualBlocks.RITUAL_ALTAR);
         dropSelf(RitualBlocks.RITUAL_DAIS);
@@ -64,6 +64,17 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         //Natural Blocks
             //Limestone
         this.add(NaturalBlocks.LIMESTONE, multipleOreDrops(NaturalBlocks.LIMESTONE, IngredientItems.LIMESTONE_CHUNK, 1, 2));
+        //Crops
+            //True Wheat
+        this.add(AlchemyBlocks.TRUE_WHEAT_CROP, this.createCropDrops(
+                AlchemyBlocks.TRUE_WHEAT_CROP,
+                SKIngredientItems.TRUE_WHEAT,
+                IngredientItems.TRUE_WHEAT_SEEDS,
+                net.minecraft.world.level.storage.loot.predicates.LootItemBlockStatePropertyCondition
+                        .hasBlockStateProperties(AlchemyBlocks.TRUE_WHEAT_CROP)
+                        .setProperties(net.minecraft.advancements.criterion.StatePropertiesPredicate.Builder
+                                .properties().hasProperty(CropBlock.AGE, 7))
+        ));
     }
 
 

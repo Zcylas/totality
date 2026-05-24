@@ -135,9 +135,13 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.rough_ruby", "Rough Ruby");
         //Alchemy Ingredients
         translationBuilder.add("item.totality.salmon_roe","Salmon Roe");
-        translationBuilder.add("block.totality.blue_mountain_flower","Blue Mountain Flower");
-        translationBuilder.add("block.totality.purple_mountain_flower","Purple Mountain Flower");
-        translationBuilder.add("block.totality.red_mountain_flower","Red Mountain Flower");
+        translationBuilder.add("block.totality.red_mountain_flower_bush","Red Mountain Flower Bush");
+        translationBuilder.add("block.totality.blue_mountain_flower_bush","Blue Mountain Flower Bush");
+        translationBuilder.add("block.totality.purple_mountain_flower_bush","Purple Mountain Flower Bush");
+        translationBuilder.add("item.totality.red_mountain_flower","Red Mountain Flower");
+        translationBuilder.add("item.totality.blue_mountain_flower","Blue Mountain Flower");
+        translationBuilder.add("item.totality.purple_mountain_flower","Purple Mountain Flower");
+        translationBuilder.add("item.totality.true_wheat_seeds","True Wheat Seeds");
         translationBuilder.add("item.totality.true_wheat","True Wheat");
         translationBuilder.add("item.totality.rock_warbler_egg","Rock Warbler Egg");
         translationBuilder.add("item.totality.garlic","Garlic");

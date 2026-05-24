@@ -6,7 +6,7 @@ import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceWit
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
-import zcylas.totality.api.magic.damage.SpellDamageSource;
+import zcylas.totality.api.magic.grimoire.damage.SpellDamageSource;
 
 @Mixin(LootItemRandomChanceWithEnchantedBonusCondition.class)
 public class LootItemRandomChanceWithEnchantedBonusConditionMixin {

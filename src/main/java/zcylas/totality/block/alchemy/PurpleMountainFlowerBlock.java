@@ -1,12 +1,18 @@
 package zcylas.totality.block.alchemy;
 
-import net.minecraft.core.Holder;
-import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.level.block.FlowerBlock;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import zcylas.totality.api.core.util.MountainFlowerBushBlock;
+import zcylas.totality.init.items.SKIngredientItems;
 
-public class PurpleMountainFlowerBlock extends FlowerBlock {
+public class PurpleMountainFlowerBlock extends MountainFlowerBushBlock {
 
-    public PurpleMountainFlowerBlock(Holder<MobEffect> stewEffect, int duration, Properties properties) {
-        super(stewEffect, duration, properties);
+    public PurpleMountainFlowerBlock(BlockBehaviour.Properties properties) {
+        super(properties);
+    }
+
+    @Override
+    public Item getFlowerItem() {
+        return SKIngredientItems.PURPLE_MOUNTAIN_FLOWER;
     }
 }

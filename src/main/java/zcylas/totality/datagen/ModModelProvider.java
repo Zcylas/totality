@@ -16,6 +16,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.NonNull;
+import zcylas.totality.api.core.util.MountainFlowerBushBlock;
 import zcylas.totality.api.industrial.energy.UEComponents;
 import zcylas.totality.api.ritual.ChalkColor;
 import zcylas.totality.api.ritual.ChalkSigil;
@@ -181,38 +182,56 @@ public class ModModelProvider extends FabricModelProvider {
         generators.createTrivialCube(OreBlocks.DEEPSLATE_RUBY_ORE);
         //Alchemy Ingredients
             //Flowers
-        generators.createCrossBlockWithDefaultItem(
-                AlchemyBlocks.BLUE_MOUNTAIN_FLOWER,
-                BlockModelGenerators.PlantType.NOT_TINTED
+        // Blue Mountain Flower Bush
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER_BUSH)
+                        .with(PropertyDispatch.initial(MountainFlowerBushBlock.HARVESTED)
+                                .select(false, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/bush/blue_mountain_flower_bush")))
+                                .select(true, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/bush/mountain_flower_bush_bare")))
+                        )
         );
-        generators.createCrossBlockWithDefaultItem(
-                AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER,
-                BlockModelGenerators.PlantType.NOT_TINTED
+        // Purple Mountain Flower Bush
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER_BUSH)
+                        .with(PropertyDispatch.initial(MountainFlowerBushBlock.HARVESTED)
+                                .select(false, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/bush/purple_mountain_flower_bush")))
+                                .select(true, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/bush/mountain_flower_bush_bare")))
+                        )
         );
-        generators.createCrossBlockWithDefaultItem(
-                AlchemyBlocks.RED_MOUNTAIN_FLOWER,
-                BlockModelGenerators.PlantType.NOT_TINTED
+        // Red Mountain Flower Bush
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(AlchemyBlocks.RED_MOUNTAIN_FLOWER_BUSH)
+                        .with(PropertyDispatch.initial(MountainFlowerBushBlock.HARVESTED)
+                                .select(false, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/bush/red_mountain_flower_bush")))
+                                .select(true, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/bush/mountain_flower_bush_bare")))
+                        )
         );
             //Crops
         generators.blockStateOutput.accept(
                 MultiVariantGenerator.dispatch(AlchemyBlocks.TRUE_WHEAT_CROP)
                         .with(PropertyDispatch.initial(CropBlock.AGE)
                                 .select(0, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_0")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage0")))
                                 .select(1, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_1")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage1")))
                                 .select(2, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_2")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage2")))
                                 .select(3, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_3")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage3")))
                                 .select(4, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_4")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage4")))
                                 .select(5, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_5")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage5")))
                                 .select(6, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_6")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage6")))
                                 .select(7, BlockModelGenerators.plainVariant(
-                                        Identifier.fromNamespaceAndPath("totality", "block/true_wheat_stage_7")))
+                                        Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage7")))
                         )
 
         );
@@ -266,6 +285,7 @@ public class ModModelProvider extends FabricModelProvider {
                         BlockModelGenerators.plainVariant(Identifier.fromNamespaceAndPath("totality", "block/apothecary_table"))
                 )
         );
+
 
     }
 
@@ -400,6 +420,24 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.TRUE_WHEAT, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.GARLIC, ModelTemplates.FLAT_ITEM);
+        generators.itemModelOutput.accept(
+                AlchemyBlocks.RED_MOUNTAIN_FLOWER_BUSH.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/bush/mountain_flower_bush_bare"))
+        );
+        generators.itemModelOutput.accept(
+                AlchemyBlocks.BLUE_MOUNTAIN_FLOWER_BUSH.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/bush/mountain_flower_bush_bare"))
+        );
+        generators.itemModelOutput.accept(
+                AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER_BUSH.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/bush/mountain_flower_bush_bare"))
+        );
+        generators.generateFlatItem(SKIngredientItems.BLUE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(SKIngredientItems.PURPLE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(SKIngredientItems.RED_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
         //Fuels
         generators.generateFlatItem(FuelItems.TINY_COAL, ModelTemplates.FLAT_ITEM);
         //Ritual Items

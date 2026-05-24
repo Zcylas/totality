@@ -24,6 +24,7 @@ import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
+import zcylas.totality.client.renderer.hud.MobHealthBarHud;
 import zcylas.totality.client.renderer.hud.TotalityHudRenderer;
 import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.client.renderer.ritual.RitualAltarRenderer;
@@ -69,6 +70,8 @@ public class TotalityClient implements ClientModInitializer {
         TotalityClientPacketHandlers.register();
         ClientTickEvents.END_CLIENT_TICK.register(
                 client -> FluidTankScrollHandler.tick());
+        ClientTickEvents.END_CLIENT_TICK.register(
+                client -> MobHealthBarHud.tick());
         SidedOverlayRenderer.register();
 
     }
@@ -88,6 +91,7 @@ public class TotalityClient implements ClientModInitializer {
         );
         TotalityHudRenderer.register();
         NotificationManager.register();
+        MobHealthBarHud.register();
     }
 
     private void registerEntityRenderers(){

@@ -2,22 +2,19 @@ package zcylas.totality.networking;
 
 import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.component.ComponentRegistry;
 import zcylas.totality.api.core.component.ComponentSync;
 import zcylas.totality.api.core.component.SyncedComponent;
-import zcylas.totality.api.rpg.race.Race;
-import zcylas.totality.api.rpg.race.RaceComponents;
 import zcylas.totality.client.config.ItemSideModeClientCache;
 import zcylas.totality.client.config.SideModeClientCache;
 import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
+import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
 import zcylas.totality.networking.config.SideModeSyncPayload;
 import zcylas.totality.networking.currency.ClientWalletManager;
@@ -25,14 +22,11 @@ import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
-import zcylas.totality.networking.race.OpenRaceSelectionPayload;
-import zcylas.totality.networking.race.SelectRacePayload;
 import zcylas.totality.networking.stamina.ClientStaminaManager;
 import zcylas.totality.networking.stamina.SyncStaminaPayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 import zcylas.totality.screen.alchemy.ApothecaryTableScreen;
 import zcylas.totality.screen.menu.MainMenuScreen;
-import zcylas.totality.screen.race.RaceSelectionScreen;
 import zcylas.totality.screen.stats.StatusScreen;
 
 public class TotalityClientPacketHandlers {
@@ -140,19 +134,9 @@ public class TotalityClientPacketHandlers {
                 OpenMainMenuPayload.TYPE,
                 (payload, ctx) -> ctx.client().setScreen(new MainMenuScreen()));
         ClientPlayNetworking.registerGlobalReceiver(
-                OpenRaceSelectionPayload.TYPE,
-                (payload, ctx) -> ctx.client().setScreen(new RaceSelectionScreen()));
-        ServerPlayNetworking.registerGlobalReceiver(
-                SelectRacePayload.TYPE,
-                (payload, context) -> context.server().execute(() -> {
-                    ServerPlayer player = context.player();
-                    try {
-                        Race race = Race.valueOf(payload.raceName());
-                        RaceComponents.get(player).selectRace(race);
-                    } catch (IllegalArgumentException ignored) {
-                        // Unknown race name — do nothing
-                    }
-                }));
+                OpenAncestrySelectionPayload.TYPE,
+                (payload, ctx) -> ctx.client().setScreen(
+                        new zcylas.totality.screen.ancestry.SpeciesSelectionScreen()));
     }
 
     private TotalityClientPacketHandlers() {}

@@ -8,7 +8,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
-import zcylas.totality.api.rpg.race.ClientRaceManager;
+import zcylas.totality.api.rpg.ancestry.ClientAncestryManager;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
 import zcylas.totality.networking.mana.ClientManaManager;
@@ -178,10 +178,14 @@ public class StatusScreen extends Screen {
         // RIGHT — Info
         int infoX = x + thirdW * 2 + PADDING;
         g.text(font, Component.literal("JOB: None"),   infoX, headerY,      COLOR_LABEL, false);
-        String raceName = ClientRaceManager.hasRace()
-                ? ClientRaceManager.getRace().getDisplayName()
+        String speciesName = ClientAncestryManager.hasAncestry()
+                ? ClientAncestryManager.getSpecies().getDisplayName()
                 : "None";
-        g.text(font, Component.literal("RACE: " + raceName), infoX, headerY + 9, COLOR_LABEL, false);
+        String originName = ClientAncestryManager.getOrigin() != null
+                ? " (" + ClientAncestryManager.getOrigin().getDisplayName() + ")"
+                : "";
+        g.text(font, Component.literal("RACE: " + speciesName + originName),
+                infoX, headerY + 9, COLOR_LABEL, false);
         g.text(font, Component.literal("TITLE: None"), infoX, headerY + 18, COLOR_LABEL, false);
         g.text(font, Component.literal("CLASS: None"), infoX, headerY + 27, COLOR_LABEL, false);
 

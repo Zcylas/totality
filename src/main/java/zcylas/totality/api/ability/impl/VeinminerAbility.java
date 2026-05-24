@@ -50,7 +50,10 @@ public class VeinminerAbility extends Ability {
                 "Hold the ability key while breaking an ore to mine the entire connected vein. Costs 2 stamina per block.",
                 Type.CHANNELED,
                 0,
-                Identifier.fromNamespaceAndPath("totality", "textures/ability/veinminer.png")
+                Identifier.fromNamespaceAndPath("totality", "textures/ability/veinminer.png"),
+                Source.MASTERY,
+                "Mining Mastery",
+                "Where one ore ends, another begins."
         );
     }
 

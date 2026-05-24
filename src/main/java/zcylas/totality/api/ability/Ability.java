@@ -11,6 +11,18 @@ import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 
 public abstract class Ability {
 
+    public enum Source {
+        DEFAULT("Default Ability"),
+        CLASS("Class"),
+        SPECIES("Species"),
+        ORIGIN("Origin"),
+        MASTERY("Mastery");
+
+        private final String displayName;
+        Source(String d) { this.displayName = d; }
+        public String getDisplayName() { return displayName; }
+    }
+
     public enum Type { PASSIVE, ACTIVE, CHANNELED, TOGGLE }
 
     private final Identifier id;
@@ -19,15 +31,21 @@ public abstract class Ability {
     private final Type type;
     private final int cooldownTicks;
     private final Identifier icon;
+    private final Source source;
+    private final String sourceDetail; // e.g. "Mining" for Veinminer mastery
+    private final String flavourText;  // italic text shown in detail panel
 
     protected Ability(Identifier id, String displayName, String description,
-                      Type type, int cooldownTicks, Identifier icon) {
+                      Type type, int cooldownTicks, Identifier icon,Source source, String sourceDetail, String flavourText) {
         this.id           = id;
         this.displayName  = displayName;
         this.description  = description;
         this.type         = type;
         this.cooldownTicks = cooldownTicks;
         this.icon = icon;
+        this.source = source;
+        this.sourceDetail = sourceDetail;
+        this.flavourText = flavourText;
     }
 
     public Identifier getId()        { return id; }
@@ -37,6 +55,9 @@ public abstract class Ability {
     public int getCooldownTicks()    { return cooldownTicks; }
     public boolean isDefault()       { return false; }
     public Identifier getIcon()      {return  icon;}
+    public Source getSource()       { return source; }
+    public String getSourceDetail() { return sourceDetail; } // "Mining Mastery", "Default Ability", etc.
+    public String getFlavourText()  { return flavourText; }
 
     /**
      * Called client-side every tick to evaluate whether this ability

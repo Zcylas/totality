@@ -12,6 +12,7 @@ import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCon
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import zcylas.totality.init.items.CurrencyItems;
+import zcylas.totality.init.items.IngredientItems;
 import zcylas.totality.init.items.SKIngredientItems;
 
 public final class ModLootTables {
@@ -298,7 +299,24 @@ public final class ModLootTables {
                                         .when(LootItemRandomChanceCondition.randomChance(0.08f)))
                 );
             }
+            // ── Grass drops → True Wheat Seeds ───────────────────────────────────
+            if (key.equals(ResourceKey.create(Registries.LOOT_TABLE,
+                    Identifier.withDefaultNamespace("blocks/grass")))
+                    || key.equals(ResourceKey.create(Registries.LOOT_TABLE,
+                    Identifier.withDefaultNamespace("blocks/tall_grass")))
+                    || key.equals(ResourceKey.create(Registries.LOOT_TABLE,
+                    Identifier.withDefaultNamespace("blocks/short_grass")))) {
+                tableBuilder.withPool(
+                        LootPool.lootPool()
+                                .setRolls(ConstantValue.exactly(1))
+                                .add(LootItem.lootTableItem(IngredientItems.TRUE_WHEAT_SEEDS)
+                                        .apply(SetItemCountFunction.setCount(
+                                                ConstantValue.exactly(1)))
+                                        .when(LootItemRandomChanceCondition.randomChance(0.125f)))
+                );
+            }
         });
+
     }
 
     private ModLootTables() {}

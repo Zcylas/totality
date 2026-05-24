@@ -5,9 +5,9 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
-import zcylas.totality.api.magic.rune.AbstractRune;
-import zcylas.totality.api.magic.rune.RuneComponents;
-import zcylas.totality.api.magic.rune.RuneKnowledgeComponent;
+import zcylas.totality.api.magic.grimoire.rune.AbstractRune;
+import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
+import zcylas.totality.api.magic.grimoire.rune.RuneKnowledgeComponent;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 
 public class RuneItem extends Item {

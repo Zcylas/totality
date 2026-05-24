@@ -1,7 +1,7 @@
 package zcylas.totality.init.magic;
 
 import net.minecraft.resources.Identifier;
-import zcylas.totality.api.magic.rune.AbstractRune;
+import zcylas.totality.api.magic.grimoire.rune.AbstractRune;
 
 import java.util.Collection;
 import java.util.HashMap;

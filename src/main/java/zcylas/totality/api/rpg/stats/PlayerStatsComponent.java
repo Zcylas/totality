@@ -19,26 +19,18 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
     private final PlayerStats stats = new PlayerStats();
     private final ServerPlayer player;
 
-    // Persisted resource values — restored on join after stat modifiers are applied
-    // -1 means "not yet saved, use max on first load"
     private int savedStamina = -1;
-    private int savedMana = -1;
-    private float savedHp = -1;
+    private int savedMana    = -1;
+    private float savedHp   = -1;
 
     public PlayerStatsComponent(ServerPlayer player) {
         this.player = player;
     }
 
-    public PlayerStats getStats() {
-        return stats;
-    }
+    public PlayerStats getStats() { return stats; }
 
     // ── Resource save/restore ─────────────────────────────────────────────────
 
-    /**
-     * Called from StatsServerEvents on disconnect — saves current resource values
-     * so they can be restored next login.
-     */
     public void saveCurrentResources() {
         if (player == null) return;
         savedStamina = PlayerStaminaManager.getStamina(player);
@@ -46,31 +38,19 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
         savedHp      = player.getHealth();
     }
 
-    /**
-     * Called from StatsServerEvents on join, after stat modifiers are applied.
-     * Restores stamina, mana and HP to their saved values, clamped to current max.
-     */
     public void restoreResources() {
         if (player == null) return;
 
-        // Stamina
         int maxStamina = PlayerStaminaManager.getMaxStamina(player);
-        int staminaToRestore = savedStamina < 0 ? maxStamina
-                : Math.min(savedStamina, maxStamina);
-        PlayerStaminaManager.setStamina(player, staminaToRestore);
+        PlayerStaminaManager.setStamina(player,
+                savedStamina < 0 ? maxStamina : Math.min(savedStamina, maxStamina));
 
-        // Mana
         int maxMana = PlayerManaManager.getMaxMana(player);
-        int manaToRestore = savedMana < 0 ? maxMana
-                : Math.min(savedMana, maxMana);
-        PlayerManaManager.setMana(player, manaToRestore);
+        PlayerManaManager.setMana(player,
+                savedMana < 0 ? maxMana : Math.min(savedMana, maxMana));
 
-        // HP — vanilla saves HP but applies it before our CON modifier
-        // so we clamp the saved HP to our actual max after modifiers
         float maxHp = player.getMaxHealth();
-        float hpToRestore = savedHp < 0 ? maxHp
-                : Math.min(savedHp, maxHp);
-        player.setHealth(hpToRestore);
+        player.setHealth(savedHp < 0 ? maxHp : Math.min(savedHp, maxHp));
     }
 
     public void sync() {
@@ -95,20 +75,19 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
 
     @Override
     public void applySyncPacket(RegistryFriendlyByteBuf buf) {
-        int level   = buf.readInt();
-        int xp      = buf.readInt();
-        int unspent = buf.readInt();
-        int[] scores = new int[AbilityScore.values().length];
-        for (int i = 0; i < scores.length; i++) {
-            scores[i] = buf.readInt();
-        }
-        stats.setLevelDirectly(level);
-        stats.setCharacterXpDirectly(xp);
-        stats.setUnspentAttributePointsDirectly(unspent);
+        stats.setLevelDirectly(buf.readInt());
+        stats.setCharacterXpDirectly(buf.readInt());
+        stats.setUnspentAttributePointsDirectly(buf.readInt());
         AbilityScore[] scoreValues = AbilityScore.values();
+        // Read final scores directly into finalScores via setScore on client
+        // (client doesn't need layers, just final values)
+        int[] scores = new int[scoreValues.length];
+        for (int i = 0; i < scores.length; i++) scores[i] = buf.readInt();
         for (int i = 0; i < scoreValues.length; i++) {
-            stats.setScore(scoreValues[i], scores[i]);
+            stats.setSpentPointsDirectly(scoreValues[i],
+                    scores[i] - PlayerStats.BASE_SCORE);
         }
+        stats.recalculate();
         ClientStatsManager.apply(stats);
     }
 
@@ -120,9 +99,12 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
         output.putInt("ps_xp",      stats.getCharacterXp());
         output.putInt("ps_unspent", stats.getUnspentAttributePoints());
         for (AbilityScore score : AbilityScore.values()) {
-            output.putInt("ps_" + score.name().toLowerCase(), stats.getScore(score));
+            String key = score.name().toLowerCase();
+            output.putInt("ps_spent_"  + key, stats.getSpentPoints(score));
+            output.putInt("ps_origin_" + key, stats.getOriginBonus(score));
+            output.putInt("ps_class_"  + key, stats.getClassBonus(score));
+            output.putInt("ps_item_"   + key, stats.getItemBonus(score));
         }
-        // Save current resource values
         output.putInt("ps_stamina", savedStamina);
         output.putInt("ps_mana",    savedMana);
         output.putFloat("ps_hp",    savedHp);
@@ -134,16 +116,17 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
         stats.setCharacterXpDirectly(input.getIntOr("ps_xp", 0));
         stats.setUnspentAttributePointsDirectly(input.getIntOr("ps_unspent", 0));
         for (AbilityScore score : AbilityScore.values()) {
-            stats.setScore(score, input.getIntOr("ps_" + score.name().toLowerCase(),
-                    PlayerStats.BASE_SCORE));
+            String key = score.name().toLowerCase();
+            stats.setSpentPointsDirectly(score,  input.getIntOr("ps_spent_"  + key, 0));
+            stats.setOriginBonusDirectly(score,  input.getIntOr("ps_origin_" + key, 0));
+            stats.setClassBonusDirectly(score,   input.getIntOr("ps_class_"  + key, 0));
+            stats.setItemBonusDirectly(score,    input.getIntOr("ps_item_"   + key, 0));
         }
-        // Load saved resource values
+        stats.recalculate();
         savedStamina = input.getIntOr("ps_stamina", -1);
         savedMana    = input.getIntOr("ps_mana",    -1);
         savedHp      = input.getFloatOr("ps_hp",    -1f);
     }
-
-    // ── Death copy ────────────────────────────────────────────────────────────
 
     @Override
     public void copyFrom(PlayerStatsComponent other, HolderLookup.Provider registries) {
@@ -151,9 +134,12 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
         stats.setCharacterXpDirectly(other.stats.getCharacterXp());
         stats.setUnspentAttributePointsDirectly(other.stats.getUnspentAttributePoints());
         for (AbilityScore score : AbilityScore.values()) {
-            stats.setScore(score, other.stats.getScore(score));
+            stats.setSpentPointsDirectly(score, other.stats.getSpentPoints(score));
+            stats.setOriginBonusDirectly(score, other.stats.getOriginBonus(score));
+            stats.setClassBonusDirectly(score,  other.stats.getClassBonus(score));
+            stats.setItemBonusDirectly(score,   other.stats.getItemBonus(score));
         }
-        // On death, restore to full resources
+        stats.recalculate();
         savedStamina = -1;
         savedMana    = -1;
         savedHp      = -1;

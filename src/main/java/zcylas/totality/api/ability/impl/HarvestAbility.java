@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
@@ -18,7 +19,9 @@ import net.minecraft.world.phys.HitResult;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityContext;
+import zcylas.totality.api.core.util.MountainFlowerBushBlock;
 import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
+import zcylas.totality.block.alchemy.RedMountainFlowerBlock;
 import zcylas.totality.init.ModTags;
 
 import java.util.List;
@@ -32,7 +35,10 @@ public class HarvestAbility extends Ability {
                 "Harvest plants directly into your inventory. Crops are replanted automatically.",
                 Type.ACTIVE,
                 0,
-                Identifier.fromNamespaceAndPath("totality", "textures/ability/harvest.png")
+                Identifier.fromNamespaceAndPath("totality", "textures/ability/harvest.png"),
+                Source.DEFAULT,
+                "Default Ability",
+                "The land provides for those who tend it."
         );
     }
 
@@ -85,6 +91,8 @@ public class HarvestAbility extends Ability {
             harvestCocoa(player, level, pos, state);
         } else if (block instanceof CaveVinesPlantBlock || block instanceof CaveVinesBlock) {
             harvestCaveVines(player, level, pos, state);
+        } else if (block instanceof MountainFlowerBushBlock flowerBush) {
+            harvestMountainFlowerBush(player, level, pos, state, flowerBush.getFlowerItem());
         } else {
             harvestAndCollect(player, level, pos, state, greenThumb && isAlchemyIngredient);
         }
@@ -101,6 +109,14 @@ public class HarvestAbility extends Ability {
         removeSeedFromDrops(drops, block, level, pos);
         playHarvestSound(level, pos);
         giveToPlayer(player, drops,false);
+    }
+
+    private void harvestMountainFlowerBush(ServerPlayer player, ServerLevel level,
+                                           BlockPos pos, BlockState state, Item flowerItem) {
+        if (state.getValue(MountainFlowerBushBlock.HARVESTED)) return;
+        Block.popResource(level, pos, new ItemStack(flowerItem));
+        level.setBlock(pos, state.setValue(MountainFlowerBushBlock.HARVESTED, true), Block.UPDATE_ALL);
+        playHarvestSound(level, pos);
     }
 
     private void harvestSweetBerries(ServerPlayer player, ServerLevel level,
@@ -190,6 +206,9 @@ public class HarvestAbility extends Ability {
         }
         if (block instanceof CaveVinesPlantBlock || block instanceof CaveVinesBlock) {
             return CaveVines.hasGlowBerries(state);
+        }
+        if (block instanceof MountainFlowerBushBlock) {
+            return !state.getValue(MountainFlowerBushBlock.HARVESTED);
         }
         return state.is(BlockTags.FLOWERS)
                 || state.is(BlockTags.SMALL_FLOWERS)

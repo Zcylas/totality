@@ -4,12 +4,9 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
-import zcylas.totality.api.rpg.stats.StatAttributeApplier;
+import zcylas.totality.api.rpg.stats.PlayerResourceRecalculator;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.networking.notification.SendNotificationPayload;
-import zcylas.totality.networking.stamina.StaminaServerTick;
-import zcylas.totality.api.rpg.mana.PlayerManaManager;
-import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 
 public class SpendAttributePointHandler {
 
@@ -31,20 +28,8 @@ public class SpendAttributePointHandler {
         boolean spent = stats.spendAttributePoint(score);
         if (!spent) return;
 
-        // Reapply attribute modifiers (CON → HP etc.)
-        StatAttributeApplier.apply(player);
-
-        // If END or INT changed, clamp current resources to new max
-        // (spending into these increases max, so no clamping needed — player keeps current)
-        // But we sync so client sees updated max
-        StaminaServerTick.syncStamina(player);
-        net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
-                new zcylas.totality.networking.mana.SyncManaPayload(
-                        PlayerManaManager.getMana(player),
-                        PlayerManaManager.getMaxMana(player)));
-
-        // Sync stats to client so screen updates
-        StatsComponents.get(player).sync();
+        // Recalculate all resources — handles HP, stamina, mana, sync
+        PlayerResourceRecalculator.recalculate(player);
 
         // Notify
         SendNotificationPayload.send(player,

@@ -15,10 +15,10 @@ import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import zcylas.totality.api.magic.context.FormulaContext;
-import zcylas.totality.api.magic.context.FormulaResolver;
-import zcylas.totality.api.magic.formula.ArcaneFormula;
-import zcylas.totality.api.magic.rune.AbstractRune;
+import zcylas.totality.api.magic.grimoire.context.FormulaContext;
+import zcylas.totality.api.magic.grimoire.context.FormulaResolver;
+import zcylas.totality.api.magic.grimoire.formula.ArcaneFormula;
+import zcylas.totality.api.magic.grimoire.rune.AbstractRune;
 import zcylas.totality.init.ModEntities;
 
 import java.util.List;

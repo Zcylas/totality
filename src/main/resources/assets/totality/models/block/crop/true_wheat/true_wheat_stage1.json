@@ -1,0 +1,6 @@
+{
+  "parent": "totality:block/template/tall_dense_crop",
+  "textures": {
+    "crop": "totality:block/crop/true_wheat/true_wheat_stage1"
+  }
+}

@@ -5,7 +5,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import zcylas.totality.Totality;
-import zcylas.totality.api.magic.GrimoireCaster;
+import zcylas.totality.api.magic.grimoire.GrimoireCaster;
 
 public record UpdateGrimoirePayload(GrimoireCaster caster)
         implements CustomPacketPayload {

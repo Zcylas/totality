@@ -38,12 +38,12 @@ public class ModConfiguredFeatures {
             Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"ruby_ore"));
 
     // Mountain Flowers
-    public static final ResourceKey<ConfiguredFeature<?, ?>> BLUE_MOUNTAIN_FLOWER_KEY = ResourceKey.create(
-            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"blue_mountain_flower"));
-    public static final ResourceKey<ConfiguredFeature<?, ?>> PURPLE_MOUNTAIN_FLOWER_KEY = ResourceKey.create(
-            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"purple_mountain_flower"));
-    public static final ResourceKey<ConfiguredFeature<?, ?>> RED_MOUNTAIN_FLOWER_KEY = ResourceKey.create(
-            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"red_mountain_flower"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> BLUE_MOUNTAIN_FLOWER_BUSH_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"blue_mountain_flower_bush"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> PURPLE_MOUNTAIN_FLOWER_BUSH_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"purple_mountain_flower_bush"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> RED_MOUNTAIN_FLOWER_BUSH_KEY  = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID,"red_mountain_flower_bush"));
     // Whitestone
     public static final ResourceKey<ConfiguredFeature<?, ?>> WHITESTONE_KEY = ResourceKey.create(
             Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "whitestone"));
@@ -82,16 +82,15 @@ public class ModConfiguredFeatures {
         context.register(RUBY_ORE_KEY, new ConfiguredFeature<>(Feature.ORE, new OreConfiguration(rubyOreTargets, 3)));
 
         // Mountain Flowers
-        context.register(BLUE_MOUNTAIN_FLOWER_KEY, new ConfiguredFeature<>(
+        context.register(BLUE_MOUNTAIN_FLOWER_BUSH_KEY, new ConfiguredFeature<>(
                 Feature.SIMPLE_BLOCK,
-                new SimpleBlockConfiguration(BlockStateProvider.simple(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER))));
-        context.register(PURPLE_MOUNTAIN_FLOWER_KEY, new ConfiguredFeature<>(
+                new SimpleBlockConfiguration(BlockStateProvider.simple(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER_BUSH))));
+        context.register(PURPLE_MOUNTAIN_FLOWER_BUSH_KEY, new ConfiguredFeature<>(
                 Feature.SIMPLE_BLOCK,
-                new SimpleBlockConfiguration(BlockStateProvider.simple(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER))));
-        context.register(RED_MOUNTAIN_FLOWER_KEY, new ConfiguredFeature<>(
+                new SimpleBlockConfiguration(BlockStateProvider.simple(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER_BUSH))));
+        context.register(RED_MOUNTAIN_FLOWER_BUSH_KEY, new ConfiguredFeature<>(
                 Feature.SIMPLE_BLOCK,
-                new SimpleBlockConfiguration(BlockStateProvider.simple(AlchemyBlocks.RED_MOUNTAIN_FLOWER))));
-
+                new SimpleBlockConfiguration(BlockStateProvider.simple(AlchemyBlocks.RED_MOUNTAIN_FLOWER_BUSH))));
         //Whitestone
         context.register(WHITESTONE_KEY, new ConfiguredFeature<>(Feature.REPLACE_BLOBS,
                 new ReplaceSphereConfiguration(

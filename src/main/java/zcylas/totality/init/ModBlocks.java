@@ -1,5 +1,6 @@
 package zcylas.totality.init;
 
+import net.minecraft.world.level.block.Block;
 import zcylas.totality.block.fluid.FluidTankBlock;
 import zcylas.totality.init.blocks.*;
 

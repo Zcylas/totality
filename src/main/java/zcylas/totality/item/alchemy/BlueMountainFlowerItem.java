@@ -4,10 +4,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import zcylas.totality.Totality;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffectInstance;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
@@ -28,7 +27,7 @@ import java.util.function.Consumer;
  *   2 — Fortify Health        (BENEFICIAL)
  *   3 — Damage Magicka Regen  (HARMFUL)
  */
-public class BlueMountainFlowerItem extends BlockItem implements AlchemyIngredient, TooltipExtension {
+public class BlueMountainFlowerItem extends Item implements AlchemyIngredient, TooltipExtension {
 
     private static final Identifier INGREDIENT_ID =
             Identifier.fromNamespaceAndPath(Totality.MOD_ID, "blue_mountain_flower");
@@ -40,8 +39,8 @@ public class BlueMountainFlowerItem extends BlockItem implements AlchemyIngredie
             AlchemyEffectInstance.of(AlchemyEffects.DAMAGE_MANA_REGEN, 3)
     );
 
-    public BlueMountainFlowerItem(Block block, Properties properties) {
-        super(block, properties);
+    public BlueMountainFlowerItem(Properties  properties) {
+        super(properties);
     }
 
     @Override

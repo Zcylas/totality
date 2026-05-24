@@ -1,9 +1,12 @@
 package zcylas.totality.api.core.component;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.gamerules.GameRules;
+import zcylas.totality.api.rpg.ancestry.AncestryComponents;
+import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +61,7 @@ public final class PlayerComponentEvents {
 
     public static void init() {
         ServerPlayerEvents.JOIN.register(player -> {
+            // Sync all components
             for (var reg : REGISTRATIONS) {
                 reg.key().maybeGet((ComponentProvider) player).ifPresent(component -> {
                     if (component instanceof SyncedComponent) {
@@ -65,7 +69,14 @@ public final class PlayerComponentEvents {
                     }
                 });
             }
+            player.refreshDimensions();
+
+            // Open ancestry selection if not yet chosen
+            if (!AncestryComponents.get(player).hasAncestry()) {
+                ServerPlayNetworking.send(player, new OpenAncestrySelectionPayload());
+            }
         });
+
         ServerPlayerEvents.COPY_FROM.register((oldPlayer, newPlayer, alive) -> {
             HolderLookup.Provider registries = newPlayer.level().registryAccess();
             boolean keepInventory = oldPlayer.level().getGameRules()

@@ -27,12 +27,12 @@ public class ModPlacedFeatures {
             Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "ruby_ore_placed"));
 
     // Mountain Flowers
-    public static final ResourceKey<PlacedFeature> BLUE_MOUNTAIN_FLOWER_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "blue_mountain_flower_placed"));
-    public static final ResourceKey<PlacedFeature> PURPLE_MOUNTAIN_FLOWER_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "purple_mountain_flower_placed"));
-    public static final ResourceKey<PlacedFeature> RED_MOUNTAIN_FLOWER_PLACED_KEY = ResourceKey.create(
-            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "red_mountain_flower_placed"));
+    public static final ResourceKey<PlacedFeature> BLUE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "blue_mountain_flower_bush_placed"));
+    public static final ResourceKey<PlacedFeature> PURPLE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "purple_mountain_flower_bush_placed"));
+    public static final ResourceKey<PlacedFeature> RED_MOUNTAIN_FLOWER_BUSH_PLACED_KEY = ResourceKey.create(
+            Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "red_mountain_flower_bush_placed"));
     //Whitestone
     public static final ResourceKey<PlacedFeature> WHITESTONE_PLACED_KEY = ResourceKey.create(
             Registries.PLACED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "whitestone_placed"));
@@ -75,18 +75,18 @@ public class ModPlacedFeatures {
 
         // Mountain Flowers
         // Blue — plains, forests, meadows
-        context.register(BLUE_MOUNTAIN_FLOWER_PLACED_KEY, new PlacedFeature(
-                configuredFeatures.getOrThrow(ModConfiguredFeatures.BLUE_MOUNTAIN_FLOWER_KEY),
+        context.register(BLUE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.BLUE_MOUNTAIN_FLOWER_BUSH_KEY),
                 List.of(RarityFilter.onAverageOnceEvery(6), InSquarePlacement.spread(),
                         PlacementUtils.HEIGHTMAP_WORLD_SURFACE, BiomeFilter.biome())));
         // Purple — taiga, snowy biomes
-        context.register(PURPLE_MOUNTAIN_FLOWER_PLACED_KEY, new PlacedFeature(
-                configuredFeatures.getOrThrow(ModConfiguredFeatures.PURPLE_MOUNTAIN_FLOWER_KEY),
+        context.register(PURPLE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.PURPLE_MOUNTAIN_FLOWER_BUSH_KEY),
                 List.of(RarityFilter.onAverageOnceEvery(8), InSquarePlacement.spread(),
                         PlacementUtils.HEIGHTMAP_WORLD_SURFACE, BiomeFilter.biome())));
         // Red — forests, warm biomes
-        context.register(RED_MOUNTAIN_FLOWER_PLACED_KEY, new PlacedFeature(
-                configuredFeatures.getOrThrow(ModConfiguredFeatures.RED_MOUNTAIN_FLOWER_KEY),
+        context.register(RED_MOUNTAIN_FLOWER_BUSH_PLACED_KEY, new PlacedFeature(
+                configuredFeatures.getOrThrow(ModConfiguredFeatures.RED_MOUNTAIN_FLOWER_BUSH_KEY),
                 List.of(RarityFilter.onAverageOnceEvery(6), InSquarePlacement.spread(),
                         PlacementUtils.HEIGHTMAP_WORLD_SURFACE, BiomeFilter.biome())));
         //Whitestone

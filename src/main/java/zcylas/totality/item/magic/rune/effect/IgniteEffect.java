@@ -10,11 +10,10 @@ import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
-import zcylas.totality.api.magic.context.FormulaContext;
-import zcylas.totality.api.magic.context.FormulaResolver;
-import zcylas.totality.api.magic.formula.FormulaStats;
-import zcylas.totality.api.magic.rune.AbstractEffectRune;
-import zcylas.totality.api.magic.util.SpellUtil;
+import zcylas.totality.api.magic.grimoire.context.FormulaContext;
+import zcylas.totality.api.magic.grimoire.context.FormulaResolver;
+import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
+import zcylas.totality.api.magic.grimoire.rune.AbstractEffectRune;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 
 import java.util.List;
@@ -60,7 +59,7 @@ public class IgniteEffect extends AbstractEffectRune {
 
         Direction face    = hit.getDirection();
         int radius        = (int) stats.getAoeRadius();
-        List<BlockPos> blocks = zcylas.totality.api.magic.util.SpellUtil
+        List<BlockPos> blocks = zcylas.totality.api.magic.grimoire.util.SpellUtil
                 .calcAoeBlocks(caster, hit.getBlockPos(), hit, radius);
 
         for (BlockPos pos : blocks) {

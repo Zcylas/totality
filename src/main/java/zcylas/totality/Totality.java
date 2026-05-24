@@ -171,7 +171,7 @@ public class Totality implements ModInitializer {
 									&& !path.contains("dark"));
 						}),
 				GenerationStep.Decoration.VEGETAL_DECORATION,
-				ModPlacedFeatures.BLUE_MOUNTAIN_FLOWER_PLACED_KEY
+				ModPlacedFeatures.BLUE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY
 		);
 		// Purple Mountain Flower — taiga, snowy biomes
 		BiomeModifications.addFeature(
@@ -184,7 +184,7 @@ public class Totality implements ModInitializer {
 									|| path.contains("frozen");
 						}),
 				GenerationStep.Decoration.VEGETAL_DECORATION,
-				ModPlacedFeatures.PURPLE_MOUNTAIN_FLOWER_PLACED_KEY
+				ModPlacedFeatures.PURPLE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY
 		);
 
 	// Red Mountain Flower — forests, jungles, warm biomes
@@ -199,7 +199,7 @@ public class Totality implements ModInitializer {
 									|| path.contains("savanna");
 						}),
 				GenerationStep.Decoration.VEGETAL_DECORATION,
-				ModPlacedFeatures.RED_MOUNTAIN_FLOWER_PLACED_KEY
+				ModPlacedFeatures.RED_MOUNTAIN_FLOWER_BUSH_PLACED_KEY
 		);
 
 		// Whitestone — everywhere

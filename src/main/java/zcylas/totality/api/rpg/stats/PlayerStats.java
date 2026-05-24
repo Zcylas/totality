@@ -4,40 +4,138 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * Holds all RPG stats for a player.
- * Stored in PlayerStatsComponent, persists on death, synced to client.
- *
- * Level cap: 100
- * Starting ability scores: 10 for all
- * Attribute points per level: 5, freely distributed across any AbilityScore
+ * Holds all RPG stats for a player using a layered bonus system.
+ * Final score = base(10) + spentPoints + originBonus + classBonus + itemBonus.
+ * Any change to any layer triggers recalculate() automatically.
  */
 public class PlayerStats {
 
-    public static final int MAX_LEVEL = 100;
-    public static final int BASE_SCORE = 10;
+    public static final int MAX_LEVEL                  = 100;
+    public static final int BASE_SCORE                 = 10;
     public static final int ATTRIBUTE_POINTS_PER_LEVEL = 5;
 
-    private int level = 1;
-    private int characterXp = 0;
+    private int level                  = 1;
+    private int characterXp            = 0;
     private int unspentAttributePoints = 0;
-    private final Map<AbilityScore, Integer> scores = new EnumMap<>(AbilityScore.class);
+
+    // ── Bonus layers ──────────────────────────────────────────────────────────
+    /** Points spent by the player via attribute point system */
+    private final Map<AbilityScore, Integer> spentPoints = new EnumMap<>(AbilityScore.class);
+    /** Bonuses from species origin (replaces racial + subrace layers) */
+    private final Map<AbilityScore, Integer> originBonus = new EnumMap<>(AbilityScore.class);
+    /** Bonuses from class */
+    private final Map<AbilityScore, Integer> classBonus  = new EnumMap<>(AbilityScore.class);
+    /** Bonuses from items/equipment */
+    private final Map<AbilityScore, Integer> itemBonus   = new EnumMap<>(AbilityScore.class);
+
+    /** Cached final scores — recalculated whenever any layer changes */
+    private final Map<AbilityScore, Integer> finalScores = new EnumMap<>(AbilityScore.class);
 
     public PlayerStats() {
         for (AbilityScore score : AbilityScore.values()) {
-            scores.put(score, BASE_SCORE);
+            spentPoints.put(score, 0);
+            originBonus.put(score, 0);
+            classBonus .put(score, 0);
+            itemBonus  .put(score, 0);
+            finalScores.put(score, BASE_SCORE);
         }
+    }
+
+    // ── Recalculation ─────────────────────────────────────────────────────────
+
+    /**
+     * Recalculates all final scores from all bonus layers.
+     * Call after any layer changes.
+     */
+    public void recalculate() {
+        for (AbilityScore score : AbilityScore.values()) {
+            int total = BASE_SCORE
+                    + spentPoints.getOrDefault(score, 0)
+                    + originBonus.getOrDefault(score, 0)
+                    + classBonus .getOrDefault(score, 0)
+                    + itemBonus  .getOrDefault(score, 0);
+            finalScores.put(score, Math.max(1, total));
+        }
+    }
+
+    // ── Layer setters ─────────────────────────────────────────────────────────
+
+    public void setOriginBonus(AbilityScoreBonus bonus) {
+        applyBonusToMap(originBonus, bonus);
+        recalculate();
+    }
+
+    public void setClassBonus(AbilityScoreBonus bonus) {
+        applyBonusToMap(classBonus, bonus);
+        recalculate();
+    }
+
+    public void setItemBonus(AbilityScoreBonus bonus) {
+        applyBonusToMap(itemBonus, bonus);
+        recalculate();
+    }
+
+    public void clearOriginBonus() {
+        originBonus.replaceAll((k, v) -> 0);
+        recalculate();
+    }
+
+    public void clearClassBonus() {
+        classBonus.replaceAll((k, v) -> 0);
+        recalculate();
+    }
+
+    public void clearItemBonus() {
+        itemBonus.replaceAll((k, v) -> 0);
+        recalculate();
+    }
+
+    private void applyBonusToMap(Map<AbilityScore, Integer> map, AbilityScoreBonus bonus) {
+        map.put(AbilityScore.STR, bonus.str());
+        map.put(AbilityScore.DEX, bonus.dex());
+        map.put(AbilityScore.CON, bonus.con());
+        map.put(AbilityScore.END, bonus.end());
+        map.put(AbilityScore.INT, bonus.intel());
+        map.put(AbilityScore.WIS, bonus.wis());
+        map.put(AbilityScore.CHA, bonus.cha());
+        map.put(AbilityScore.FTH, bonus.fth());
+    }
+
+    // ── Score access ──────────────────────────────────────────────────────────
+
+    public int getScore(AbilityScore score) {
+        return finalScores.getOrDefault(score, BASE_SCORE);
+    }
+
+    public int getModifier(AbilityScore score) {
+        return AbilityScore.getModifier(getScore(score));
+    }
+
+    public Map<AbilityScore, Integer> getAllScores() {
+        return new EnumMap<>(finalScores);
+    }
+
+    // ── Attribute point spending ──────────────────────────────────────────────
+
+    public int getUnspentAttributePoints() { return unspentAttributePoints; }
+
+    public boolean spendAttributePoint(AbilityScore score) {
+        if (unspentAttributePoints <= 0) return false;
+        spentPoints.merge(score, 1, Integer::sum);
+        unspentAttributePoints--;
+        recalculate();
+        return true;
+    }
+
+    public void setUnspentAttributePointsDirectly(int points) {
+        this.unspentAttributePoints = Math.max(0, points);
     }
 
     // ── Level ─────────────────────────────────────────────────────────────────
 
-    public int getLevel() { return level; }
+    public int getLevel()            { return level; }
+    public boolean isMaxLevel()      { return level >= MAX_LEVEL; }
 
-    public boolean isMaxLevel() { return level >= MAX_LEVEL; }
-
-    /**
-     * Attempts to level up. Returns true if level-up occurred.
-     * Awards ATTRIBUTE_POINTS_PER_LEVEL unspent points on level-up.
-     */
     public boolean tryLevelUp() {
         if (isMaxLevel()) return false;
         level++;
@@ -46,7 +144,6 @@ public class PlayerStats {
         return true;
     }
 
-    /** Used by serialization only — bypasses level-up logic. */
     public void setLevelDirectly(int level) {
         this.level = Math.clamp(level, 1, MAX_LEVEL);
     }
@@ -55,17 +152,10 @@ public class PlayerStats {
 
     public int getCharacterXp() { return characterXp; }
 
-    /**
-     * XP required to reach the next level.
-     * Formula: (level + 3) * 25 — scales gradually like Skyrim.
-     */
     public int getXpRequiredForNextLevel() {
         return (level + 3) * 25;
     }
 
-    /**
-     * Adds character XP. Returns true if a level-up occurred.
-     */
     public boolean addCharacterXp(int amount) {
         if (isMaxLevel()) return false;
         characterXp += amount;
@@ -75,83 +165,59 @@ public class PlayerStats {
         return false;
     }
 
-    /** Used by serialization only. */
     public void setCharacterXpDirectly(int xp) {
         this.characterXp = Math.max(0, xp);
     }
 
-    // ── Attribute Points ──────────────────────────────────────────────────────
-
-    public int getUnspentAttributePoints() { return unspentAttributePoints; }
-
-    /**
-     * Spends one attribute point into the given score.
-     * Returns true if the point was spent successfully.
-     */
-    public boolean spendAttributePoint(AbilityScore score) {
-        if (unspentAttributePoints <= 0) return false;
-        scores.merge(score, 1, Integer::sum);
-        unspentAttributePoints--;
-        return true;
-    }
-
-    /** Used by serialization only. */
-    public void setUnspentAttributePointsDirectly(int points) {
-        this.unspentAttributePoints = Math.max(0, points);
-    }
-
-    // ── Ability Scores ────────────────────────────────────────────────────────
-
-    public int getScore(AbilityScore score) {
-        return scores.getOrDefault(score, BASE_SCORE);
-    }
-
-    public int getModifier(AbilityScore score) {
-        return AbilityScore.getModifier(getScore(score));
-    }
-
-    /**
-     * Sets a score directly — used for class/race bonuses and serialization.
-     */
-    public void setScore(AbilityScore score, int value) {
-        scores.put(score, Math.max(1, value));
-    }
-
-    public Map<AbilityScore, Integer> getAllScores() {
-        return new EnumMap<>(scores);
-    }
-
     // ── Derived stats ─────────────────────────────────────────────────────────
 
-    /**
-     * Max HP bonus from CON modifier.
-     * At CON 10 (modifier 0) → bonus 0 → total HP = 100 (base) + 0 = 100.
-     */
     public int getMaxHpBonus() {
         return getModifier(AbilityScore.CON) * 5;
     }
 
-    /**
-     * Max Stamina bonus from END modifier.
-     * At END 10 (modifier 0) → bonus 0 → total stamina = 100 (base) + 0 = 100.
-     */
     public int getMaxStaminaBonus() {
         return getModifier(AbilityScore.END) * 10;
     }
 
-    /**
-     * Max Mana bonus from INT modifier.
-     * At INT 10 (modifier 0) → bonus 0 → total mana = 100 (base) + 0 = 100.
-     */
     public int getMaxManaBonus() {
         return getModifier(AbilityScore.INT) * 10;
     }
 
-    /**
-     * Attack damage bonus from STR modifier.
-     * Each STR modifier point = +0.5 attack damage.
-     */
     public float getStrAttackBonus() {
         return getModifier(AbilityScore.STR) * 0.5f;
+    }
+
+    // ── Serialization helpers ─────────────────────────────────────────────────
+
+    public void setSpentPointsDirectly(AbilityScore score, int value) {
+        spentPoints.put(score, value);
+    }
+
+    public int getSpentPoints(AbilityScore score) {
+        return spentPoints.getOrDefault(score, 0);
+    }
+
+    public void setOriginBonusDirectly(AbilityScore score, int value) {
+        originBonus.put(score, value);
+    }
+
+    public int getOriginBonus(AbilityScore score) {
+        return originBonus.getOrDefault(score, 0);
+    }
+
+    public void setClassBonusDirectly(AbilityScore score, int value) {
+        classBonus.put(score, value);
+    }
+
+    public int getClassBonus(AbilityScore score) {
+        return classBonus.getOrDefault(score, 0);
+    }
+
+    public void setItemBonusDirectly(AbilityScore score, int value) {
+        itemBonus.put(score, value);
+    }
+
+    public int getItemBonus(AbilityScore score) {
+        return itemBonus.getOrDefault(score, 0);
     }
 }

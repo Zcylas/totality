@@ -56,6 +56,9 @@ public class MinecraftAttackMixin {
                 client.player.swing(InteractionHand.MAIN_HAND, true);
                 if (client.gameMode != null && client.crosshairPickEntity != null) {
                     client.gameMode.attack(client.player, client.crosshairPickEntity);
+                    if (client.crosshairPickEntity instanceof net.minecraft.world.entity.LivingEntity living) {
+                        zcylas.totality.client.renderer.hud.MobHealthBarHud.onPlayerHitMob(living);
+                    }
                 }
                 // Flash + sound
                 PowerAttackFlash.trigger();
@@ -67,6 +70,9 @@ public class MinecraftAttackMixin {
             if (totality$holdTicks < 12) {
                 if (client.gameMode != null && client.crosshairPickEntity != null) {
                     client.gameMode.attack(client.player, client.crosshairPickEntity);
+                    if (client.crosshairPickEntity instanceof net.minecraft.world.entity.LivingEntity living) {
+                        zcylas.totality.client.renderer.hud.MobHealthBarHud.onPlayerHitMob(living);
+                    }
                 }
                 client.player.swing(InteractionHand.MAIN_HAND);
             }

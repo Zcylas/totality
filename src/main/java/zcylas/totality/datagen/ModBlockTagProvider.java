@@ -63,9 +63,9 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
         ;
 
         valueLookupBuilder(ModTags.HARVESTABLE)
-                .add(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER)
-                .add(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER)
-                .add(AlchemyBlocks.RED_MOUNTAIN_FLOWER)
+                .add(AlchemyBlocks.BLUE_MOUNTAIN_FLOWER_BUSH)
+                .add(AlchemyBlocks.PURPLE_MOUNTAIN_FLOWER_BUSH)
+                .add(AlchemyBlocks.RED_MOUNTAIN_FLOWER_BUSH)
         ;
     }
 }

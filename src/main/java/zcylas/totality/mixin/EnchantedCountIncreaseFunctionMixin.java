@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import zcylas.totality.api.magic.damage.SpellDamageSource;
+import zcylas.totality.api.magic.grimoire.damage.SpellDamageSource;
 
 @Mixin(EnchantedCountIncreaseFunction.class)
 public class EnchantedCountIncreaseFunctionMixin {

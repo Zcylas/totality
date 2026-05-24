@@ -3,19 +3,22 @@ package zcylas.totality.init.events;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
 import zcylas.totality.api.rpg.combat.exhaustion.ExhaustionManager;
-import zcylas.totality.api.rpg.race.RaceComponents;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyHandler;
-import zcylas.totality.networking.race.OpenRaceSelectionPayload;
+import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 
 public class PlayerConnectionEvents {
 
     public static void register() {
-        // ── Race selection on first join ──────────────────────────────────────
+        // ── Ancestry selection on first join ──────────────────────────────────
         ServerPlayerEvents.JOIN.register(player -> {
-            if (!RaceComponents.get(player).hasRace()) {
-                ServerPlayNetworking.send(player, new OpenRaceSelectionPayload());
+            if (!AncestryComponents.get(player).hasAncestry()) {
+                ServerPlayNetworking.send(player, new OpenAncestrySelectionPayload());
+            } else {
+                AncestryComponents.get(player).sync();
+                player.refreshDimensions();
             }
         });
 

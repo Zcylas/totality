@@ -4,10 +4,7 @@ import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
 import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.init.TotalityRegistry;
-import zcylas.totality.item.alchemy.GarlicItem;
-import zcylas.totality.item.alchemy.RockWarblerEggItem;
-import zcylas.totality.item.alchemy.SalmonRoeItem;
-import zcylas.totality.item.alchemy.TrueWheatItem;
+import zcylas.totality.item.alchemy.*;
 
 /**
  * All alchemy ingredient items.
@@ -64,6 +61,37 @@ public final class SKIngredientItems {
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.INGREDIENT))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "Humble but essential. Alchemists know that the most ordinary things often hold the deepest power."
+                    ))
+    );
+    public static final RedMountainFlowerItem RED_MOUNTAIN_FLOWER = TotalityRegistry.registerItem(
+            "red_mountain_flower",
+            RedMountainFlowerItem::new,
+            new Item.Properties().stacksTo(64).food(INGREDIENT_FOOD)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.INGREDIENT))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A delicate red bloom found on misty hillsides. Sought by healers for its regenerative properties."
+                    ))
+    );
+    public static final BlueMountainFlowerItem BLUE_MOUNTAIN_FLOWER = TotalityRegistry.registerItem(
+            "blue_mountain_flower",
+            BlueMountainFlowerItem::new,
+            new Item.Properties().stacksTo(64).food(INGREDIENT_FOOD)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.INGREDIENT))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "Grows where the mountain mist lingers longest. Healers seek it out, though few know all its properties."
+                    ))
+    );
+
+    public static final PurpleMountainFlowerItem PURPLE_MOUNTAIN_FLOWER = TotalityRegistry.registerItem(
+            "purple_mountain_flower",
+            PurpleMountainFlowerItem::new,
+            new Item.Properties().stacksTo(64).food(INGREDIENT_FOOD)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.INGREDIENT))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "Found in the cold reaches where taiga meets stone. Its scent is sweet, but apothecaries handle it with care."
                     ))
     );
 

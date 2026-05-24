@@ -7,6 +7,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
+import zcylas.totality.screen.character.CharacterScreen;
 import zcylas.totality.screen.inventory.TotalityInventoryScreen;
 
 /**
@@ -40,14 +41,14 @@ public class MainMenuScreen extends Screen {
     private static final int DIAMOND_OFFSET = 8;
 
     private static final String[][] LABELS = {
-            { "",         "CHARACTER",  ""          },
-            { "CODEX",    null,         "INVENTORY" },
-            { "",         "ABILITIES",  ""          }
+            { "",      "CHARACTER", ""          },
+            { "CODEX", null,        "INVENTORY" },
+            { "",      "",          ""          }
     };
     private static final String[][] DESCS = {
-            { "",              "Stats & Skills",   ""               },
-            { "",              null,               "Items & Equipment" },
-            { "",              "Active & Passive", ""               }
+            { "",  "Stats & Skills",    ""                 },
+            { "",  null,                "Items & Equipment" },
+            { "",  "",                  ""                 }
     };
 
     private int curRow = 1, curCol = 1;
@@ -276,10 +277,9 @@ public class MainMenuScreen extends Screen {
         String label = LABELS[curRow][curCol];
         if (label == null || label.isEmpty()) return;
         switch (label) {
-            case "CHARACTER" -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new CharacterMenuScreen()));
-            case "INVENTORY" -> fadeOutTo(() ->
-                    Minecraft.getInstance().setScreen(new TotalityInventoryScreen()));
-            case "CODEX",  "ABILITIES" -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new AbilitiesScreen()));
+            case "CHARACTER" -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new CharacterScreen()));
+            case "INVENTORY" -> fadeOutTo(() -> Minecraft.getInstance().setScreen(new TotalityInventoryScreen()));
+            case "CODEX"     -> { /* TODO */ }
         }
     }
 

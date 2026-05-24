@@ -9,6 +9,8 @@ import zcylas.totality.networking.ability.veinminer.VeinminerKeyPayload;
 import zcylas.totality.networking.alchemy.BrewPayload;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
+import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
+import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
@@ -23,8 +25,6 @@ import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
-import zcylas.totality.networking.race.OpenRaceSelectionPayload;
-import zcylas.totality.networking.race.SelectRacePayload;
 import zcylas.totality.networking.skills.UnlockMasteryPayload;
 import zcylas.totality.networking.stamina.SyncStaminaPayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
@@ -53,10 +53,10 @@ public class TotalityPackets {
         registry.register(EquipAbilityPayload.TYPE, EquipAbilityPayload.CODEC);
         registry.register(VeinminerKeyPayload.TYPE, VeinminerKeyPayload.CODEC);
         registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
-        registry.register(SelectRacePayload.TYPE, SelectRacePayload.STREAM_CODEC);
+        registry.register(SelectAncestryPayload.TYPE, SelectAncestryPayload.STREAM_CODEC);
     }
 
-    private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry){
+    private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
         registry.register(SideModeSyncPayload.TYPE, SideModeSyncPayload.CODEC);
         registry.register(SyncStaminaPayload.TYPE, SyncStaminaPayload.CODEC);
         registry.register(SyncManaPayload.TYPE, SyncManaPayload.CODEC);
@@ -67,7 +67,7 @@ public class TotalityPackets {
         registry.register(SendNotificationPayload.TYPE, SendNotificationPayload.CODEC);
         registry.register(OpenStatusScreenPayload.TYPE, OpenStatusScreenPayload.CODEC);
         registry.register(OpenMainMenuPayload.TYPE, OpenMainMenuPayload.CODEC);
-        registry.register(OpenRaceSelectionPayload.TYPE, OpenRaceSelectionPayload.STREAM_CODEC);
+        registry.register(OpenAncestrySelectionPayload.TYPE, OpenAncestrySelectionPayload.STREAM_CODEC);
     }
 
     private TotalityPackets() {}

@@ -4,10 +4,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import zcylas.totality.Totality;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffectInstance;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
@@ -15,18 +14,8 @@ import zcylas.totality.api.rpg.skills.alchemy.AlchemyIngredient;
 import zcylas.totality.client.tooltip.TooltipExtension;
 
 import java.util.List;
-import java.util.function.Consumer;
 
-/**
- * Red Mountain Flower — alchemy ingredient, also placeable.
- *
- * Effects (Skyrim-faithful slot order):
- *   0 — Restore Mana   (BENEFICIAL) — revealed by eating
- *   1 — Ravage Mana    (HARMFUL)
- *   2 — Fortify Mana   (BENEFICIAL)
- *   3 — Damage Health  (HARMFUL)
- */
-public class RedMountainFlowerItem extends BlockItem implements AlchemyIngredient, TooltipExtension {
+public class RedMountainFlowerItem extends Item implements AlchemyIngredient, TooltipExtension {
 
     private static final Identifier INGREDIENT_ID =
             Identifier.fromNamespaceAndPath(Totality.MOD_ID, "red_mountain_flower");
@@ -38,8 +27,8 @@ public class RedMountainFlowerItem extends BlockItem implements AlchemyIngredien
             AlchemyEffectInstance.of(AlchemyEffects.DAMAGE_HEALTH,  3)
     );
 
-    public RedMountainFlowerItem(Block block, Properties properties) {
-        super(block, properties);
+    public RedMountainFlowerItem(Properties properties) {
+        super(properties);
     }
 
     @Override

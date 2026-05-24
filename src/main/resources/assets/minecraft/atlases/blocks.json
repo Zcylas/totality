@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "type": "directory",
+      "source": "block/crop",
+      "prefix": "block/crop/"
+    },
+    {
+      "type": "directory",
+      "source": "block/bush",
+      "prefix": "block/bush/"
+    }
+  ]
+}

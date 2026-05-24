@@ -2,8 +2,8 @@ package zcylas.totality.init.events;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.level.ServerPlayer;
-import zcylas.totality.api.magic.rune.RuneComponents;
-import zcylas.totality.api.magic.rune.RuneKnowledgeComponent;
+import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
+import zcylas.totality.api.magic.grimoire.rune.RuneKnowledgeComponent;
 import zcylas.totality.api.core.component.ComponentProvider;
 
 public final class MagicServerEvents {

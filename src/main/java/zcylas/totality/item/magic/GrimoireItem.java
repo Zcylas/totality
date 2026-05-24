@@ -8,23 +8,20 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import zcylas.totality.api.magic.GrimoireCaster;
-import zcylas.totality.api.magic.MagicComponents;
-import zcylas.totality.api.magic.context.FormulaContext;
-import zcylas.totality.api.magic.context.FormulaResolver;
-import zcylas.totality.api.magic.formula.ArcaneFormula;
-import zcylas.totality.api.magic.formula.FormulaStats;
-import zcylas.totality.api.magic.rune.AbstractFormRune;
+import zcylas.totality.api.magic.grimoire.GrimoireCaster;
+import zcylas.totality.api.magic.grimoire.MagicComponents;
+import zcylas.totality.api.magic.grimoire.context.FormulaContext;
+import zcylas.totality.api.magic.grimoire.context.FormulaResolver;
+import zcylas.totality.api.magic.grimoire.formula.ArcaneFormula;
+import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
+import zcylas.totality.api.magic.grimoire.rune.AbstractFormRune;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
 import zcylas.totality.client.tooltip.TooltipExtension;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 public class GrimoireItem extends Item implements TooltipExtension {
 

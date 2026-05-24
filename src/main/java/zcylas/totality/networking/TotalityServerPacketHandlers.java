@@ -5,12 +5,16 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.industrial.energy.HasSidedEnergy;
 import zcylas.totality.api.industrial.item.HasSidedItems;
-import zcylas.totality.api.magic.GrimoireCaster;
-import zcylas.totality.api.magic.MagicComponents;
+import zcylas.totality.api.magic.grimoire.GrimoireCaster;
+import zcylas.totality.api.magic.grimoire.MagicComponents;
+import zcylas.totality.api.rpg.ancestry.AncestryComponents;
+import zcylas.totality.api.rpg.ancestry.Origin;
+import zcylas.totality.api.rpg.ancestry.Species;
 import zcylas.totality.api.rpg.combat.PowerAttackManager;
 import zcylas.totality.item.fluid.FluidTankItem;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.alchemy.BrewServerHandler;
+import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.SideModePayload;
@@ -81,6 +85,18 @@ public class TotalityServerPacketHandlers {
                     PowerAttackManager.onPowerAttackReceived(context.player());
                 }));
         BrewServerHandler.register();
+        ServerPlayNetworking.registerGlobalReceiver(
+                SelectAncestryPayload.TYPE,
+                (payload, context) -> context.server().execute(() -> {
+                    ServerPlayer player = context.player();
+                    try {
+                        Species species = Species.valueOf(payload.speciesName());
+                        Origin origin   = payload.originName() != null
+                                ? Origin.valueOf(payload.originName())
+                                : null;
+                        AncestryComponents.get(player).selectAncestry(species, origin);
+                    } catch (IllegalArgumentException ignored) {}
+                }));
     }
 
     private static ItemStack findGrimoire(ServerPlayer player) {

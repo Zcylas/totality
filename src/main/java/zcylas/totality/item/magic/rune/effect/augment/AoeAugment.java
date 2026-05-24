@@ -1,9 +1,9 @@
 package zcylas.totality.item.magic.rune.effect.augment;
 
 import net.minecraft.resources.Identifier;
-import zcylas.totality.api.magic.formula.FormulaStats;
-import zcylas.totality.api.magic.rune.AbstractAugmentRune;
-import zcylas.totality.api.magic.rune.AbstractRune;
+import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
+import zcylas.totality.api.magic.grimoire.rune.AbstractAugmentRune;
+import zcylas.totality.api.magic.grimoire.rune.AbstractRune;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 
 public class AoeAugment extends AbstractAugmentRune {

@@ -1,0 +1,7 @@
+{
+  "parent": "totality:block/template/tall_dense_bush",
+  "textures": {
+    "particle": "totality:block/bush/mountain_flowers/blue_mountain_flower_bush",
+    "crop": "totality:block/bush/mountain_flowers/blue_mountain_flower_bush"
+  }
+}
