@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
+import zcylas.totality.api.rpg.resources.ResourceComponents;
 
 public class ManaServerTick {
     private static int tickCounter = 0;

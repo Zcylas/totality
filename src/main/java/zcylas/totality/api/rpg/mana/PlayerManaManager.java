@@ -1,33 +1,34 @@
 package zcylas.totality.api.rpg.mana;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.mana.base.*;
+import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
+import zcylas.totality.api.rpg.resources.ResourceComponents;
 
-import java.util.HashMap;
-import java.util.UUID;
 
 public class PlayerManaManager {
     public static final int BASE_MAX_MANA = 100;
     // 2% of max mana per regen tick (every 20 ticks = 1 second)
     public static final float BASE_REGEN_PERCENT = 0.02f;
 
-    private static final HashMap<UUID, Integer> manaMap = new HashMap<>();
-
     public static int getMana(Player player) {
-        if (!manaMap.containsKey(player.getUUID())) {
+        if (!(player instanceof ServerPlayer sp)) return 0;
+        PlayerResourceComponent comp = ResourceComponents.get(sp);
+        if (!comp.isManaInitialized()) {
             int max = getMaxMana(player);
-            manaMap.put(player.getUUID(), max);
-            return max;
+            comp.setMana(max);
         }
-        return manaMap.get(player.getUUID());
+        return comp.getMana();
     }
 
     public static void setMana(Player player, int amount) {
+        if (!(player instanceof ServerPlayer sp)) return;
         int max = getMaxMana(player);
-        manaMap.put(player.getUUID(), Math.clamp(amount, 0, max));
+        ResourceComponents.get(sp).setMana(Math.clamp(amount, 0, max));
     }
 
     public static void addMana(Player player, int amount) {

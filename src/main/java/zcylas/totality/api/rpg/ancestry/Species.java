@@ -59,7 +59,26 @@ public enum Species {
                     "them. Born of mortal parents but shaped by heavenly influence, they " +
                     "are placed in the world to serve the forces of light — though not " +
                     "all choose to answer that calling.",
-            0.95f, 1.05f);
+            0.95f, 1.05f),
+    // ── Alien ─────────────────────────────────────────────────────────────────
+    GALLIFREYAN("Gallifreyan", SpeciesCategory.ALIEN,
+            "An ancient and highly evolved people from the planet Gallifrey. " +
+                    "Gallifreyans possess a binary vascular system, formidable mental " +
+                    "discipline, and a unique relationship with time itself that sets " +
+                    "them apart from every other species in the known universe.",
+            0.95f, 1.05f),
+    VILTRUMITE("Viltrumite", SpeciesCategory.ALIEN,
+            "A near-extinct race of conquerors from the planet Viltrum. Viltrumites are " +
+                    "among the most physically powerful beings in the universe, capable of " +
+                    "flight, superhuman strength, and near-immortality. Their empire once " +
+                    "spanned countless worlds before the Scourge Virus reduced their " +
+                    "pure-blooded population to a mere handful.",
+            0.95f, 1.10f),
+    KRYPTONIAN("Kryptonian", SpeciesCategory.ALIEN,
+        "A powerful alien species from the lost world of Krypton. Under the light " +
+                "of a yellow sun, Kryptonians develop extraordinary strength, durability, " +
+                "flight, enhanced senses, and other abilities that make them appear almost divine.",
+                0.95f, 1.08f);
 
     private final String displayName;
     private final SpeciesCategory category;

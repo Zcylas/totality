@@ -9,10 +9,11 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import zcylas.totality.api.rpg.combat.CombatStateManager;
 import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
 import zcylas.totality.api.rpg.combat.exhaustion.ExhaustionManager;
+import zcylas.totality.api.rpg.resources.ResourceComponents;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 
 public class StaminaServerTick {
-
+    // Static counter shared across all players on this server instance — fine for single-server use
     private static int tickCounter = 0;
 
     private static final Identifier SPEED_MODIFIER_ID =

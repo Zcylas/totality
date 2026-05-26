@@ -71,7 +71,20 @@ public final class PlayerResourceRecalculator {
      */
     public static void recalculateAndRestore(ServerPlayer player) {
         StatAttributeApplier.apply(player);
+
+        // Restore HP from PlayerStatsComponent
         StatsComponents.get(player).restoreResources();
+
+        // Clamp stamina and mana to new max in case stats changed
+        int maxStamina = PlayerStaminaManager.getMaxStamina(player);
+        int curStamina = PlayerStaminaManager.getStamina(player);
+        if (curStamina > maxStamina) PlayerStaminaManager.setStamina(player, maxStamina);
+
+        int maxMana = PlayerManaManager.getMaxMana(player);
+        int curMana = PlayerManaManager.getMana(player);
+        if (curMana > maxMana) PlayerManaManager.setMana(player, maxMana);
+
+        // Sync everything to client
         StatsComponents.get(player).sync();
         StaminaServerTick.syncStamina(player);
         ServerPlayNetworking.send(player, new SyncManaPayload(

@@ -14,6 +14,7 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.currency.CurrencyHelper;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
+import zcylas.totality.api.rpg.ancestry.Origin;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
 import zcylas.totality.api.rpg.skills.core.*;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
@@ -143,7 +144,20 @@ public class TotalityCommands {
                             .then(Commands.literal("showancestry")
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                        AncestryComponents.get(player).clearAncestry();
+
+                                        // Only forget abilities from the previous origin
+                                        var ancestryComp = AncestryComponents.get(player);
+                                        Origin previousOrigin = ancestryComp.getOrigin();
+                                        if (previousOrigin != null && !previousOrigin.getStartingAbilities().isEmpty()) {
+                                            var abilityComp = AbilityComponents.ABILITIES.get((ComponentProvider) player);
+                                            for (Identifier id : previousOrigin.getStartingAbilities()) {
+                                                abilityComp.forget(id);
+                                            }
+                                        }
+
+                                        // Then clear ancestry
+                                        ancestryComp.clearAncestry();
+
                                         ServerPlayNetworking.send(player, new OpenAncestrySelectionPayload());
                                         ctx.getSource().sendSuccess(() ->
                                                 Component.literal("Ancestry selection reset. Reopening menu..."), false);

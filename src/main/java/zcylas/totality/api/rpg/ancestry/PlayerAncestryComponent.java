@@ -39,6 +39,9 @@ public class PlayerAncestryComponent implements SyncedComponent, CopyableCompone
      */
     public void selectAncestry(Species chosenSpecies, Origin chosenOrigin) {
         if (this.species != null) return;
+        if (chosenSpecies == null) return;
+        if (chosenOrigin != null && chosenOrigin.getSpecies() != chosenSpecies) return;
+        if (chosenOrigin != null && chosenOrigin.getDefaultUnlockState() != UnlockState.UNLOCKED) return;
         this.species = chosenSpecies;
         this.origin  = chosenOrigin;
         this.heightScale = chosenOrigin != null

@@ -1,11 +1,13 @@
 package zcylas.totality.init;
 
 import zcylas.totality.api.ability.AbilityComponents;
+import zcylas.totality.api.core.movement.MovementComponents;
 import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
 import zcylas.totality.api.magic.grimoire.MagicComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.combat.CombatComponents;
+import zcylas.totality.api.rpg.resources.ResourceComponents;
 import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
 import zcylas.totality.api.rpg.skills.core.SkillsComponents;
 import zcylas.totality.api.rpg.stats.StatsComponents;
@@ -28,10 +30,12 @@ public class ModComponents {
         SkillsComponents.register();
         MasteriesComponents.register();
         AbilityComponents.register();
+        ResourceComponents.register();
         CombatComponents.register();
         ItemComponents.register();
         RuneComponents.register();
         AncestryComponents.register();
+        MovementComponents.register();
     }
 
     private ModComponents() {}

@@ -113,6 +113,8 @@
   "item.totality.whitestone_chunk": "Whitestone Chunk",
   "item.totality.wrench": "Wrench",
   "key.category.totality.totality": "Totality",
+  "key.totality.movement_power": "Movement Power",
+  "key.totality.open_ability_radial": "Ability Radial Menu",
   "key.totality.open_grimoire": "Open Grimoire",
   "key.totality.open_radial": "Radial Spell Selector"
 }

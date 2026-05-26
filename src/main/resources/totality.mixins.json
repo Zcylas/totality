@@ -3,24 +3,24 @@
 	"package": "zcylas.totality.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-	],
-	"client": [
+		"MixinServerPlayer",
 		"EnchantedCountIncreaseFunctionAccessor",
 		"EnchantedCountIncreaseFunctionMixin",
-		"EntityDimensionsMixin",
-		"GameRendererMixin",
-		"client.LivingEntityScaleMixin",
 		"LootItemRandomChanceWithEnchantedBonusConditionMixin",
-		"MixinLocalPlayer",
-		"MixinServerPlayer",
-		"MouseHandlerMixin",
-		"ScreenAccessor",
-		"client.AbstractContainerScreenMixin",
-		"client.MinecraftAttackMixin",
 		"item.KineticWeaponMixin",
 		"item.MaceItemMixin",
 		"item.PiercingWeaponMixin",
 		"item.TridentItemMixin"
+	],
+	"client": [
+		"EntityDimensionsMixin",
+		"GameRendererMixin",
+		"MixinLocalPlayer",
+		"MouseHandlerMixin",
+		"ScreenAccessor",
+		"client.AbstractContainerScreenMixin",
+		"client.LivingEntityScaleMixin",
+		"client.MinecraftAttackMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

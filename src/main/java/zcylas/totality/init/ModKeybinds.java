@@ -46,6 +46,20 @@ public class ModKeybinds {
             )
     );
 
+    public static final KeyMapping OPEN_ABILITY_RADIAL = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.open_ability_radial",
+                    GLFW.GLFW_KEY_UNKNOWN,
+                    TOTALITY_CATEGORY
+            )
+    );
+    public static final KeyMapping MOVEMENT_POWER = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.movement_power",
+                    GLFW.GLFW_KEY_GRAVE_ACCENT,
+                    TOTALITY_CATEGORY
+            )
+    );
 
     public static void register() {}
 

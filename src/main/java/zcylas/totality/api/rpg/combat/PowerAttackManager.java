@@ -66,5 +66,9 @@ public class PowerAttackManager {
         return BASE_COST_ONE_HANDED;
     }
 
+    public static void onPlayerLeave(ServerPlayer player) {
+        pendingPowerAttacks.remove(player.getUUID());
+    }
+
     private PowerAttackManager() {}
 }

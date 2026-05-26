@@ -27,7 +27,8 @@ public class AbilityContextHud {
         Ability ability = AbilityRegistry.get(equippedId);
         if (ability == null || ability.getType() == Ability.Type.PASSIVE) return;
 
-        AbilityContext context = ability.getContext(client, client.player);
+        if (!(ability instanceof zcylas.totality.api.ability.ClientAbilityContext provider)) return;
+        AbilityContext context = provider.getContext(client, client.player);
         if (context == null) return;
 
         renderPrompt(graphics, client, screenW, screenH, context.promptLabel());

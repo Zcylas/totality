@@ -66,11 +66,14 @@ public class CharacterScreen extends BaseCharacterScreen {
         super.extractRenderState(g, mx, my, a);
         int ba = tickFade();
         if (fadingOut && alpha <= 0f) return;
-
+        boolean isAbilities = (activeTab == CharacterTab.ABILITIES);
+        int lw = isAbilities ? 0 : LEFT_W;
+        contentX = lw;
+        contentW = W - lw;
         drawHeader(g, "CHARACTER");
         drawTabBar(g, CharacterTab.values(), activeTab, mx, my);
-        drawLeftPanel(g, mx, my);
-        activeTabInstance().draw(g, font, mx, my, ba, contentX, contentY, contentW, contentH);
+        if (!isAbilities) drawLeftPanel(g, mx, my, LEFT_W);
+        activeTabInstance().draw(g, font, mx, my, ba, lw, contentY, W - lw, contentH);
         drawBottomHints(g);
     }
 

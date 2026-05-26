@@ -2,13 +2,9 @@ package zcylas.totality;
 
 import net.fabricmc.api.ModInitializer;
 
-import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
-import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
-import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.entity.monster.skeleton.Skeleton;
-import net.minecraft.world.level.levelgen.GenerationStep;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.ability.AbilityRegistry;
@@ -28,13 +24,16 @@ import zcylas.totality.networking.TotalityPackets;
 import zcylas.totality.networking.TotalityServerPacketHandlers;
 import zcylas.totality.networking.ability.ActivateAbilityHandler;
 import zcylas.totality.networking.ability.EquipAbilityHandler;
+import zcylas.totality.networking.ability.FavoriteAbilityHandler;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyHandler;
+import zcylas.totality.networking.ancestry.SelectAncestryHandler;
+import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 import zcylas.totality.networking.inventory.InventoryActionHandler;
 import zcylas.totality.networking.mana.ManaServerTick;
+import zcylas.totality.networking.movement.ToggleFlightHandler;
 import zcylas.totality.networking.skills.UnlockMasteryHandler;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 import zcylas.totality.networking.stats.SpendAttributePointHandler;
-import zcylas.totality.worldgen.ModPlacedFeatures;
 
 public class Totality implements ModInitializer {
 	public static final String MOD_ID = "totality";
@@ -42,22 +41,33 @@ public class Totality implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		TotalityPackets.register();
-		TotalityServerPacketHandlers.register();
+		// ── Core registration ─────────────────────────────────────────────────
+		registerInits();
 		registerEntities();
 		registerMenus();
-		registerServerTickEvents();
-		registerApi();
-		registerItemHandlers();
-		registerInits();
-		registerCombatApi();
-		registerSkillEvents();
-		registerRPGHandlers();
-		registerSkillHandlers();
-		registerAbilityClasses();
 		registerAttributes();
 		registerLookups();
-		registerBiomeModifications();
+
+		// ── Networking ────────────────────────────────────────────────────────
+		TotalityPackets.register();
+		TotalityServerPacketHandlers.register();
+
+		// ── APIs ──────────────────────────────────────────────────────────────
+		registerApi();
+
+		// ── RPG systems ───────────────────────────────────────────────────────
+		registerCombatApi();
+		registerSkillEvents();
+		registerSkillHandlers();
+		registerAbilityClasses();
+		registerRPGHandlers();
+		registerItemHandlers();
+
+		// ── Ticks ─────────────────────────────────────────────────────────────
+		registerServerTickEvents();
+
+		// ── World ─────────────────────────────────────────────────────────────
+		TotalityBiomeModifications.register();
 	}
 
 	private void registerInits(){
@@ -94,12 +104,15 @@ public class Totality implements ModInitializer {
 		ManaServerTick.register();
 		StaminaServerTick.register();
 		AbilityServerTick.register();
+		registerPassiveTicker();
 	}
 
 	private void registerApi(){
 		UEApiInit.register();
 		AlchemyEffects.register();
 		AbilityRegistry.register();
+		TotalityHarvestHandlers.register();
+		TotalityMovementHandler.register();
 	}
 
 	private void registerCombatApi(){
@@ -112,6 +125,27 @@ public class Totality implements ModInitializer {
 		InventoryActionHandler.register();
 		SpendAttributePointHandler.register();
 		EquipAbilityHandler.register();
+		FavoriteAbilityHandler.register();
+		ToggleFlightHandler.register();
+		SelectAncestryHandler.register();
+	}
+
+	private void registerPassiveTicker() {
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+			for (net.minecraft.server.level.ServerPlayer player : server.getPlayerList().getPlayers()) {
+				zcylas.totality.api.ability.AbilityComponent comp =
+						zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
+								(zcylas.totality.api.core.component.ComponentProvider) player);
+				for (net.minecraft.resources.Identifier id : comp.getUnlocked()) {
+					Totality.LOGGER.info("Unlocked ability: " + id);
+					zcylas.totality.api.ability.Ability ability = AbilityRegistry.get(id);
+					if (ability != null && ability.getType() == zcylas.totality.api.ability.Ability.Type.PASSIVE) {
+						Totality.LOGGER.info("Ticking passive: " + id);
+						ability.onPassiveTick(player);
+					}
+				}
+			}
+		});
 	}
 
 	private void registerAbilityClasses(){
@@ -132,106 +166,4 @@ public class Totality implements ModInitializer {
 		MiningSkillEvents.register();
 	}
 
-	private void registerBiomeModifications(){
-		BiomeModifications.addFeature(
-		BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.GRAPHITE_ORE_PLACED_KEY
-		);
-		BiomeModifications.addFeature(
-		BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.LEAD_ORE_PLACED_KEY
-		);
-		BiomeModifications.addFeature(
-		BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.TIN_ORE_PLACED_KEY
-		);
-		BiomeModifications.addFeature(
-		BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.SILVER_ORE_PLACED_KEY
-		);
-		BiomeModifications.addFeature(
-		BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.RUBY_ORE_PLACED_KEY
-		);
-		// Blue Mountain Flower — plains, forests, meadows
-		BiomeModifications.addFeature(
-				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
-						.and(ctx -> {
-							String path = ctx.getBiomeKey().identifier().getPath();
-
-							return path.contains("plains")
-									|| path.contains("meadow")
-									|| (path.contains("forest")
-									&& !path.contains("birch")
-									&& !path.contains("dark"));
-						}),
-				GenerationStep.Decoration.VEGETAL_DECORATION,
-				ModPlacedFeatures.BLUE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY
-		);
-		// Purple Mountain Flower — taiga, snowy biomes
-		BiomeModifications.addFeature(
-				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
-						.and(ctx -> {
-							String path = ctx.getBiomeKey().identifier().getPath();
-
-							return path.contains("taiga")
-									|| path.contains("snowy")
-									|| path.contains("frozen");
-						}),
-				GenerationStep.Decoration.VEGETAL_DECORATION,
-				ModPlacedFeatures.PURPLE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY
-		);
-
-	// Red Mountain Flower — forests, jungles, warm biomes
-		BiomeModifications.addFeature(
-				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
-						.and(ctx -> {
-							String path = ctx.getBiomeKey().identifier().getPath();
-
-							return path.contains("jungle")
-									|| path.contains("birch")
-									|| path.contains("dark_forest")
-									|| path.contains("savanna");
-						}),
-				GenerationStep.Decoration.VEGETAL_DECORATION,
-				ModPlacedFeatures.RED_MOUNTAIN_FLOWER_BUSH_PLACED_KEY
-		);
-
-		// Whitestone — everywhere
-		BiomeModifications.addFeature(
-				BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.WHITESTONE_PLACED_KEY
-		);
-		// Whitestone — mountains more common
-		BiomeModifications.addFeature(
-				BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
-						.and(ctx -> {
-							String path = ctx.getBiomeKey().identifier().getPath();
-							return path.contains("mountain") || path.contains("peak") || path.contains("highland");
-						}),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.WHITESTONE_PLACED_KEY
-		);
-
-		// Flecked Whitestone — everywhere rare
-		BiomeModifications.addFeature(
-				BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.LOCAL_MODIFICATIONS,
-				ModPlacedFeatures.FLECKED_WHITESTONE_PLACED_KEY
-		);
-		//Natural Blocks
-			//Limestone
-		BiomeModifications.addFeature(
-				BiomeSelectors.foundInOverworld(),
-				GenerationStep.Decoration.UNDERGROUND_ORES,
-				ModPlacedFeatures.LIMESTONE_PLACED_KEY
-		);
-
-	}
 }

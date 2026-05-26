@@ -138,6 +138,9 @@ public class ConfirmAncestryScreen extends BaseAncestryScreen {
         }
         if (isNext(mx, my)) {
             click();
+            net.minecraft.client.Minecraft.getInstance().player.sendSystemMessage(
+                    net.minecraft.network.chat.Component.literal("Sending ancestry: " + species.name() + " / " + (origin != null ? origin.name() : "null"))
+            );
             ClientPlayNetworking.send(new SelectAncestryPayload(
                     species.name(), origin != null ? origin.name() : null));
             onClose();

@@ -33,10 +33,15 @@ public enum SpeciesCategory {
     UNDEAD("Undead", "☽",
             "Races bound to death or undeath. Whether cursed or chosen, " +
                     "the undead exist between the living world and what lies beyond."),
+    ALIEN("Alien", "◎",
+            "Races originating from beyond the known world entirely. " +
+                    "Ancient, evolved, and utterly unlike anything native to this universe, " +
+                    "alien species bring biology and perspectives that defy conventional understanding."),
 
     OTHER("Other", "◇",
             "Races that defy easy classification. Ancient, mysterious, " +
                     "or simply unlike anything else in the known world.");
+
 
     private final String displayName;
     private final String icon;

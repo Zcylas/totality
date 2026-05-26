@@ -17,5 +17,4 @@ public record AbilityContext(
         String promptLabel
 ) {
     /** Null context = ability is not applicable right now, hide prompt. */
-    public static final @Nullable AbilityContext NONE = null;
 }

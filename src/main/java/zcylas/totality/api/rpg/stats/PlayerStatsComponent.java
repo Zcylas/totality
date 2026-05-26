@@ -7,21 +7,18 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
-import zcylas.totality.api.rpg.mana.PlayerManaManager;
-import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 
 /**
  * Player component that stores all RPG stats for a player.
- * Also persists current stamina, mana and HP so they survive world reloads.
+ * Also persists current HP so it survives world reloads.
+ * Stamina and mana are now persisted by PlayerResourceComponent.
  */
 public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<PlayerStatsComponent> {
 
     private final PlayerStats stats = new PlayerStats();
     private final ServerPlayer player;
 
-    private int savedStamina = -1;
-    private int savedMana    = -1;
-    private float savedHp   = -1;
+    private float savedHp = -1;
 
     public PlayerStatsComponent(ServerPlayer player) {
         this.player = player;
@@ -33,22 +30,11 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
 
     public void saveCurrentResources() {
         if (player == null) return;
-        savedStamina = PlayerStaminaManager.getStamina(player);
-        savedMana    = PlayerManaManager.getMana(player);
-        savedHp      = player.getHealth();
+        savedHp = player.getHealth();
     }
 
     public void restoreResources() {
         if (player == null) return;
-
-        int maxStamina = PlayerStaminaManager.getMaxStamina(player);
-        PlayerStaminaManager.setStamina(player,
-                savedStamina < 0 ? maxStamina : Math.min(savedStamina, maxStamina));
-
-        int maxMana = PlayerManaManager.getMaxMana(player);
-        PlayerManaManager.setMana(player,
-                savedMana < 0 ? maxMana : Math.min(savedMana, maxMana));
-
         float maxHp = player.getMaxHealth();
         player.setHealth(savedHp < 0 ? maxHp : Math.min(savedHp, maxHp));
     }
@@ -79,8 +65,6 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
         stats.setCharacterXpDirectly(buf.readInt());
         stats.setUnspentAttributePointsDirectly(buf.readInt());
         AbilityScore[] scoreValues = AbilityScore.values();
-        // Read final scores directly into finalScores via setScore on client
-        // (client doesn't need layers, just final values)
         int[] scores = new int[scoreValues.length];
         for (int i = 0; i < scores.length; i++) scores[i] = buf.readInt();
         for (int i = 0; i < scoreValues.length; i++) {
@@ -105,9 +89,7 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
             output.putInt("ps_class_"  + key, stats.getClassBonus(score));
             output.putInt("ps_item_"   + key, stats.getItemBonus(score));
         }
-        output.putInt("ps_stamina", savedStamina);
-        output.putInt("ps_mana",    savedMana);
-        output.putFloat("ps_hp",    savedHp);
+        output.putFloat("ps_hp", savedHp);
     }
 
     @Override
@@ -123,9 +105,7 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
             stats.setItemBonusDirectly(score,    input.getIntOr("ps_item_"   + key, 0));
         }
         stats.recalculate();
-        savedStamina = input.getIntOr("ps_stamina", -1);
-        savedMana    = input.getIntOr("ps_mana",    -1);
-        savedHp      = input.getFloatOr("ps_hp",    -1f);
+        savedHp = input.getFloatOr("ps_hp", -1f);
     }
 
     @Override
@@ -140,8 +120,6 @@ public class PlayerStatsComponent implements SyncedComponent, CopyableComponent<
             stats.setItemBonusDirectly(score,   other.stats.getItemBonus(score));
         }
         stats.recalculate();
-        savedStamina = -1;
-        savedMana    = -1;
-        savedHp      = -1;
+        savedHp = -1;
     }
 }

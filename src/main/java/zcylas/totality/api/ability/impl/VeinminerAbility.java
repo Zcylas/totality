@@ -11,18 +11,13 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.tags.BlockTags;
 import org.jetbrains.annotations.Nullable;
-import zcylas.totality.Totality;
-import zcylas.totality.api.ability.Ability;
-import zcylas.totality.api.ability.AbilityComponents;
-import zcylas.totality.api.ability.AbilityContext;
-import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.ability.*;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.rpg.skills.core.Skill;
 import zcylas.totality.api.rpg.skills.core.SkillsComponents;
@@ -35,7 +30,7 @@ import zcylas.totality.networking.stamina.StaminaServerTick;
 
 import java.util.*;
 
-public class VeinminerAbility extends Ability {
+public class VeinminerAbility extends Ability implements ClientAbilityContext {
 
     private static final int MAX_BLOCKS   = 32;
     private static final int STAMINA_COST = 5;
@@ -47,7 +42,7 @@ public class VeinminerAbility extends Ability {
         super(
                 Identifier.fromNamespaceAndPath("totality", "veinminer"),
                 "Veinminer",
-                "Hold the ability key while breaking an ore to mine the entire connected vein. Costs 2 stamina per block.",
+                "Hold the ability key while breaking an ore to mine the entire connected vein. Costs 5 stamina per block.",
                 Type.CHANNELED,
                 0,
                 Identifier.fromNamespaceAndPath("totality", "textures/ability/veinminer.png"),
@@ -258,11 +253,6 @@ public class VeinminerAbility extends Ability {
                 || state.is(ModTags.VEINMINABLE);
     }
 
-    public static void tickPlayer(ServerPlayer player) {
-        if (!STATES.containsKey(player.getUUID())) return;
-        AbilityRegistry.VEINMINER.onChannel(player, null);
-    }
-
     private void awardMiningXp(ServerPlayer player, BlockState state) {
         if (!player.gameMode.isSurvival()) return;
         int xp = MiningXpTable.getXp(state);
@@ -294,6 +284,6 @@ public class VeinminerAbility extends Ability {
 
     @Override
     public @Nullable AbilityContext getContext(Minecraft mc, LocalPlayer player) {
-        return AbilityContext.NONE;
+        return null;
     }
 }

@@ -155,28 +155,28 @@ public class AlchemyKnowledgeComponent implements SyncedComponent, CopyableCompo
     @Override
     public void readData(ValueInput input) {
         knownEffects.clear();
+        knownPotions.clear();
 
         String keyList = input.getStringOr("ak_keys", "");
-        if (keyList.isEmpty()) return;
+        if (!keyList.isEmpty()) {
+            for (String idStr : keyList.split("\\|")) {
+                if (idStr.isBlank()) continue;
+                Identifier id = Identifier.parse(idStr);
+                String slotsStr = input.getStringOr(nbtKey(id), "");
 
-        for (String idStr : keyList.split("\\|")) {
-            if (idStr.isBlank()) continue;
-            Identifier id = Identifier.parse(idStr);
-            String slotsStr = input.getStringOr(nbtKey(id), "");
-
-            Set<Integer> slots = new HashSet<>();
-            if (!slotsStr.isEmpty()) {
-                for (String s : slotsStr.split(",")) {
-                    try {
-                        int slot = Integer.parseInt(s.trim());
-                        if (slot >= 0 && slot <= 3) slots.add(slot);
-                    } catch (NumberFormatException ignored) {}
+                Set<Integer> slots = new HashSet<>();
+                if (!slotsStr.isEmpty()) {
+                    for (String s : slotsStr.split(",")) {
+                        try {
+                            int slot = Integer.parseInt(s.trim());
+                            if (slot >= 0 && slot <= 3) slots.add(slot);
+                        } catch (NumberFormatException ignored) {}
+                    }
                 }
+                knownEffects.put(id, slots);
             }
-            knownEffects.put(id, slots);
         }
-        // Read known potions
-        knownPotions.clear();
+
         String potionData = input.getStringOr("ak_potions", "");
         if (!potionData.isEmpty()) {
             for (String sig : potionData.split("\\|")) {

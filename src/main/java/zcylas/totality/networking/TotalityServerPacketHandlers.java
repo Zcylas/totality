@@ -85,18 +85,6 @@ public class TotalityServerPacketHandlers {
                     PowerAttackManager.onPowerAttackReceived(context.player());
                 }));
         BrewServerHandler.register();
-        ServerPlayNetworking.registerGlobalReceiver(
-                SelectAncestryPayload.TYPE,
-                (payload, context) -> context.server().execute(() -> {
-                    ServerPlayer player = context.player();
-                    try {
-                        Species species = Species.valueOf(payload.speciesName());
-                        Origin origin   = payload.originName() != null
-                                ? Origin.valueOf(payload.originName())
-                                : null;
-                        AncestryComponents.get(player).selectAncestry(species, origin);
-                    } catch (IllegalArgumentException ignored) {}
-                }));
     }
 
     private static ItemStack findGrimoire(ServerPlayer player) {

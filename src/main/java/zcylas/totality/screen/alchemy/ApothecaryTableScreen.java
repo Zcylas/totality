@@ -81,7 +81,8 @@ public class ApothecaryTableScreen extends Screen {
     private final List<IngredientEntry> allIngredients      = new ArrayList<>();
     private final List<IngredientEntry> filteredIngredients = new ArrayList<>();
     private final List<IngredientEntry> selected            = new ArrayList<>();
-
+    // Add this field at the top with the other state fields:
+    private final Map<Item, Integer> pendingConsumption = new HashMap<>();
     // For continuous crafting — stores ingredient IDs of last brew
     private List<Identifier> lastBrewedIngredientIds = new ArrayList<>();
 
@@ -156,8 +157,23 @@ public class ApothecaryTableScreen extends Screen {
                     new IngredientEntry(ai, stack.copy(), stack.getCount()),
                     (e, inc) -> { e.count += inc.count; return e; });
         }
-        allIngredients.addAll(seen.values());
-        allIngredients.sort(Comparator.comparing(e -> e.ai.getIngredientId().getPath()));
+
+        // Subtract pending consumption — items sent to server but not yet confirmed
+        // This ensures the display is correct even before the server inventory update arrives
+        if (!pendingConsumption.isEmpty()) {
+            for (var pending : pendingConsumption.entrySet()) {
+                IngredientEntry entry = seen.get(pending.getKey());
+                if (entry != null) entry.count -= pending.getValue();
+            }
+            pendingConsumption.clear();
+        }
+
+        // Only add entries with count > 0
+        seen.values().stream()
+                .filter(e -> e.count > 0)
+                .sorted(Comparator.comparing(e -> e.ai.getIngredientId().getPath()))
+                .forEach(allIngredients::add);
+
         applyFilter();
     }
 
@@ -618,7 +634,6 @@ public class ApothecaryTableScreen extends Screen {
     // ── Brew ──────────────────────────────────────────────────────────────────
 
     private void sendBrew() {
-        // Remember ingredient IDs for re-selection after brew
         lastBrewedIngredientIds = selected.stream()
                 .map(e -> BuiltInRegistries.ITEM.getKey(e.stack.getItem()))
                 .collect(Collectors.toList());
@@ -626,15 +641,17 @@ public class ApothecaryTableScreen extends Screen {
         List<Identifier> ids = new ArrayList<>(lastBrewedIngredientIds);
         ClientPlayNetworking.send(new BrewPayload(ids));
 
-        // Decrement counts client-side immediately
+        // Track what we're consuming so scanInventory() can subtract it
+        // even before the server sends the inventory update
+        pendingConsumption.clear();
         for (IngredientEntry entry : selected) {
-            entry.count--;
-            entry.stack.shrink(1);
+            pendingConsumption.merge(entry.stack.getItem(), 1, Integer::sum);
         }
+
         selected.clear();
         currentBrewResult = null;
 
-        // Rescan and try to re-select the same ingredients (continuous crafting)
+        // Rescan — pendingConsumption will be subtracted inside scanInventory()
         scanInventory();
         computeLayout();
         reSelectLastIngredients();

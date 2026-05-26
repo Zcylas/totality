@@ -23,6 +23,8 @@ import java.util.List;
  */
 public enum Origin {
 
+
+
     // ── Human Origins ─────────────────────────────────────────────────────────
     STANDARD_HUMAN("Standard Human", Species.HUMAN, SourceTag.DND_5E,
             "The most common human variant, defined by remarkable adaptability. " +
@@ -230,7 +232,6 @@ public enum Origin {
                     .build(),
             0.95f, 1.02f,
             UnlockState.UNLOCKED),
-
     FALLEN("Fallen Aasimar", Species.AASIMAR, SourceTag.DND_5E,
             "Not all aasimar answer the call of good. Fallen aasimar have turned " +
                     "away from the light, their divine spark twisted into something darker. " +
@@ -239,7 +240,52 @@ public enum Origin {
                     .cha(2).str(1)
                     .build(),
             0.95f, 1.05f,
-            UnlockState.UNLOCKED);
+            UnlockState.UNLOCKED),
+    // ── Gallifreyan Origins───────────────────────────────────────────────────
+    GALLIFREYAN("Gallifreyan", Species.GALLIFREYAN, SourceTag.DOCTOR_WHO,
+            "A native of the ancient planet Gallifrey. Even without formal Time Lord " +
+                    "training, a Gallifreyan's binary vascular system and naturally evolved " +
+                    "biology make them remarkably resilient and mentally formidable.",
+            new AbilityScoreBonus.Builder()
+                    .con(4).intel(1).wis(1)
+                    .build(),
+            0.95f, 1.05f,
+            UnlockState.UNLOCKED),
+    // ── Viltrumite Origins ────────────────────────────────────────────────────
+    PUREBLOOD_VILTRUMITE("Pureblood Viltrumite", Species.VILTRUMITE, SourceTag.INVINCIBLE,
+            "One of the last true Viltrumites. Rare beyond measure, purebloods represent " +
+                    "the peak of Viltrumite genetics — raw power, near-invulnerability, " +
+                    "and an iron will forged through millennia of war and conquest.",
+            new AbilityScoreBonus.Builder()
+                    .str(4).con(3).end(2)
+                    .build(),
+            0.95f, 1.10f,
+            UnlockState.UNLOCKED,
+            List.of(net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                    "totality", "viltrumite_physiology"))),
+
+    HALF_VILTRUMITE("Half-Viltrumite", Species.VILTRUMITE, SourceTag.INVINCIBLE,
+            "Born of Viltrumite and alien blood, half-Viltrumites inherit tremendous " +
+                    "physical power alongside a capacity for growth and adaptability that " +
+                    "purebloods lack entirely. Mark Grayson proved that hybrid potential " +
+                    "can rival even the greatest of the Empire.",
+            new AbilityScoreBonus.Builder()
+                    .str(2).con(2).end(1).dex(1)
+                    .build(),
+            0.95f, 1.05f,
+            UnlockState.UNLOCKED,
+            List.of(net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                    "totality", "viltrumite_physiology"))),
+    // ── Kryptonian Origins ───────────────────────────────────────────────────────
+    KRYPTONIAN("Kryptonian", Species.KRYPTONIAN, SourceTag.DC_COMICS,
+            "A native of the lost planet Krypton...",
+            new AbilityScoreBonus.Builder()
+                    .str(3).con(3).end(2)
+                    .build(),
+            0.95f, 1.08f,
+            UnlockState.UNLOCKED,
+            List.of(net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                    "totality", "kryptonian_physiology")));
 
     private final String displayName;
     private final Species species;
@@ -249,10 +295,11 @@ public enum Origin {
     private final float minHeight;
     private final float maxHeight;
     private final UnlockState defaultUnlockState;
+    private final List<net.minecraft.resources.Identifier> startingAbilities;
 
     Origin(String displayName, Species species, SourceTag sourceTag,
            String description, AbilityScoreBonus abilityScoreBonus,
-           float minHeight, float maxHeight, UnlockState defaultUnlockState) {
+           float minHeight, float maxHeight, UnlockState defaultUnlockState, List<net.minecraft.resources.Identifier> startingAbilities) {
         this.displayName         = displayName;
         this.species             = species;
         this.sourceTag           = sourceTag;
@@ -261,6 +308,14 @@ public enum Origin {
         this.minHeight           = minHeight;
         this.maxHeight           = maxHeight;
         this.defaultUnlockState  = defaultUnlockState;
+        this.startingAbilities   = startingAbilities;
+    }
+
+    Origin(String displayName, Species species, SourceTag sourceTag,
+           String description, AbilityScoreBonus abilityScoreBonus,
+           float minHeight, float maxHeight, UnlockState defaultUnlockState) {
+        this(displayName, species, sourceTag, description, abilityScoreBonus,
+                minHeight, maxHeight, defaultUnlockState, List.of());
     }
 
     public String getDisplayName()               { return displayName; }
@@ -296,5 +351,9 @@ public enum Origin {
                 .filter(o -> o.species == species
                         && o.defaultUnlockState == UnlockState.UNLOCKED)
                 .toList();
+    }
+
+    public List<net.minecraft.resources.Identifier> getStartingAbilities() {
+        return startingAbilities;
     }
 }

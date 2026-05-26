@@ -158,7 +158,7 @@ public abstract class BaseCharacterScreen extends Screen {
 
     // ── Left panel ────────────────────────────────────────────────────────────
 
-    public void drawLeftPanel(GuiGraphicsExtractor g, int mx, int my) {
+    public void drawLeftPanel(GuiGraphicsExtractor g, int mx, int my, int lw) {
         int ly = contentY;
         int lh = contentH;
         Player player = Minecraft.getInstance().player;
@@ -196,7 +196,7 @@ public abstract class BaseCharacterScreen extends Screen {
 
         // ── Box 2: Player render ──────────────────────────────────────────────
         int renderX = slotColW + 2;
-        int renderW = LEFT_W - slotColW - 2;
+        int renderW = lw - slotColW - 2;
         drawPanel(g, renderX, ly, renderW, renderBoxH);
 
         if (player != null) {
@@ -207,7 +207,7 @@ public abstract class BaseCharacterScreen extends Screen {
         }
 
         // ── Box 3: Summary ────────────────────────────────────────────────────
-        drawPanel(g, 0, summaryY, LEFT_W, summaryH);
+        drawPanel(g, 0, summaryY, lw, summaryH);
 
         int level = ClientStatsManager.getLevel();
         String playerName = player != null ? player.getName().getString() : "Unknown";
@@ -217,12 +217,12 @@ public abstract class BaseCharacterScreen extends Screen {
                 ? ClientAncestryManager.getOrigin().getDisplayName() : "None";
 
         int cy = summaryY + PAD;
-        cy = drawSummaryRow(g, 0, cy, LEFT_W, "Name:",    playerName);
-        cy = drawSummaryRow(g, 0, cy, LEFT_W, "Level:",   String.valueOf(level));
-        cy = drawSummaryRow(g, 0, cy, LEFT_W, "Class:",   "None");
-        cy = drawSummaryRow(g, 0, cy, LEFT_W, "Species:", speciesStr);
-        cy = drawSummaryRow(g, 0, cy, LEFT_W, "Origin:",  originStr);
-        drawSummaryRow(g, 0, cy, LEFT_W, "Title:", "None");
+        cy = drawSummaryRow(g, 0, cy, lw, "Name:",    playerName);
+        cy = drawSummaryRow(g, 0, cy, lw, "Level:",   String.valueOf(level));
+        cy = drawSummaryRow(g, 0, cy, lw, "Class:",   "None");
+        cy = drawSummaryRow(g, 0, cy, lw, "Species:", speciesStr);
+        cy = drawSummaryRow(g, 0, cy, lw, "Origin:",  originStr);
+        drawSummaryRow(g, 0, cy, lw, "Title:", "None");
     }
 
     private int drawSummaryRow(GuiGraphicsExtractor g, int lx, int cy,

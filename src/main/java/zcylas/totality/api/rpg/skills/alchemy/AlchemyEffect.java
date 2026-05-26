@@ -2,6 +2,7 @@ package zcylas.totality.api.rpg.skills.alchemy;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
+import zcylas.totality.Totality;
 
 import java.util.HashMap;
 import java.util.Map;

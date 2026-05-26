@@ -17,7 +17,6 @@ import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
 import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
 import zcylas.totality.networking.config.SideModeSyncPayload;
-import zcylas.totality.networking.currency.ClientWalletManager;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
@@ -61,12 +60,10 @@ public class TotalityClientPacketHandlers {
                 (payload, context) -> {
                     var registryAccess = context.player().level().registryAccess();
 
-                    // Route to the matching component on LocalPlayer
+                    // Route to matching component on LocalPlayer
                     ComponentRegistry.get(payload.keyId()).ifPresent(key ->
                             key.maybeGet((ComponentProvider) context.player()).ifPresent(component -> {
                                 if (component instanceof SyncedComponent synced) {
-                                    // Wrap a fresh buffer each time — RegistryFriendlyByteBuf
-                                    // has no duplicate() that preserves the registry access
                                     RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
                                             Unpooled.wrappedBuffer(payload.data()),
                                             registryAccess
@@ -76,39 +73,8 @@ public class TotalityClientPacketHandlers {
                             })
                     );
 
-                    // Keep the dedicated wallet manager in sync for HUD rendering
-                    if (payload.keyId().toString().equals("totality:wallet")) {
-                        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
-                                Unpooled.wrappedBuffer(payload.data()),
-                                registryAccess
-                        );
-                        ClientWalletManager.sync(buf.readLong());
-                    }
-                    // Keep ClientAbilityManager in sync for HUD and screen rendering
-                    if (payload.keyId().toString().equals("totality:abilities")) {
-                        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
-                                Unpooled.wrappedBuffer(payload.data()),
-                                registryAccess
-                        );
-                        // Read unlocked
-                        int unlockedCount = buf.readInt();
-                        java.util.Set<net.minecraft.resources.Identifier> unlocked = new java.util.HashSet<>();
-                        for (int i = 0; i < unlockedCount; i++) {
-                            unlocked.add(buf.readIdentifier());
-                        }
-                        // Read cooldowns
-                        int cooldownCount = buf.readInt();
-                        java.util.Map<net.minecraft.resources.Identifier, Integer> cooldowns = new java.util.HashMap<>();
-                        for (int i = 0; i < cooldownCount; i++) {
-                            net.minecraft.resources.Identifier id = buf.readIdentifier();
-                            int ticks = buf.readInt();
-                            cooldowns.put(id, ticks);
-                        }
-                        // Read equipped
-                        net.minecraft.resources.Identifier equipped = buf.readBoolean() ? buf.readIdentifier() : null;
-
-                        zcylas.totality.networking.ability.ClientAbilityManager.sync(unlocked, cooldowns, equipped);
-                    }
+                    // Dispatch to any registered client-side listeners
+                    ClientComponentSyncListeners.dispatch(payload.keyId(), payload.data(), registryAccess);
                 }
         );
         ClientPlayNetworking.registerGlobalReceiver(

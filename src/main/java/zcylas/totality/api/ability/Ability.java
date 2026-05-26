@@ -1,8 +1,5 @@
 // zcylas/totality/api/ability/Ability.java
 package zcylas.totality.api.ability;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
@@ -16,6 +13,7 @@ public abstract class Ability {
         CLASS("Class"),
         SPECIES("Species"),
         ORIGIN("Origin"),
+        ANCESTRY("Ancestry"),
         MASTERY("Mastery");
 
         private final String displayName;
@@ -59,6 +57,7 @@ public abstract class Ability {
     public String getSourceDetail() { return sourceDetail; } // "Mining Mastery", "Default Ability", etc.
     public String getFlavourText()  { return flavourText; }
 
+
     /**
      * Called client-side every tick to evaluate whether this ability
      * is applicable given what the crosshair is pointing at.
@@ -68,9 +67,6 @@ public abstract class Ability {
      *
      * Default: always null (ability has no context prompt).
      */
-    public @Nullable AbilityContext getContext(Minecraft mc, LocalPlayer player) {
-        return AbilityContext.NONE;
-    }
 
     /**
      * Called server-side when the player activates this ability.
@@ -84,4 +80,5 @@ public abstract class Ability {
 
     /** Passive tick — only relevant for PASSIVE type. */
     public void onPassiveTick(ServerPlayer player) {}
+    public void onPassiveRemoved(ServerPlayer player) {}
 }

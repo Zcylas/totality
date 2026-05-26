@@ -237,12 +237,8 @@ public final class InventoryActionHandler {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static void sendToMainInventory(ServerPlayer player, ItemStack stack) {
-        for (int i = 9; i < 36; i++) {
-            if (player.getInventory().getItem(i).isEmpty()) {
-                player.getInventory().setItem(i, stack);
-                return;
-            }
-        }
+        // Intentionally excludes hotbar (slots 0-8) — unequipped items go to main inventory only
+        if (player.getInventory().add(stack)) return;
         player.drop(stack, false);
     }
 

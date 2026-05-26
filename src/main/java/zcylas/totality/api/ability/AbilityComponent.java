@@ -9,11 +9,9 @@ import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.screen.character.tabs.AbilitiesTab;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class AbilityComponent implements SyncedComponent, CopyableComponent<AbilityComponent> {
 
@@ -21,6 +19,7 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
     private final Set<Identifier> unlocked = new HashSet<>();
     /** Remaining cooldown ticks per ability. */
     private final Map<Identifier, Integer> cooldowns = new HashMap<>();
+    private final List<Identifier> favorites = new ArrayList<>(); // ordered list for radial
 
     private final ServerPlayer player;
 
@@ -119,6 +118,10 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         }
         buf.writeBoolean(equippedAbility != null);
         if (equippedAbility != null) buf.writeIdentifier(equippedAbility);
+
+        buf.writeInt(favorites.size());
+        for (Identifier id : favorites) buf.writeIdentifier(id);
+
     }
 
     @Override
@@ -136,24 +139,39 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
             cooldowns.put(id, ticks);
         }
         equippedAbility = buf.readBoolean() ? buf.readIdentifier() : null;
+        favorites.clear();
+        int favCount = buf.readInt();
+        for (int i = 0; i < favCount; i++) favorites.add(buf.readIdentifier());
+
     }
 
     @Override
     public void readData(ValueInput input) {
         unlocked.clear();
+        // ← ADD THIS BACK
         input.listOrEmpty("unlocked", Codec.STRING).stream().forEach(raw -> {
             Identifier id = Identifier.tryParse(raw);
             if (id != null) unlocked.add(id);
         });
+
+        favorites.clear();
+        input.listOrEmpty("favorites", Codec.STRING).stream().forEach(raw -> {
+            Identifier id = Identifier.tryParse(raw);
+            if (id != null) favorites.add(id);
+        });
+
         equippedAbility = input.getString("equippedAbility")
                 .map(Identifier::tryParse)
                 .orElse(null);
-        // Cooldowns intentionally not persisted — reset on relog
     }
 
     @Override
     public void writeData(ValueOutput output) {
         var list = output.list("unlocked", Codec.STRING);
+
+        var favList = output.list("favorites", Codec.STRING);
+        for (Identifier id : favorites) favList.add(id.toString());
+
         for (Identifier id : unlocked) {
             list.add(id.toString());
         }
@@ -169,6 +187,9 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         this.cooldowns.clear();
         this.cooldowns.putAll(other.cooldowns);
         this.equippedAbility = other.equippedAbility;
+        this.favorites.clear();
+        this.favorites.addAll(other.favorites);
+
     }
     public void forget(Identifier id) {
         unlocked.remove(id);
@@ -176,4 +197,15 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         if (id.equals(equippedAbility)) equippedAbility = null;
         sync();
     }
+
+    public List<Identifier> getFavorites() { return List.copyOf(favorites); }
+
+    public boolean isFavorite(Identifier id) { return favorites.contains(id); }
+
+    public void toggleFavorite(Identifier id) {
+        if (favorites.contains(id)) favorites.remove(id);
+        else if (favorites.size() < AbilitiesTab.MAX_FAVORITES) favorites.add(id);
+        sync();
+    }
+
 }

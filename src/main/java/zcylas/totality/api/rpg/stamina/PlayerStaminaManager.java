@@ -6,10 +6,10 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.combat.CombatStateManager;
+import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
+import zcylas.totality.api.rpg.resources.ResourceComponents;
 import zcylas.totality.api.rpg.stamina.base.*;
 
-import java.util.HashMap;
-import java.util.UUID;
 
 public class PlayerStaminaManager {
     public static final int   BASE_MAX_STAMINA        = 100;
@@ -31,20 +31,20 @@ public class PlayerStaminaManager {
     // Drain 1 stamina every 3 ticks ≈ 6.6 stamina/second ≈ Skyrim's 6s depletion
     public static final float SPRINT_DRAIN_PER_TICK = 0.33f;
 
-    private static final HashMap<UUID, Integer> staminaMap = new HashMap<>();
-
     public static int getStamina(Player player) {
-        if (!staminaMap.containsKey(player.getUUID())) {
+        if (!(player instanceof ServerPlayer sp)) return 0;
+        PlayerResourceComponent comp = ResourceComponents.get(sp);
+        if (!comp.isStaminaInitialized()) {
             int max = getMaxStamina(player);
-            staminaMap.put(player.getUUID(), max);
-            return max;
+            comp.setStamina(max);
         }
-        return staminaMap.get(player.getUUID());
+        return comp.getStamina();
     }
 
     public static void setStamina(Player player, int amount) {
+        if (!(player instanceof ServerPlayer sp)) return;
         int max = getMaxStamina(player);
-        staminaMap.put(player.getUUID(), Math.clamp(amount, 0, max));
+        ResourceComponents.get(sp).setStamina(Math.clamp(amount, 0, max));
     }
 
     public static void addStamina(Player player, int amount) {

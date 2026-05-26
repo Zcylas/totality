@@ -145,7 +145,7 @@ public final class BrewServerHandler {
         for (AlchemyEffectInstance inst : allEffects) {
             float scaledMagnitude = inst.effect().getBaseMagnitude() * potencyMultiplier;
             int scaledDuration = (int)(inst.effect().getBaseDurationTicks() * potencyMultiplier);
-            entries.add(EffectEntry.of(inst.effect(), scaledMagnitude, scaledDuration));
+                    entries.add(EffectEntry.of(inst.effect(), scaledMagnitude, scaledDuration));
         }
 
         // Determine color from primary effect type
