@@ -6,11 +6,14 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.core.movement.*;
 import zcylas.totality.api.rpg.combat.CombatStateManager;
 import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
 import zcylas.totality.api.rpg.combat.exhaustion.ExhaustionManager;
 import zcylas.totality.api.rpg.resources.ResourceComponents;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
+import zcylas.totality.networking.movement.MovementStaminaHandler;
 
 public class StaminaServerTick {
     // Static counter shared across all players on this server instance — fine for single-server use
@@ -33,10 +36,72 @@ public class StaminaServerTick {
                 // ── Tick combat timer ─────────────────────────────────────────
                 CombatStateManager.tick(player);
 
+                // ── Biological flight drain — every 5 ticks while active ─────────────────
+                // ── Biological flight drain ───────────────────────────────────────────────
+                PlayerMovementComponent movement = MovementComponents.MOVEMENT.get(
+                        (ComponentProvider) player);
+                // ── Ground Slam impact handling ─────────────────────────────────
+                if (movement.isGroundSlamming()) {
+
+                    boolean impacted =
+                            player.onGround()
+                                    || player.horizontalCollision
+                                    || player.verticalCollision;
+
+                    if (impacted) {
+                        GroundSlamImpact.perform(player, movement.getGroundSlamStartY());
+                        movement.stopGroundSlam();
+                    } else {
+                        player.setDeltaMovement(
+                                player.getDeltaMovement().x * 0.8D,
+                                MovementStaminaCosts.GROUND_SLAM_DOWNWARD_VELOCITY,
+                                player.getDeltaMovement().z * 0.8D
+                        );
+
+                        player.fallDistance = 0.0F;
+                        player.hurtMarked = true;
+                    }
+                }
+                if (PlayerStaminaManager.getStamina(player) <= 0 && movement.isPowerSprinting()) {
+                    movement.setPowerSprinting(false);
+                }
+
+                if (!player.isSprinting() && movement.isPowerSprinting()) {
+                    movement.setPowerSprinting(false);
+                }
+
+                if (movement.isActivelyFlying() && !player.isCreative()) {
+                    boolean onGround = player.onGround();
+
+                    if (onGround && !player.isFallFlying()) {
+                        movement.setActivelyFlying(false);
+                        syncStamina(player);
+                        continue;
+                    }
+
+                // Drain while biological flight is active and the player is airborne.
+                    if (!onGround && tickCounter % MovementStaminaCosts.FLIGHT_DRAIN_INTERVAL_TICKS == 0) {
+                        PlayerStaminaManager.removeStamina(player, MovementStaminaCosts.FLIGHT_DRAIN_COST);
+                        syncStamina(player);
+                    }
+
+                    if (PlayerStaminaManager.getStamina(player) <= 0) {
+                        movement.setActivelyFlying(false);
+                        player.setDeltaMovement(
+                                player.getDeltaMovement().x,
+                                -0.15D,
+                                player.getDeltaMovement().z
+                        );
+                        syncStamina(player);
+                    }
+                }
+
                 // ── Sprint drain — every 3 ticks, only on ground ──────────────
-                if (player.isSprinting() && !player.isCreative() && player.onGround()
+                boolean powerSprinting = isPowerSprinting(player, movement);
+
+                if (player.isSprinting() && !powerSprinting && !player.isCreative() && player.onGround()
                         && !BowStaminaHandler.isBowDrawn(player)) {
-                    if (tickCounter % 3 == 0) {
+                    if (tickCounter % MovementStaminaCosts.NORMAL_SPRINT_DRAIN_INTERVAL_TICKS == 0) {
                         PlayerStaminaManager.removeStamina(player, 1);
                         syncStamina(player);
                     }
@@ -79,7 +144,9 @@ public class StaminaServerTick {
                 // ── Stamina regen — every 20 ticks ────────────────────────────
                 if (tickCounter % 20 == 0) {
                     boolean regenBlocked = player.isSprinting()
-                            || BowStaminaHandler.isBowDrawn(player);
+                            || powerSprinting
+                            || BowStaminaHandler.isBowDrawn(player)
+                            || movement.isActivelyFlying();
 
                     if (!regenBlocked) {
                         int current = PlayerStaminaManager.getStamina(player);
@@ -106,6 +173,14 @@ public class StaminaServerTick {
         ServerPlayNetworking.send(player, new SyncStaminaPayload(
                 PlayerStaminaManager.getStamina(player),
                 PlayerStaminaManager.getMaxStamina(player)));
+    }
+
+    private static boolean isPowerSprinting(ServerPlayer player, PlayerMovementComponent movement) {
+        return !player.isCreative()
+                && player.isSprinting()
+                && movement.isPowerSprinting()
+                && MovementStaminaHandler.hasMovementMode(player, MovementMode.POWER_SPRINT)
+                && PlayerStaminaManager.getStamina(player) > 0;
     }
 
     private StaminaServerTick() {}

@@ -30,6 +30,8 @@ import zcylas.totality.networking.ancestry.SelectAncestryHandler;
 import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 import zcylas.totality.networking.inventory.InventoryActionHandler;
 import zcylas.totality.networking.mana.ManaServerTick;
+import zcylas.totality.networking.movement.MovementStaminaHandler;
+import zcylas.totality.networking.movement.PowerSprintStateHandler;
 import zcylas.totality.networking.movement.ToggleFlightHandler;
 import zcylas.totality.networking.skills.UnlockMasteryHandler;
 import zcylas.totality.networking.stamina.StaminaServerTick;
@@ -127,6 +129,8 @@ public class Totality implements ModInitializer {
 		EquipAbilityHandler.register();
 		FavoriteAbilityHandler.register();
 		ToggleFlightHandler.register();
+		MovementStaminaHandler.register();
+		PowerSprintStateHandler.register();
 		SelectAncestryHandler.register();
 	}
 
@@ -137,10 +141,8 @@ public class Totality implements ModInitializer {
 						zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
 								(zcylas.totality.api.core.component.ComponentProvider) player);
 				for (net.minecraft.resources.Identifier id : comp.getUnlocked()) {
-					Totality.LOGGER.info("Unlocked ability: " + id);
 					zcylas.totality.api.ability.Ability ability = AbilityRegistry.get(id);
 					if (ability != null && ability.getType() == zcylas.totality.api.ability.Ability.Type.PASSIVE) {
-						Totality.LOGGER.info("Ticking passive: " + id);
 						ability.onPassiveTick(player);
 					}
 				}

@@ -25,6 +25,8 @@ import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
+import zcylas.totality.networking.movement.MovementStaminaPayload;
+import zcylas.totality.networking.movement.PowerSprintStatePayload;
 import zcylas.totality.networking.movement.ToggleFlightPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 import zcylas.totality.networking.skills.UnlockMasteryPayload;
@@ -58,6 +60,8 @@ public class TotalityPackets {
         registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
         registry.register(SelectAncestryPayload.TYPE, SelectAncestryPayload.STREAM_CODEC);
         registry.register(ToggleFlightPayload.TYPE, ToggleFlightPayload.CODEC);
+        registry.register(MovementStaminaPayload.TYPE, MovementStaminaPayload.CODEC);
+        registry.register(PowerSprintStatePayload.TYPE, PowerSprintStatePayload.CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {

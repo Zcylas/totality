@@ -28,9 +28,7 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
     public AbilityComponent(ServerPlayer player) {
         this.player = player;
         // Grant all default abilities immediately
-        for (Ability ability : AbilityRegistry.defaults()) {
-            unlocked.add(ability.getId());
-        }
+        ensureDefaultAbilitiesUnlocked();
     }
 
     public @Nullable Identifier getEquippedAbility() {
@@ -148,11 +146,13 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
     @Override
     public void readData(ValueInput input) {
         unlocked.clear();
-        // ← ADD THIS BACK
+
         input.listOrEmpty("unlocked", Codec.STRING).stream().forEach(raw -> {
             Identifier id = Identifier.tryParse(raw);
             if (id != null) unlocked.add(id);
         });
+
+        ensureDefaultAbilitiesUnlocked();
 
         favorites.clear();
         input.listOrEmpty("favorites", Codec.STRING).stream().forEach(raw -> {
@@ -160,9 +160,15 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
             if (id != null) favorites.add(id);
         });
 
+        favorites.removeIf(id -> !unlocked.contains(id));
+
         equippedAbility = input.getString("equippedAbility")
                 .map(Identifier::tryParse)
                 .orElse(null);
+
+        if (equippedAbility != null && !unlocked.contains(equippedAbility)) {
+            equippedAbility = null;
+        }
     }
 
     @Override
@@ -206,6 +212,12 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         if (favorites.contains(id)) favorites.remove(id);
         else if (favorites.size() < AbilitiesTab.MAX_FAVORITES) favorites.add(id);
         sync();
+    }
+
+    private void ensureDefaultAbilitiesUnlocked() {
+        for (Ability ability : AbilityRegistry.defaults()) {
+            unlocked.add(ability.getId());
+        }
     }
 
 }

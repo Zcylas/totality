@@ -43,13 +43,10 @@ public final class SelectAncestryHandler {
 
         // Unlock starting abilities
         if (origin != null && !origin.getStartingAbilities().isEmpty()) {
-            Totality.LOGGER.info("Unlocking " + origin.getStartingAbilities().size() + " abilities for " + origin.getDisplayName());
             AbilityComponent abilities = AbilityComponents.ABILITIES.get(
                     (ComponentProvider) player);
             for (Identifier id : origin.getStartingAbilities()) {
-                Totality.LOGGER.info("Unlocking: " + id);
                 abilities.unlock(id);
-                Totality.LOGGER.info("Unlocked set now: " + abilities.getUnlocked());
             }
             AbilityComponents.ABILITIES.sync((ComponentProvider) player);
         } else {

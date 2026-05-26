@@ -45,6 +45,10 @@ public class ActivateAbilityHandler {
             context = new AbilityContext(pos, state, ability.getDisplayName());
         }
 
+        if (!ability.canActivate(player, context)) {
+            return;
+        }
+
         ability.onActivate(player, context);
 
         if (ability.getCooldownTicks() > 0) {

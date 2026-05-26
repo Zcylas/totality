@@ -1,6 +1,7 @@
 package zcylas.totality.api.ability;
 
 import net.minecraft.resources.Identifier;
+import zcylas.totality.api.ability.impl.GroundSlamAbility;
 import zcylas.totality.api.ability.impl.HarvestAbility;
 import zcylas.totality.api.ability.impl.PhysiologyPassive;
 import zcylas.totality.api.ability.impl.VeinminerAbility;
@@ -20,7 +21,7 @@ public class AbilityRegistry {
     // ── Default abilities ─────────────────────────────────────────────────────
     public static final HarvestAbility  HARVEST  = register(new HarvestAbility());
     public static final VeinminerAbility VEINMINER = register(new VeinminerAbility());
-
+    public static final GroundSlamAbility GROUND_SLAM = register(new GroundSlamAbility());
     // ── Viltrumite ────────────────────────────────────────────────────────────
     public static final PhysiologyPassive VILTRUMITE_PHYSIOLOGY = register(new PhysiologyPassive(
             Identifier.fromNamespaceAndPath("totality", "viltrumite_physiology"),

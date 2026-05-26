@@ -21,6 +21,9 @@ public class PlayerMovementComponent implements SyncedComponent, CopyableCompone
     private boolean activelyFlying = false;
 
     private final ServerPlayer player;
+    private boolean powerSprinting;
+    private boolean groundSlamming;
+    private double groundSlamStartY;
 
     public PlayerMovementComponent(ServerPlayer player) {
         this.player = player;
@@ -43,7 +46,30 @@ public class PlayerMovementComponent implements SyncedComponent, CopyableCompone
         player.onUpdateAbilities();
         sync();
     }
+    public boolean isPowerSprinting() {
+        return powerSprinting;
+    }
 
+    public void setPowerSprinting(boolean powerSprinting) {
+        this.powerSprinting = powerSprinting;
+    }
+    public boolean isGroundSlamming() {
+        return groundSlamming;
+    }
+
+    public void startGroundSlam(double startY) {
+        this.groundSlamming = true;
+        this.groundSlamStartY = startY;
+    }
+
+    public void stopGroundSlam() {
+        this.groundSlamming = false;
+        this.groundSlamStartY = 0.0D;
+    }
+
+    public double getGroundSlamStartY() {
+        return groundSlamStartY;
+    }
     // ── Sync ─────────────────────────────────────────────────────────────────
 
     private void sync() {
@@ -79,6 +105,24 @@ public class PlayerMovementComponent implements SyncedComponent, CopyableCompone
     @Override
     public void copyFrom(PlayerMovementComponent other,
                          net.minecraft.core.HolderLookup.Provider registries) {
-        this.activelyFlying = other.activelyFlying;
+        resetTransientMovementState();
     }
+
+    public void resetTransientMovementState() {
+        this.activelyFlying = false;
+        this.powerSprinting = false;
+        this.groundSlamming = false;
+        this.groundSlamStartY = 0.0D;
+
+        player.getAbilities().flying = false;
+        player.getAbilities().mayfly = false;
+        player.onUpdateAbilities();
+
+        sync();
+    }
+
+    public void resetPowerMovementState() {
+        this.powerSprinting = false;
+    }
+
 }

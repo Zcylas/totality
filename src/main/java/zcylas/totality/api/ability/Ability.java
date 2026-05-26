@@ -67,12 +67,15 @@ public abstract class Ability {
      *
      * Default: always null (ability has no context prompt).
      */
-
+    public boolean canActivate(ServerPlayer player, @Nullable AbilityContext context) {
+        return true;
+    }
     /**
      * Called server-side when the player activates this ability.
      * @param context the context that was active client-side when Z was pressed.
      *                Null for abilities with no context (e.g. Short Rest).
      */
+
     public abstract void onActivate(ServerPlayer player, @Nullable AbilityContext context);
 
     /** Channeled tick — only relevant for CHANNELED type. */
