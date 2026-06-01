@@ -1,6 +1,8 @@
+// api/rpg/ancestry/ClientAncestryManager.java
 package zcylas.totality.api.rpg.ancestry;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
 
 /**
  * Client-side cache of the local player's ancestry.
@@ -8,15 +10,15 @@ import net.minecraft.client.Minecraft;
  */
 public final class ClientAncestryManager {
 
-    private static Species species     = null;
-    private static Origin origin       = null;
-    private static float heightScale   = 1.0f;
+    private static Identifier speciesId   = null;
+    private static Identifier originId    = null;
+    private static float      heightScale = 1.0f;
 
     private ClientAncestryManager() {}
 
-    public static void apply(Species incomingSpecies, Origin incomingOrigin, float scale) {
-        species     = incomingSpecies;
-        origin      = incomingOrigin;
+    public static void apply(Identifier incomingSpeciesId, Identifier incomingOriginId, float scale) {
+        speciesId   = incomingSpeciesId;
+        originId    = incomingOriginId;
         heightScale = scale;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
@@ -24,8 +26,11 @@ public final class ClientAncestryManager {
         }
     }
 
-    public static Species getSpecies()       { return species; }
-    public static Origin getOrigin()         { return origin; }
-    public static float getHeightScale()     { return heightScale; }
-    public static boolean hasAncestry()      { return species != null; }
+    public static Identifier   getSpeciesId()    { return speciesId; }
+    public static Identifier   getOriginId()     { return originId; }
+    public static float        getHeightScale()  { return heightScale; }
+    public static boolean      hasAncestry()     { return speciesId != null; }
+
+    public static SpeciesData  getSpeciesData()  { return speciesId != null ? SpeciesRegistry.get(speciesId) : null; }
+    public static OriginData   getOriginData()   { return originId  != null ? OriginRegistry.get(originId)   : null; }
 }

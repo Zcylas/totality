@@ -11,6 +11,7 @@ public final class ClientAbilityManager {
     private static Map<Identifier, Integer> cooldowns = new HashMap<>();
     private static @Nullable Identifier    equippedAbility = null;
     private static List<Identifier>        favorites = new ArrayList<>();
+    private static @Nullable Identifier channelingAbility = null;
 
     private ClientAbilityManager() {}
 
@@ -22,6 +23,7 @@ public final class ClientAbilityManager {
         cooldowns       = new HashMap<>(newCooldowns);
         equippedAbility = newEquipped;
         favorites       = new ArrayList<>(newFavorites);
+        channelingAbility = null;
     }
 
     public static boolean hasAbility(Identifier id)    { return unlocked.contains(id); }
@@ -31,4 +33,19 @@ public final class ClientAbilityManager {
     public static @Nullable Identifier getEquippedAbility() { return equippedAbility; }
     public static List<Identifier> getFavorites()        { return Collections.unmodifiableList(favorites); }
     public static boolean isFavorite(Identifier id)     { return favorites.contains(id); }
+    public static void setChanneling(@Nullable Identifier id) {
+        channelingAbility = id;
+    }
+
+    public static boolean isChanneling() {
+        return channelingAbility != null;
+    }
+
+    public static boolean isChanneling(Identifier id) {
+        return id.equals(channelingAbility);
+    }
+
+    public static @Nullable Identifier getChannelingAbility() {
+        return channelingAbility;
+    }
 }

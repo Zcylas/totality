@@ -15,7 +15,7 @@ public class NotificationManager {
             Identifier.fromNamespaceAndPath(Totality.MOD_ID, "notifications");
 
     // How long each notification lives in ticks (60 = 3 seconds)
-    private static final int LIFETIME_TICKS = 60;
+    private static final int LIFETIME_TICKS = 80;
     // How many ticks to fade out over
     private static final int FADE_TICKS = 20;
     // Max notifications visible at once
@@ -61,23 +61,15 @@ public class NotificationManager {
             // Render from top-left, stacking downward
             int y = PADDING_Y;
             for (Notification n : active) {
-                // Calculate alpha based on remaining life
-                float alpha;
-                if (n.ticksLeft < FADE_TICKS) {
-                    alpha = (float) n.ticksLeft / FADE_TICKS;
-                } else {
-                    alpha = 1.0f;
+                float alpha = n.ticksLeft < FADE_TICKS
+                        ? (float) n.ticksLeft / FADE_TICKS : 1.0f;
+                int finalColor = ((int)(alpha * 255) << 24) | (n.color & 0x00FFFFFF);
+
+                String[] lines = n.message.split("\n");
+                for (String line : lines) {
+                    graphics.text(client.font, line, PADDING_X, y, finalColor, true);
+                    y += LINE_HEIGHT;
                 }
-
-                // Apply alpha to color
-                int baseColor = n.color & 0x00FFFFFF; // strip existing alpha
-                int a = (int)(alpha * 255) << 24;
-                int finalColor = a | baseColor;
-
-                graphics.text(client.font, n.message,
-                        PADDING_X, y, finalColor, true);
-
-                y += LINE_HEIGHT;
             }
         });
     }

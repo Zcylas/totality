@@ -7,10 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.core.rpgutils.rarity.*;
-import zcylas.totality.client.tooltip.renderer.TooltipAnimator;
-import zcylas.totality.client.tooltip.renderer.TooltipFrameRenderer;
-import zcylas.totality.client.tooltip.renderer.TooltipPainter;
-import zcylas.totality.client.tooltip.renderer.TooltipStatBlock;
+import zcylas.totality.client.tooltip.renderer.*;
 import zcylas.totality.client.tooltip.theme.TooltipBorderStyle;
 import zcylas.totality.client.tooltip.theme.TooltipColors;
 import zcylas.totality.client.tooltip.theme.TooltipTheme;
@@ -65,8 +62,9 @@ public class TotalityTooltipRenderer {
         int loreH = loreLines != null ? loreLines.size() * (font.lineHeight + 2) + 4 : 0;
         int extensionH = extensionLines.isEmpty() ? 0 : extensionLines.size() * (font.lineHeight + 2) + 4;
         int bodyH = loreH + extensionH + font.lineHeight + 8;
-        int statH = TooltipStatBlock.hasStats(stack) ? TooltipStatBlock.estimateHeight(font, stack) : 0;
-        int panelH = headerH + separatorH + bodyH + statH + footerH;
+        int statH   = TooltipStatBlock.hasStats(stack)   ? TooltipStatBlock.estimateHeight(font, stack)   : 0;
+        int weaponH = TooltipWeaponBlock.hasWeaponStats(stack) ? TooltipWeaponBlock.estimateHeight(font, stack) : 0;
+        int panelH  = headerH + separatorH + bodyH + statH + weaponH + footerH;
 
 
         // Screen bounds + clamping
@@ -128,6 +126,14 @@ public class TotalityTooltipRenderer {
 
         // Body
         int cursorY = separatorY + separatorH;
+
+        // Weapon stats block — first in body for weapon items
+        if (TooltipWeaponBlock.hasWeaponStats(stack)) {
+            int consumed = TooltipWeaponBlock.draw(
+                    graphics, font, stack, panelX + PADDING, cursorY, panelW, PADDING, theme);
+            cursorY += consumed + 4;
+        }
+
 
         // Extension lines first
         if (!extensionLines.isEmpty()) {

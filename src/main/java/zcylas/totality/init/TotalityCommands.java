@@ -7,6 +7,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
@@ -14,8 +15,12 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.currency.CurrencyHelper;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
-import zcylas.totality.api.rpg.ancestry.Origin;
+import zcylas.totality.api.rpg.ancestry.OriginData;
+import zcylas.totality.api.rpg.classes.ClassComponents;
+import zcylas.totality.api.rpg.combat.ProficiencyBonus;
+import zcylas.totality.api.rpg.combat.weapon.TotalityWeaponItem;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
+import zcylas.totality.api.rpg.rest.RestManager;
 import zcylas.totality.api.rpg.skills.core.*;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.api.rpg.stats.AbilityScore;
@@ -23,10 +28,13 @@ import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatAttributeApplier;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
+import zcylas.totality.networking.classes.OpenClassSelectionPayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
+
+import java.util.Set;
 
 public class TotalityCommands {
 
@@ -100,6 +108,7 @@ public class TotalityCommands {
                                     })
                             )
 
+
                             // ── /totality resetlevel ──────────────────────────────────
                             .then(Commands.literal("resetlevel")
                                     .executes(ctx -> {
@@ -147,7 +156,7 @@ public class TotalityCommands {
 
                                         // Only forget abilities from the previous origin
                                         var ancestryComp = AncestryComponents.get(player);
-                                        Origin previousOrigin = ancestryComp.getOrigin();
+                                        OriginData previousOrigin = ancestryComp.getOriginData();
                                         if (previousOrigin != null && !previousOrigin.getStartingAbilities().isEmpty()) {
                                             var abilityComp = AbilityComponents.ABILITIES.get((ComponentProvider) player);
                                             for (Identifier id : previousOrigin.getStartingAbilities()) {
@@ -164,6 +173,17 @@ public class TotalityCommands {
                                         return 1;
                                     })
                             )
+                            // ── /totality showclass ───────────────────────────────────────
+                            .then(Commands.literal("showclass")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        ClassComponents.get(player).resetClass();
+                                        ServerPlayNetworking.send(player, new OpenClassSelectionPayload());
+                                        ctx.getSource().sendSuccess(() ->
+                                                Component.literal("Class selection reset. Reopening menu..."), false);
+                                        return 1;
+                                    })
+                            )
                             .then(Commands.literal("ancestry")
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
@@ -173,11 +193,11 @@ public class TotalityCommands {
                                                     Component.literal("No ancestry selected."), false);
                                             return 0;
                                         }
-                                        String originName = comp.getOrigin() != null
-                                                ? comp.getOrigin().getDisplayName()
+                                        String originName = comp.getOriginData() != null
+                                                ? comp.getOriginData().getDisplayName()
                                                 : "None";
                                         ctx.getSource().sendSuccess(() ->
-                                                Component.literal("Species: " + comp.getSpecies().getDisplayName() +
+                                                Component.literal("Species: " + comp.getSpeciesData().getDisplayName() +
                                                         " | Origin: " + originName +
                                                         " | Height Scale: " + String.format("%.3f", comp.getHeightScale())), false);
                                         return 1;
@@ -499,6 +519,128 @@ public class TotalityCommands {
                                         return 1;
                                     })
                             )
+                            // ── /totality damage <type> <amount> ─────────────────────────
+                            .then(Commands.literal("damage")
+                                    .then(Commands.argument("type", StringArgumentType.word())
+                                            .then(Commands.argument("amount", com.mojang.brigadier.arguments.FloatArgumentType.floatArg(0))
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        String typeStr = StringArgumentType.getString(ctx, "type");
+                                                        float amount = com.mojang.brigadier.arguments.FloatArgumentType.getFloat(ctx, "amount");
+
+                                                        zcylas.totality.api.combat.damage.TotalityDamageType type =
+                                                                zcylas.totality.api.combat.damage.DamageTypeRegistry.get(
+                                                                        Identifier.fromNamespaceAndPath("totality", typeStr));
+
+                                                        if (type == null) {
+                                                            ctx.getSource().sendFailure(
+                                                                    Component.literal("Unknown damage type: " + typeStr));
+                                                            return 0;
+                                                        }
+
+                                                        float vanillaAmount = amount / zcylas.totality.api.core.rpgutils.RpgDisplayUtils.HP_DISPLAY_MULTIPLIER;
+                                                        zcylas.totality.api.combat.damage.TotalityDamage.hurt(
+                                                                player, null, type, vanillaAmount);
+
+                                                        ctx.getSource().sendSuccess(() ->
+                                                                Component.literal("Dealt " + amount + " " + typeStr + " damage."), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                            )
+                            .then(Commands.literal("rolldice")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        zcylas.totality.api.dice.PendingDiceRollManager.request(
+                                                player,
+                                                new zcylas.totality.api.dice.DiceRollContext(
+                                                        "Deception", "Charisma Check",
+                                                        zcylas.totality.api.dice.Dice.D20,
+                                                        14,
+                                                        zcylas.totality.api.dice.RollType.NORMAL,
+                                                        java.util.List.of(
+                                                                new zcylas.totality.api.dice.DiceBonus("Charisma", 4),
+                                                                new zcylas.totality.api.dice.DiceBonus("Proficiency", 3)
+                                                        )
+                                                ),
+                                                result -> zcylas.totality.Totality.LOGGER.info(
+                                                        "Dice result: {} (rolled {} + {} = {} vs DC {})",
+                                                        result.outcome(), result.usedRoll(), result.totalBonus(),
+                                                        result.total(), result.context().dc())
+                                        );
+                                        return 1;
+                                    })
+                            )
+                            .then(Commands.literal("rolldice_adv")
+                            .executes(ctx -> {
+                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                zcylas.totality.api.dice.PendingDiceRollManager.request(
+                                        player,
+                                        new zcylas.totality.api.dice.DiceRollContext(
+                                                "Perception", "Wisdom Check",
+                                                zcylas.totality.api.dice.Dice.D20,
+                                                12,
+                                                zcylas.totality.api.dice.RollType.ADVANTAGE,
+                                                java.util.List.of(
+                                                        new zcylas.totality.api.dice.DiceBonus("Wisdom", 2),
+                                                        new zcylas.totality.api.dice.DiceBonus("Proficiency", 3)
+                                                )
+                                        ),
+                                        result -> zcylas.totality.Totality.LOGGER.info(
+                                                "Advantage result: {} (roll1={} roll2={} used={})",
+                                                result.outcome(), result.roll1(), result.roll2(), result.usedRoll())
+                                );
+                                return 1;
+                            })
+                    )
+                            .then(Commands.literal("rolldice_dis")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        zcylas.totality.api.dice.PendingDiceRollManager.request(
+                                                player,
+                                                new zcylas.totality.api.dice.DiceRollContext(
+                                                        "Stealth", "Dexterity Check",
+                                                        zcylas.totality.api.dice.Dice.D20,
+                                                        16,
+                                                        zcylas.totality.api.dice.RollType.DISADVANTAGE,
+                                                        java.util.List.of(
+                                                                new zcylas.totality.api.dice.DiceBonus("Dexterity", 1)
+                                                        )
+                                                ),
+                                                result -> zcylas.totality.Totality.LOGGER.info(
+                                                        "Disadvantage result: {} (roll1={} roll2={} used={})",
+                                                        result.outcome(), result.roll1(), result.roll2(), result.usedRoll())
+                                        );
+                                        return 1;
+                                    })
+                            )
+                            .then(Commands.literal("shortrest")
+                                    .executes(ctx -> {
+                                        RestManager.shortRest(ctx.getSource().getPlayerOrException());
+                                        ctx.getSource().sendSuccess(() -> Component.literal("Short rest taken."), false);
+                                        return 1;
+                                    }))
+                            .then(Commands.literal("longrest")
+                                    .executes(ctx -> {
+                                        RestManager.longRest(ctx.getSource().getPlayerOrException());
+                                        ctx.getSource().sendSuccess(() -> Component.literal("Long rest taken."), false);
+                                        return 1;
+                                    })
+                            )
+                            .then(Commands.literal("debugproficiency")
+                                    .executes(ctx -> {
+                                        ServerPlayer p = ctx.getSource().getPlayerOrException();
+                                        int prof = ProficiencyBonus.forPlayer(p);
+                                        Set<AbilityScore> saves = ClassComponents.get(p).getSaveProficiencies();
+                                        ItemStack held = p.getMainHandItem();
+                                        boolean weaponProf = !held.isEmpty() && held.getItem() instanceof TotalityWeaponItem w
+                                                && w.isProficient(p);
+                                        ctx.getSource().sendSuccess(() -> Component.literal(
+                                                "Proficiency: +" + prof + " | Save profs: " + saves + " | Weapon prof: " + weaponProf
+                                        ), false);
+                                        return 1;
+                                    }))
 
 
             );

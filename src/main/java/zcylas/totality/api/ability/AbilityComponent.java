@@ -20,16 +20,48 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
     /** Remaining cooldown ticks per ability. */
     private final Map<Identifier, Integer> cooldowns = new HashMap<>();
     private final List<Identifier> favorites = new ArrayList<>(); // ordered list for radial
+    private final Set<Identifier> activeToggles = new HashSet<>();
+    private final Map<Identifier, Integer> toggleTimers = new HashMap<>();  // id → remaining ticks
+    private final Map<Identifier, Integer> lastCombatTick = new HashMap<>(); // id → tick of last attack/damage
+
 
     private final ServerPlayer player;
 
     private @Nullable Identifier equippedAbility = null;
+    private @Nullable Identifier channelingAbility = null;
 
     public AbilityComponent(ServerPlayer player) {
         this.player = player;
         // Grant all default abilities immediately
         ensureDefaultAbilitiesUnlocked();
     }
+
+    public @Nullable Identifier getChannelingAbility() {
+        return channelingAbility;
+    }
+
+    public void startChanneling(Identifier id) {
+        this.channelingAbility = id;
+        // No sync needed — transient state
+    }
+
+    public void stopChanneling() {
+        this.channelingAbility = null;
+    }
+
+    public boolean isToggleActive(Identifier id)  { return activeToggles.contains(id); }
+
+    public boolean isChanneling() {
+        return channelingAbility != null;
+    }
+
+    public boolean isChanneling(Identifier id) {
+        return id.equals(channelingAbility);
+    }
+
+    public Set<Identifier>          getActiveToggles()  { return activeToggles; }
+    public Map<Identifier, Integer> getToggleTimers()   { return toggleTimers; }
+    public Map<Identifier, Integer> getLastCombatTick() { return lastCombatTick; }
 
     public @Nullable Identifier getEquippedAbility() {
         return equippedAbility;
@@ -76,6 +108,24 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         sync();
     }
 
+    public void activateToggle(Identifier id, int durationTicks) {
+        activeToggles.add(id);
+        toggleTimers.put(id, durationTicks);
+        lastCombatTick.put(id, player != null ? player.tickCount : 0); // ← initialize here
+        sync();
+    }
+
+    public void deactivateToggle(Identifier id) {
+        activeToggles.remove(id);
+        toggleTimers.remove(id);
+        lastCombatTick.remove(id);
+        sync();
+    }
+
+    public void refreshCombatTick(Identifier id, int currentTick) {
+        if (activeToggles.contains(id)) lastCombatTick.put(id, currentTick);
+    }
+
     /** Called every server tick by PlayerAbilityManager. */
     public void tickCooldowns() {
         if (cooldowns.isEmpty()) return;
@@ -120,6 +170,8 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         buf.writeInt(favorites.size());
         for (Identifier id : favorites) buf.writeIdentifier(id);
 
+        buf.writeInt(activeToggles.size());
+        for (Identifier id : activeToggles) buf.writeIdentifier(id);
     }
 
     @Override
@@ -141,6 +193,9 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         int favCount = buf.readInt();
         for (int i = 0; i < favCount; i++) favorites.add(buf.readIdentifier());
 
+        activeToggles.clear();
+        int toggleCount = buf.readInt();
+        for (int i = 0; i < toggleCount; i++) activeToggles.add(buf.readIdentifier());
     }
 
     @Override
@@ -173,16 +228,16 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     @Override
     public void writeData(ValueOutput output) {
+        // Write unlocked
         var list = output.list("unlocked", Codec.STRING);
+        for (Identifier id : unlocked) list.add(id.toString());
 
+        // Write favorites
         var favList = output.list("favorites", Codec.STRING);
         for (Identifier id : favorites) favList.add(id.toString());
 
-        for (Identifier id : unlocked) {
-            list.add(id.toString());
-        }
+        // Write equipped
         if (equippedAbility != null) output.putString("equippedAbility", equippedAbility.toString());
-        // Cooldowns intentionally not saved
     }
 
     @Override
@@ -201,6 +256,7 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         unlocked.remove(id);
         cooldowns.remove(id);
         if (id.equals(equippedAbility)) equippedAbility = null;
+        if (id.equals(channelingAbility)) channelingAbility = null; // ← add this
         sync();
     }
 

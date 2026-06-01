@@ -2,11 +2,14 @@ package zcylas.totality.api.rpg.skills.core;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.rpg.classes.ClassComponents;
+import zcylas.totality.api.rpg.classes.ClassLevelUpRegistry;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.networking.notification.SendNotificationPayload;
@@ -67,15 +70,24 @@ public class PlayerSkillsComponent implements SyncedComponent, CopyableComponent
         );
 
         if (characterLevelUp) {
-            SendNotificationPayload.send(
-                    player,
-                    "⭐ Level " + stats.getLevel() + "! +" + stats.getUnspentAttributePoints()
-                            + " attribute point, +1 mastery point",
+            SendNotificationPayload.send(player,
+                    "⭐ Level " + stats.getLevel() + "! +5 attribute points, +1 mastery point",
                     SendNotificationPayload.GOLD
             );
+
+            // Notify about new class point
+            var classComp = ClassComponents.get(player);
+            int available = classComp.getAvailableClassPoints(stats.getLevel());
+            int spent     = classComp.getSpentClassPoints();
+            if (available > spent) {
+                SendNotificationPayload.send(player,
+                        "✦ Class point available! Open the Class screen to spend it.",
+                        0xFFFFD700);
+                // TODO: send packet to open/highlight class screen
+            }
+
             MasteriesComponents.get(player).getMasteries().addMasteryPoints(1);
             MasteriesComponents.get(player).sync();
-            // StatsComponents already synced above — no need to sync again here
         }
     }
 

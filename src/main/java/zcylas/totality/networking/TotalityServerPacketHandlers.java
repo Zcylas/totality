@@ -7,17 +7,14 @@ import zcylas.totality.api.industrial.energy.HasSidedEnergy;
 import zcylas.totality.api.industrial.item.HasSidedItems;
 import zcylas.totality.api.magic.grimoire.GrimoireCaster;
 import zcylas.totality.api.magic.grimoire.MagicComponents;
-import zcylas.totality.api.rpg.ancestry.AncestryComponents;
-import zcylas.totality.api.rpg.ancestry.Origin;
-import zcylas.totality.api.rpg.ancestry.Species;
 import zcylas.totality.api.rpg.combat.PowerAttackManager;
 import zcylas.totality.item.fluid.FluidTankItem;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.alchemy.BrewServerHandler;
-import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.SideModePayload;
+import zcylas.totality.networking.dice.DiceRollClickHandler;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
@@ -85,6 +82,7 @@ public class TotalityServerPacketHandlers {
                     PowerAttackManager.onPowerAttackReceived(context.player());
                 }));
         BrewServerHandler.register();
+        DiceRollClickHandler.register();
     }
 
     private static ItemStack findGrimoire(ServerPlayer player) {

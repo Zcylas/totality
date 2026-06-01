@@ -2,6 +2,7 @@ package zcylas.totality.api.rpg.stats;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
+import zcylas.totality.api.combat.damage.DamageResistanceRecalculator;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
@@ -34,6 +35,7 @@ public final class PlayerResourceRecalculator {
      * Safe to call multiple times — all operations are idempotent.
      */
     public static void recalculate(ServerPlayer player) {
+        DamageResistanceRecalculator.recalculate(player);
         // 1. Reapply attribute modifiers (CON → MAX_HEALTH etc.)
         StatAttributeApplier.apply(player);
 
@@ -70,6 +72,7 @@ public final class PlayerResourceRecalculator {
      * Use on join/respawn where we want to restore rather than clamp.
      */
     public static void recalculateAndRestore(ServerPlayer player) {
+        DamageResistanceRecalculator.recalculate(player);
         StatAttributeApplier.apply(player);
 
         // Restore HP from PlayerStatsComponent

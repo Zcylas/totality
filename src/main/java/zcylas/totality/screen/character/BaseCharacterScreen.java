@@ -11,6 +11,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.ancestry.ClientAncestryManager;
+import zcylas.totality.api.rpg.classes.ClientClassManager;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
 
 import java.util.ArrayList;
@@ -212,14 +213,20 @@ public abstract class BaseCharacterScreen extends Screen {
         int level = ClientStatsManager.getLevel();
         String playerName = player != null ? player.getName().getString() : "Unknown";
         String speciesStr = ClientAncestryManager.hasAncestry()
-                ? ClientAncestryManager.getSpecies().getDisplayName() : "None";
-        String originStr  = ClientAncestryManager.getOrigin() != null
-                ? ClientAncestryManager.getOrigin().getDisplayName() : "None";
+                ? ClientAncestryManager.getSpeciesData().getDisplayName() : "None";
+        String originStr  = ClientAncestryManager.getOriginData() != null
+                ? ClientAncestryManager.getOriginData().getDisplayName() : "None";
 
         int cy = summaryY + PAD;
         cy = drawSummaryRow(g, 0, cy, lw, "Name:",    playerName);
         cy = drawSummaryRow(g, 0, cy, lw, "Level:",   String.valueOf(level));
-        cy = drawSummaryRow(g, 0, cy, lw, "Class:",   "None");
+        String classLine = ClientClassManager.getSubclassData() != null
+                ? ClientClassManager.getSubclassData().displayName()
+                : ClientClassManager.getPrimaryClassData() != null
+                ? ClientClassManager.getPrimaryClassData().displayName()
+                : "None";
+
+        cy = drawSummaryRow(g, 0, cy, lw, "Class:", classLine);
         cy = drawSummaryRow(g, 0, cy, lw, "Species:", speciesStr);
         cy = drawSummaryRow(g, 0, cy, lw, "Origin:",  originStr);
         drawSummaryRow(g, 0, cy, lw, "Title:", "None");

@@ -20,6 +20,34 @@
       "height": 9,
       "ascent": 8,
       "chars": ["\uE003"]
+    },
+    {
+      "type": "bitmap",
+      "file": "totality:font/icons/damage.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": ["\uE004"]
+    },
+    {
+      "type": "bitmap",
+      "file": "totality:font/icons/properties.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": ["\uE005"]
+    },
+    {
+      "type": "bitmap",
+      "file": "totality:font/icons/range.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": ["\uE006"]
+    },
+    {
+      "type": "bitmap",
+      "file": "totality:font/icons/stamina.png",
+      "height": 9,
+      "ascent": 8,
+      "chars": ["\uE007"]
     }
   ]
 }

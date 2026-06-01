@@ -6,17 +6,24 @@ import zcylas.totality.api.core.component.ComponentSync;
 import zcylas.totality.networking.ability.ActivateAbilityPayload;
 import zcylas.totality.networking.ability.EquipAbilityPayload;
 import zcylas.totality.networking.ability.FavoriteAbilityPayload;
+import zcylas.totality.networking.ability.ToggleAbilityPayload;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyPayload;
 import zcylas.totality.networking.alchemy.BrewPayload;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
 import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 import zcylas.totality.networking.ancestry.SelectAncestryPayload;
+import zcylas.totality.networking.classes.OpenClassSelectionPayload;
+import zcylas.totality.networking.classes.SelectClassPayload;
+import zcylas.totality.networking.combat.CombatTextPayload;
 import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.config.SideModeSyncPayload;
+import zcylas.totality.networking.dice.DiceCheckRequestPayload;
+import zcylas.totality.networking.dice.DiceRollClickPayload;
+import zcylas.totality.networking.dice.DiceRollResultPayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.networking.inventory.InventoryDropPayload;
 import zcylas.totality.networking.inventory.InventoryEquipPayload;
@@ -62,6 +69,9 @@ public class TotalityPackets {
         registry.register(ToggleFlightPayload.TYPE, ToggleFlightPayload.CODEC);
         registry.register(MovementStaminaPayload.TYPE, MovementStaminaPayload.CODEC);
         registry.register(PowerSprintStatePayload.TYPE, PowerSprintStatePayload.CODEC);
+        registry.register(ToggleAbilityPayload.TYPE, ToggleAbilityPayload.STREAM_CODEC);
+        registry.register(DiceRollClickPayload.TYPE, DiceRollClickPayload.STREAM_CODEC);
+        registry.register(SelectClassPayload.TYPE, SelectClassPayload.STREAM_CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
@@ -76,6 +86,10 @@ public class TotalityPackets {
         registry.register(OpenStatusScreenPayload.TYPE, OpenStatusScreenPayload.CODEC);
         registry.register(OpenMainMenuPayload.TYPE, OpenMainMenuPayload.CODEC);
         registry.register(OpenAncestrySelectionPayload.TYPE, OpenAncestrySelectionPayload.STREAM_CODEC);
+        registry.register(CombatTextPayload.TYPE, CombatTextPayload.CODEC);
+        registry.register(DiceCheckRequestPayload.TYPE, DiceCheckRequestPayload.STREAM_CODEC);
+        registry.register(DiceRollResultPayload.TYPE,   DiceRollResultPayload.STREAM_CODEC);
+        registry.register(OpenClassSelectionPayload.TYPE, OpenClassSelectionPayload.STREAM_CODEC);
     }
 
     private TotalityPackets() {}

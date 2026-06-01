@@ -1,3 +1,4 @@
+// screen/ancestry/ConfirmAncestryScreen.java
 package zcylas.totality.screen.ancestry;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -11,10 +12,10 @@ import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 
 public class ConfirmAncestryScreen extends BaseAncestryScreen {
 
-    private final Species species;
-    private final Origin  origin;
+    private final SpeciesData species;
+    private final OriginData  origin;
 
-    public ConfirmAncestryScreen(Species species, Origin origin) {
+    public ConfirmAncestryScreen(SpeciesData species, OriginData origin) {
         super(Component.literal("Confirm Your Ancestry"));
         this.species = species;
         this.origin  = origin;
@@ -66,7 +67,7 @@ public class ConfirmAncestryScreen extends BaseAncestryScreen {
             g.fill(x + PAD, cy, x + w - PAD, cy + 1, COLOR_SEPARATOR); cy += 4;
         }
 
-        float mn = origin != null ? origin.getMinHeight() : species.getMinHeight();
+        float mn  = origin != null ? origin.getMinHeight()  : species.getMinHeight();
         float mx2 = origin != null ? origin.getMaxHeight() : species.getMaxHeight();
         drawSmallAt(g, "HEIGHT RANGE", x + PAD, cy, COLOR_COPPER); cy += SLH + 2;
         drawSmallAt(g, String.format("%.2f - %.2f blocks", mn, mx2),
@@ -127,7 +128,7 @@ public class ConfirmAncestryScreen extends BaseAncestryScreen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent mouse, boolean dc) {
-        int mx = (int)mouse.x(), my = (int)mouse.y();
+        int mx = (int) mouse.x(), my = (int) mouse.y();
 
         if (isBack(mx, my)) {
             click();
@@ -138,11 +139,10 @@ public class ConfirmAncestryScreen extends BaseAncestryScreen {
         }
         if (isNext(mx, my)) {
             click();
-            net.minecraft.client.Minecraft.getInstance().player.sendSystemMessage(
-                    net.minecraft.network.chat.Component.literal("Sending ancestry: " + species.name() + " / " + (origin != null ? origin.name() : "null"))
-            );
+            // Send Identifier strings — handler and backward-compat parser accept both formats
             ClientPlayNetworking.send(new SelectAncestryPayload(
-                    species.name(), origin != null ? origin.name() : null));
+                    species.getId().toString(),
+                    origin != null ? origin.getId().toString() : null));
             onClose();
             return true;
         }
@@ -151,12 +151,12 @@ public class ConfirmAncestryScreen extends BaseAncestryScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double h, double v) {
-        int x = (int)mx, y = (int)my, ph = bot - top;
+        int x = (int) mx, y = (int) my, ph = bot - top;
         if (inB(x, y, 0, top, CAT_W, ph)) {
-            scrollCat = Math.max(0, (int)(scrollCat - v * 10)); return true;
+            scrollCat = Math.max(0, (int) (scrollCat - v * 10)); return true;
         }
         if (inB(x, y, detX, top, detW, ph)) {
-            scrollDet = Math.max(0, (int)(scrollDet - v * 10)); return true;
+            scrollDet = Math.max(0, (int) (scrollDet - v * 10)); return true;
         }
         return super.mouseScrolled(mx, my, h, v);
     }

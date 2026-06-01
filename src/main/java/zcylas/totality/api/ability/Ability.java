@@ -33,6 +33,8 @@ public abstract class Ability {
     private final String sourceDetail; // e.g. "Mining" for Veinminer mastery
     private final String flavourText;  // italic text shown in detail panel
 
+
+
     protected Ability(Identifier id, String displayName, String description,
                       Type type, int cooldownTicks, Identifier icon,Source source, String sourceDetail, String flavourText) {
         this.id           = id;
@@ -81,6 +83,14 @@ public abstract class Ability {
     /** Channeled tick — only relevant for CHANNELED type. */
     public void onChannel(ServerPlayer player, @Nullable AbilityContext context) {}
 
+    public void onChannelStart(ServerPlayer player, @Nullable AbilityContext context) {}
+    public void onChannelStop(ServerPlayer player, @Nullable AbilityContext context) {}
+    /** Called when a TOGGLE ability is switched ON. */
+    public void onToggleOn(ServerPlayer player)  {}
+    /** Called when a TOGGLE ability is switched OFF. */
+    public void onToggleOff(ServerPlayer player) {}
+    /** Called every tick while a TOGGLE ability is active. */
+    public void onToggleTick(ServerPlayer player) {}
     /** Passive tick — only relevant for PASSIVE type. */
     public void onPassiveTick(ServerPlayer player) {}
     public void onPassiveRemoved(ServerPlayer player) {}

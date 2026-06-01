@@ -48,6 +48,7 @@ public class HarvestAbility extends Ability implements ClientAbilityContext {
             return null;
 
         BlockPos pos = ((BlockHitResult) mc.hitResult).getBlockPos();
+        assert mc.level != null;
         BlockState state = mc.level.getBlockState(pos);
 
         if (!isHarvestable(state))

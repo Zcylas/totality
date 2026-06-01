@@ -1,3 +1,4 @@
+// screen/ancestry/OriginSelectionScreen.java
 package zcylas.totality.screen.ancestry;
 
 import net.minecraft.client.Minecraft;
@@ -11,15 +12,15 @@ import java.util.List;
 
 public class OriginSelectionScreen extends BaseAncestryScreen {
 
-    private final Species     species;
-    private final List<Origin> origins;
-    private Origin selOr = null;
-    private Origin hovOr = null;
+    private final SpeciesData     species;
+    private final List<OriginData> origins;
+    private OriginData selOr = null;
+    private OriginData hovOr = null;
 
-    public OriginSelectionScreen(Species species) {
+    public OriginSelectionScreen(SpeciesData species) {
         super(Component.literal("Choose Your Ancestry"));
         this.species = species;
-        this.origins = Origin.getForSpecies(species);
+        this.origins = OriginRegistry.getForSpecies(species.getId());
     }
 
     @Override
@@ -37,7 +38,7 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
         drawBottomBar(g, mx, my, true, true, selOr != null, "NEXT");
     }
 
-    // ── Left: selected species summary ───────────────────────────────────────
+    // ── Left: selected species summary ────────────────────────────────────────
 
     private void drawSpeciesPanel(GuiGraphicsExtractor g, int mx, int my) {
         int x = 0, y = top, w = CAT_W, h = bot - top;
@@ -78,9 +79,9 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
         sc(g, x + 3, y + HDR_H + 1, w - 6, h - HDR_H - 4);
         int ry = y + HDR_H + 1 - scrollList;
 
-        for (Origin o : origins) {
+        for (OriginData o : origins) {
             if (ry + ROW_H > y + HDR_H && ry < bot) {
-                boolean locked = o.getDefaultUnlockState() == UnlockState.LOCKED;
+                boolean locked = o.getUnlockState() == UnlockState.LOCKED;
                 boolean sel    = o == selOr;
                 boolean hov    = !locked && inB(mx, my, x + 3, ry, w - 6, ROW_H);
                 if (hov) hovOr = o;
@@ -100,7 +101,7 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
         drawPanel(g, x, y, w, h);
         drawPanelHdr(g, x, y, w, "ORIGIN DETAILS");
 
-        Origin disp = selOr != null ? selOr : hovOr;
+        OriginData disp = selOr != null ? selOr : hovOr;
         if (disp == null) {
             drawSmallAt(g, "Select an origin to view details",
                     x + PAD, y + h / 2, COLOR_LABEL);
@@ -110,7 +111,6 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
         int splitX = x + w / 2;
         int innerY = y + HDR_H + 2;
 
-        // Player preview — left half
         var player = Minecraft.getInstance().player;
         if (player != null) {
             InventoryScreen.extractEntityInInventoryFollowsMouse(
@@ -118,7 +118,6 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
                     40, 0.0f, mx, my, player);
         }
 
-        // Info — right half, scrollable
         sc(g, splitX, innerY, w / 2 - 4, h - HDR_H - 4);
         int ix = splitX + PAD, iw = w / 2 - PAD * 2;
         int cy = innerY + 4 - scrollDet;
@@ -148,12 +147,12 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent mouse, boolean dc) {
-        int mx = (int)mouse.x(), my = (int)mouse.y();
+        int mx = (int) mouse.x(), my = (int) mouse.y();
 
         int ry = top + HDR_H + 1 - scrollList;
-        for (Origin o : origins) {
+        for (OriginData o : origins) {
             if (inB(mx, my, listX + 3, ry, LIST_W - 6, ROW_H)) {
-                if (o.getDefaultUnlockState() != UnlockState.LOCKED) {
+                if (o.getUnlockState() != UnlockState.LOCKED) {
                     selOr = o; scrollDet = 0; click();
                 }
                 return true;
@@ -176,16 +175,16 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double h, double v) {
-        int x = (int)mx, y = (int)my, ph = bot - top;
+        int x = (int) mx, y = (int) my, ph = bot - top;
         if (inB(x, y, 0, top, CAT_W, ph)) {
-            scrollCat = Math.max(0, (int)(scrollCat - v * 10)); return true;
+            scrollCat = Math.max(0, (int) (scrollCat - v * 10)); return true;
         }
         if (inB(x, y, listX, top, LIST_W, ph)) {
             int max = Math.max(0, origins.size() * ROW_H - (ph - HDR_H));
-            scrollList = Math.clamp((int)(scrollList - v * 10), 0, max); return true;
+            scrollList = Math.clamp((int) (scrollList - v * 10), 0, max); return true;
         }
         if (inB(x, y, detX, top, detW, ph)) {
-            scrollDet = Math.max(0, (int)(scrollDet - v * 10)); return true;
+            scrollDet = Math.max(0, (int) (scrollDet - v * 10)); return true;
         }
         return super.mouseScrolled(mx, my, h, v);
     }

@@ -1,6 +1,7 @@
 package zcylas.totality.api.rpg.check;
 
 import net.minecraft.server.level.ServerPlayer;
+import zcylas.totality.api.rpg.combat.RollModifierRegistry;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 
 /**
@@ -17,6 +18,7 @@ public final class AbilityCheckResolver {
     public enum RollMode { NORMAL, ADVANTAGE, DISADVANTAGE }
 
     public static AbilityCheckResult roll(ServerPlayer player, AbilityCheck check) {
+        RollMode mode = RollModifierRegistry.resolveCheck(player, check.score(), RollMode.NORMAL);
         return roll(player, check, RollMode.NORMAL);
     }
 

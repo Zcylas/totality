@@ -1,12 +1,12 @@
+// api/rpg/ancestry/SpeciesCategory.java
 package zcylas.totality.api.rpg.ancestry;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
  * UI-only grouping for species selection.
  * Category is a filter, not a core identity layer.
- * The player is a Species + Origin, not a Category.
+ * The player is a SpeciesData + OriginData, not a Category.
  */
 public enum SpeciesCategory {
 
@@ -33,6 +33,7 @@ public enum SpeciesCategory {
     UNDEAD("Undead", "☽",
             "Races bound to death or undeath. Whether cursed or chosen, " +
                     "the undead exist between the living world and what lies beyond."),
+
     ALIEN("Alien", "◎",
             "Races originating from beyond the known world entirely. " +
                     "Ancient, evolved, and utterly unlike anything native to this universe, " +
@@ -41,7 +42,6 @@ public enum SpeciesCategory {
     OTHER("Other", "◇",
             "Races that defy easy classification. Ancient, mysterious, " +
                     "or simply unlike anything else in the known world.");
-
 
     private final String displayName;
     private final String icon;
@@ -57,11 +57,8 @@ public enum SpeciesCategory {
     public String getIcon()        { return icon; }
     public String getDescription() { return description; }
 
-    /** Returns all categories that have at least one species assigned. */
+    /** Returns all categories that have at least one species registered. */
     public static List<SpeciesCategory> getUsedCategories() {
-        return Arrays.stream(Species.values())
-                .map(Species::getCategory)
-                .distinct()
-                .toList();
+        return SpeciesRegistry.getUsedCategories();
     }
 }

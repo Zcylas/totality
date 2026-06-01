@@ -6,6 +6,8 @@ import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
 import zcylas.totality.api.magic.grimoire.MagicComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
+import zcylas.totality.api.rpg.classes.ChargeComponents;
+import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.combat.CombatComponents;
 import zcylas.totality.api.rpg.resources.ResourceComponents;
 import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
@@ -36,6 +38,8 @@ public class ModComponents {
         RuneComponents.register();
         AncestryComponents.register();
         MovementComponents.register();
+        ClassComponents.register();
+        ChargeComponents.register();
     }
 
     private ModComponents() {}

@@ -5,6 +5,8 @@ import zcylas.totality.api.ability.impl.GroundSlamAbility;
 import zcylas.totality.api.ability.impl.HarvestAbility;
 import zcylas.totality.api.ability.impl.PhysiologyPassive;
 import zcylas.totality.api.ability.impl.VeinminerAbility;
+import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
+import zcylas.totality.api.ability.kryptonian.HeatVisionAbility;
 import zcylas.totality.api.ability.trait.Traits;
 import zcylas.totality.api.core.movement.MovementMode;
 
@@ -22,6 +24,8 @@ public class AbilityRegistry {
     public static final HarvestAbility  HARVEST  = register(new HarvestAbility());
     public static final VeinminerAbility VEINMINER = register(new VeinminerAbility());
     public static final GroundSlamAbility GROUND_SLAM = register(new GroundSlamAbility());
+    public static final HeatVisionAbility HEAT_VISION = register(new HeatVisionAbility());
+    public static final BarbarianRageAbility BARBARIAN_RAGE = register(new BarbarianRageAbility());
     // ── Viltrumite ────────────────────────────────────────────────────────────
     public static final PhysiologyPassive VILTRUMITE_PHYSIOLOGY = register(new PhysiologyPassive(
             Identifier.fromNamespaceAndPath("totality", "viltrumite_physiology"),

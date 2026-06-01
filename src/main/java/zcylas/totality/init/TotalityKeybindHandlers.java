@@ -9,6 +9,7 @@ import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.networking.ability.ActivateAbilityPayload;
 import zcylas.totality.networking.ability.ClientAbilityManager;
+import zcylas.totality.networking.ability.ToggleAbilityPayload;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyPayload;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.screen.ability.AbilityRadialScreen;
@@ -84,7 +85,7 @@ public final class TotalityKeybindHandlers {
 
                 Ability targeted = AbilityRegistry.get(equippedId);
                 if (targeted == null) return;
-
+                if (targeted.getType() == Ability.Type.CHANNELED) return; // handled by hold handler
                 AbilityContext context = null;
                 if (targeted instanceof zcylas.totality.api.ability.ClientAbilityContext provider) {
                     context = provider.getContext(client, client.player);
@@ -104,7 +105,19 @@ public final class TotalityKeybindHandlers {
             boolean held = ModKeybinds.USE_ABILITY.isDown();
             if (held != lastAbilityKeyHeld) {
                 lastAbilityKeyHeld = held;
+
+                // Veinminer hold
                 ClientPlayNetworking.send(new VeinminerKeyPayload(held));
+
+                // Channeled ability start/stop
+                Identifier equippedId = ClientAbilityManager.getEquippedAbility();
+                if (equippedId != null) {
+                    Ability ability = AbilityRegistry.get(equippedId);
+                    if (ability != null && ability.getType() == Ability.Type.CHANNELED) {
+                        ClientPlayNetworking.send(new ToggleAbilityPayload(equippedId, held));
+                        ClientAbilityManager.setChanneling(held ? equippedId : null);
+                    }
+                }
             }
         });
     }

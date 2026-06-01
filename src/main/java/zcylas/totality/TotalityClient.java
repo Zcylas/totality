@@ -13,8 +13,17 @@ import net.minecraft.client.renderer.special.SpecialModelRenderers;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
+import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.rpg.classes.ChargeComponents;
+import zcylas.totality.api.rpg.classes.ClientClassManager;
+import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.client.color.PotionTintSource;
+import zcylas.totality.client.combat.CombatTextRenderer;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
+import zcylas.totality.client.hud.resource.ISecondaryResource;
+import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
+import zcylas.totality.client.renderer.ability.HeatVisionBeamRenderer;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
 import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
@@ -87,6 +96,30 @@ public class TotalityClient implements ClientModInitializer {
         TotalityHudRenderer.register();
         NotificationManager.register();
         MobHealthBarHud.register();
+        CombatTextRenderer.register();
+        HeatVisionBeamRenderer.register();
+
+        SecondaryResourceRegistry.register(new ISecondaryResource() {
+            @Override public String getName() { return "Rage"; }
+            @Override public int getCurrent(Minecraft client) {
+                try { return ChargeComponents.PLAYER_CHARGES
+                        .get((ComponentProvider) client.player)
+                        .getCurrent(BarbarianRageAbility.CHARGE_ID);
+                } catch (Exception e) { return 0; }
+            }
+            @Override public int getMax(Minecraft client) {
+                try { return ChargeComponents.PLAYER_CHARGES
+                        .get((ComponentProvider) client.player)
+                        .getMax(BarbarianRageAbility.CHARGE_ID);
+                } catch (Exception e) { return 0; }
+            }
+            @Override public int getColor() { return 0xFFCC3333; }
+            @Override public boolean shouldShow(Minecraft client) {
+                return ClientClassManager.hasClass()
+                        && TotalityClasses.BARBARIAN_ID.equals(
+                        ClientClassManager.getPrimaryClassId());
+            }
+        });
     }
 
     private void registerEntityRenderers(){

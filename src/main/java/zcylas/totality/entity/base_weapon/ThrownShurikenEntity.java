@@ -18,6 +18,10 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
+import zcylas.totality.api.dice.RollType;
+import zcylas.totality.api.rpg.combat.CombatResolver;
+import zcylas.totality.api.rpg.combat.weapon.TotalityWeaponItem;
+import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.init.ModEntities;
 
 public class ThrownShurikenEntity extends AbstractArrow {
@@ -55,22 +59,41 @@ public class ThrownShurikenEntity extends AbstractArrow {
 
     @Override
     protected void onHitEntity(EntityHitResult result) {
-        if (result.getEntity() instanceof LivingEntity target) {
-            target.hurt(damageSources().thrown(this, getOwner()), this.damage);
+        if (!(result.getEntity() instanceof LivingEntity target)) return;
+
+        net.minecraft.world.entity.Entity owner = getOwner();
+
+        if (owner instanceof LivingEntity attacker) {
+            ItemStack shurikenStack = getShurikenItem();
+
+            if (!shurikenStack.isEmpty() && shurikenStack.getItem() instanceof TotalityWeaponItem weapon) {
+                String weaponName = shurikenStack.getHoverName().getString();
+
+                AbilityScore effective = weapon.getEffectiveAbilityScore(attacker);
+
+                CombatResolver.resolveAttack(
+                        attacker, target,
+                        effective,               // finesse-aware ability score
+                        weapon.isProficient(attacker),
+                        weapon.modifyRollType(attacker, target, RollType.NORMAL),
+                        weapon.getDiceCount(),
+                        weapon.getDamageDie(),
+                        weapon.getDamageType()   // 7-param — auto-adds ability mod to damage, no bonusDamage
+                );
+                // TODO: weapon.onHit() once CombatResolver exposes hit result
+            } else {
+                target.hurt(damageSources().thrown(this, owner), this.damage);
+            }
+        } else {
+            target.hurt(damageSources().thrown(this, owner), this.damage);
         }
 
-        // Damage the item before dropping it
         ItemStack pickup = getDefaultPickupItem();
         if (!pickup.isEmpty() && getOwner() instanceof Player player) {
-            // Respects Unbreaking enchantment
             pickup.hurtAndBreak(1, player, EquipmentSlot.MAINHAND);
         }
-
-        if (this.level() instanceof ServerLevel serverLevel) {
-            if (!pickup.isEmpty()) {
-                this.spawnAtLocation(serverLevel, pickup, 0.1f);
-            }
-            // If item broke (isEmpty after hurt), don't spawn it
+        if (this.level() instanceof ServerLevel serverLevel && !pickup.isEmpty()) {
+            this.spawnAtLocation(serverLevel, pickup, 0.1f);
         }
         this.discard();
     }

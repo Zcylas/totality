@@ -9,6 +9,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
 import zcylas.totality.networking.alchemy.ClientAlchemyKnowledgeManager;
 
 import java.util.List;
@@ -33,24 +35,26 @@ public interface AlchemyIngredient {
     default ItemStack onAlchemyEat(ItemStack stack, Level level, LivingEntity user) {
         if (!level.isClientSide() && user instanceof ServerPlayer player) {
             AlchemyKnowledgeComponent knowledge = AlchemyComponents.KNOWLEDGE.get(
-                    (zcylas.totality.api.core.component.ComponentProvider) player
+                    (ComponentProvider) player
             );
 
             // Always reveal slot 0
             boolean isNewDiscovery = knowledge.revealEffect(getIngredientId(), 0);
 
+            // Apply the first effect (Skyrim behavior — eating gives the primary effect)
+            if (!getAlchemyEffects().isEmpty()) {
+                getAlchemyEffects().get(0).effect().applyConsumeEffect(user);
+            }
+
             // Experimenter — also reveal slot 1
-            int experimenterRank = zcylas.totality.api.rpg.skills.core.MasteriesComponents
-                    .get(player).getMasteries().getUnlockedRank("experimenter");
+            int experimenterRank = MasteriesComponents.get(player)
+                    .getMasteries().getUnlockedRank("experimenter");
             if (experimenterRank > 0 && getAlchemyEffects().size() > 1) {
                 boolean slot1New = knowledge.revealEffect(getIngredientId(), 1);
                 isNewDiscovery = isNewDiscovery || slot1New;
             }
 
-            if (isNewDiscovery) {
-                knowledge.sync();
-            }
-
+            if (isNewDiscovery) knowledge.sync();
             AlchemySkillEvents.onIngredientEaten(player, isNewDiscovery);
         }
         return stack;

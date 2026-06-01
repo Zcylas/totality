@@ -10,6 +10,7 @@
 		"item.KineticWeaponMixin",
 		"item.MaceItemMixin",
 		"item.PiercingWeaponMixin",
+		"client.LivingEntityMixin",
 		"item.TridentItemMixin"
 	],
 	"client": [
@@ -19,7 +20,6 @@
 		"MouseHandlerMixin",
 		"ScreenAccessor",
 		"client.AbstractContainerScreenMixin",
-		"client.LivingEntityScaleMixin",
 		"client.MinecraftAttackMixin"
 	],
 	"injectors": {

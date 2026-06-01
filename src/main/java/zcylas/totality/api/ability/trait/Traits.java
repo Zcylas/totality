@@ -94,8 +94,8 @@ public final class Traits {
             @Override
             public void apply(ServerPlayer player) {
                 AttributeInstance instance = player.getAttribute(attribute);
-                if (instance != null && instance.getModifier(modId) == null) {
-                    instance.addPermanentModifier(
+                if (instance != null) {
+                    instance.addOrUpdateTransientModifier(
                             new AttributeModifier(modId, amount, operation));
                 }
             }

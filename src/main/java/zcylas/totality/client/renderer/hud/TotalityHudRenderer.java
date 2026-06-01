@@ -10,10 +10,14 @@ import net.minecraft.util.Mth;
 import zcylas.totality.Totality;
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
 import zcylas.totality.client.gui.TotalityGuiSprites;
+import zcylas.totality.client.hud.resource.ISecondaryResource;
+import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
 import zcylas.totality.client.renderer.hud.context.AbilityContextHud;
 import zcylas.totality.client.renderer.hud.context.MagicContextHud;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.stamina.ClientStaminaManager;
+
+import java.util.List;
 
 public class TotalityHudRenderer {
 
@@ -85,6 +89,8 @@ public class TotalityHudRenderer {
                     TotalityGuiSprites.HUD_HUNGER_FILL,
                     client.player.getFoodData().getFoodLevel(), 20,
                     client.player.getFoodData().getFoodLevel(), 20);
+            // ── RIGHT SIDE — Secondary Resources (below hunger bar) ──
+            drawSecondaryResources(graphics, client, screenW - 6, hpY + BG_HEIGHT + BAR_SPACING);
             // TODO: Thirst aligned with Stamina
             // TODO: Temperature aligned with Mana
 
@@ -192,5 +198,60 @@ public class TotalityHudRenderer {
                 x - textW - 4,
                 y + (BG_HEIGHT - client.font.lineHeight) / 2,
                 0xFFCCCCCC, true);
+    }
+
+    private static void drawSecondaryResources(
+            GuiGraphicsExtractor graphics,
+            Minecraft client,
+            int rightEdgeX, int y) {
+
+        List<ISecondaryResource> active = SecondaryResourceRegistry.all()
+                .stream()
+                .filter(r -> r.shouldShow(client) && r.getMax(client) > 0)
+                .toList();
+
+        if (active.isEmpty()) return;
+
+        for (ISecondaryResource resource : active) {
+            int current = resource.getCurrent(client);
+            int max     = resource.getMax(client);
+            int color   = resource.getColor();
+            int dim     = (color & 0x00FFFFFF) | 0x33000000;
+
+            if (resource.getDisplayType() == ISecondaryResource.DisplayType.PIPS) {
+                int pipSz  = 8;
+                int pipGap = 2;
+                int totalW = max * (pipSz + pipGap) - pipGap;
+                int pipX   = rightEdgeX - totalW;
+
+                for (int i = 0; i < max; i++) {
+                    boolean filled = i < current;
+                    if (filled) {
+                        graphics.fill(pipX, y, pipX + pipSz, y + pipSz, color);
+                    } else {
+                        graphics.fill(pipX, y, pipX + pipSz, y + pipSz, 0x22FFFFFF);
+                        graphics.fill(pipX,          y,            pipX + pipSz, y + 1,            dim);
+                        graphics.fill(pipX,          y + pipSz - 1, pipX + pipSz, y + pipSz,       dim);
+                        graphics.fill(pipX,          y,            pipX + 1,     y + pipSz,        dim);
+                        graphics.fill(pipX + pipSz - 1, y,         pipX + pipSz, y + pipSz,        dim);
+                    }
+                    pipX += pipSz + pipGap;
+                }
+                y += pipSz + 3;
+
+            } else { // BAR
+                int barW = BG_WIDTH - 10;
+                int barH = 4;
+                int barX = rightEdgeX - barW;
+                int fill = max > 0 ? (int)((float) current / max * barW) : 0;
+
+                graphics.fill(barX, y, barX + barW, y + barH, 0x44000000);
+                if (fill > 0)
+                    graphics.fill(barX + barW - fill, y, barX + barW, y + barH, color);
+                graphics.fill(barX, y, barX + barW, y + 1, dim);
+                graphics.fill(barX, y + barH - 1, barX + barW, y + barH, dim);
+                y += barH + 3;
+            }
+        }
     }
 }

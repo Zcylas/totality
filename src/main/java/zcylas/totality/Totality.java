@@ -3,13 +3,23 @@ package zcylas.totality;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
+import net.minecraft.server.packs.PackType;
 import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.ability.AbilityServerTick;
+import zcylas.totality.api.combat.condition.ConditionServerTick;
+import zcylas.totality.api.combat.condition.Conditions;
+import zcylas.totality.api.combat.damage.DamageTypes;
+import zcylas.totality.api.core.util.ServerScheduler;
+import zcylas.totality.api.mob.stats.MobStatBlockLoader;
 import zcylas.totality.api.ritual.RitualRecipeRegistry;
+import zcylas.totality.api.rpg.ancestry.OriginRegistry;
+import zcylas.totality.api.rpg.ancestry.SpeciesRegistry;
+import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.api.rpg.skills.core.OneHandedSkillHandler;
 import zcylas.totality.api.rpg.skills.mining.MiningSkillEvents;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyEffects;
@@ -25,9 +35,11 @@ import zcylas.totality.networking.TotalityServerPacketHandlers;
 import zcylas.totality.networking.ability.ActivateAbilityHandler;
 import zcylas.totality.networking.ability.EquipAbilityHandler;
 import zcylas.totality.networking.ability.FavoriteAbilityHandler;
+import zcylas.totality.networking.ability.ToggleAbilityHandler;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyHandler;
 import zcylas.totality.networking.ancestry.SelectAncestryHandler;
 import zcylas.totality.networking.ancestry.SelectAncestryPayload;
+import zcylas.totality.networking.classes.SelectClassHandler;
 import zcylas.totality.networking.inventory.InventoryActionHandler;
 import zcylas.totality.networking.mana.ManaServerTick;
 import zcylas.totality.networking.movement.MovementStaminaHandler;
@@ -84,6 +96,8 @@ public class Totality implements ModInitializer {
 		ModLootTables.register();
 		TotalityCommands.register();
 		RitualRecipeRegistry.register();
+		ResourceManagerHelper.get(PackType.SERVER_DATA)
+				.registerReloadListener(new MobStatBlockLoader());
 		ModEvents.register();
 	}
 
@@ -106,6 +120,8 @@ public class Totality implements ModInitializer {
 		ManaServerTick.register();
 		StaminaServerTick.register();
 		AbilityServerTick.register();
+		ConditionServerTick.register();
+		ServerScheduler.register();
 		registerPassiveTicker();
 	}
 
@@ -115,6 +131,11 @@ public class Totality implements ModInitializer {
 		AbilityRegistry.register();
 		TotalityHarvestHandlers.register();
 		TotalityMovementHandler.register();
+		DamageTypes.init();
+		Conditions.init();
+		SpeciesRegistry.init();
+		OriginRegistry.init();
+		TotalityClasses.register();
 	}
 
 	private void registerCombatApi(){
@@ -132,6 +153,8 @@ public class Totality implements ModInitializer {
 		MovementStaminaHandler.register();
 		PowerSprintStateHandler.register();
 		SelectAncestryHandler.register();
+		ToggleAbilityHandler.register();
+		SelectClassHandler.register();
 	}
 
 	private void registerPassiveTicker() {

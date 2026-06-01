@@ -1,7 +1,9 @@
+// api/rpg/ancestry/PlayerAncestryComponent.java
 package zcylas.totality.api.rpg.ancestry;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
@@ -10,15 +12,15 @@ import zcylas.totality.api.core.component.SyncedComponent;
 import zcylas.totality.api.rpg.stats.*;
 
 /**
- * Stores the player's chosen ancestry (species + origin).
- * Null species means the player has not yet selected an ancestry.
+ * Stores the player's chosen ancestry as Identifiers.
+ * Null speciesId means the player has not yet selected an ancestry.
  * Persists on death. Synced to client.
  */
 public class PlayerAncestryComponent implements SyncedComponent, CopyableComponent<PlayerAncestryComponent> {
 
-    private Species species = null;
-    private Origin origin   = null;
-    private float heightScale = 1.0f;
+    private Identifier speciesId    = null;
+    private Identifier originId     = null;
+    private float      heightScale  = 1.0f;
     private final ServerPlayer player;
 
     public PlayerAncestryComponent(ServerPlayer player) {
@@ -27,34 +29,48 @@ public class PlayerAncestryComponent implements SyncedComponent, CopyableCompone
 
     // ── Access ────────────────────────────────────────────────────────────────
 
-    public Species getSpecies()       { return species; }
-    public Origin getOrigin()         { return origin; }
-    public float getHeightScale()     { return heightScale; }
-    public boolean hasAncestry()      { return species != null; }
+    public Identifier getSpeciesId()    { return speciesId; }
+    public Identifier getOriginId()     { return originId; }
+    public float      getHeightScale()  { return heightScale; }
+    public boolean    hasAncestry()     { return speciesId != null; }
 
-    /**
-     * Selects species and origin.
-     * Height scale is taken from origin if present, otherwise from species.
-     * All stat bonuses come from origin only — species has no stats.
-     */
-    public void selectAncestry(Species chosenSpecies, Origin chosenOrigin) {
-        if (this.species != null) return;
-        if (chosenSpecies == null) return;
-        if (chosenOrigin != null && chosenOrigin.getSpecies() != chosenSpecies) return;
-        if (chosenOrigin != null && chosenOrigin.getDefaultUnlockState() != UnlockState.UNLOCKED) return;
-        this.species = chosenSpecies;
-        this.origin  = chosenOrigin;
-        this.heightScale = chosenOrigin != null
-                ? chosenOrigin.randomHeight(player.getRandom())
-                : chosenSpecies.randomHeight(player.getRandom());
-        applyBonuses(chosenOrigin);
+    public SpeciesData getSpeciesData() {
+        return speciesId != null ? SpeciesRegistry.get(speciesId) : null;
+    }
+
+    public OriginData getOriginData() {
+        return originId != null ? OriginRegistry.get(originId) : null;
+    }
+
+    // ── Selection ─────────────────────────────────────────────────────────────
+
+    public void selectAncestry(Identifier chosenSpeciesId, Identifier chosenOriginId) {
+        if (this.speciesId != null) return;
+        if (chosenSpeciesId == null) return;
+
+        SpeciesData species = SpeciesRegistry.get(chosenSpeciesId);
+        if (species == null) return;
+
+        OriginData origin = chosenOriginId != null ? OriginRegistry.get(chosenOriginId) : null;
+        if (origin != null) {
+            if (!origin.getSpeciesId().equals(chosenSpeciesId)) return;
+            if (origin.getUnlockState() != UnlockState.UNLOCKED) return;
+        }
+
+        this.speciesId   = chosenSpeciesId;
+        this.originId    = chosenOriginId;
+        this.heightScale = origin != null
+                ? origin.randomHeight(player.getRandom())
+                : species.randomHeight(player.getRandom());
+
+        applyBonuses(origin);
         player.refreshDimensions();
         sync();
     }
 
     public void clearAncestry() {
-        this.species     = null;
-        this.origin      = null;
+        this.speciesId   = null;
+        this.originId    = null;
         this.heightScale = 1.0f;
         if (player != null) {
             PlayerStats stats = StatsComponents.getStats(player);
@@ -64,18 +80,18 @@ public class PlayerAncestryComponent implements SyncedComponent, CopyableCompone
         sync();
     }
 
-    private void applyBonuses(Origin chosenOrigin) {
+    private void applyBonuses(OriginData origin) {
         if (player == null) return;
         PlayerStats stats = StatsComponents.getStats(player);
-        stats.setOriginBonus(chosenOrigin != null
-                ? chosenOrigin.getAbilityScoreBonus()
+        stats.setOriginBonus(origin != null
+                ? origin.getAbilityScoreBonus()
                 : AbilityScoreBonus.NONE);
         PlayerResourceRecalculator.recalculate(player);
     }
 
     public void reapplyBonuses() {
-        if (species == null || player == null) return;
-        applyBonuses(origin);
+        if (speciesId == null || player == null) return;
+        applyBonuses(getOriginData());
     }
 
     public void sync() {
@@ -90,74 +106,77 @@ public class PlayerAncestryComponent implements SyncedComponent, CopyableCompone
 
     @Override
     public void writeSyncPacket(RegistryFriendlyByteBuf buf, ServerPlayer recipient) {
-        buf.writeBoolean(species != null);
-        if (species != null) {
-            buf.writeUtf(species.name());
-            buf.writeBoolean(origin != null);
-            if (origin != null) buf.writeUtf(origin.name());
+        buf.writeBoolean(speciesId != null);
+        if (speciesId != null) {
+            buf.writeUtf(speciesId.toString());
+            buf.writeBoolean(originId != null);
+            if (originId != null) buf.writeUtf(originId.toString());
             buf.writeFloat(heightScale);
         }
     }
 
     @Override
     public void applySyncPacket(RegistryFriendlyByteBuf buf) {
-        boolean hasAncestry = buf.readBoolean();
-        if (hasAncestry) {
-            String speciesName = buf.readUtf();
-            boolean hasOrigin  = buf.readBoolean();
-            String originName  = hasOrigin ? buf.readUtf() : null;
-            float scale        = buf.readFloat();
-            try {
-                species     = Species.valueOf(speciesName);
-                origin      = originName != null ? Origin.valueOf(originName) : null;
-                heightScale = scale;
-            } catch (IllegalArgumentException e) {
-                species     = null;
-                origin      = null;
-                heightScale = 1.0f;
-            }
+        boolean has = buf.readBoolean();
+        if (has) {
+            String speciesStr = buf.readUtf();
+            boolean hasOrigin = buf.readBoolean();
+            String originStr  = hasOrigin ? buf.readUtf() : null;
+            float  scale      = buf.readFloat();
+            speciesId   = parseIdentifier(speciesStr);
+            originId    = originStr != null ? parseIdentifier(originStr) : null;
+            heightScale = scale;
         } else {
-            species     = null;
-            origin      = null;
+            speciesId   = null;
+            originId    = null;
             heightScale = 1.0f;
         }
-        ClientAncestryManager.apply(species, origin, heightScale);
+        ClientAncestryManager.apply(speciesId, originId, heightScale);
     }
 
     // ── Persistence ───────────────────────────────────────────────────────────
 
     @Override
     public void writeData(ValueOutput output) {
-        output.putString("species",    species != null ? species.name()  : "NONE");
-        output.putString("origin",     origin  != null ? origin.name()   : "NONE");
+        output.putString("species",    speciesId != null ? speciesId.toString() : "none");
+        output.putString("origin",     originId  != null ? originId.toString()  : "none");
         output.putFloat("heightScale", heightScale);
     }
 
     @Override
     public void readData(ValueInput input) {
-        String speciesName = input.getStringOr("species", "NONE");
-        String originName  = input.getStringOr("origin",  "NONE");
-        this.heightScale   = input.getFloatOr("heightScale", 1.0f);
-        this.species = speciesName.equals("NONE") ? null : safeSpecies(speciesName);
-        this.origin  = originName.equals("NONE")  ? null : safeOrigin(originName);
+        String speciesStr = input.getStringOr("species", "none");
+        String originStr  = input.getStringOr("origin",  "none");
+        this.heightScale  = input.getFloatOr("heightScale", 1.0f);
+        this.speciesId    = speciesStr.equals("none") ? null : parseIdentifier(speciesStr);
+        this.originId     = originStr.equals("none")  ? null : parseIdentifier(originStr);
     }
 
-    private Species safeSpecies(String name) {
-        try { return Species.valueOf(name); }
-        catch (IllegalArgumentException e) { return null; }
-    }
-
-    private Origin safeOrigin(String name) {
-        try { return Origin.valueOf(name); }
-        catch (IllegalArgumentException e) { return null; }
+    /**
+     * Parses an Identifier from a stored string.
+     * Handles backward compat: old enum names like "KRYPTONIAN" become "totality:kryptonian".
+     */
+    private static Identifier parseIdentifier(String stored) {
+        if (stored == null || stored.isEmpty() || stored.equals("none") || stored.equals("NONE")) {
+            return null;
+        }
+        // Backward compat: old enum names have no ":" separator
+        if (!stored.contains(":")) {
+            return Identifier.fromNamespaceAndPath("totality", stored.toLowerCase());
+        }
+        try {
+            return Identifier.parse(stored);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── Death copy ────────────────────────────────────────────────────────────
 
     @Override
     public void copyFrom(PlayerAncestryComponent other, HolderLookup.Provider registries) {
-        this.species     = other.species;
-        this.origin      = other.origin;
+        this.speciesId   = other.speciesId;
+        this.originId    = other.originId;
         this.heightScale = other.heightScale;
     }
 }

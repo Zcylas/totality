@@ -15,8 +15,11 @@ import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
 import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
+import zcylas.totality.networking.classes.OpenClassSelectionPayload;
+import zcylas.totality.networking.combat.CombatTextClientHandler;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
 import zcylas.totality.networking.config.SideModeSyncPayload;
+import zcylas.totality.networking.dice.DiceRollResultClientHandler;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
@@ -25,8 +28,8 @@ import zcylas.totality.networking.stamina.ClientStaminaManager;
 import zcylas.totality.networking.stamina.SyncStaminaPayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 import zcylas.totality.screen.alchemy.ApothecaryTableScreen;
+import zcylas.totality.screen.classes.ClassSelectionScreen;
 import zcylas.totality.screen.menu.MainMenuScreen;
-import zcylas.totality.screen.stats.StatusScreen;
 
 public class TotalityClientPacketHandlers {
 
@@ -94,15 +97,19 @@ public class TotalityClientPacketHandlers {
                 SendNotificationPayload.TYPE,
                 (payload, ctx) -> NotificationManager.add(payload.message(), payload.color()));
         ClientPlayNetworking.registerGlobalReceiver(
-                OpenStatusScreenPayload.TYPE,
-                (payload, ctx) -> ctx.client().setScreen(new StatusScreen()));
-        ClientPlayNetworking.registerGlobalReceiver(
                 OpenMainMenuPayload.TYPE,
                 (payload, ctx) -> ctx.client().setScreen(new MainMenuScreen()));
         ClientPlayNetworking.registerGlobalReceiver(
                 OpenAncestrySelectionPayload.TYPE,
                 (payload, ctx) -> ctx.client().setScreen(
                         new zcylas.totality.screen.ancestry.SpeciesSelectionScreen()));
+        ClientPlayNetworking.registerGlobalReceiver(
+                OpenClassSelectionPayload.TYPE,
+                (payload, ctx) -> ctx.client().setScreen(new ClassSelectionScreen())
+        );
+        CombatTextClientHandler.register();
+        DiceRollResultClientHandler.register();
+        DiceRollResultClientHandler.registerRequest();
     }
 
     private TotalityClientPacketHandlers() {}

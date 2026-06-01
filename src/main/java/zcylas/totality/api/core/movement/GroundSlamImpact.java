@@ -1,6 +1,7 @@
 package zcylas.totality.api.core.movement;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
@@ -8,6 +9,10 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.client.particles.TotalityParticles;
+import zcylas.totality.api.combat.damage.DamageFlags;
+import zcylas.totality.api.combat.damage.DamageTypes;
+import zcylas.totality.api.combat.damage.TotalityDamage;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.StatsComponents;
@@ -41,8 +46,33 @@ public final class GroundSlamImpact {
         damageEntities(player, level, radius, enemyDamage, strMod);
         makeCrater(level, center, craterRadius, hardnessLimit);
 
+        // ── Impact particles ──────────────────────────────────────────────────────
+        Vec3 impactPos = Vec3.atBottomCenterOf(center);
+
+// Shockwave ring — dust explosion outward
+        TotalityParticles.setCount(48);
+        TotalityParticles.spawnRing(ParticleTypes.EXPLOSION, level, impactPos, radius * 0.8, 0.2);
+
+// Central burst — large explosion at impact point
+        TotalityParticles.setCount(12);
+        TotalityParticles.spawnSphere(ParticleTypes.EXPLOSION, level, impactPos, 0.5, 0.3);
+
+// Debris cloud — block dust rising upward
+        TotalityParticles.setCount(32);
+        TotalityParticles.setVelocity(new Vec3(0, 0.3, 0));
+        TotalityParticles.spawnSphere(ParticleTypes.CLOUD, level, impactPos, radius * 0.5, 0.4);
+
+// Ground crack ring — smoke at ground level
+        TotalityParticles.setCount(24);
+        TotalityParticles.spawnRing(ParticleTypes.LARGE_SMOKE, level, impactPos, radius * 0.5, 0.1);
+
         if (selfDamage > 0.0F && !player.isCreative()) {
-            player.hurtServer(level, player.damageSources().fall(), selfDamage);
+            TotalityDamage.hurt(
+                    player, player,
+                    DamageTypes.BLUDGEONING,
+                    selfDamage,
+                    DamageFlags.BYPASS_RESISTANCE
+            );
         }
 
         player.fallDistance = 0.0F;
@@ -124,7 +154,11 @@ public final class GroundSlamImpact {
             float distanceMultiplier = (float) (1.0D - distance / radius);
             float finalDamage = Math.max(1.0F, damage * distanceMultiplier);
 
-            target.hurtServer(level, player.damageSources().playerAttack(player), finalDamage);
+            TotalityDamage.hurt(
+                    target, player,
+                    DamageTypes.BLUDGEONING,
+                    finalDamage
+            );
 
             double knockbackPower = 0.65D
                     + distanceMultiplier * 0.9D

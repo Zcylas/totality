@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "totality:block/copper_energy_cell",
+    "side": "totality:block/copper_energy_cell",
+    "front": "totality:block/copper_energy_cell"
+  }
+}

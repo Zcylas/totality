@@ -1,3 +1,4 @@
+// screen/ancestry/SpeciesSelectionScreen.java
 package zcylas.totality.screen.ancestry;
 
 import net.minecraft.client.Minecraft;
@@ -11,11 +12,11 @@ import java.util.List;
 
 public class SpeciesSelectionScreen extends BaseAncestryScreen {
 
-    private SpeciesCategory selCat  = SpeciesCategory.HUMANOID;
-    private Species         selSp   = null;
-    private Species         hovSp   = null;
+    private SpeciesCategory       selCat = SpeciesCategory.HUMANOID;
+    private SpeciesData           selSp  = null;
+    private SpeciesData           hovSp  = null;
     private List<SpeciesCategory> cats;
-    private List<Species>         sps;
+    private List<SpeciesData>     sps;
 
     public SpeciesSelectionScreen() {
         super(Component.literal("Choose Your Ancestry"));
@@ -25,7 +26,7 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
     protected void init() {
         super.init();
         cats = SpeciesCategory.getUsedCategories();
-        sps  = Species.getForCategory(selCat);
+        sps  = SpeciesRegistry.getForCategory(selCat);
     }
 
     @Override
@@ -79,7 +80,7 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
         sc(g, x + 3, y + HDR_H + 1, w - 6, h - HDR_H - 4);
         int ry = y + HDR_H + 1 - scrollList;
 
-        for (Species sp : sps) {
+        for (SpeciesData sp : sps) {
             if (ry + ROW_H > y + HDR_H && ry < bot) {
                 boolean sel = sp == selSp;
                 boolean hov = inB(mx, my, x + 3, ry, w - 6, ROW_H);
@@ -91,14 +92,14 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
         esc(g);
     }
 
-    // ── Detail panel — matches render: left=player render, right=info ─────────
+    // ── Detail panel ──────────────────────────────────────────────────────────
 
     private void drawDetailPanel(GuiGraphicsExtractor g, int mx, int my) {
         int x = detX, y = top, w = detW, h = bot - top;
         drawPanel(g, x, y, w, h);
         drawPanelHdr(g, x, y, w, "SPECIES DETAILS");
 
-        Species sp = selSp != null ? selSp : hovSp;
+        SpeciesData sp = selSp != null ? selSp : hovSp;
 
         if (sp == null) {
             drawSmallAt(g, "Hover or select a species",
@@ -107,12 +108,11 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
             return;
         }
 
-        // Split: left half = player render, right half = info
-        int splitX  = x + w / 2;
-        int innerY  = y + HDR_H + 2;
-        int innerH  = h - HDR_H - 4;
+        int splitX = x + w / 2;
+        int innerY = y + HDR_H + 2;
+        int innerH = h - HDR_H - 4;
 
-        // ── Left: player preview ──
+        // Left: player preview
         var player = Minecraft.getInstance().player;
         if (player != null) {
             InventoryScreen.extractEntityInInventoryFollowsMouse(
@@ -120,35 +120,30 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
                     40, 0.0f, mx, my, player);
         }
 
-        // ── Right: info ──
+        // Right: info
         sc(g, splitX, innerY, w / 2 - 4, innerH);
         int ix = splitX + PAD, iw = w / 2 - PAD * 2;
         int cy = innerY + 4 - scrollDet;
 
-        // Species name
         g.text(font, Component.literal(sp.getDisplayName()), ix, cy, COLOR_ACCENT, false);
         cy += NLH + 2;
-        drawSmallAt(g, "[ " + sp.getCategory().getDisplayName() + " ]",
-                ix, cy, COLOR_COPPER);
+        drawSmallAt(g, "[ " + sp.getCategory().getDisplayName() + " ]", ix, cy, COLOR_COPPER);
         cy += SLH + 6;
 
-        // Description
         cy = drawSection(g, ix, cy, iw, "DESCRIPTION", COLOR_COPPER);
         cy = drawSmallWrap(g, sp.getDescription(), ix, cy, iw, COLOR_LABEL);
         cy += 5;
 
-        // Height
         cy = drawSection(g, ix, cy, iw, "HEIGHT RANGE", COLOR_COPPER);
         drawSmallAt(g, String.format("%.2f - %.2f blocks",
                 sp.getMinHeight(), sp.getMaxHeight()), ix, cy, COLOR_VALUE);
         cy += SLH + 6;
 
-        // Available origins
-        List<Origin> origins = Origin.getForSpecies(sp);
+        List<OriginData> origins = OriginRegistry.getForSpecies(sp.getId());
         if (!origins.isEmpty()) {
             cy = drawSection(g, ix, cy, iw, "AVAILABLE ORIGINS", COLOR_COPPER);
-            for (Origin o : origins) {
-                boolean locked = o.getDefaultUnlockState() == UnlockState.LOCKED;
+            for (OriginData o : origins) {
+                boolean locked = o.getUnlockState() == UnlockState.LOCKED;
                 drawSmallAt(g, (locked ? "🔒 " : "◆ ") + o.getDisplayName(),
                         ix, cy, locked ? COLOR_LOCKED : COLOR_VALUE);
                 cy += SLH + 1;
@@ -164,13 +159,14 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent mouse, boolean dc) {
-        int mx = (int)mouse.x(), my = (int)mouse.y();
+        int mx = (int) mouse.x(), my = (int) mouse.y();
 
         // Category
         int ry = top + HDR_H + 1 - scrollCat;
         for (SpeciesCategory cat : cats) {
             if (inB(mx, my, 3, ry, CAT_W - 6, ROW_H)) {
-                selCat = cat; sps = Species.getForCategory(cat);
+                selCat = cat;
+                sps = SpeciesRegistry.getForCategory(cat);
                 selSp = null; scrollList = 0; scrollDet = 0; click();
                 return true;
             }
@@ -179,7 +175,7 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
 
         // Species
         ry = top + HDR_H + 1 - scrollList;
-        for (Species sp : sps) {
+        for (SpeciesData sp : sps) {
             if (inB(mx, my, listX + 3, ry, LIST_W - 6, ROW_H)) {
                 selSp = sp; scrollDet = 0; click(); return true;
             }
@@ -189,7 +185,7 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
         // Next
         if (selSp != null && isNext(mx, my)) {
             click();
-            var unlocked = Origin.getUnlockedForSpecies(selSp);
+            var unlocked = OriginRegistry.getUnlockedForSpecies(selSp.getId());
             Minecraft.getInstance().setScreen(unlocked.isEmpty()
                     ? new ConfirmAncestryScreen(selSp, null)
                     : new OriginSelectionScreen(selSp));
@@ -200,20 +196,20 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double h, double v) {
-        int x = (int)mx, y = (int)my;
+        int x = (int) mx, y = (int) my;
         int ph = bot - top;
         if (inB(x, y, 0, top, CAT_W, ph)) {
             int max = Math.max(0, cats.size() * ROW_H - (ph - HDR_H));
-            scrollCat = Math.clamp((int)(scrollCat - v * 10), 0, max);
+            scrollCat = Math.clamp((int) (scrollCat - v * 10), 0, max);
             return true;
         }
         if (inB(x, y, listX, top, LIST_W, ph)) {
             int max = Math.max(0, sps.size() * ROW_H - (ph - HDR_H));
-            scrollList = Math.clamp((int)(scrollList - v * 10), 0, max);
+            scrollList = Math.clamp((int) (scrollList - v * 10), 0, max);
             return true;
         }
         if (inB(x, y, detX, top, detW, ph)) {
-            scrollDet = Math.max(0, (int)(scrollDet - v * 10));
+            scrollDet = Math.max(0, (int) (scrollDet - v * 10));
             return true;
         }
         return super.mouseScrolled(mx, my, h, v);

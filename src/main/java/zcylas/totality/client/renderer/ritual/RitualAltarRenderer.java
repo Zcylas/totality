@@ -76,18 +76,18 @@ public class RitualAltarRenderer implements BlockEntityRenderer<RitualAltarBlock
         float itemY;
 
         switch (state.ritualState) {
-            case ALTAR_TRANSFORM -> itemY = 1.1f + (1.4f - 1.1f) * Math.min(state.animTick / 40f, 1.0f);
-            case COMPLETING -> itemY = 1.1f + (1.4f - 1.1f) * Math.max(0f, 1.0f - state.animTick / 40f);
+            case ALTAR_TRANSFORM -> itemY = 1.25f + (1.55f - 1.25f) * Math.min(state.animTick / 40f, 1.0f);
+            case COMPLETING     -> itemY = 1.25f + (1.55f - 1.25f) * Math.max(0f, 1.0f - state.animTick / 40f);
             case CANCELLING -> {
                 if (state.cancelledFromState == RitualState.ALTAR_TRANSFORM) {
-                    float fromT = Math.min(state.cancelledAtAnimTick / 40f, 1.0f);
+                    float fromT   = Math.min(state.cancelledAtAnimTick / 40f, 1.0f);
                     float cancelT = Math.max(0f, 1.0f - state.animTick / 40f);
-                    itemY = 1.1f + (1.4f - 1.1f) * fromT * cancelT;
+                    itemY = 1.25f + (1.55f - 1.25f) * fromT * cancelT;
                 } else {
-                    itemY = 1.1f + (float) Math.sin(state.gameTime / 20f * Math.PI) * 0.05f;
+                    itemY = 1.25f + (float) Math.sin(state.gameTime / 20f * Math.PI) * 0.05f;
                 }
             }
-            default -> itemY = 1.1f + (float) Math.sin(state.gameTime / 20f * Math.PI) * 0.05f;
+            default -> itemY = 1.25f + (float) Math.sin(state.gameTime / 20f * Math.PI) * 0.05f;
         }
 
         poseStack.pushPose();

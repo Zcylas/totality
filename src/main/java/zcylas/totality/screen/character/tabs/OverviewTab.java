@@ -8,6 +8,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
 import zcylas.totality.api.rpg.ancestry.ClientAncestryManager;
+import zcylas.totality.api.rpg.classes.ClientClassManager;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
 import zcylas.totality.networking.mana.ClientManaManager;
@@ -242,12 +243,26 @@ public class OverviewTab extends CharacterScreenTab {
 
         // Species + Origin
         String speciesStr = ClientAncestryManager.hasAncestry()
-                ? ClientAncestryManager.getSpecies().getDisplayName() : "None";
-        String originStr  = ClientAncestryManager.getOrigin() != null
-                ? ClientAncestryManager.getOrigin().getDisplayName() : "None";
+                ? ClientAncestryManager.getSpeciesData().getDisplayName() : "None";
+        String originStr  = ClientAncestryManager.getOriginData() != null
+                ? ClientAncestryManager.getOriginData().getDisplayName() : "None";
 
         drawIdRow(g, font, ix, cy, iw, "Species:", speciesStr); cy += NLH + 2;
         drawIdRow(g, font, ix, cy, iw, "Origin:",  originStr);
+
+        cy += NLH + 2;
+
+        String classStr = ClientClassManager.hasClass() && ClientClassManager.getPrimaryClassData() != null
+                ? ClientClassManager.getPrimaryClassData().displayName() : "None";
+        drawIdRow(g, font, ix, cy, iw, "Class:", classStr); cy += NLH + 2;
+
+        if (ClientClassManager.getSubclassData() != null) {
+            drawIdRow(g, font, ix, cy, iw, "Subclass:", ClientClassManager.getSubclassData().displayName());
+            cy += NLH + 2;
+        }
+        if (ClientClassManager.getCovenantData() != null) {
+            drawIdRow(g, font, ix, cy, iw, "Patron:", ClientClassManager.getCovenantData().displayName());
+        }
     }
 
     private void drawIdRow(GuiGraphicsExtractor g, Font font,
