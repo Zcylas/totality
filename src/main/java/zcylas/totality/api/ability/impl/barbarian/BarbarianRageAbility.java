@@ -7,7 +7,9 @@ import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityComponent;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityContext;
+import zcylas.totality.api.combat.damage.DamageResistanceComponent;
 import zcylas.totality.api.combat.damage.DamageResistanceRecalculator;
+import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.dice.RollType;
 import zcylas.totality.api.rpg.check.AbilityCheckResolver;
@@ -95,7 +97,10 @@ public class BarbarianRageAbility extends Ability {
     public void onToggleOn(ServerPlayer player) {
         CastingRestrictionRegistry.register(player, ID,
                 p -> "You cannot cast spells while raging.");
-        DamageResistanceRecalculator.recalculate(player);
+        DamageResistanceComponent comp = DamageResistanceComponent.get(player);
+        comp.addResistance(DamageTypes.BLUDGEONING, false);
+        comp.addResistance(DamageTypes.PIERCING,    false);
+        comp.addResistance(DamageTypes.SLASHING,    false);
 
         // Register damage bonus
         DamageBonusRegistry.register(player, ID, (p, ability, magical) -> {
@@ -133,6 +138,8 @@ public class BarbarianRageAbility extends Ability {
     @Override
     public void onToggleOff(ServerPlayer player) {
         CastingRestrictionRegistry.remove(player, ID);
+        // Recalculate clears everything and re-adds base resistances (species etc.)
+        // Rage resistances are gone since we're not adding them back here
         DamageResistanceRecalculator.recalculate(player);
         DamageBonusRegistry.remove(player, ID);
         RollModifierRegistry.remove(player, ID);

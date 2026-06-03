@@ -40,7 +40,7 @@ public final class CurrencyHelper {
      */
     public static String format(long rawValue) {
         List<CoinCount> counts = breakdown(rawValue);
-        if (counts.isEmpty()) return "0 Bronze";
+        if (counts.isEmpty()) return "0 Copper";
 
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < counts.size(); i++) {

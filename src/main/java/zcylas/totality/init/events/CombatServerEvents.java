@@ -17,14 +17,13 @@ public class CombatServerEvents {
             return InteractionResult.PASS;
         });
 
-        // ── Power attack: apply damage multiplier ─────────────────────────────
+        // ── Power attack: mark advantage for interceptor ──────────────────────
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
             if (!(source.getEntity() instanceof ServerPlayer player)) return true;
             if (!PowerAttackManager.consumePowerAttack(player)) return true;
-
-            float multiplied = amount * PowerAttackManager.getDamageMultiplier(player);
-            entity.hurt(source, multiplied);
-            return false; // cancel the original hit, we already applied the multiplied one
+            // Mark advantage — VanillaDamageInterceptor reads and clears this
+            PowerAttackManager.markPowerAttack(player.getUUID());
+            return true; // let interceptor handle with advantage
         });
     }
 }

@@ -1,14 +1,12 @@
 package zcylas.totality.api.ability;
 
 import net.minecraft.resources.Identifier;
-import zcylas.totality.api.ability.impl.GroundSlamAbility;
-import zcylas.totality.api.ability.impl.HarvestAbility;
-import zcylas.totality.api.ability.impl.PhysiologyPassive;
-import zcylas.totality.api.ability.impl.VeinminerAbility;
+import zcylas.totality.api.ability.impl.*;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
 import zcylas.totality.api.ability.kryptonian.HeatVisionAbility;
 import zcylas.totality.api.ability.trait.Traits;
 import zcylas.totality.api.core.movement.MovementMode;
+import zcylas.totality.api.rpg.stats.AbilityScore;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -25,7 +23,6 @@ public class AbilityRegistry {
     public static final VeinminerAbility VEINMINER = register(new VeinminerAbility());
     public static final GroundSlamAbility GROUND_SLAM = register(new GroundSlamAbility());
     public static final HeatVisionAbility HEAT_VISION = register(new HeatVisionAbility());
-    public static final BarbarianRageAbility BARBARIAN_RAGE = register(new BarbarianRageAbility());
     // ── Viltrumite ────────────────────────────────────────────────────────────
     public static final PhysiologyPassive VILTRUMITE_PHYSIOLOGY = register(new PhysiologyPassive(
             Identifier.fromNamespaceAndPath("totality", "viltrumite_physiology"),
@@ -65,6 +62,24 @@ public class AbilityRegistry {
             )
     ));
 
+
+    //Classes
+        //Barbarian
+    public static final BarbarianRageAbility BARBARIAN_RAGE = register(new BarbarianRageAbility());
+
+    public static final UnarmoredDefensePassive BARBARIAN_UNARMORED_DEFENSE = register(new UnarmoredDefensePassive(
+            Identifier.fromNamespaceAndPath("totality", "barbarian_unarmored_defense"),
+            "Unarmored Defense",
+            "While not wearing armor, your AC equals 10 + STR modifier + CON modifier. " +
+                    "You can use a shield and still gain this benefit.",
+            Identifier.fromNamespaceAndPath("totality",
+                    "textures/ability/barbarian_unarmored_defense.png"),
+            Ability.Source.CLASS,
+            "Barbarian",
+            "Skin like iron, bones like stone.",
+            (player, stats) -> 10 + stats.getModifier(AbilityScore.STR)
+                    + stats.getModifier(AbilityScore.CON)
+    ));
     // ── Registry ──────────────────────────────────────────────────────────────
 
     private static <T extends Ability> T register(T ability) {

@@ -5,6 +5,7 @@ import zcylas.totality.api.dice.Dice;
 import zcylas.totality.api.dice.RollOutcome;
 import zcylas.totality.api.dice.RollType;
 import zcylas.totality.api.mob.stats.MobCombatStatsHolder;
+import zcylas.totality.api.rpg.classes.PlayerClassComponent;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatsComponents;
@@ -73,9 +74,7 @@ public final class AttackRoll {
         if (attacker instanceof ServerPlayer player)
             return ProficiencyBonus.forPlayer(player);
         if (attacker instanceof MobCombatStatsHolder holder)
-            return holder.totality$getMobCombatStats().getAttackBonus()
-                    - holder.totality$getMobCombatStats()
-                    .getModifier(getMobAttackScore(attacker));
+            return holder.totality$getMobCombatStats().getProficiencyBonus();
         return 2;
     }
 
@@ -85,4 +84,5 @@ public final class AttackRoll {
             return holder.totality$getMobCombatStats().getAC();
         return 10;
     }
+
 }

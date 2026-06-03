@@ -68,10 +68,10 @@ public final class CombatResolver {
     public static void resolveAttack(LivingEntity attacker, LivingEntity target,
                                      AbilityScore abilityScore, boolean proficient,
                                      RollType rollType, int diceCount, Dice damageDie,
-                                     int damageModifier, TotalityDamageType damageType,
-                                     String weaponName) {
+                                     TotalityDamageType damageType, String weaponName) {
+        int mod = resolveAbilityMod(attacker, abilityScore);
         RollOutcome outcome = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
-        handleHit(attacker, target, outcome, weaponName, diceCount, damageDie, damageModifier, damageType, false, abilityScore);
+        handleHit(attacker, target, outcome, weaponName, diceCount, damageDie, mod, damageType, false, abilityScore);
     }
 
     // resolveSpellAttack — spell damage is always magical

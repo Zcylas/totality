@@ -10,6 +10,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import zcylas.totality.Totality;
+import zcylas.totality.client.mob.MobStatsClientCache;
 
 public class MobHealthBarHud {
 
@@ -116,13 +117,16 @@ public class MobHealthBarHud {
                                LivingEntity target, boolean inCombat, int perception) {
         int screenW = g.guiWidth();
 
+        MobStatsClientCache.MobClientData mobData = MobStatsClientCache.get(target.getId());
+
         boolean showBars      = inCombat || perception >= 1;
         boolean showNameColor = inCombat || perception >= 2;
         boolean showExtraBars = inCombat && perception >= 3;
-        boolean showRank      = inCombat && perception >= 4;
+        boolean showRank      = inCombat;
+        boolean showAc        = inCombat; // testing — gate with perception mastery later
 
         int panelW = getPanelW(mc, target, showBars, showExtraBars);
-        int panelH = getPanelH(showBars, showExtraBars);
+        int panelH = getPanelH(showBars, showExtraBars, showAc);
 
         int panelX = screenW / 2 - panelW / 2;
         int panelY = PANEL_TOP_Y;
@@ -131,8 +135,8 @@ public class MobHealthBarHud {
         int cy = panelY + PANEL_PAD_Y;
 
         // ── Name ──
-        String name   = buildName(target, showRank);
-        int nameColor = showNameColor ? getThreatColor(target) : COLOR_UNKNOWN;
+        String name   = buildName(target, showRank, mobData);
+        int nameColor = showNameColor ? getThreatColor(target, mobData) : COLOR_UNKNOWN;
         g.text(mc.font, net.minecraft.network.chat.Component.literal(name),
                 screenW / 2 - mc.font.width(name) / 2,
                 cy + (NAME_H - 8) / 2, nameColor, true);
@@ -143,23 +147,26 @@ public class MobHealthBarHud {
             int barX = panelX + BAR_PAD_X;
             int barW = panelW - BAR_PAD_X * 2;
             cy += BAR_SPACING;
-
-            // Draw bar first
             drawBar(g, barX, cy, barW, BAR_H,
                     target.getHealth(), target.getMaxHealth(),
                     COLOR_HP_FILL, COLOR_HP_BG);
-
-            // Numbers centered inside the bar
             int dispHp    = Math.round(target.getHealth() * 5);
             int dispMaxHp = Math.round(target.getMaxHealth() * 5);
             String hpText = dispHp + " / " + dispMaxHp;
             g.text(mc.font, net.minecraft.network.chat.Component.literal(hpText),
                     screenW / 2 - mc.font.width(hpText) / 2,
-                    cy + (BAR_H - 8) / 2, // vertically centered in bar
-                    0xFFFFFFFF, true); // white with shadow so it's readable on both fill and bg
+                    cy + (BAR_H - 8) / 2, 0xFFFFFFFF, true);
             cy += BAR_H;
         }
 
+        // ── AC (testing) ──
+        if (showAc && mobData != null) {
+            cy += BAR_SPACING + 1;
+            String acText = "AC " + mobData.ac();
+            g.text(mc.font, net.minecraft.network.chat.Component.literal(acText),
+                    screenW / 2 - mc.font.width(acText) / 2,
+                    cy, COLOR_ACCENT, true);
+        }
     }
 
     // ── Panel drawing ─────────────────────────────────────────────────────────
@@ -222,24 +229,38 @@ public class MobHealthBarHud {
 
     // ── Name + rank ───────────────────────────────────────────────────────────
 
-    private static String buildName(LivingEntity target, boolean showRank) {
+    private static String buildName(LivingEntity target, boolean showRank,
+                                    MobStatsClientCache.MobClientData mobData) {
         String name = target.getName().getString();
-        if (showRank) {
-            String rank = getRank(target);
-            return name + " [" + rank + " Rank]";
+        if (showRank && mobData != null) {
+            String rank = zcylas.totality.api.mob.stats.MobRank.values()[
+                    Math.min(mobData.rankOrdinal(),
+                            zcylas.totality.api.mob.stats.MobRank.values().length - 1)].name();
+            return name + " [" + rank + "]";
         }
         return name;
     }
 
     // ── Threat color ──────────────────────────────────────────────────────────
 
-    private static int getThreatColor(LivingEntity target) {
-        // TODO: replace with proper level comparison once mob level system is built
-        float maxHp = target.getMaxHealth();
+    private static int getThreatColor(LivingEntity target,
+                                      MobStatsClientCache.MobClientData mobData) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return COLOR_UNKNOWN;
-        float playerMaxHp = mc.player.getMaxHealth();
 
+        if (mobData != null) {
+            // Use real level comparison (stub player level as 1 until ClientStatsManager has level)
+            int playerLevel = zcylas.totality.api.rpg.stats.ClientStatsManager.getLevel();
+            int diff = mobData.level() - playerLevel;
+            if (diff >= 20) return COLOR_OVERWHELMING;
+            if (diff >= 10) return COLOR_STRONGER;
+            if (diff >= 0)  return COLOR_EQUAL;
+            return COLOR_WEAKER;
+        }
+
+        // Fallback — HP comparison
+        float maxHp = target.getMaxHealth();
+        float playerMaxHp = mc.player.getMaxHealth();
         if (maxHp > playerMaxHp * 3f) return COLOR_OVERWHELMING;
         if (maxHp > playerMaxHp * 1.5f) return COLOR_STRONGER;
         if (maxHp > playerMaxHp * 0.75f) return COLOR_EQUAL;
@@ -267,15 +288,16 @@ public class MobHealthBarHud {
 
     private static int getPanelW(Minecraft mc, LivingEntity target,
                                  boolean showBars, boolean showExtraBars) {
-        int nameW = mc.font.width(buildName(target, false)) + 24; // less padding
+        int nameW = mc.font.width(buildName(target, false, null)) + 24; // less padding
         int minW  = showExtraBars ? 180 : showBars ? 140 : 80;
         int maxW  = showExtraBars ? 320 : showBars ? 240 : 160;
         return Mth.clamp(nameW, minW, maxW);
     }
 
-    private static int getPanelH(boolean showBars, boolean showExtraBars) {
+    private static int getPanelH(boolean showBars, boolean showExtraBars, boolean showAc) {
         if (!showBars) return NAME_H + PANEL_PAD_Y * 2;
-        int h = PANEL_PAD_Y + NAME_H + BAR_SPACING + 9 + BAR_H + PANEL_PAD_Y;
+        int h = PANEL_PAD_Y + NAME_H + BAR_SPACING + BAR_H + PANEL_PAD_Y;
+        if (showAc) h += BAR_SPACING + 9;
         if (showExtraBars) h += (BAR_SPACING + BAR_H) * 2;
         return h;
     }

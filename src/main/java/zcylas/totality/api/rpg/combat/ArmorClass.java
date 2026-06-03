@@ -3,27 +3,21 @@ package zcylas.totality.api.rpg.combat;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
+import zcylas.totality.api.rpg.combat.armor.VanillaArmorStats;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 
-/**
- * Calculates a player's Armor Class (AC) using D&D 5e rules.
- *
- * Unarmored:  10 + DEX modifier (or class Unarmored Defense override)
- * Armored:    armor base AC + DEX modifier (capped by armor type)
- * Shield:     +2 if offhand is a shield
- *
- * Armor reading and class Unarmored Defense are stubbed until
- * the Equipment and Class APIs are built.
- */
 public final class ArmorClass {
+
+    private static final EquipmentSlot[] ARMOR_SLOTS = {
+            EquipmentSlot.HEAD, EquipmentSlot.CHEST,
+            EquipmentSlot.LEGS, EquipmentSlot.FEET
+    };
 
     private ArmorClass() {}
 
-    /**
-     * Calculates total AC for a player. Server-side only.
-     */
     public static int calculate(ServerPlayer player) {
         PlayerStats stats = StatsComponents.getStats(player);
         int dexMod = stats != null ? stats.getModifier(AbilityScore.DEX) : 0;
@@ -32,8 +26,7 @@ public final class ArmorClass {
 
         int base;
         if (armor == null) {
-            // Unarmored — class features may override the default 10 + DEX
-            base = classUnarmoredAc(player, stats, dexMod);
+            base = unarmoredAc(player, stats, dexMod);
         } else {
             int cappedDex = switch (armor.type()) {
                 case LIGHT  -> dexMod;
@@ -46,41 +39,39 @@ public final class ArmorClass {
         return base + (isHoldingShield(player) ? 2 : 0);
     }
 
-    // ── Stubs ─────────────────────────────────────────────────────────────────
-
-    /**
-     * Reads base AC and armor type from equipped armor items.
-     * Returns null if unarmored.
-     *
-     * TODO: read TotalityComponents.ARMOR_AC data component from worn items
-     * once armor items and the Equipment API exist.
-     */
+    @Nullable
     private static ArmorResult readArmor(ServerPlayer player) {
-        return null; // unarmored until Equipment API is built
+        int totalAc = 0;
+        ArmorType heaviest = null;
+        boolean hasArmor = false;
+
+        for (EquipmentSlot slot : ARMOR_SLOTS) {
+            ItemStack stack = player.getItemBySlot(slot);
+            if (stack.isEmpty()) continue;
+            // TODO: check TotalityArmorItem data component first when Equipment API exists
+            VanillaArmorStats.PieceStats piece = VanillaArmorStats.get(stack.getItem());
+            if (piece == null) continue;
+            hasArmor = true;
+            totalAc += piece.ac();
+            if (heaviest == null || piece.type().ordinal() > heaviest.ordinal())
+                heaviest = piece.type();
+        }
+
+        if (!hasArmor) return null;
+        return new ArmorResult(10 + totalAc, heaviest);
     }
 
-    /**
-     * Unarmored Defense from class features.
-     * Default: 10 + DEX modifier.
-     *
-     * TODO: query PlayerClass.get(player).getUnarmoredAc(stats) once Class API exists.
-     * Examples:
-     *   Barbarian: 10 + STR mod + CON mod
-     *   Monk:      10 + DEX mod + WIS mod
-     */
-    private static int classUnarmoredAc(ServerPlayer player, PlayerStats stats, int dexMod) {
+    private static int unarmoredAc(ServerPlayer player, @Nullable PlayerStats stats, int dexMod) {
+        UnarmoredDefenseRegistry.UnarmoredDefenseProvider provider =
+                UnarmoredDefenseRegistry.get(player);
+        if (provider != null && stats != null) return provider.calculate(player, stats);
         return 10 + dexMod;
     }
 
-    /**
-     * TODO: replace with ModTags.SHIELDS tag check once shields are registered.
-     */
     private static boolean isHoldingShield(ServerPlayer player) {
         ItemStack offhand = player.getItemBySlot(EquipmentSlot.OFFHAND);
-        return false;
+        return offhand.getItem() instanceof net.minecraft.world.item.ShieldItem;
     }
-
-    // ── Internal ──────────────────────────────────────────────────────────────
 
     private record ArmorResult(int baseAc, ArmorType type) {}
 

@@ -3,10 +3,12 @@ package zcylas.totality.api.combat.damage;
 
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.Totality;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
+import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
 import zcylas.totality.client.combat.CombatTextEntry;
 import zcylas.totality.networking.combat.CombatTextPayload;
 
@@ -15,6 +17,12 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public final class TotalityDamage {
+    private static final java.util.Set<java.util.UUID> PROCESSING =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    public static boolean isProcessing(LivingEntity entity) {
+        return PROCESSING.contains(entity.getUUID());
+    }
 
     private TotalityDamage() {}
 
@@ -59,17 +67,27 @@ public final class TotalityDamage {
         DamageSource vanillaSource = buildVanillaSource(target, source, type);
 
         // Apply
-        if (target.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-            target.hurtServer(serverLevel, vanillaSource, finalAmount);
+        float hpBefore = target.getHealth();
+        PROCESSING.add(target.getUUID());
+        try {
+            if (target.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                target.hurtServer(serverLevel, vanillaSource, finalAmount);
+            }
+        } finally {
+            PROCESSING.remove(target.getUUID());
         }
+        float actualDamage = Math.max(0f, hpBefore - target.getHealth());
+
         if (target instanceof net.minecraft.server.level.ServerPlayer sp
                 && BarbarianRageAbility.isRaging(sp)) {
             BarbarianRageAbility.refreshCombatTimer(sp);
         }
 
-        // Fire floating combat text
-        sendCombatText(target, source, resolveTextType(modifier), type,
-                finalAmount * zcylas.totality.api.core.rpgutils.RpgDisplayUtils.HP_DISPLAY_MULTIPLIER, null);
+        Vec3 textPos = (target instanceof Player && source != null && !(source instanceof Player))
+                ? source.position().add((Math.random() - 0.5) * 1.5, 1.0, 0)
+                : target.position();
+        sendCombatTextAt(textPos, target, source, resolveTextType(modifier), type,
+                actualDamage * RpgDisplayUtils.HP_DISPLAY_MULTIPLIER, null);
 
         // Apply conditions from damage type
         zcylas.totality.api.combat.condition.ConditionComponent.applyFromDamageType(
@@ -118,6 +136,28 @@ public final class TotalityDamage {
         );
 
         // Send to nearby players
+        for (net.minecraft.server.level.ServerPlayer player :
+                net.minecraft.server.level.ServerLevel.class.cast(target.level())
+                        .getPlayers(p -> p.distanceToSqr(pos) < 1024)) {
+            net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player, payload);
+        }
+    }
+    private static void sendCombatTextAt(Vec3 pos,
+                                         LivingEntity target,
+                                         @Nullable LivingEntity source,
+                                         CombatTextEntry.TextType textType,
+                                         TotalityDamageType damageType,
+                                         float amount,
+                                         @Nullable String label) {
+        if (target.level().isClientSide()) return;
+        CombatTextPayload payload = new CombatTextPayload(
+                textType, damageType.getId(), amount, label,
+                pos.x, pos.y, pos.z,
+                textType == CombatTextEntry.TextType.RESIST,
+                textType == CombatTextEntry.TextType.VULNERABLE,
+                target.getId(),
+                source != null ? source.getId() : -1
+        );
         for (net.minecraft.server.level.ServerPlayer player :
                 net.minecraft.server.level.ServerLevel.class.cast(target.level())
                         .getPlayers(p -> p.distanceToSqr(pos) < 1024)) {

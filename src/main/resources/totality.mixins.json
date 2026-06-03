@@ -20,7 +20,8 @@
 		"MouseHandlerMixin",
 		"ScreenAccessor",
 		"client.AbstractContainerScreenMixin",
-		"client.MinecraftAttackMixin"
+		"client.MinecraftAttackMixin",
+		"client.GuiGraphicsExtractorMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

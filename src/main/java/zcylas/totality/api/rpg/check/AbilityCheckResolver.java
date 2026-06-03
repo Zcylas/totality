@@ -19,7 +19,7 @@ public final class AbilityCheckResolver {
 
     public static AbilityCheckResult roll(ServerPlayer player, AbilityCheck check) {
         RollMode mode = RollModifierRegistry.resolveCheck(player, check.score(), RollMode.NORMAL);
-        return roll(player, check, RollMode.NORMAL);
+        return roll(player, check, mode);
     }
 
     public static AbilityCheckResult roll(ServerPlayer player, AbilityCheck check, RollMode mode) {

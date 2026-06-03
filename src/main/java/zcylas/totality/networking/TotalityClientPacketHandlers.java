@@ -11,6 +11,7 @@ import zcylas.totality.api.core.component.ComponentSync;
 import zcylas.totality.api.core.component.SyncedComponent;
 import zcylas.totality.client.config.ItemSideModeClientCache;
 import zcylas.totality.client.config.SideModeClientCache;
+import zcylas.totality.client.mob.MobStatsClientCache;
 import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
@@ -23,6 +24,7 @@ import zcylas.totality.networking.dice.DiceRollResultClientHandler;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
+import zcylas.totality.networking.mob.MobStatsSyncPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 import zcylas.totality.networking.stamina.ClientStaminaManager;
 import zcylas.totality.networking.stamina.SyncStaminaPayload;
@@ -108,6 +110,10 @@ public class TotalityClientPacketHandlers {
                 (payload, ctx) -> ctx.client().setScreen(new ClassSelectionScreen())
         );
         CombatTextClientHandler.register();
+        ClientPlayNetworking.registerGlobalReceiver(
+                MobStatsSyncPayload.TYPE, (payload, ctx) ->
+                        MobStatsClientCache.update(payload.entityId(), payload.level(),
+                                payload.rankOrdinal(), payload.ac()));
         DiceRollResultClientHandler.register();
         DiceRollResultClientHandler.registerRequest();
     }

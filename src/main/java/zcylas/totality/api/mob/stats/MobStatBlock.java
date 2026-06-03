@@ -2,6 +2,7 @@ package zcylas.totality.api.mob.stats;
 
 import com.google.gson.annotations.SerializedName;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.RandomSource;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import org.jspecify.annotations.Nullable;
 
@@ -38,6 +39,8 @@ public class MobStatBlock {
     @SerializedName("rank_color_override") private @Nullable Integer rankColorOverride = null;
     @SerializedName("rarity_variants")     private List<RarityVariant> rarityVariants  = List.of();
 
+    @SerializedName("attack_damage_type")
+    private @Nullable String attackDamageType = null;
     // ── Accessors ─────────────────────────────────────────────────────────────
 
     public Identifier getEntityType() { return Identifier.parse(entityType); }
@@ -52,7 +55,7 @@ public class MobStatBlock {
     public List<RarityVariant> getRarityVariants() { return rarityVariants; }
     public @Nullable Integer getRankColorOverride() { return rankColorOverride; }
     public boolean isRanged() { return "ranged".equals(attackType); }
-
+    public @Nullable String getAttackDamageTypeName() { return attackDamageType; }
     // ── Computed ──────────────────────────────────────────────────────────────
 
     /** All ability scores at the given mob level. */
@@ -84,7 +87,7 @@ public class MobStatBlock {
     }
 
     /** Roll a rarity rank based on variant weights. */
-    public MobRank rollRank(Random random) {
+    public MobRank rollRank(RandomSource random) {
         if (rarityVariants.isEmpty()) return MobRank.E;
         int totalWeight = rarityVariants.stream().mapToInt(RarityVariant::getWeight).sum();
         int roll = random.nextInt(totalWeight);
