@@ -7,8 +7,17 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ShieldItem;
 import zcylas.totality.Totality;
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
+import zcylas.totality.api.rpg.classes.ClientClassManager;
+import zcylas.totality.api.rpg.classes.TotalityClasses;
+import zcylas.totality.api.rpg.combat.ArmorClass;
+import zcylas.totality.api.rpg.combat.armor.VanillaArmorStats;
+import zcylas.totality.api.rpg.stats.AbilityScore;
+import zcylas.totality.api.rpg.stats.ClientStatsManager;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.client.hud.resource.ISecondaryResource;
 import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
@@ -82,6 +91,13 @@ public class TotalityHudRenderer {
                         TotalityGuiSprites.HUD_MANA_FILL,
                         mana, maxMana, mana, maxMana);
             }
+
+            // ── AC INDICATOR (testing — replaced during HUD redesign) ──
+            int ac = calculateClientAC(client);
+            graphics.text(client.font, "AC " + ac,
+                    leftX,
+                    hpY - client.font.lineHeight - 2,  // ← above HP bar
+                    0xFF00CCFF, true);
 
             // ── RIGHT SIDE — Hunger ──
             int rightX = screenW - BG_WIDTH - 6;
@@ -253,5 +269,52 @@ public class TotalityHudRenderer {
                 y += barH + 3;
             }
         }
+    }
+    private static int calculateClientAC(Minecraft client) {
+        if (client.player == null) return 10;
+
+        int totalAc = 0;
+        ArmorClass.ArmorType heaviest = null;
+        boolean hasArmor = false;
+
+        for (EquipmentSlot slot : new EquipmentSlot[]{
+                EquipmentSlot.HEAD, EquipmentSlot.CHEST,
+                EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            ItemStack stack = client.player.getItemBySlot(slot);
+            if (stack.isEmpty()) continue;
+            VanillaArmorStats.PieceStats piece = VanillaArmorStats.get(stack.getItem());
+            if (piece == null) continue;
+            hasArmor = true;
+            totalAc += piece.ac();
+            if (heaviest == null || piece.type().ordinal() > heaviest.ordinal())
+                heaviest = piece.type();
+        }
+
+        int dexMod = ClientStatsManager.getModifier(AbilityScore.DEX);
+        int base;
+
+        if (!hasArmor) {
+            // Barbarian Unarmored Defense: 10 + STR + CON
+            if (ClientClassManager.getClassLevels()
+                    .containsKey(TotalityClasses.BARBARIAN_ID)) {
+                base = 10 + ClientStatsManager.getModifier(AbilityScore.STR)
+                        + ClientStatsManager.getModifier(AbilityScore.CON);
+            } else {
+                base = 10 + dexMod;
+            }
+        } else {
+            int cappedDex = switch (heaviest) {
+                case LIGHT  -> dexMod;
+                case MEDIUM -> Math.min(dexMod, 2);
+                case HEAVY  -> 0;
+            };
+            base = (10 + totalAc) + cappedDex;
+        }
+
+        // Shield bonus
+        ItemStack offhand = client.player.getItemBySlot(EquipmentSlot.OFFHAND);
+        if (offhand.getItem() instanceof ShieldItem) base += 2;
+
+        return base;
     }
 }

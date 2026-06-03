@@ -32,6 +32,7 @@ import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
+import zcylas.totality.networking.mob.MobStatsSyncPayload;
 import zcylas.totality.networking.movement.MovementStaminaPayload;
 import zcylas.totality.networking.movement.PowerSprintStatePayload;
 import zcylas.totality.networking.movement.ToggleFlightPayload;
@@ -90,6 +91,7 @@ public class TotalityPackets {
         registry.register(DiceCheckRequestPayload.TYPE, DiceCheckRequestPayload.STREAM_CODEC);
         registry.register(DiceRollResultPayload.TYPE,   DiceRollResultPayload.STREAM_CODEC);
         registry.register(OpenClassSelectionPayload.TYPE, OpenClassSelectionPayload.STREAM_CODEC);
+        registry.register(MobStatsSyncPayload.TYPE, MobStatsSyncPayload.CODEC);
     }
 
     private TotalityPackets() {}

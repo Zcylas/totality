@@ -33,12 +33,6 @@ public final class DamageResistanceRecalculator {
         // ── Equipment bonuses (future) ────────────────────────────────────────
         // EquipmentResistanceApplier.apply(player, comp);
 
-        // ── Active effects (future) ───────────────────────────────────────────
-        if (BarbarianRageAbility.isRaging(player)) {
-            comp.addResistance(DamageTypes.BLUDGEONING, false);
-            comp.addResistance(DamageTypes.PIERCING,    false);
-            comp.addResistance(DamageTypes.SLASHING,    false);
-        }
     }
 
     private static void applyOriginResistances(Identifier originId, DamageResistanceComponent comp) {

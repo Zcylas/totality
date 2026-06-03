@@ -1,11 +1,14 @@
 package zcylas.totality.init.events;
 
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.ability.AbilityComponents;
+import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
+import zcylas.totality.api.combat.damage.DamageResistanceRecalculator;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
@@ -15,6 +18,7 @@ import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.PlayerClassComponent;
 import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.api.rpg.classes.feature.ClassFeatureRegistry;
+import zcylas.totality.api.rpg.combat.CastingRestrictionRegistry;
 import zcylas.totality.api.rpg.combat.DamageBonusRegistry;
 import zcylas.totality.api.rpg.combat.PowerAttackManager;
 import zcylas.totality.api.rpg.combat.RollModifierRegistry;
@@ -47,8 +51,12 @@ public class PlayerConnectionEvents {
             StatsComponents.PLAYER_STATS.sync((ComponentProvider) player);
             ClassComponents.PLAYER_CLASS.sync((ComponentProvider) player);
             if (ClassComponents.get(player).hasClass(TotalityClasses.BARBARIAN_ID)) {
-                BarbarianRageAbility.registerChargePool(player);
-                ChargeComponents.PLAYER_CHARGES.sync((ComponentProvider) player);
+                var abilities = AbilityComponents.ABILITIES.get((ComponentProvider) player);
+                if (!abilities.getUnlocked().contains(
+                        AbilityRegistry.BARBARIAN_UNARMORED_DEFENSE.getId())) {
+                    abilities.unlock(AbilityRegistry.BARBARIAN_UNARMORED_DEFENSE.getId());
+                    AbilityComponents.ABILITIES.sync((ComponentProvider) player);
+                }
             }
 
 // Always register charge component as rest listener on join
@@ -96,11 +104,30 @@ public class PlayerConnectionEvents {
             }
         });
 
+
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            DamageResistanceRecalculator.recalculate(newPlayer);
+            RestEventBus.clearPlayer(newPlayer.getUUID()); // ← clear first
+            RestEventBus.register(newPlayer, (p, type) ->
+                    ChargeComponents.PLAYER_CHARGES.get((ComponentProvider) p).onRest(p, type));
+            if (ClassComponents.get(newPlayer).hasClass(TotalityClasses.BARBARIAN_ID)) {
+                BarbarianRageAbility.registerChargePool(newPlayer);
+                ChargeComponents.PLAYER_CHARGES.sync((ComponentProvider) newPlayer);
+            }
+            var classComp = ClassComponents.get(newPlayer);
+            Identifier primaryClass = classComp.getPrimaryClassId();
+            if (primaryClass != null) {
+                ClassFeatureRegistry.onPlayerJoin(newPlayer, primaryClass,
+                        classComp.getClassLevel(primaryClass));
+            }
+        });
+
         // ── Cleanup on disconnect ─────────────────────────────────────────────
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             RollModifierRegistry.clearPlayer(handler.player.getUUID());
             DamageBonusRegistry.clearPlayer(handler.player.getUUID());
             RestEventBus.clearPlayer(handler.player.getUUID());
+            CastingRestrictionRegistry.clearPlayer(handler.player.getUUID()); // ← add
             ExhaustionManager.onPlayerLeave(handler.player);
             BowStaminaHandler.onPlayerLeave(handler.player);
             VeinminerKeyHandler.onPlayerLeave(handler.player);

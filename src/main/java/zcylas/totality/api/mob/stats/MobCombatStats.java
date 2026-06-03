@@ -58,6 +58,15 @@ public class MobCombatStats {
         int profBonus  = ProficiencyBonus.forClassLevel(classLevel);
         AbilityScore atkScore = block.getAttackAbilityScore();
         this.attackBonus = MobStatBlock.modifier(stats.getOrDefault(atkScore, 10)) + profBonus;
+
+        // Broadcast stats to nearby players
+        if (entity.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+            zcylas.totality.networking.mob.MobStatsSyncPayload payload =
+                    new zcylas.totality.networking.mob.MobStatsSyncPayload(
+                            entity.getId(), this.level, this.rank.ordinal(), this.ac);
+            sl.getPlayers(p -> p.distanceToSqr(entity.position()) < 1024)
+                    .forEach(p -> net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, payload));
+        }
     }
 
     // ── Accessors ─────────────────────────────────────────────────────────────
@@ -75,5 +84,10 @@ public class MobCombatStats {
 
     public int getModifier(AbilityScore score) {
         return MobStatBlock.modifier(getStat(score));
+    }
+
+    public int getProficiencyBonus() {
+        return ProficiencyBonus.forClassLevel(
+                PlayerClassComponent.toClassLevel(this.level));
     }
 }
