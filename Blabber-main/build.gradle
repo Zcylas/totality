@@ -1,0 +1,193 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "1.15-SNAPSHOT"
+	id 'io.github.ladysnake.chenille' version '0.18.0'
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+chenille {
+	configureTestmod {
+		withBaseTestRuns()
+	}
+
+	license = project.license_header
+	javaVersion = project.java_version.toInteger()
+}
+
+java {
+	withSourcesJar()
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"blabber" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+		"babblings" {
+			sourceSet sourceSets.testmod
+		}
+	}
+
+	runs {
+		clientGametest {
+			inherit testmodClient
+			name "Client Game Test"
+			vmArg "-Dfabric.client.gametest"
+			vmArg "-Dfabric.client.gametest.testModResourcesPath=${sourceSets.testmod.resources.srcDirs.first()}"
+			runDir "build/clientgametest"
+		}
+	}
+}
+
+check.dependsOn(tasks.runClientGametest)
+
+sourceSets {
+	reiDummy
+	testmod {
+		compileClasspath += client.compileClasspath
+		runtimeClasspath += client.runtimeClasspath
+	}
+	test {
+		compileClasspath += testmod.compileClasspath
+		runtimeClasspath += testmod.runtimeClasspath
+	}
+}
+
+repositories {
+	chenille.repositories.allCommonRepositories()
+	maven {
+		url "https://maven.shedaniel.me"
+		content {
+			includeGroup("me.shedaniel")
+			includeGroup("dev.architectury")
+		}
+	}
+	mavenLocal()
+}
+
+dependencies {
+	testmodImplementation(sourceSets.client.output)
+
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	includeImplementation(libs.cca.base)
+	includeImplementation(libs.cca.entity)
+	includeImplementation(libs.permissionsApi)
+	compileOnly(sourceSets.reiDummy.output)
+    compileOnly(libs.emi)
+	compileOnly(libs.jei)
+
+	compileOnly(libs.mcAnnotations)
+
+	localImplementation(libs.modmenu)
+
+	// Test dependencies
+	localImplementation(libs.elmendorf)
+
+	testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+	testImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
+	testImplementation(sourceSets.testmod.output)
+}
+
+test {
+	useJUnitPlatform()
+	maxHeapSize = '1G'
+	workingDir(project.layout.buildDirectory)
+	testLogging {
+		events("passed", "skipped", "failed")
+	}
+}
+
+license {
+	exclude 'me/shedaniel/**/*'
+	exclude 'org/ladysnake/blabber/impl/common/serialization/EitherMapCodec.java'
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+jar {
+	from("COPYING.LESSER") {
+		rename { "LICENSE_${project.archives_base_name}"}
+	}
+}
+
+var mavenJar = tasks.register("mavenJar", Jar) {
+	archiveFileName.set("blabber-${project.version}-maven.jar")
+	from sourceSets.main.output
+	from sourceSets.client.output
+}
+
+assemble.dependsOn(mavenJar)
+
+
+var testmodJar = tasks.register('testmodJar', Jar) {
+	dependsOn testmodClasses
+
+	archiveBaseName.set('Babblings')
+	from(sourceSets.testmod.output) {
+		include 'fabric.mod.json'
+		expand 'version': project.version
+	}
+	from(sourceSets.testmod.output) {
+		exclude 'fabric.mod.json'
+	}
+}
+
+build.dependsOn(testmodJar)
+
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			artifact(tasks.mavenJar.archiveFile) {
+				builtBy(tasks.mavenJar)
+			}
+
+			artifact(tasks.sourcesJar) {
+				builtBy tasks.sourcesJar
+			}
+		}
+		create("relocation", MavenPublication) {
+			pom {
+				// Old artifact coordinates
+				groupId = "io.github.ladysnake"
+
+				distributionManagement {
+					relocation {
+						// New artifact coordinates
+						groupId = "org.ladysnake"
+						message = "groupId has been changed"
+					}
+				}
+			}
+		}
+	}
+}
+
+chenille {
+	configurePublishing {
+		withLadysnakeMaven()
+		withCurseforgeRelease()
+		withGithubRelease()
+		withModrinthRelease()
+	}
+}

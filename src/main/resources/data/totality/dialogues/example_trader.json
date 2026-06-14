@@ -1,0 +1,63 @@
+{
+  "start_at": "greeting",
+  "unskippable": false,
+  "states": {
+    "greeting": {
+      "text": "Greetings, traveler. What brings you here today?",
+      "choices": [
+        {
+          "text": "I'd like to trade.",
+          "next": "trade"
+        },
+        {
+          "text": "Just passing through.",
+          "next": "farewell",
+          "action": { "type": "set_flag", "flag": "met_trader", "value": 1 }
+        },
+        {
+          "text": "[Persuasion DC 12] Could I get a small discount?",
+          "roll": {
+            "skill": "Persuasion",
+            "subtype": "Charisma Check",
+            "dc": 12,
+            "success": "discount_success",
+            "failure": "discount_fail"
+          }
+        },
+        {
+          "text": "About the missing shipment...",
+          "next": "shipment",
+          "hidden": true,
+          "conditions": [
+            { "type": "flag", "flag": "knows_about_shipment", "min": 1 }
+          ]
+        }
+      ]
+    },
+    "trade": {
+      "text": "Of course! I have many fine wares. Take a look.",
+      "type": "end"
+    },
+    "farewell": {
+      "text": "Safe travels, friend. Come back anytime.",
+      "type": "end"
+    },
+    "discount_success": {
+      "text": "Ha! You drive a hard bargain. Alright, I'll give you ten percent off.",
+      "type": "end"
+    },
+    "discount_fail": {
+      "text": "Nice try, but my prices are firm. Take it or leave it.",
+      "choices": [
+        {
+          "text": "Alright, I understand.",
+          "next": "greeting"
+        }
+      ]
+    },
+    "shipment": {
+      "text": "Ah, you heard about that. Yes, three crates went missing on the road to Millhaven. I suspect bandits.",
+      "type": "end"
+    }
+  }
+}
