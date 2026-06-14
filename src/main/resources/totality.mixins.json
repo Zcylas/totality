@@ -3,6 +3,8 @@
 	"package": "zcylas.totality.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
+		"BatMixin",
+		"CraftingMenuAccessor",
 		"MixinServerPlayer",
 		"EnchantedCountIncreaseFunctionAccessor",
 		"EnchantedCountIncreaseFunctionMixin",
@@ -20,6 +22,8 @@
 		"MouseHandlerMixin",
 		"ScreenAccessor",
 		"client.AbstractContainerScreenMixin",
+		"client.AbstractContainerScreenAccessor",
+		"client.LocalPlayerContainerMixin",
 		"client.MinecraftAttackMixin",
 		"client.GuiGraphicsExtractorMixin"
 	],

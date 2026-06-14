@@ -52,6 +52,8 @@ public final class AttackRoll {
 
         int total = used + abilityMod + profBonus;
 
+        // Nat 20 = always a critical hit. Nat 1 = always a miss.
+        // Attack rolls always use D20, but guard explicitly in case that changes.
         if (used == Dice.D20.getSides()) return RollOutcome.CRITICAL_SUCCESS;
         if (used == 1)                   return RollOutcome.CRITICAL_FAILURE;
         return total >= targetAc ? RollOutcome.SUCCESS : RollOutcome.FAILURE;

@@ -17,6 +17,8 @@ import zcylas.totality.api.economy.currency.CurrencyHelper;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.ancestry.OriginData;
 import zcylas.totality.api.rpg.classes.ClassComponents;
+import zcylas.totality.api.rpg.classes.PlayerClassComponent;
+import zcylas.totality.networking.notification.SendNotificationPayload;
 import zcylas.totality.api.rpg.combat.ProficiencyBonus;
 import zcylas.totality.api.rpg.combat.weapon.TotalityWeaponItem;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
@@ -26,6 +28,7 @@ import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatAttributeApplier;
+import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 import zcylas.totality.networking.classes.OpenClassSelectionPayload;
@@ -256,8 +259,20 @@ public class TotalityCommands {
                                             .executes(ctx -> {
                                                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                                                 int level = IntegerArgumentType.getInteger(ctx, "level");
+                                                int oldLevel = StatsComponents.getStats(player).getLevel();
                                                 StatsComponents.getStats(player).setLevelDirectly(level);
                                                 StatsComponents.get(player).sync();
+                                                // Notify if class points increased
+                                                int oldPts = PlayerClassComponent.toClassLevel(oldLevel);
+                                                int newPts = PlayerClassComponent.toClassLevel(level);
+                                                if (newPts > oldPts) {
+                                                    int unspent = newPts - ClassComponents.get(player).getSpentClassPoints();
+                                                    if (unspent > 0) {
+                                                        SendNotificationPayload.send(player,
+                                                                "✦ " + unspent + " Class Point" + (unspent > 1 ? "s" : "") + " available! Press SHIFT+C to spend.",
+                                                                0xFFFFD700);
+                                                    }
+                                                }
                                                 ctx.getSource().sendSuccess(() ->
                                                         Component.literal("Set character level to " + level + "."), false);
                                                 return 1;
@@ -454,70 +469,70 @@ public class TotalityCommands {
                             )
                             // ── /totality resetall ────────────────────────────────────────
                             .then(Commands.literal("resetall")
-                                    .executes(ctx -> {
-                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
 
-                                        // Reset character stats
-                                        PlayerStats stats = StatsComponents.getStats(player);
-                                        stats.setLevelDirectly(1);
-                                        stats.setCharacterXpDirectly(0);
-                                        stats.setUnspentAttributePointsDirectly(0);
-                                        stats.clearOriginBonus();
-                                        stats.clearClassBonus();
-                                        stats.clearItemBonus();
+                                                // Reset character stats
+                                                PlayerStats stats = StatsComponents.getStats(player);
+                                                stats.setLevelDirectly(1);
+                                                stats.setCharacterXpDirectly(0);
+                                                stats.setUnspentAttributePointsDirectly(0);
+                                                stats.clearOriginBonus();
+                                                stats.clearClassBonus();
+                                                stats.clearItemBonus();
 // Reset spent points
-                                        for (AbilityScore score : AbilityScore.values()) {
-                                            stats.setSpentPointsDirectly(score, 0);
-                                        }
-                                        stats.recalculate();
-                                        StatAttributeApplier.apply(player);
-                                        StatsComponents.get(player).sync();
+                                                for (AbilityScore score : AbilityScore.values()) {
+                                                    stats.setSpentPointsDirectly(score, 0);
+                                                }
+                                                stats.recalculate();
+                                                StatAttributeApplier.apply(player);
+                                                StatsComponents.get(player).sync();
 
-                                        // Reset all skills
-                                        var skillsComp = SkillsComponents.get(player);
-                                        for (Skill skill : Skill.values()) {
-                                            SkillData data = skillsComp.getSkills().getData(skill);
-                                            data.setLevelDirectly(10);
-                                            data.setXpDirectly(0);
-                                        }
-                                        skillsComp.sync();
-                                        AncestryComponents.get(player).reapplyBonuses();
+                                                // Reset all skills
+                                                var skillsComp = SkillsComponents.get(player);
+                                                for (Skill skill : Skill.values()) {
+                                                    SkillData data = skillsComp.getSkills().getData(skill);
+                                                    data.setLevelDirectly(10);
+                                                    data.setXpDirectly(0);
+                                                }
+                                                skillsComp.sync();
+                                                AncestryComponents.get(player).reapplyBonuses();
 
-                                        // Reset all masteries and mastery points
-                                        var masteryComp = MasteriesComponents.get(player);
-                                        for (Skill skill : Skill.values()) {
-                                            for (Mastery mastery : MasteryRegistry.getMasteries(skill)) {
-                                                masteryComp.getMasteries().setRankDirectly(mastery.getId(), 0);
-                                            }
-                                        }
-                                        masteryComp.getMasteries().setMasteryPointsDirectly(0);
-                                        masteryComp.sync();
+                                                // Reset all masteries and mastery points
+                                                var masteryComp = MasteriesComponents.get(player);
+                                                for (Skill skill : Skill.values()) {
+                                                    for (Mastery mastery : MasteryRegistry.getMasteries(skill)) {
+                                                        masteryComp.getMasteries().setRankDirectly(mastery.getId(), 0);
+                                                    }
+                                                }
+                                                masteryComp.getMasteries().setMasteryPointsDirectly(0);
+                                                masteryComp.sync();
 
-                                        // Reset all abilities — keep only defaults
-                                        var abilityComp = AbilityComponents.ABILITIES.get(
-                                                (ComponentProvider) player);
-                                        for (Identifier id : new java.util.HashSet<>(abilityComp.getUnlocked())) {
-                                            Ability ability = AbilityRegistry.get(id);
-                                            if (ability != null && !ability.isDefault()) {
-                                                abilityComp.forget(id);
-                                            }
-                                        }
+                                                // Reset all abilities — keep only defaults
+                                                var abilityComp = AbilityComponents.ABILITIES.get(
+                                                        (ComponentProvider) player);
+                                                for (Identifier id : new java.util.HashSet<>(abilityComp.getUnlocked())) {
+                                                    Ability ability = AbilityRegistry.get(id);
+                                                    if (ability != null && !ability.isDefault()) {
+                                                        abilityComp.forget(id);
+                                                    }
+                                                }
 
-                                        // Reset stamina and mana to new max
-                                        int newMaxStamina = PlayerStaminaManager.getMaxStamina(player);
-                                        PlayerStaminaManager.setStamina(player, newMaxStamina);
-                                        StaminaServerTick.syncStamina(player);
+                                                // Reset stamina and mana to new max
+                                                int newMaxStamina = PlayerStaminaManager.getMaxStamina(player);
+                                                PlayerStaminaManager.setStamina(player, newMaxStamina);
+                                                StaminaServerTick.syncStamina(player);
 
-                                        int newMaxMana = PlayerManaManager.getMaxMana(player);
-                                        PlayerManaManager.setMana(player, newMaxMana);
-                                        ServerPlayNetworking.send(player, new SyncManaPayload(newMaxMana, newMaxMana));
+                                                int newMaxMana = PlayerManaManager.getMaxMana(player);
+                                                PlayerManaManager.setMana(player, newMaxMana);
+                                                ServerPlayNetworking.send(player, new SyncManaPayload(newMaxMana, newMaxMana));
 
-                                        player.setHealth(player.getMaxHealth());
+                                                player.setHealth(player.getMaxHealth());
 
-                                        ctx.getSource().sendSuccess(() ->
-                                                Component.literal("All RPG progress reset."), false);
-                                        return 1;
-                                    })
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("All RPG progress reset."), false);
+                                                return 1;
+                                            })
                             )
                             // ── /totality damage <type> <amount> ─────────────────────────
                             .then(Commands.literal("damage")
@@ -573,27 +588,27 @@ public class TotalityCommands {
                                     })
                             )
                             .then(Commands.literal("rolldice_adv")
-                            .executes(ctx -> {
-                                ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                zcylas.totality.api.dice.PendingDiceRollManager.request(
-                                        player,
-                                        new zcylas.totality.api.dice.DiceRollContext(
-                                                "Perception", "Wisdom Check",
-                                                zcylas.totality.api.dice.Dice.D20,
-                                                12,
-                                                zcylas.totality.api.dice.RollType.ADVANTAGE,
-                                                java.util.List.of(
-                                                        new zcylas.totality.api.dice.DiceBonus("Wisdom", 2),
-                                                        new zcylas.totality.api.dice.DiceBonus("Proficiency", 3)
-                                                )
-                                        ),
-                                        result -> zcylas.totality.Totality.LOGGER.info(
-                                                "Advantage result: {} (roll1={} roll2={} used={})",
-                                                result.outcome(), result.roll1(), result.roll2(), result.usedRoll())
-                                );
-                                return 1;
-                            })
-                    )
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        zcylas.totality.api.dice.PendingDiceRollManager.request(
+                                                player,
+                                                new zcylas.totality.api.dice.DiceRollContext(
+                                                        "Perception", "Wisdom Check",
+                                                        zcylas.totality.api.dice.Dice.D20,
+                                                        12,
+                                                        zcylas.totality.api.dice.RollType.ADVANTAGE,
+                                                        java.util.List.of(
+                                                                new zcylas.totality.api.dice.DiceBonus("Wisdom", 2),
+                                                                new zcylas.totality.api.dice.DiceBonus("Proficiency", 3)
+                                                        )
+                                                ),
+                                                result -> zcylas.totality.Totality.LOGGER.info(
+                                                        "Advantage result: {} (roll1={} roll2={} used={})",
+                                                        result.outcome(), result.roll1(), result.roll2(), result.usedRoll())
+                                        );
+                                        return 1;
+                                    })
+                            )
                             .then(Commands.literal("rolldice_dis")
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
@@ -628,22 +643,159 @@ public class TotalityCommands {
                                         return 1;
                                     })
                             )
-                            .then(Commands.literal("debugproficiency")
+                            .then(Commands.literal("inspect")
                                     .executes(ctx -> {
-                                        ServerPlayer p = ctx.getSource().getPlayerOrException();
-                                        int prof = ProficiencyBonus.forPlayer(p);
-                                        Set<AbilityScore> saves = ClassComponents.get(p).getSaveProficiencies();
-                                        ItemStack held = p.getMainHandItem();
-                                        boolean weaponProf = !held.isEmpty() && held.getItem() instanceof TotalityWeaponItem w
-                                                && w.isProficient(p);
-                                        ctx.getSource().sendSuccess(() -> Component.literal(
-                                                "Proficiency: +" + prof + " | Save profs: " + saves + " | Weapon prof: " + weaponProf
-                                        ), false);
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        // Find entity player is looking at within 20 blocks
+                                        net.minecraft.world.phys.HitResult hit = player.pick(20.0, 0f, false);
+                                        net.minecraft.world.entity.Entity target = null;
+                                        // Check entity hit (AABB sweep)
+                                        net.minecraft.world.phys.Vec3 eye  = player.getEyePosition();
+                                        net.minecraft.world.phys.Vec3 look = player.getLookAngle();
+                                        net.minecraft.world.phys.Vec3 end  = eye.add(look.scale(20));
+                                        var entities = player.level().getEntities(player,
+                                                player.getBoundingBox().inflate(20),
+                                                e -> e instanceof net.minecraft.world.entity.LivingEntity && e != player);
+                                        double best = 20.0;
+                                        for (var e : entities) {
+                                            net.minecraft.world.phys.AABB box = e.getBoundingBox().inflate(0.3);
+                                            var res = box.clip(eye, end);
+                                            if (res.isPresent()) {
+                                                double d = eye.distanceTo(res.get());
+                                                if (d < best) { best = d; target = e; }
+                                            }
+                                        }
+                                        if (target == null) {
+                                            ctx.getSource().sendFailure(Component.literal("No mob in sight (up to 20 blocks)."));
+                                            return 0;
+                                        }
+                                        final net.minecraft.world.entity.Entity finalTarget = target;
+                                        String name = finalTarget.getDisplayName().getString();
+                                        String info;
+                                        if (finalTarget instanceof zcylas.totality.api.mob.stats.MobCombatStatsHolder h) {
+                                            var s = h.totality$getMobCombatStats();
+                                            String rarity = s.getSpawnRarity().name();
+                                            info = name + " [" + rarity + "]"
+                                                    + " | Lvl " + s.getLevel()
+                                                    + " | AC " + s.getAC()
+                                                    + " | Atk +" + s.getAttackBonus()
+                                                    + " | STR " + s.getStat(zcylas.totality.api.rpg.stats.AbilityScore.STR)
+                                                    + " CON " + s.getStat(zcylas.totality.api.rpg.stats.AbilityScore.CON)
+                                                    + " DEX " + s.getStat(zcylas.totality.api.rpg.stats.AbilityScore.DEX)
+                                                    + " | HP " + Math.round(((net.minecraft.world.entity.LivingEntity)finalTarget).getHealth())
+                                                    + "/" + Math.round(((net.minecraft.world.entity.LivingEntity)finalTarget).getMaxHealth());
+                                        } else {
+                                            info = name + " | HP "
+                                                    + Math.round(((net.minecraft.world.entity.LivingEntity)finalTarget).getHealth())
+                                                    + "/" + Math.round(((net.minecraft.world.entity.LivingEntity)finalTarget).getMaxHealth())
+                                                    + " (no stat block)";
+                                        }
+                                        ctx.getSource().sendSuccess(() -> Component.literal(info), false);
                                         return 1;
-                                    }))
+                                    })
+                            )
+                            // ── /totality savingthrows ────────────────────────────────────
+                            .then(Commands.literal("savingthrows")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        int prof = ProficiencyBonus.forPlayer(player);
+                                        Set<AbilityScore> saveProficiencies = ClassComponents.get(player).getSaveProficiencies();
+                                        int equipSaveBonus = EquipmentComponents.get(player).getSaveBonus();
+                                        PlayerStats stats = StatsComponents.getStats(player);
 
+                                        StringBuilder sb = new StringBuilder("Saving Throws (Prof +" + prof);
+                                        if (equipSaveBonus != 0) sb.append(", Equipment +" + equipSaveBonus);
+                                        sb.append("):\n");
 
-            );
+                                        for (AbilityScore score : AbilityScore.values()) {
+                                            int mod = stats.getModifier(score);
+                                            boolean hasProficiency = saveProficiencies.contains(score);
+                                            int total = mod + (hasProficiency ? prof : 0) + equipSaveBonus;
+                                            String sign = total >= 0 ? "+" : "";
+                                            String profMark = hasProficiency ? " ✦" : "";
+                                            sb.append("  ").append(score.getDisplayName())
+                                              .append(profMark).append(": ").append(sign).append(total).append("\n");
+                                        }
+
+                                        String msg = sb.toString().trim();
+                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
+                                        return 1;
+                                    })
+                            )
+
+                            // ── /totality dialogue ────────────────────────────────────────
+                            .then(Commands.literal("dialogue")
+                                    .then(Commands.literal("start")
+                                            .then(Commands.argument("id", StringArgumentType.greedyString())
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        String idStr = StringArgumentType.getString(ctx, "id");
+                                                        Identifier id = Identifier.tryParse(idStr);
+                                                        if (id == null) {
+                                                            ctx.getSource().sendFailure(Component.literal("Invalid dialogue id: " + idStr));
+                                                            return 0;
+                                                        }
+                                                        zcylas.totality.api.dialogue.DialogueSessionManager.startDialogue(player, id, null);
+                                                        ctx.getSource().sendSuccess(() -> Component.literal("Starting dialogue: " + id), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                                    .then(Commands.literal("end")
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                zcylas.totality.api.dialogue.DialogueSessionManager.endDialogue(player);
+                                                ctx.getSource().sendSuccess(() -> Component.literal("Dialogue ended."), false);
+                                                return 1;
+                                            })
+                                    )
+                                    .then(Commands.literal("flag")
+                                            .then(Commands.literal("set")
+                                                    .then(Commands.argument("flag", StringArgumentType.word())
+                                                            .then(Commands.argument("value", IntegerArgumentType.integer())
+                                                                    .executes(ctx -> {
+                                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                                        String flag = StringArgumentType.getString(ctx, "flag");
+                                                                        int value = IntegerArgumentType.getInteger(ctx, "value");
+                                                                        zcylas.totality.api.dialogue.DialogueComponents.FLAGS.get(
+                                                                                (zcylas.totality.api.core.component.ComponentProvider) player
+                                                                        ).setFlag(flag, value);
+                                                                        ctx.getSource().sendSuccess(() ->
+                                                                                Component.literal("Flag " + flag + " = " + value), false);
+                                                                        return 1;
+                                                                    })
+                                                            )
+                                                    )
+                                            )
+                                            .then(Commands.literal("get")
+                                                    .then(Commands.argument("flag", StringArgumentType.word())
+                                                            .executes(ctx -> {
+                                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                                String flag = StringArgumentType.getString(ctx, "flag");
+                                                                int value = zcylas.totality.api.dialogue.DialogueComponents.FLAGS.get(
+                                                                        (zcylas.totality.api.core.component.ComponentProvider) player
+                                                                ).getFlag(flag);
+                                                                ctx.getSource().sendSuccess(() ->
+                                                                        Component.literal("Flag " + flag + " = " + value), false);
+                                                                return 1;
+                                                            })
+                                                    )
+                                            )
+                                    )
+                            )
+
+                            .executes(ctx -> {
+                                ServerPlayer p = ctx.getSource().getPlayerOrException();
+                                int prof = ProficiencyBonus.forPlayer(p);
+                                Set<AbilityScore> saves = ClassComponents.get(p).getSaveProficiencies();
+                                ItemStack held = p.getMainHandItem();
+                                boolean weaponProf = !held.isEmpty() && held.getItem() instanceof TotalityWeaponItem w
+                                        && w.isProficient(p);
+                                ctx.getSource().sendSuccess(() -> Component.literal(
+                                        "Proficiency: +" + prof + " | Save profs: " + saves + " | Weapon prof: " + weaponProf
+                                ), false);
+                                return 1;
+                            }));
         });
     }
 

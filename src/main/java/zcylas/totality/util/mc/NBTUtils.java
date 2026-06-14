@@ -83,13 +83,18 @@ public final class NBTUtils {
                 return ByteTag.valueOf(p.getAsBoolean());
 
             if (p.isNumber()) {
-                Number n = p.getAsNumber();
-                if (n instanceof Double)  return DoubleTag.valueOf(n.doubleValue());
-                if (n instanceof Float)   return FloatTag.valueOf(n.floatValue());
-                if (n instanceof Long)    return LongTag.valueOf(n.longValue());
-                if (n instanceof Byte)    return ByteTag.valueOf(n.byteValue());
-                if (n instanceof Short)   return ShortTag.valueOf(n.shortValue());
-                return IntTag.valueOf(n.intValue());
+                // Gson's getAsNumber() always returns a LazilyParsedNumber — never Double, Float etc.
+                // instanceof checks would always fall through to IntTag, silently truncating decimals.
+                // Instead, check the raw string to distinguish floats from integers.
+                String raw = p.getAsString();
+                boolean isDecimal = raw.contains(".") || raw.contains("e") || raw.contains("E");
+                if (isDecimal) {
+                    return DoubleTag.valueOf(p.getAsDouble());
+                }
+                long lv = p.getAsLong();
+                if (lv >= Integer.MIN_VALUE && lv <= Integer.MAX_VALUE)
+                    return IntTag.valueOf((int) lv);
+                return LongTag.valueOf(lv);
             }
             return StringTag.valueOf(p.getAsString());
         }

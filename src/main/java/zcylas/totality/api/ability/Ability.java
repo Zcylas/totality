@@ -14,7 +14,8 @@ public abstract class Ability {
         SPECIES("Species"),
         ORIGIN("Origin"),
         ANCESTRY("Ancestry"),
-        MASTERY("Mastery");
+        MASTERY("Mastery"),
+        SPELL("Spell");
 
         private final String displayName;
         Source(String d) { this.displayName = d; }

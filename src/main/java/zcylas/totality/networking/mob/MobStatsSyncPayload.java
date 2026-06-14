@@ -6,7 +6,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import zcylas.totality.Totality;
 
-public record MobStatsSyncPayload(int entityId, int level, int rankOrdinal, int ac)
+public record MobStatsSyncPayload(int entityId, int level, int rankOrdinal,
+                                  int ac, int rarityOrdinal)
         implements CustomPacketPayload {
 
     public static final Type<MobStatsSyncPayload> TYPE =
@@ -20,11 +21,12 @@ public record MobStatsSyncPayload(int entityId, int level, int rankOrdinal, int 
         buf.writeInt(p.level());
         buf.writeInt(p.rankOrdinal());
         buf.writeInt(p.ac());
+        buf.writeInt(p.rarityOrdinal());
     }
 
     private static MobStatsSyncPayload decode(RegistryFriendlyByteBuf buf) {
         return new MobStatsSyncPayload(buf.readInt(), buf.readInt(),
-                buf.readInt(), buf.readInt());
+                buf.readInt(), buf.readInt(), buf.readInt());
     }
 
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }

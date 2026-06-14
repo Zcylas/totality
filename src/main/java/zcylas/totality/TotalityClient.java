@@ -26,6 +26,8 @@ import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
 import zcylas.totality.client.renderer.ability.HeatVisionBeamRenderer;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
 import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
+import zcylas.totality.client.renderer.entity.npc.TotalityNpcRenderer;
+import zcylas.totality.client.renderer.entity.magic.SpellBoltRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
@@ -61,6 +63,9 @@ public class TotalityClient implements ClientModInitializer {
         SidedOverlayRenderer.register();
 
         // ── Screens ───────────────────────────────────────────────────────────
+        net.minecraft.client.gui.screens.MenuScreens.register(
+                zcylas.totality.menu.ComponentPouchMenu.TYPE,
+                zcylas.totality.screen.pouch.ComponentPouchScreen::new);
         registerScreens();
 
         // ── Colors & tints ────────────────────────────────────────────────────
@@ -76,6 +81,10 @@ public class TotalityClient implements ClientModInitializer {
 
         // ── Keybinds & tick handlers ──────────────────────────────────────────
         TotalityKeybindHandlers.register();
+        TotalityMovementHandler.register();
+        zcylas.totality.client.item.AttunementClientManager.register();
+        zcylas.totality.client.spell.ClientCastManager.register();
+        zcylas.totality.client.spell.CastBarHud.register();
         ClientTickEvents.END_CLIENT_TICK.register(client -> FluidTankScrollHandler.tick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> MobHealthBarHud.tick());
     }
@@ -119,6 +128,12 @@ public class TotalityClient implements ClientModInitializer {
                         && TotalityClasses.BARBARIAN_ID.equals(
                         ClientClassManager.getPrimaryClassId());
             }
+            @Override public net.minecraft.resources.Identifier getActivePipSprite() {
+                return zcylas.totality.client.gui.TotalityGuiSprites.HUD_RAGE_PIP;
+            }
+            @Override public net.minecraft.resources.Identifier getSpentPipSprite() {
+                return zcylas.totality.client.gui.TotalityGuiSprites.HUD_RAGE_PIP_SPENT;
+            }
         });
     }
 
@@ -127,6 +142,12 @@ public class TotalityClient implements ClientModInitializer {
                 ModEntities.GRIMOIRE_PROJECTILE,
                 GrimoireProjectileRenderer::new);
         EntityRenderers.register(
+                ModEntities.SPELL_BOLT,
+                SpellBoltRenderer::new);
+        EntityRenderers.register(
+                ModEntities.FIREBALL_PROJECTILE,
+                NoopRenderer::new);
+        EntityRenderers.register(
                 ModEntities.ORBIT_PROJECTILE,
                 NoopRenderer::new);
         EntityRenderers.register(ModEntities.LINGER_ENTITY,
@@ -134,8 +155,10 @@ public class TotalityClient implements ClientModInitializer {
         EntityRenderers.register(ModEntities.SUMMON_SKELETON,
                 SkeletonRenderer::new);
 
+        EntityRenderers.register(ModEntities.TOTALITY_NPC, TotalityNpcRenderer::new);
+
         //Basic Weapons
-            //Shuriken
+        //Shuriken
         EntityRenderers.register(
                 ModEntities.THROWN_SHURIKEN,
                 ThrownShurikenRenderer::new);
@@ -158,6 +181,18 @@ public class TotalityClient implements ClientModInitializer {
         MenuScreens.register(GeneratorMenu.TYPE, GeneratorScreen::new);
         MenuScreens.register(EnergyCellMenu.TYPE, EnergyCellScreen::new);
         MenuScreens.register(ElectricFurnaceMenu.TYPE, ElectricFurnaceScreen::new);
+        MenuScreens.register(
+                zcylas.totality.menu.equipment.AccessoryInventoryMenu.TYPE,
+                zcylas.totality.screen.equipment.AccessoryInventoryScreen::new);
+
+        // Inject ring button into vanilla InventoryScreen
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
+                (client, screen, scaledWidth, scaledHeight) -> {
+                    if (screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen invScreen) {
+                        ((zcylas.totality.mixin.ScreenAccessor)(Object) invScreen).totality$addRenderableWidget(
+                                new zcylas.totality.screen.equipment.AccessoryInventoryButton(invScreen));
+                    }
+                });
     }
 
     public static boolean onScroll(double scrollDelta) {
@@ -193,4 +228,3 @@ public class TotalityClient implements ClientModInitializer {
         );
     }
 }
-

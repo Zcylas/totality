@@ -17,7 +17,7 @@ public class MobCombatStats {
     private int     attackBonus = 0;
     private Map<AbilityScore, Integer> stats = new EnumMap<>(AbilityScore.class);
     private @Nullable MobStatBlock statBlock = null;
-
+    private SpawnRarity spawnRarity = SpawnRarity.COMMON;
     // ── Init ──────────────────────────────────────────────────────────────────
 
     public void initialize(LivingEntity entity) {
@@ -39,10 +39,13 @@ public class MobCombatStats {
         this.level = block.getMinLevel() + entity.getRandom().nextInt(
                 Math.max(1, maxLvl - block.getMinLevel() + 1));
 
-        // Roll rank
-        this.rank = block.rollRank(entity.getRandom());
-        RarityVariant variant = block.getVariant(rank);
+        // Fixed rank from JSON — display only, never rolled
+        this.rank = block.getFixedRank();
+
+// Roll spawn variant for stat multiplier + level bonus
+        RarityVariant variant = block.rollVariant(entity.getRandom());
         if (variant != null) {
+            this.spawnRarity = variant.getRarity();
             this.level = Math.min(100, this.level + variant.getLevelBonus());
         }
 
@@ -63,9 +66,23 @@ public class MobCombatStats {
         if (entity.level() instanceof net.minecraft.server.level.ServerLevel sl) {
             zcylas.totality.networking.mob.MobStatsSyncPayload payload =
                     new zcylas.totality.networking.mob.MobStatsSyncPayload(
-                            entity.getId(), this.level, this.rank.ordinal(), this.ac);
+                            entity.getId(), this.level, this.rank.ordinal(),
+                            this.ac, this.spawnRarity.ordinal()); // ← add rarity
             sl.getPlayers(p -> p.distanceToSqr(entity.position()) < 1024)
                     .forEach(p -> net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, payload));
+        }
+        // Scale HP with level and CON ← add here
+        float baseHp = entity.getMaxHealth();
+        int conMod = MobStatBlock.modifier(stats.getOrDefault(AbilityScore.CON, 10));
+        int hpPerLevel = 2 + Math.max(0, conMod);
+        float scaledHp = baseHp + (this.level - 1) * hpPerLevel;
+        if (variant != null) scaledHp *= variant.getStatMultiplier();
+
+        net.minecraft.world.entity.ai.attributes.AttributeInstance maxHp =
+                entity.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH);
+        if (maxHp != null) {
+            maxHp.setBaseValue(scaledHp);
+            entity.setHealth(scaledHp);
         }
     }
 
@@ -77,6 +94,7 @@ public class MobCombatStats {
     public int     getAC()          { return ac; }
     public int     getAttackBonus() { return attackBonus; }
     public @Nullable MobStatBlock getStatBlock() { return statBlock; }
+    public SpawnRarity getSpawnRarity() { return spawnRarity; }
 
     public int getStat(AbilityScore score) {
         return stats.getOrDefault(score, 10);

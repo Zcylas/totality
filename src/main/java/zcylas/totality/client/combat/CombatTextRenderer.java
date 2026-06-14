@@ -8,8 +8,8 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
-import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.combat.damage.TotalityDamageType;
+import zcylas.totality.util.color.ColorUtils;
 
 public final class CombatTextRenderer {
 
@@ -64,38 +64,18 @@ public final class CombatTextRenderer {
     }
 
     private static int getColor(CombatTextEntry entry, float alpha) {
-        int a = (int)(alpha * 255) << 24;
-
-        float dimFactor = switch (entry.getType()) {
+        float dim = switch (entry.getType()) {
             case RESIST -> 0.6f;
             case IMMUNE -> 0.5f;
-            default -> 1.0f;
+            default     -> 1.0f;
         };
-
-        TotalityDamageType type = entry.getDamageType();
-        int baseColor = getTypeColor(type);
-
-        int r = (int)(((baseColor >> 16) & 0xFF) * dimFactor);
-        int g = (int)(((baseColor >> 8)  & 0xFF) * dimFactor);
-        int b = (int)((baseColor & 0xFF)          * dimFactor);
-
-        return a | (r << 16) | (g << 8) | b;
+        int base   = 0xFF000000 | getTypeColor(entry.getDamageType());
+        int dimmed = dim < 1f ? ColorUtils.blend(0xFF000000, base, dim) : base;
+        return ColorUtils.setAlpha(dimmed, (int)(alpha * 255));
     }
 
     private static int getTypeColor(TotalityDamageType type) {
-        if (type == null)                  return 0x00FF44;
-        if (type == DamageTypes.FIRE)      return 0xFF4400;
-        if (type == DamageTypes.FROST)     return 0x00CCFF;
-        if (type == DamageTypes.LIGHTNING) return 0xFFFF00;
-        if (type == DamageTypes.POISON)    return 0x44FF44;
-        if (type == DamageTypes.RADIANT)   return 0xFFFF88;
-        if (type == DamageTypes.NECROTIC)  return 0xAA00FF;
-        if (type == DamageTypes.PSYCHIC)   return 0xFF88FF;
-        if (type == DamageTypes.FORCE)     return 0x4488FF;
-        if (type == DamageTypes.ARCANE)    return 0x00FFCC;
-        if (type == DamageTypes.ACID)      return 0x88FF00;
-        if (type == DamageTypes.SONIC)     return 0xFFFFFF;
-        if (type == DamageTypes.VOID)      return 0x444444;
-        return 0xFFFFFF;
+        if (type == null) return 0x44DDAA; // fallback: healing green
+        return type.getCombatTextColor();
     }
 }

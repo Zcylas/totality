@@ -10,11 +10,13 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.entity.npc.TotalityNpcEntity;
 import zcylas.totality.api.ability.AbilityServerTick;
 import zcylas.totality.api.combat.condition.ConditionServerTick;
 import zcylas.totality.api.combat.condition.Conditions;
 import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.core.util.ServerScheduler;
+import zcylas.totality.api.magic.spell.SpellRegistry;
 import zcylas.totality.api.mob.stats.MobStatBlockLoader;
 import zcylas.totality.api.ritual.RitualRecipeRegistry;
 import zcylas.totality.api.rpg.ancestry.OriginRegistry;
@@ -96,8 +98,11 @@ public class Totality implements ModInitializer {
 		ModLootTables.register();
 		TotalityCommands.register();
 		RitualRecipeRegistry.register();
+		zcylas.totality.api.dialogue.DialogueComponents.register();
 		ResourceManagerHelper.get(PackType.SERVER_DATA)
 				.registerReloadListener(new MobStatBlockLoader());
+		ResourceManagerHelper.get(PackType.SERVER_DATA)
+				.registerReloadListener(zcylas.totality.api.dialogue.DialogueRegistry.INSTANCE);
 		ModEvents.register();
 	}
 
@@ -114,6 +119,8 @@ public class Totality implements ModInitializer {
 	private void registerMenus(){
 		var ignored = GeneratorMenu.TYPE;
 		var _ = ElectricFurnaceMenu.TYPE;
+		var _2 = zcylas.totality.menu.ComponentPouchMenu.TYPE;
+		var _3 = zcylas.totality.menu.equipment.AccessoryInventoryMenu.TYPE;
 	}
 
 	private void registerServerTickEvents(){
@@ -129,13 +136,14 @@ public class Totality implements ModInitializer {
 		UEApiInit.register();
 		AlchemyEffects.register();
 		AbilityRegistry.register();
+		SpellRegistry.init();
 		TotalityHarvestHandlers.register();
-		TotalityMovementHandler.register();
 		DamageTypes.init();
 		Conditions.init();
 		SpeciesRegistry.init();
 		OriginRegistry.init();
 		TotalityClasses.register();
+		zcylas.totality.api.item.TotalityItemComponents.register();
 	}
 
 	private void registerCombatApi(){
@@ -155,6 +163,45 @@ public class Totality implements ModInitializer {
 		SelectAncestryHandler.register();
 		ToggleAbilityHandler.register();
 		SelectClassHandler.register();
+		zcylas.totality.networking.classes.AddClassLevelHandler.register();
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
+				zcylas.totality.networking.item.AttunementPayload.TYPE,
+				zcylas.totality.networking.item.AttunementHandler::handle);
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
+				zcylas.totality.networking.item.UnAttunePayload.TYPE,
+				zcylas.totality.networking.item.UnAttuneHandler::handle);
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
+				zcylas.totality.networking.item.CastFocusPayload.TYPE,
+				(payload, ctx) -> ctx.server().execute(() ->
+						zcylas.totality.networking.item.CastFocusHandler.handle(ctx.player(), payload)));
+		zcylas.totality.networking.menu.ContainerSortHandler.register();
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
+				zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.TYPE,
+				(payload, ctx) -> ctx.server().execute(() -> {
+					net.minecraft.server.level.ServerPlayer player = ctx.player();
+					// Drop any item on cursor before switching menus
+					net.minecraft.world.item.ItemStack carried = player.containerMenu.getCarried();
+					if (!carried.isEmpty()) {
+						if (!player.getInventory().add(carried)) player.drop(carried, false);
+						player.containerMenu.setCarried(net.minecraft.world.item.ItemStack.EMPTY);
+					}
+					player.openMenu(new net.minecraft.world.MenuProvider() {
+						@Override
+						public net.minecraft.network.chat.Component getDisplayName() {
+							return net.minecraft.network.chat.Component.empty();
+						}
+						@Override
+						public net.minecraft.world.inventory.AbstractContainerMenu createMenu(
+								int syncId,
+								net.minecraft.world.entity.player.Inventory inv,
+								net.minecraft.world.entity.player.Player p) {
+							return new zcylas.totality.menu.equipment.AccessoryInventoryMenu(syncId, inv);
+						}
+					});
+				}));
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
+				zcylas.totality.networking.equipment.OpenInventoryPayload.TYPE,
+				(payload, ctx) -> ctx.server().execute(() -> ctx.player().doCloseContainer()));
 	}
 
 	private void registerPassiveTicker() {
@@ -186,6 +233,7 @@ public class Totality implements ModInitializer {
 
 	private void registerAttributes() {
 		FabricDefaultAttributeRegistry.register(ModEntities.SUMMON_SKELETON, Skeleton.createAttributes());
+		FabricDefaultAttributeRegistry.register(ModEntities.TOTALITY_NPC, TotalityNpcEntity.createAttributes());
 	}
 	private void registerSkillEvents(){
 		MiningSkillEvents.register();

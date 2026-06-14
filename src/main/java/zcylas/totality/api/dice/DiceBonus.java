@@ -1,7 +1,7 @@
 // api/dice/DiceBonus.java
 package zcylas.totality.api.dice;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,7 +23,9 @@ public record DiceBonus(String label, int value, @Nullable String iconId) {
         return value >= 0 ? "+" + value : String.valueOf(value);
     }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, DiceBonus> STREAM_CODEC =
+    // FriendlyByteBuf is correct here — DiceBonus only serialises primitives and strings,
+    // no registry-dependent objects. RegistryFriendlyByteBuf is a needless constraint.
+    public static final StreamCodec<FriendlyByteBuf, DiceBonus> STREAM_CODEC =
             StreamCodec.of(
                     (buf, b) -> {
                         buf.writeUtf(b.label());

@@ -1,5 +1,6 @@
 package zcylas.totality.mixin.client;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -12,9 +13,13 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.jspecify.annotations.Nullable;
 import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
+import zcylas.totality.client.item.AttunementClientManager;
+import zcylas.totality.client.item.AttunementHud;
 import zcylas.totality.client.tooltip.TotalityTooltipRenderer;
 
 import java.util.List;
@@ -50,5 +55,16 @@ public class AbstractContainerScreenMixin {
         }
 
         graphics.setTooltipForNextFrame(font, text, data, x, y, backgroundTexture);
+    }
+
+    /** Draw the attunement ring after tooltip extraction — renders over inventory content. */
+    @Inject(at = @At("TAIL"),
+            method = "extractTooltip(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V")
+    private void afterExtractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+                                     CallbackInfo ci) {
+        if (AttunementClientManager.isActive()) {
+            AttunementHud.renderOnScreen(graphics, mouseX, mouseY,
+                    Minecraft.getInstance().getWindow().getGuiScaledWidth());
+        }
     }
 }

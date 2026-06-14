@@ -15,6 +15,21 @@ public class ExhaustionManager {
     private static final Map<UUID, ExhaustionState> previousStates = new HashMap<>();
     private static final Set<UUID> penalizedPlayers = new HashSet<>();
 
+    /**
+     * Call on player join/respawn to seed the initial state without triggering
+     * transition messages. Without this, a player joining at 0 stamina would
+     * receive a "You are exhausted!" notification on the very first tick.
+     */
+    public static void onPlayerJoin(ServerPlayer player) {
+        int stamina    = PlayerStaminaManager.getStamina(player);
+        int maxStamina = PlayerStaminaManager.getMaxStamina(player);
+        ExhaustionState initial = ExhaustionState.fromStamina(stamina, maxStamina);
+        previousStates.put(player.getUUID(), initial);
+        if (initial == ExhaustionState.EXHAUSTED) {
+            penalizedPlayers.add(player.getUUID());
+        }
+    }
+
     public static void tick(ServerPlayer player) {
         int stamina    = PlayerStaminaManager.getStamina(player);
         int maxStamina = PlayerStaminaManager.getMaxStamina(player);

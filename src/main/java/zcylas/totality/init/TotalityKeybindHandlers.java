@@ -35,6 +35,21 @@ public final class TotalityKeybindHandlers {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (ModKeybinds.OPEN_GRIMOIRE.consumeClick()) {
                 if (client.player == null) return;
+
+                // SHIFT + C → jump straight to the Class tab in the character screen
+                com.mojang.blaze3d.platform.Window window = client.getWindow();
+                boolean shiftHeld =
+                        com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
+                                org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT) ||
+                                com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
+                                        org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT);
+                if (shiftHeld) {
+                    client.setScreen(new zcylas.totality.screen.character.CharacterScreen(
+                            zcylas.totality.screen.character.CharacterScreen.CharacterTab.CLASS));
+                    return;
+                }
+
+                // C alone → open Grimoire
                 ItemStack main = client.player.getMainHandItem();
                 ItemStack off  = client.player.getOffhandItem();
                 ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
@@ -74,29 +89,88 @@ public final class TotalityKeybindHandlers {
         });
     }
 
+    // ── Hold-to-open radial state ────────────────────────────────────────────
+    private static int  abilityHoldTicks  = 0;
+    private static boolean abilityWasDown = false;
+    private static boolean abilityRadialOpened = false;
+    private static int  spellHoldTicks    = 0;
+    private static boolean spellWasDown   = false;
+    private static boolean spellRadialOpened = false;
+    private static final int HOLD_THRESHOLD = 10; // ticks before radial opens
+
     private static void registerAbilityKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (ModKeybinds.USE_ABILITY.consumeClick()) {
-                if (client.player == null || client.level == null) return;
+            if (client.player == null || client.level == null) return;
+            com.mojang.blaze3d.platform.Window window = client.getWindow();
 
-                Identifier equippedId = ClientAbilityManager.getEquippedAbility();
-                if (equippedId == null) return;
-                if (ClientAbilityManager.isOnCooldown(equippedId)) return;
+            // ── Ability (Z key) ───────────────────────────────────────────────
+            boolean zDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_Z);
 
-                Ability targeted = AbilityRegistry.get(equippedId);
-                if (targeted == null) return;
-                if (targeted.getType() == Ability.Type.CHANNELED) return; // handled by hold handler
-                AbilityContext context = null;
-                if (targeted instanceof zcylas.totality.api.ability.ClientAbilityContext provider) {
-                    context = provider.getContext(client, client.player);
+            if (zDown) {
+                if (!abilityWasDown) { abilityHoldTicks = 0; abilityRadialOpened = false; }
+                abilityHoldTicks++;
+                // Hold threshold reached — open ability radial
+                if (abilityHoldTicks >= HOLD_THRESHOLD && !abilityRadialOpened
+                        && client.screen == null
+                        && !ClientAbilityManager.getAbilityFavorites().isEmpty()) {
+                    client.setScreen(new zcylas.totality.screen.ability.AbilityRadialScreen());
+                    abilityRadialOpened = true;
                 }
-
-                ClientPlayNetworking.send(new ActivateAbilityPayload(
-                        targeted.getId(),
-                        context != null ? context.pos() : null
-                ));
+            } else {
+                if (abilityWasDown && !abilityRadialOpened && client.screen == null) {
+                    // Quick tap — fire equipped ability
+                    Identifier equippedId = ClientAbilityManager.getEquippedAbility();
+                    if (equippedId != null && !ClientAbilityManager.isOnCooldown(equippedId)) {
+                        Ability targeted = AbilityRegistry.get(equippedId);
+                        if (targeted != null && targeted.getType() != Ability.Type.CHANNELED) {
+                            AbilityContext context = null;
+                            if (targeted instanceof zcylas.totality.api.ability.ClientAbilityContext p)
+                                context = p.getContext(client, client.player);
+                            ClientPlayNetworking.send(new ActivateAbilityPayload(
+                                    targeted.getId(), context != null ? context.pos() : null));
+                        }
+                    }
+                }
+                abilityHoldTicks = 0;
+                abilityRadialOpened = false;
             }
+            abilityWasDown = zDown;
+
+            // ── Spell (X key) ────────────────────────────────────────────────
+            boolean xDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_X);
+
+            if (xDown) {
+                if (!spellWasDown) { spellHoldTicks = 0; spellRadialOpened = false; }
+                spellHoldTicks++;
+                if (spellHoldTicks >= HOLD_THRESHOLD && !spellRadialOpened
+                        && client.screen == null
+                        && !ClientAbilityManager.getSpellFavorites().isEmpty()) {
+                    client.setScreen(new zcylas.totality.screen.ability.SpellRadialScreen());
+                    spellRadialOpened = true;
+                }
+            } else {
+                if (spellWasDown && !spellRadialOpened && client.screen == null) {
+                    // Quick tap — fire selected spell
+                    String selectedSpell = zcylas.totality.client.spell.ClientSelectedSpellManager
+                            .getSelectedSpell();
+                    if (selectedSpell != null) {
+                        Identifier spellId = Identifier.parse(selectedSpell);
+                        if (!ClientAbilityManager.isOnCooldown(spellId)) {
+                            ClientPlayNetworking.send(new ActivateAbilityPayload(spellId, null));
+                        }
+                    }
+                }
+                spellHoldTicks = 0;
+                spellRadialOpened = false;
+            }
+            spellWasDown = xDown;
         });
+    }
+
+    private static void registerAbilityRadialKeybind() {
+        // Merged into registerAbilityKeybind() above
     }
 
     private static void registerVeinminerKeyKeybind() {
@@ -105,6 +179,9 @@ public final class TotalityKeybindHandlers {
             boolean held = ModKeybinds.USE_ABILITY.isDown();
             if (held != lastAbilityKeyHeld) {
                 lastAbilityKeyHeld = held;
+
+                // Don't trigger veinminer/channeled logic if the radial was just open
+                if (abilityRadialOpened) return;
 
                 // Veinminer hold
                 ClientPlayNetworking.send(new VeinminerKeyPayload(held));
@@ -122,20 +199,7 @@ public final class TotalityKeybindHandlers {
         });
     }
 
-    private static void registerAbilityRadialKeybind() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.player == null || client.screen != null) return;
-            com.mojang.blaze3d.platform.Window window = client.getWindow();
-            boolean altHeld = com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
-                    org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) ||
-                    com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
-                            org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_ALT);
-            if (altHeld && ModKeybinds.USE_ABILITY.isDown()
-                    && !ClientAbilityManager.getFavorites().isEmpty()) {
-                client.setScreen(new AbilityRadialScreen());
-            }
-        });
-    }
+
 
     private TotalityKeybindHandlers() {}
 }

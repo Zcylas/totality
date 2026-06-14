@@ -4,13 +4,19 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ToolMaterial;
+import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.api.dice.Dice;
+import zcylas.totality.api.rpg.combat.weapon.TotalityWeaponStats;
+import zcylas.totality.api.rpg.combat.weapon.WeaponCategory;
+import zcylas.totality.api.rpg.combat.weapon.WeaponType;
+import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.base_weapons.ShurikenItem;
+import zcylas.totality.item.weapon.SkyrimSwordItem;
 
 public class BasicWeaponItems {
-
+//Shuriken
     public static final ShurikenItem COPPER_SHURIKEN = TotalityRegistry.registerItem(
             "copper_shuriken",
             properties -> new ShurikenItem(properties, Dice.D4, 1),
@@ -90,7 +96,37 @@ public class BasicWeaponItems {
                             "Born in ancient flame, unmoved by fire or time. The last thing many have seen was its glint in the dark."
                     ))
     );
-
+//Skyrim Swords
+    public static final SkyrimSwordItem IRON_SWORD = TotalityRegistry.registerItem(
+            "iron_sword",
+            props -> new SkyrimSwordItem(props, new TotalityWeaponStats(
+                    Dice.D6, 1, DamageTypes.SLASHING, AbilityScore.STR,
+                    WeaponCategory.MARTIAL_MELEE, WeaponType.ONE_HANDED,
+                    false, false, false, false
+            )),
+            new Item.Properties()
+                    .durability(512)
+                    .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.WEAPON))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "Smelted and shaped in a thousand forges across Tamriel. It has no legend, no name — only edge and purpose."
+                    ))
+    );
+    public static final SkyrimSwordItem STEEL_SWORD = TotalityRegistry.registerItem(
+            "steel_sword",
+            props -> new SkyrimSwordItem(props, new TotalityWeaponStats(
+                    Dice.D8, 1, DamageTypes.SLASHING, AbilityScore.STR,
+                    WeaponCategory.MARTIAL_MELEE, WeaponType.ONE_HANDED,
+                    false, false, false, false
+            )),
+            new Item.Properties()
+                    .durability(768)
+                    .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.WEAPON))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A blade trusted by soldiers, hunters, and wanderers alike. Steel holds its edge longer than iron and costs no one their pride."
+                    ))
+    );
     public static void register() {}
 
     private BasicWeaponItems() {}

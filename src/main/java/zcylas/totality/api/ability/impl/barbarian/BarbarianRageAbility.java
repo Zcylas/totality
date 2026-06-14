@@ -156,6 +156,23 @@ public class BarbarianRageAbility extends Ability {
         }
     }
 
+    /**
+     * Force-stops rage on death. Cleans up all registries and resets the
+     * toggle state so the +2 damage and resistances don't persist after respawn.
+     * Called from StatsServerEvents.COPY_FROM when alive == false.
+     */
+    public static void forceStop(ServerPlayer player) {
+        AbilityComponent abilities = AbilityComponents.ABILITIES.get((ComponentProvider) player);
+        if (abilities.isToggleActive(ID)) {
+            abilities.deactivateToggle(ID);
+        }
+        // Clean up registries regardless — handles stale entries from death
+        DamageBonusRegistry.remove(player, ID);
+        RollModifierRegistry.remove(player, ID);
+        CastingRestrictionRegistry.remove(player, ID);
+        DamageResistanceRecalculator.recalculate(player);
+    }
+
     /** Call this when a Barbarian attacks or takes damage to keep rage alive. */
     public static void refreshCombatTimer(ServerPlayer player) {
         AbilityComponents.ABILITIES.get((ComponentProvider) player)

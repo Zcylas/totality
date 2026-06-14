@@ -10,6 +10,7 @@ import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
 import net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition;
 import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
+import zcylas.totality.init.items.SpellComponentItems;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import zcylas.totality.init.items.CurrencyItems;
 import zcylas.totality.init.items.IngredientItems;
@@ -22,7 +23,16 @@ public final class ModLootTables {
 
             // ── Mob Drops ─────────────────────────────────────────────────────
 
-            // Salmon → Salmon Roe (75% chance, 0-1)
+            // Blaze → Sulphur Dust (30% chance, 1 item)
+            if (key.equals(ResourceKey.create(Registries.LOOT_TABLE,
+                    Identifier.withDefaultNamespace("entities/blaze")))) {
+                tableBuilder.withPool(
+                        LootPool.lootPool()
+                                .setRolls(ConstantValue.exactly(1))
+                                .add(LootItem.lootTableItem(SpellComponentItems.SULPHUR_DUST))
+                                .when(LootItemRandomChanceCondition.randomChance(0.30f))
+                );
+            }
             if (key.equals(ResourceKey.create(Registries.LOOT_TABLE,
                     Identifier.withDefaultNamespace("entities/salmon")))) {
                 tableBuilder.withPool(

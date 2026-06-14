@@ -4,6 +4,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import zcylas.totality.api.equipment.EquipmentComponents;
+import zcylas.totality.api.item.TotalityArmorItem;
 import zcylas.totality.api.rpg.combat.armor.VanillaArmorStats;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
@@ -36,7 +38,8 @@ public final class ArmorClass {
             base = armor.baseAc() + cappedDex;
         }
 
-        return base + (isHoldingShield(player) ? 2 : 0);
+        int equipAc = EquipmentComponents.get(player).getAcBonus();
+        return base + (isHoldingShield(player) ? 2 : 0) + equipAc;
     }
 
     @Nullable
@@ -48,13 +51,35 @@ public final class ArmorClass {
         for (EquipmentSlot slot : ARMOR_SLOTS) {
             ItemStack stack = player.getItemBySlot(slot);
             if (stack.isEmpty()) continue;
-            // TODO: check TotalityArmorItem data component first when Equipment API exists
+
+            // Vanilla armor first
             VanillaArmorStats.PieceStats piece = VanillaArmorStats.get(stack.getItem());
-            if (piece == null) continue;
-            hasArmor = true;
-            totalAc += piece.ac();
-            if (heaviest == null || piece.type().ordinal() > heaviest.ordinal())
-                heaviest = piece.type();
+            if (piece != null) {
+                hasArmor = true;
+                totalAc += piece.ac();
+                if (heaviest == null || piece.type().ordinal() > heaviest.ordinal())
+                    heaviest = piece.type();
+                continue;
+            }
+
+            // Totality armor in vanilla slots — CLOTHING and accessories (null category)
+            // are transparent: they don't contribute AC and don't block Unarmored Defense.
+            if (stack.getItem() instanceof TotalityArmorItem tai) {
+                TotalityArmorItem.ArmorCategory cat = tai.getArmorCategory();
+                if (cat != null && cat.isArmored()) {
+                    hasArmor = true;
+                    totalAc += tai.getAcBonus();
+                    ArmorType type = switch (cat) {
+                        case LIGHT  -> ArmorType.LIGHT;
+                        case MEDIUM -> ArmorType.MEDIUM;
+                        case HEAVY  -> ArmorType.HEAVY;
+                        default     -> ArmorType.LIGHT;
+                    };
+                    if (heaviest == null || type.ordinal() > heaviest.ordinal())
+                        heaviest = type;
+                }
+                // CLOTHING / null → skip, Unarmored Defense remains eligible
+            }
         }
 
         if (!hasArmor) return null;

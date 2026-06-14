@@ -18,6 +18,10 @@ public class CurrencyItems {
             properties -> new CoinItem(Denomination.GOLD, properties),
             new Item.Properties().stacksTo(99)
     );
+    public static final CoinItem PLATINUM_COIN = TotalityRegistry.registerItem("platinum_coin",
+            properties -> new CoinItem(Denomination.PLATINUM, properties),
+            new Item.Properties().stacksTo(99)
+    );
 
     private CurrencyItems() {}
 

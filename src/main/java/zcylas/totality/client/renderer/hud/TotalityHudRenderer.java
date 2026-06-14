@@ -18,6 +18,7 @@ import zcylas.totality.api.rpg.combat.ArmorClass;
 import zcylas.totality.api.rpg.combat.armor.VanillaArmorStats;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
+import zcylas.totality.client.equipment.ClientEquipmentManager;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.client.hud.resource.ISecondaryResource;
 import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
@@ -25,6 +26,8 @@ import zcylas.totality.client.renderer.hud.context.AbilityContextHud;
 import zcylas.totality.client.renderer.hud.context.MagicContextHud;
 import zcylas.totality.networking.mana.ClientManaManager;
 import zcylas.totality.networking.stamina.ClientStaminaManager;
+import zcylas.totality.util.color.ColorUtils;
+import zcylas.totality.util.math.SmoothValue;
 
 import java.util.List;
 
@@ -49,6 +52,16 @@ public class TotalityHudRenderer {
     private static final int BAR_SPACING   = 3;
     private static final int BOTTOM_MARGIN = 2;
 
+    // ── Smooth bar animation ──────────────────────────────────────────────────
+    // SmoothValue lerps the fill percentage so bars animate instead of snapping.
+    private static final SmoothValue hpSmooth      = new SmoothValue(200);
+    private static final SmoothValue staminaSmooth = new SmoothValue(100);
+    private static final SmoothValue manaSmooth    = new SmoothValue(150);
+    private static final SmoothValue hungerSmooth  = new SmoothValue(800);
+    // On the very first render frame, snap all bars to their real values instead
+    // of animating from 0 — otherwise bars start invisible until the lerp catches up.
+    private static boolean smoothsReady = false;
+
     public static void register() {
         HudElementRegistry.replaceElement(VanillaHudElements.HEALTH_BAR, old -> (graphics, delta) -> {});
         HudElementRegistry.replaceElement(VanillaHudElements.ARMOR_BAR,  old -> (graphics, delta) -> {});
@@ -68,28 +81,58 @@ public class TotalityHudRenderer {
             // Power attack flash
             PowerAttackFlash.tick();
             if (PowerAttackFlash.isActive()) {
-                int flashColor = (int)(PowerAttackFlash.getAlpha() * 255) << 24 | 0xFF6600;
+                int flashColor = ColorUtils.setAlpha(0xFFFF6600, (int)(PowerAttackFlash.getAlpha() * 255));
                 graphics.fill(0, 0, screenW, screenH, flashColor);
             }
             // ── LEFT SIDE — HP, Stamina, Mana ──
-            drawBar(graphics, client, leftX, hpY,
-                    TotalityGuiSprites.HUD_HEALTH_FILL,
-                    client.player.getHealth(), client.player.getMaxHealth(),
-                    RpgDisplayUtils.toDisplayHp(client.player.getHealth()),
-                    RpgDisplayUtils.toDisplayHp(client.player.getMaxHealth()));
-
+            float hp    = client.player.getHealth();
+            float maxHp = client.player.getMaxHealth();
             int stamina    = ClientStaminaManager.getStamina();
             int maxStamina = ClientStaminaManager.getMaxStamina();
-            drawBar(graphics, client, leftX, staminaY,
-                    TotalityGuiSprites.HUD_STAMINA_FILL,
-                    stamina, maxStamina, stamina, maxStamina);
-
             int mana    = ClientManaManager.getMana();
             int maxMana = ClientManaManager.getMaxMana();
+            int hunger  = client.player.getFoodData().getFoodLevel();
+
+            double hpPct      = maxHp > 0 ? hp / maxHp : 0;
+            double staminaPct = maxStamina > 0 ? (double) stamina / maxStamina : 0;
+            double manaPct    = maxMana > 0 ? (double) mana / maxMana : 0;
+            double hungerPct  = hunger / 20.0;
+
+            if (!smoothsReady) {
+                // First frame — snap immediately so bars are visible right away.
+                hpSmooth.setStart(hpPct);
+                staminaSmooth.setStart(staminaPct);
+                manaSmooth.setStart(manaPct);
+                hungerSmooth.setStart(hungerPct);
+                smoothsReady = true;
+            } else {
+                // Only call set() when the target changes — set() resets the timestamp
+                // to "now", so calling it every frame alongside tick() gives tick() 0ms
+                // of elapsed time and the bar never moves.
+                if (hpPct      != hpSmooth.aimed())      hpSmooth.set(hpPct);
+                if (staminaPct != staminaSmooth.aimed())  staminaSmooth.set(staminaPct);
+                if (manaPct    != manaSmooth.aimed())     manaSmooth.set(manaPct);
+                if (hungerPct  != hungerSmooth.aimed())   hungerSmooth.set(hungerPct);
+                hpSmooth.tick();
+                staminaSmooth.tick();
+                manaSmooth.tick();
+                hungerSmooth.tick();
+            }
+
+            drawBarSmooth(graphics, client, leftX, hpY,
+                    TotalityGuiSprites.HUD_HEALTH_FILL,
+                    hpSmooth,
+                    RpgDisplayUtils.toDisplayHp(hp),
+                    RpgDisplayUtils.toDisplayHp(maxHp));
+
+            drawBarSmooth(graphics, client, leftX, staminaY,
+                    TotalityGuiSprites.HUD_STAMINA_FILL,
+                    staminaSmooth, stamina, maxStamina);
+
             if (maxMana > 0) {
-                drawBar(graphics, client, leftX, manaY,
+                drawBarSmooth(graphics, client, leftX, manaY,
                         TotalityGuiSprites.HUD_MANA_FILL,
-                        mana, maxMana, mana, maxMana);
+                        manaSmooth, mana, maxMana);
             }
 
             // ── AC INDICATOR (testing — replaced during HUD redesign) ──
@@ -101,10 +144,9 @@ public class TotalityHudRenderer {
 
             // ── RIGHT SIDE — Hunger ──
             int rightX = screenW - BG_WIDTH - 6;
-            drawBarMirrored(graphics, client, rightX, hpY,
+            drawBarMirroredSmooth(graphics, client, rightX, hpY,
                     TotalityGuiSprites.HUD_HUNGER_FILL,
-                    client.player.getFoodData().getFoodLevel(), 20,
-                    client.player.getFoodData().getFoodLevel(), 20);
+                    hungerSmooth, hunger, 20);
             // ── RIGHT SIDE — Secondary Resources (below hunger bar) ──
             drawSecondaryResources(graphics, client, screenW - 6, hpY + BG_HEIGHT + BAR_SPACING);
             // TODO: Thirst aligned with Stamina
@@ -135,6 +177,82 @@ public class TotalityHudRenderer {
 
     private static String buildText(int current, int max) {
         return formatValue(current) + " / " + formatValue(max);
+    }
+
+    /**
+     * Smooth left-side bar — uses a SmoothValue for the fill percentage so it
+     * animates when the underlying value changes rather than snapping instantly.
+     */
+    private static void drawBarSmooth(
+            GuiGraphicsExtractor graphics,
+            Minecraft client,
+            int x, int y,
+            Identifier fillSprite,
+            SmoothValue smooth,
+            int displayCurrent, int displayMax
+    ) {
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                TotalityGuiSprites.HUD_BAR_BACKGROUND,
+                BG_PNG_W, BG_PNG_H,
+                0, 0,
+                x, y,
+                BG_WIDTH, BG_HEIGHT);
+
+        float pct = (float) Mth.clamp(smooth.current(), 0.0, 1.0);
+        int filledW = (int)(pct * DRAW_FILL_W);
+        if (filledW > 0) {
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                    fillSprite,
+                    FILL_PNG_W, FILL_PNG_H,
+                    0, 0,
+                    x + FILL_OFFSET_X, y + FILL_OFFSET_Y,
+                    filledW, DRAW_FILL_H);
+        }
+
+        String text = buildText(displayCurrent, displayMax);
+        graphics.text(client.font, text,
+                x + BG_WIDTH + 4,
+                y + (BG_HEIGHT - client.font.lineHeight) / 2,
+                0xFFCCCCCC, true);
+    }
+
+    /**
+     * Smooth right-side bar (right-to-left fill).
+     */
+    private static void drawBarMirroredSmooth(
+            GuiGraphicsExtractor graphics,
+            Minecraft client,
+            int x, int y,
+            Identifier fillSprite,
+            SmoothValue smooth,
+            int displayCurrent, int displayMax
+    ) {
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                TotalityGuiSprites.HUD_BAR_BACKGROUND,
+                BG_PNG_W, BG_PNG_H,
+                0, 0,
+                x, y,
+                BG_WIDTH, BG_HEIGHT);
+
+        float pct = (float) Mth.clamp(smooth.current(), 0.0, 1.0);
+        int filledW = (int)(pct * DRAW_FILL_W);
+        if (filledW > 0) {
+            int fillStartX = x + FILL_OFFSET_X + (DRAW_FILL_W - filledW);
+            int textureX   = FILL_PNG_W - (int)(pct * FILL_PNG_W);
+            graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                    fillSprite,
+                    FILL_PNG_W, FILL_PNG_H,
+                    textureX, 0,
+                    fillStartX, y + FILL_OFFSET_Y,
+                    filledW, DRAW_FILL_H);
+        }
+
+        String text = buildText(displayCurrent, displayMax);
+        int textW = client.font.width(text);
+        graphics.text(client.font, text,
+                x - textW - 4,
+                y + (BG_HEIGHT - client.font.lineHeight) / 2,
+                0xFFCCCCCC, true);
     }
 
     /**
@@ -232,24 +350,36 @@ public class TotalityHudRenderer {
             int current = resource.getCurrent(client);
             int max     = resource.getMax(client);
             int color   = resource.getColor();
-            int dim     = (color & 0x00FFFFFF) | 0x33000000;
+            int dim     = ColorUtils.setAlpha(color, 0x33);
 
             if (resource.getDisplayType() == ISecondaryResource.DisplayType.PIPS) {
-                int pipSz  = 8;
+                int pipSz  = 10;
                 int pipGap = 2;
                 int totalW = max * (pipSz + pipGap) - pipGap;
                 int pipX   = rightEdgeX - totalW;
 
+                Identifier activeSprite = resource.getActivePipSprite();
+                Identifier spentSprite  = resource.getSpentPipSprite();
+
                 for (int i = 0; i < max; i++) {
                     boolean filled = i < current;
-                    if (filled) {
-                        graphics.fill(pipX, y, pipX + pipSz, y + pipSz, color);
+                    if (activeSprite != null && spentSprite != null) {
+                        // Sprite-based pip
+                        Identifier sprite = filled ? activeSprite : spentSprite;
+                        graphics.blitSprite(RenderPipelines.GUI_TEXTURED,
+                                sprite, pipSz, pipSz, 0, 0,
+                                pipX, y, pipSz, pipSz);
                     } else {
-                        graphics.fill(pipX, y, pipX + pipSz, y + pipSz, 0x22FFFFFF);
-                        graphics.fill(pipX,          y,            pipX + pipSz, y + 1,            dim);
-                        graphics.fill(pipX,          y + pipSz - 1, pipX + pipSz, y + pipSz,       dim);
-                        graphics.fill(pipX,          y,            pipX + 1,     y + pipSz,        dim);
-                        graphics.fill(pipX + pipSz - 1, y,         pipX + pipSz, y + pipSz,        dim);
+                        // Fallback: colored fill
+                        if (filled) {
+                            graphics.fill(pipX, y, pipX + pipSz, y + pipSz, color);
+                        } else {
+                            graphics.fill(pipX, y, pipX + pipSz, y + pipSz, 0x22FFFFFF);
+                            graphics.fill(pipX,          y,             pipX + pipSz, y + 1,            dim);
+                            graphics.fill(pipX,          y + pipSz - 1, pipX + pipSz, y + pipSz,        dim);
+                            graphics.fill(pipX,          y,             pipX + 1,     y + pipSz,         dim);
+                            graphics.fill(pipX + pipSz - 1, y,          pipX + pipSz, y + pipSz,         dim);
+                        }
                     }
                     pipX += pipSz + pipGap;
                 }
@@ -314,6 +444,9 @@ public class TotalityHudRenderer {
         // Shield bonus
         ItemStack offhand = client.player.getItemBySlot(EquipmentSlot.OFFHAND);
         if (offhand.getItem() instanceof ShieldItem) base += 2;
+
+        // Equipment bonus (rings, etc.)
+        base += ClientEquipmentManager.getAcBonus(client.player.getUUID());
 
         return base;
     }

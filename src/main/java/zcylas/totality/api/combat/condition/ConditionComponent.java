@@ -97,11 +97,15 @@ public final class ConditionComponent {
                                            @Nullable LivingEntity source,
                                            TotalityDamageType type,
                                            Set<zcylas.totality.api.combat.damage.DamageFlags> flags) {
-        if (type == zcylas.totality.api.combat.damage.DamageTypes.FIRE) {
+        // Spell bolts and condition ticks pass NO_CONDITIONS to manage conditions themselves
+        if (flags.contains(zcylas.totality.api.combat.damage.DamageFlags.NO_CONDITIONS)) return;
+
+        net.minecraft.resources.Identifier typeId = type.getId();
+        if (typeId.equals(zcylas.totality.api.combat.damage.DamageTypes.FIRE.getId())) {
             apply(target, Conditions.BURNING, 60, source);
-        } else if (type == zcylas.totality.api.combat.damage.DamageTypes.FROST) {
+        } else if (typeId.equals(zcylas.totality.api.combat.damage.DamageTypes.FROST.getId())) {
             apply(target, Conditions.FROZEN, 40, source);
-        } else if (type == zcylas.totality.api.combat.damage.DamageTypes.POISON) {
+        } else if (typeId.equals(zcylas.totality.api.combat.damage.DamageTypes.POISON.getId())) {
             apply(target, Conditions.POISONED, 100, source);
         }
     }

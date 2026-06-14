@@ -35,7 +35,7 @@ public class AbilityRadialScreen extends Screen {
 
     public AbilityRadialScreen() {
         super(Component.literal(""));
-        this.favIds = List.copyOf(ClientAbilityManager.getFavorites());
+        this.favIds = List.copyOf(ClientAbilityManager.getAbilityFavorites());
     }
 
     @Override
@@ -236,9 +236,8 @@ public class AbilityRadialScreen extends Screen {
     @Override
     public void tick() {
         com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
-        boolean altHeld = InputConstants.isKeyDown(window, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT)
-                || InputConstants.isKeyDown(window, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_ALT);
-        if (!altHeld) {
+        boolean zHeld = InputConstants.isKeyDown(window, org.lwjgl.glfw.GLFW.GLFW_KEY_Z);
+        if (!zHeld) {
             if (selectedSlot >= 0 && selectedSlot < favIds.size())
                 ClientPlayNetworking.send(new EquipAbilityPayload(favIds.get(selectedSlot)));
             Minecraft.getInstance().setScreen(null);

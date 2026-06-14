@@ -143,7 +143,13 @@ public class StaminaServerTick {
 
                 // ── Stamina regen — every 20 ticks ────────────────────────────
                 if (tickCounter % 20 == 0) {
-                    boolean regenBlocked = player.isSprinting()
+                    int currentStamina = PlayerStaminaManager.getStamina(player);
+                    // Only block regen while actively consuming stamina (stamina > 0).
+                    // When stamina is already 0, the client may still be re-initiating sprint
+                    // (CTRL held) even though the server kills it every tick. Without this check,
+                    // isSprinting() stays true and regen is permanently blocked — locking the
+                    // player out of sprint until they manually release the sprint key.
+                    boolean regenBlocked = (player.isSprinting() && currentStamina > 0)
                             || powerSprinting
                             || BowStaminaHandler.isBowDrawn(player)
                             || movement.isActivelyFlying();

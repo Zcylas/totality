@@ -14,8 +14,12 @@ public final class RestEventBus {
 
     public static void fire(ServerPlayer player, RestType type) {
         List<RestListener> listeners = LISTENERS.get(player.getUUID());
-        if (listeners != null)
-            for (RestListener l : listeners) l.onRest(player, type);
+        if (listeners == null) return;
+        // Sort by priority before firing — lower number = higher priority.
+        // Resources restore before abilities (priority 0 before 10).
+        listeners.stream()
+                .sorted(Comparator.comparingInt(RestListener::restPriority))
+                .forEach(l -> l.onRest(player, type));
     }
 
     public static void clearPlayer(UUID playerId) { LISTENERS.remove(playerId); }

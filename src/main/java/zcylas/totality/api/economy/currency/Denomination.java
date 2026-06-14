@@ -6,9 +6,10 @@ package zcylas.totality.api.economy.currency;
  */
 public enum Denomination {
 
-    COPPER(1,      0xae5b3c, "Copper"),
-    SILVER(100,    0x617174, "Silver"),
-    GOLD(10000,    0xbd9838, "Gold");
+    COPPER  (1,         0xae5b3c, "Copper"),
+    SILVER  (100,       0x617174, "Silver"),
+    GOLD    (10000,     0xbd9838, "Gold"),
+    PLATINUM(1000000,   0xe0e0ee, "Platinum");
 
     public final long baseValue;
     public final int color;

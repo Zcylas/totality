@@ -10,7 +10,9 @@ public class ModItems {
         MagicItems.register();
         ToolItems.register();
         BasicWeaponItems.register();
+        BleachItems.register();
         IngredientItems.register();
+        SpellComponentItems.init();
         CurrencyItems.register();
         SKIngredientItems.register();
         PotionItems.register();

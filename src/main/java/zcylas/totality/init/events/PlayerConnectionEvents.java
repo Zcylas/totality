@@ -13,6 +13,7 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
+import zcylas.totality.networking.stamina.StaminaServerTick;
 import zcylas.totality.api.rpg.classes.ChargeComponents;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.PlayerClassComponent;
@@ -50,6 +51,9 @@ public class PlayerConnectionEvents {
             MasteriesComponents.PLAYER_MASTERIES.sync((ComponentProvider) player);
             StatsComponents.PLAYER_STATS.sync((ComponentProvider) player);
             ClassComponents.PLAYER_CLASS.sync((ComponentProvider) player);
+            // Sync stamina so the client HUD shows the correct value immediately
+            // rather than defaulting to 100 until the first drain/regen event.
+            StaminaServerTick.syncStamina(player);
             if (ClassComponents.get(player).hasClass(TotalityClasses.BARBARIAN_ID)) {
                 var abilities = AbilityComponents.ABILITIES.get((ComponentProvider) player);
                 if (!abilities.getUnlocked().contains(

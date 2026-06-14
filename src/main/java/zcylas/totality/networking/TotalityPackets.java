@@ -14,6 +14,8 @@ import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
 import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 import zcylas.totality.networking.classes.OpenClassSelectionPayload;
+import zcylas.totality.networking.classes.AddClassLevelPayload;
+import zcylas.totality.networking.classes.OpenSubclassSelectionPayload;
 import zcylas.totality.networking.classes.SelectClassPayload;
 import zcylas.totality.networking.combat.CombatTextPayload;
 import zcylas.totality.networking.combat.PowerAttackPayload;
@@ -28,17 +30,23 @@ import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.networking.inventory.InventoryDropPayload;
 import zcylas.totality.networking.inventory.InventoryEquipPayload;
 import zcylas.totality.networking.inventory.InventoryUsePayload;
+import zcylas.totality.networking.item.CastFocusPayload;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
+import zcylas.totality.networking.menu.ContainerSortPayload;
 import zcylas.totality.networking.menu.OpenMainMenuPayload;
 import zcylas.totality.networking.mob.MobStatsSyncPayload;
 import zcylas.totality.networking.movement.MovementStaminaPayload;
 import zcylas.totality.networking.movement.PowerSprintStatePayload;
 import zcylas.totality.networking.movement.ToggleFlightPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
+import zcylas.totality.networking.item.AttunementPayload;
+import zcylas.totality.networking.item.UnAttunePayload;
 import zcylas.totality.networking.skills.UnlockMasteryPayload;
 import zcylas.totality.networking.stamina.SyncStaminaPayload;
+import zcylas.totality.networking.dialogue.DialogueChoicePayload;
+import zcylas.totality.networking.dialogue.ShowDialogueStatePayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 import zcylas.totality.networking.stats.SpendAttributePointPayload;
 
@@ -67,12 +75,24 @@ public class TotalityPackets {
         registry.register(VeinminerKeyPayload.TYPE, VeinminerKeyPayload.CODEC);
         registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
         registry.register(SelectAncestryPayload.TYPE, SelectAncestryPayload.STREAM_CODEC);
+        registry.register(AttunementPayload.TYPE, AttunementPayload.CODEC);
+        registry.register(UnAttunePayload.TYPE, UnAttunePayload.CODEC);
+        registry.register(CastFocusPayload.TYPE, CastFocusPayload.CODEC);
+        registry.register(ContainerSortPayload.TYPE, ContainerSortPayload.CODEC);
         registry.register(ToggleFlightPayload.TYPE, ToggleFlightPayload.CODEC);
         registry.register(MovementStaminaPayload.TYPE, MovementStaminaPayload.CODEC);
         registry.register(PowerSprintStatePayload.TYPE, PowerSprintStatePayload.CODEC);
         registry.register(ToggleAbilityPayload.TYPE, ToggleAbilityPayload.STREAM_CODEC);
         registry.register(DiceRollClickPayload.TYPE, DiceRollClickPayload.STREAM_CODEC);
         registry.register(SelectClassPayload.TYPE, SelectClassPayload.STREAM_CODEC);
+        registry.register(AddClassLevelPayload.TYPE, AddClassLevelPayload.STREAM_CODEC);
+        registry.register(
+                zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.TYPE,
+                zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.CODEC);
+        registry.register(
+                zcylas.totality.networking.equipment.OpenInventoryPayload.TYPE,
+                zcylas.totality.networking.equipment.OpenInventoryPayload.CODEC);
+        registry.register(DialogueChoicePayload.TYPE, DialogueChoicePayload.STREAM_CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
@@ -91,7 +111,9 @@ public class TotalityPackets {
         registry.register(DiceCheckRequestPayload.TYPE, DiceCheckRequestPayload.STREAM_CODEC);
         registry.register(DiceRollResultPayload.TYPE,   DiceRollResultPayload.STREAM_CODEC);
         registry.register(OpenClassSelectionPayload.TYPE, OpenClassSelectionPayload.STREAM_CODEC);
+        registry.register(OpenSubclassSelectionPayload.TYPE, OpenSubclassSelectionPayload.STREAM_CODEC);
         registry.register(MobStatsSyncPayload.TYPE, MobStatsSyncPayload.CODEC);
+        registry.register(ShowDialogueStatePayload.TYPE, ShowDialogueStatePayload.STREAM_CODEC);
     }
 
     private TotalityPackets() {}

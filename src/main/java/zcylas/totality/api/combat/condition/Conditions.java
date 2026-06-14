@@ -10,6 +10,7 @@ public final class Conditions {
     public static final TotalityCondition BLEEDING    = register("bleeding",    "Bleeding",    ChatFormatting.DARK_RED,    true,  false);
     public static final TotalityCondition BURNING     = register("burning",     "Burning",     ChatFormatting.RED,         true,  false);
     public static final TotalityCondition FROZEN      = register("frozen",      "Frozen",      ChatFormatting.AQUA,        true,  true);
+    public static final TotalityCondition CHILLED     = register("chilled",     "Chilled",     ChatFormatting.AQUA,        true,  true);  // Ray of Frost: -10ft speed for 1 round
     public static final TotalityCondition POISONED    = register("poisoned",    "Poisoned",    ChatFormatting.DARK_GREEN,  true,  true);
     public static final TotalityCondition STUNNED     = register("stunned",     "Stunned",     ChatFormatting.YELLOW,      true,  true);
     public static final TotalityCondition ROOTED      = register("rooted",      "Rooted",      ChatFormatting.GREEN,       true,  true);
@@ -27,6 +28,8 @@ public final class Conditions {
     // ── Magic ─────────────────────────────────────────────────────────────────
     public static final TotalityCondition SILENCED    = register("silenced",    "Silenced",    ChatFormatting.DARK_GRAY,   true,  true);
     public static final TotalityCondition CURSED      = register("cursed",      "Cursed",      ChatFormatting.DARK_PURPLE, true,  false);
+    /** Applied by Chill Touch — prevents any healing for the duration. */
+    public static final TotalityCondition NO_HEALING  = register("no_healing",  "No Healing",  ChatFormatting.DARK_AQUA,  true,  true);
 
     // ── Invisibility ──────────────────────────────────────────────────────────
     public static final TotalityCondition INVISIBLE         = register("invisible",         "Invisible",         ChatFormatting.WHITE,       false, false);

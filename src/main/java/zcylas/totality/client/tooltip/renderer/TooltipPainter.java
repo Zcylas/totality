@@ -39,13 +39,6 @@ public class TooltipPainter {
         graphics.text(font, text, x, y, color, true);
     }
 
-    public static int lerpColor(int a, int b, float t) {
-        int aA = (a >>> 24) & 0xFF, aR = (a >>> 16) & 0xFF, aG = (a >>> 8) & 0xFF, aB = a & 0xFF;
-        int bA = (b >>> 24) & 0xFF, bR = (b >>> 16) & 0xFF, bG = (b >>> 8) & 0xFF, bB = b & 0xFF;
-        return ((int)(aA + (bA - aA) * t) << 24) | ((int)(aR + (bR - aR) * t) << 16) |
-                ((int)(aG + (bG - aG) * t) << 8)  |  (int)(aB + (bB - aB) * t);
-    }
-
     public static void drawBadge(GuiGraphicsExtractor graphics, Font font, String label,
                                  int x, int y, TooltipTheme theme) {
         int textW = font.width(label);

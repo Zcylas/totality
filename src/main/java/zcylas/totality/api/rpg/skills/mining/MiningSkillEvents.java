@@ -2,8 +2,8 @@ package zcylas.totality.api.rpg.skills.mining;
 
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
 import zcylas.totality.api.rpg.skills.core.Skill;
 import zcylas.totality.api.rpg.skills.core.SkillsComponents;
 
@@ -12,7 +12,8 @@ import zcylas.totality.api.rpg.skills.core.SkillsComponents;
  *
  * Rules:
  *   - Player must be in survival mode (no creative/spectator XP farming)
- *   - Player must be using a tool (not bare hands) — pickaxe, shovel, etc.
+ *   - Player must be holding a digger tool (pickaxe, shovel, axe, hoe)
+ *     Not bare hands, and not random items like food or torches.
  *   - XP amount comes from MiningXpTable — 0 means no XP for that block
  *   - XP is awarded AFTER the block is actually broken (not cancelled)
  *
@@ -28,10 +29,10 @@ public final class MiningSkillEvents {
             // Survival only — no creative/spectator farming
             if (!serverPlayer.gameMode.isSurvival()) return;
 
-            // Must be holding a tool (not bare hands)
-            // This prevents XP from punching dirt or sand
+            // Must be holding an actual digging tool (pickaxe, shovel, axe, hoe).
+            // Checking isEmpty() alone would grant XP for breaking blocks with food, torches, etc.
             ItemStack heldItem = serverPlayer.getMainHandItem();
-            if (heldItem.isEmpty()) return;
+            if (heldItem.isEmpty() || !heldItem.is(ItemTags.PICKAXES)) return;
 
             // Look up XP for this block
             int xp = MiningXpTable.getXp(state);

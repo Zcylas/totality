@@ -10,7 +10,12 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import zcylas.totality.Totality;
+import zcylas.totality.api.mob.stats.MobRank;
+import zcylas.totality.api.mob.stats.SpawnRarity;
+import zcylas.totality.api.client.util.GuiHelper;
 import zcylas.totality.client.mob.MobStatsClientCache;
+import zcylas.totality.util.color.ColorUtils;
+import zcylas.totality.util.math.SmoothValue;
 
 public class MobHealthBarHud {
 
@@ -58,6 +63,11 @@ public class MobHealthBarHud {
     private static int          combatTimer     = 0;
     private static LivingEntity crosshairTarget = null;
     private static final int COMBAT_DISPLAY_TICKS = 80; // 4 seconds
+
+    // Smooth HP bar — animates when a mob takes damage instead of snapping.
+    // Resets instantly when target changes so the new target shows its real HP.
+    private static int          smoothTargetId  = -1;
+    private static final SmoothValue mobHpSmooth = new SmoothValue(150);
 
     // ── Registration ──────────────────────────────────────────────────────────
 
@@ -134,22 +144,36 @@ public class MobHealthBarHud {
         drawPanel(g, panelX, panelY, panelW, panelH);
         int cy = panelY + PANEL_PAD_Y;
 
-        // ── Name ──
-        String name   = buildName(target, showRank, mobData);
-        int nameColor = showNameColor ? getThreatColor(target, mobData) : COLOR_UNKNOWN;
-        g.text(mc.font, net.minecraft.network.chat.Component.literal(name),
-                screenW / 2 - mc.font.width(name) / 2,
-                cy + (NAME_H - 8) / 2, nameColor, true);
+        // ── Name — outlined for readability against any background ──
+        String name      = buildName(target, showRank, mobData);
+        int nameColor    = showNameColor ? getThreatColor(target, mobData) : COLOR_UNKNOWN;
+        int nameX        = screenW / 2 - mc.font.width(name) / 2;
+        int nameY        = cy + (NAME_H - 8) / 2;
+        GuiHelper.drawOutlined(g, mc.font,
+                net.minecraft.network.chat.Component.literal(name),
+                nameX, nameY, nameColor, 0xBB000000);
         cy += NAME_H;
 
-        // ── HP bar ──
+        // ── HP bar — smooth drain animation ──
         if (showBars) {
             int barX = panelX + BAR_PAD_X;
             int barW = panelW - BAR_PAD_X * 2;
             cy += BAR_SPACING;
-            drawBar(g, barX, cy, barW, BAR_H,
-                    target.getHealth(), target.getMaxHealth(),
-                    COLOR_HP_FILL, COLOR_HP_BG);
+
+            // Update smooth value — snap if the target changed, animate otherwise.
+            // Only call set() when the aimed value changes — set() resets the timestamp
+            // to "now", so calling it every frame alongside tick() gives tick() 0ms
+            // of elapsed time and the bar never moves.
+            if (target.getId() != smoothTargetId) {
+                mobHpSmooth.setStart(target.getHealth() / target.getMaxHealth());
+                smoothTargetId = target.getId();
+            } else {
+                double newPct = target.getHealth() / target.getMaxHealth();
+                if (newPct != mobHpSmooth.aimed()) mobHpSmooth.set(newPct);
+                mobHpSmooth.tick();
+            }
+
+            drawBarSmooth(g, barX, cy, barW, BAR_H, mobHpSmooth, COLOR_HP_FILL, COLOR_HP_BG);
             int dispHp    = Math.round(target.getHealth() * 5);
             int dispMaxHp = Math.round(target.getMaxHealth() * 5);
             String hpText = dispHp + " / " + dispMaxHp;
@@ -176,17 +200,11 @@ public class MobHealthBarHud {
         // Background
         g.fill(x, y, x + w, y + h, COLOR_PANEL_BG);
 
-        // Outer copper border
-        g.fill(x,         y,         x + w,     y + 1,     COLOR_BORDER);
-        g.fill(x,         y + h - 1, x + w,     y + h,     COLOR_BORDER);
-        g.fill(x,         y,         x + 1,     y + h,     COLOR_BORDER);
-        g.fill(x + w - 1, y,         x + w,     y + h,     COLOR_BORDER);
+        // Outer copper border — 4 fills collapsed to one call
+        GuiHelper.fillFrame(g, x, y, w, h, 1, COLOR_BORDER);
 
-        // Inner subtle border
-        g.fill(x + 2, y + 2, x + w - 2, y + 3,     COLOR_BORDER_INNER);
-        g.fill(x + 2, y + h - 3, x + w - 2, y + h - 2, COLOR_BORDER_INNER);
-        g.fill(x + 2, y + 2, x + 3,     y + h - 2, COLOR_BORDER_INNER);
-        g.fill(x + w - 3, y + 2, x + w - 2, y + h - 2, COLOR_BORDER_INNER);
+        // Inner subtle border — inset by 2px on all sides
+        GuiHelper.fillFrameArea(g, x + 2, y + 2, x + w - 2, y + h - 2, 1, COLOR_BORDER_INNER);
 
         // Corner accents
         drawCorner(g, x,     y,     true,  true);
@@ -210,19 +228,37 @@ public class MobHealthBarHud {
                                 int x, int y, int w, int h,
                                 float value, float max,
                                 int fillColor, int bgColor) {
-        // Background — slightly lighter than before
         g.fill(x, y, x + w, y + h, bgColor);
-        // Subtle inner border on bg
-        g.fill(x, y, x + w, y + 1, 0xFF2A0808);
+        g.fill(x, y, x + w, y + 1, 0xFF2A0808); // inner border on bg
 
         float pct   = Mth.clamp(value / max, 0f, 1f);
         int   fillW = (int)(pct * w);
         if (fillW > 0) {
-            // Main fill
             g.fill(x, y, x + fillW, y + h, fillColor);
-            // Brighter line on top of fill
-            g.fill(x, y, x + fillW, y + 1, 0xFFFF6666);
-            // Subtle dark line at bottom of fill
+            // Top highlight — dynamically tinted from the fill colour, not hardcoded red
+            int highlight = ColorUtils.blend(fillColor, ColorUtils.WHITE, 0.45f);
+            g.fill(x, y, x + fillW, y + 1, highlight);
+            g.fill(x, y + h - 1, x + fillW, y + h, 0x44000000); // subtle bottom shadow
+        }
+    }
+
+    /**
+     * SmoothValue variant of drawBar — takes an animated percentage instead of raw value/max.
+     * Use for the HP bar so damage animates as a drain rather than a snap.
+     */
+    private static void drawBarSmooth(GuiGraphicsExtractor g,
+                                      int x, int y, int w, int h,
+                                      SmoothValue smooth,
+                                      int fillColor, int bgColor) {
+        g.fill(x, y, x + w, y + h, bgColor);
+        g.fill(x, y, x + w, y + 1, 0xFF2A0808);
+
+        float pct   = (float) Mth.clamp(smooth.current(), 0.0, 1.0);
+        int   fillW = (int)(pct * w);
+        if (fillW > 0) {
+            g.fill(x, y, x + fillW, y + h, fillColor);
+            int highlight = ColorUtils.blend(fillColor, ColorUtils.WHITE, 0.45f);
+            g.fill(x, y, x + fillW, y + 1, highlight);
             g.fill(x, y + h - 1, x + fillW, y + h, 0x44000000);
         }
     }
@@ -232,11 +268,17 @@ public class MobHealthBarHud {
     private static String buildName(LivingEntity target, boolean showRank,
                                     MobStatsClientCache.MobClientData mobData) {
         String name = target.getName().getString();
-        if (showRank && mobData != null) {
-            String rank = zcylas.totality.api.mob.stats.MobRank.values()[
-                    Math.min(mobData.rankOrdinal(),
-                            zcylas.totality.api.mob.stats.MobRank.values().length - 1)].name();
-            return name + " [" + rank + "]";
+        if (mobData != null) {
+            SpawnRarity rarity = mobData.rarity();
+            if (rarity != SpawnRarity.COMMON && rarity != SpawnRarity.UNCOMMON) {
+                name = rarity.getDisplayName() + " " + name;
+            }
+            if (showRank) {
+                String rank = MobRank.values()[
+                        Math.min(mobData.rankOrdinal(),
+                                MobRank.values().length - 1)].name();
+                name = name + " [" + rank + "]";
+            }
         }
         return name;
     }

@@ -11,7 +11,7 @@ public class CharacterScreen extends BaseCharacterScreen {
 
     // ── Tab enum ──────────────────────────────────────────────────────────────
     public enum CharacterTab {
-        OVERVIEW, ATTRIBUTES, ABILITY_CHECKS, SKILLS, ABILITIES, CLASS, ANCESTRY, LINEAGES;
+        OVERVIEW, ATTRIBUTES, ABILITY_CHECKS, SKILLS, ABILITIES, SPELLS, CLASS, ANCESTRY, LINEAGES;
 
         public String label() {
             return switch (this) {
@@ -20,6 +20,7 @@ public class CharacterScreen extends BaseCharacterScreen {
                 case ABILITY_CHECKS -> "Ability Checks";
                 case SKILLS         -> "Skills";
                 case ABILITIES      -> "Abilities";
+                case SPELLS         -> "Spells";
                 case CLASS          -> "Class";
                 case ANCESTRY       -> "Ancestry";
                 case LINEAGES       -> "Lineages";
@@ -36,6 +37,7 @@ public class CharacterScreen extends BaseCharacterScreen {
     private AbilityChecksTab abilityChecksTab;
     private SkillsTab        skillsTab;
     private AbilitiesTab     abilitiesTab;
+    private SpellsTab        spellsTab;
     private ClassTab         classTab;
     private AncestryTab      ancestryTab;
     private LineagesTab      lineagesTab;
@@ -55,6 +57,7 @@ public class CharacterScreen extends BaseCharacterScreen {
         abilityChecksTab = new AbilityChecksTab(this);
         skillsTab        = new SkillsTab(this);
         abilitiesTab     = new AbilitiesTab(this);
+        spellsTab        = new SpellsTab(this);
         classTab         = new ClassTab(this);
         ancestryTab      = new AncestryTab(this);
         lineagesTab      = new LineagesTab(this);
@@ -66,7 +69,7 @@ public class CharacterScreen extends BaseCharacterScreen {
         super.extractRenderState(g, mx, my, a);
         int ba = tickFade();
         if (fadingOut && alpha <= 0f) return;
-        boolean isAbilities = (activeTab == CharacterTab.ABILITIES);
+        boolean isAbilities = (activeTab == CharacterTab.ABILITIES || activeTab == CharacterTab.SPELLS);
         int lw = isAbilities ? 0 : LEFT_W;
         contentX = lw;
         contentW = W - lw;
@@ -152,6 +155,7 @@ public class CharacterScreen extends BaseCharacterScreen {
             case ABILITY_CHECKS -> abilityChecksTab;
             case SKILLS         -> skillsTab;
             case ABILITIES      -> abilitiesTab;
+            case SPELLS         -> spellsTab;
             case CLASS          -> classTab;
             case ANCESTRY       -> ancestryTab;
             case LINEAGES       -> lineagesTab;

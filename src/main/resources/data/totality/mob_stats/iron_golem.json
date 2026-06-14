@@ -4,6 +4,7 @@
   "lore": "Constructed from iron blocks and a carved pumpkin, Iron Golems are tireless protectors bound to defend the villages that created them.",
   "size": "large",
   "categories": ["construct"],
+  "rank": "B",
   "min_level": 1,
   "max_level": 40,
   "base_stats": {
@@ -11,11 +12,12 @@
     "int": 3,  "wis": 10, "cha": 4,
     "fth": 2,  "end": 14
   },
-  "natural_armor": 8,
+  "natural_armor": 11,
+  "ac_stat": "dex",
   "growth_weights": {
-    "str": 0.35, "con": 0.35, "end": 0.15,
-    "dex": 0.05, "wis": 0.05, "int": 0.03,
-    "cha": 0.01, "fth": 0.01
+    "str": 0.37, "con": 0.37, "end": 0.15,
+    "dex": 0.01, "wis": 0.05, "int": 0.02,
+    "cha": 0.02, "fth": 0.01
   },
   "passives":    [],
   "abilities":   [],
@@ -24,12 +26,5 @@
   "attack_type": "melee",
   "faction":     "village",
   "aggro_type":  "defensive",
-  "spawn_weight": 10,
-  "rarity_variants": [
-    { "rank": "E", "weight": 60, "level_bonus": 0,  "stat_multiplier": 1.0 },
-    { "rank": "D", "weight": 25, "level_bonus": 5,  "stat_multiplier": 1.2 },
-    { "rank": "C", "weight": 10, "level_bonus": 10, "stat_multiplier": 1.5 },
-    { "rank": "B", "weight": 4,  "level_bonus": 20, "stat_multiplier": 2.0 },
-    { "rank": "A", "weight": 1,  "level_bonus": 35, "stat_multiplier": 3.0 }
-  ]
+  "spawn_weight": 10
 }

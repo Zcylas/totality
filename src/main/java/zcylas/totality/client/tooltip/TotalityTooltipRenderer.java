@@ -11,6 +11,7 @@ import zcylas.totality.client.tooltip.renderer.*;
 import zcylas.totality.client.tooltip.theme.TooltipBorderStyle;
 import zcylas.totality.client.tooltip.theme.TooltipColors;
 import zcylas.totality.client.tooltip.theme.TooltipTheme;
+import zcylas.totality.util.color.ColorUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -154,7 +155,7 @@ public class TotalityTooltipRenderer {
                     - loreLines.size() * (font.lineHeight + 2);
             int loreLineY = loreStartY - 4;
 
-            int loreColor = TooltipPainter.lerpColor(theme.body(), theme.separator(), 0.5f) | 0xFF000000;
+            int loreColor = ColorUtils.blend(theme.body(), theme.separator(), 0.5f) | 0xFF000000;
 
             graphics.fill(panelX + PADDING + 10, loreLineY,
                     panelX + panelW - PADDING - 10, loreLineY + 1, 0x44888888);

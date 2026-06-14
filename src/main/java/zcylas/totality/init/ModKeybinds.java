@@ -46,6 +46,14 @@ public class ModKeybinds {
             )
     );
 
+    public static final KeyMapping USE_SPELL = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.use_spell",
+                    GLFW.GLFW_KEY_X,
+                    TOTALITY_CATEGORY
+            )
+    );
+
     public static final KeyMapping OPEN_ABILITY_RADIAL = KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
                     "key.totality.open_ability_radial",
@@ -57,6 +65,18 @@ public class ModKeybinds {
             new KeyMapping(
                     "key.totality.movement_power",
                     GLFW.GLFW_KEY_GRAVE_ACCENT,
+                    TOTALITY_CATEGORY
+            )
+    );
+
+    /**
+     * Hold over an item in your inventory to begin attuning to it.
+     * Attunement takes 10 seconds. Releasing the key cancels the process.
+     */
+    public static final KeyMapping ATTUNE_ITEM = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.attune_item",
+                    GLFW.GLFW_KEY_R,
                     TOTALITY_CATEGORY
             )
     );

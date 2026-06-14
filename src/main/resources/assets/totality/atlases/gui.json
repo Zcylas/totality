@@ -4,6 +4,11 @@
       "type": "directory",
       "source": "item/rune",
       "prefix": "item/rune/"
+    },
+    {
+      "type": "directory",
+      "source": "gui/sprites/container/slot",
+      "prefix": "container/slot/"
     }
   ]
 }

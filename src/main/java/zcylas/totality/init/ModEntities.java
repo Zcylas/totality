@@ -9,9 +9,12 @@ import net.minecraft.world.entity.MobCategory;
 import zcylas.totality.Totality;
 import zcylas.totality.entity.base_weapon.ThrownShurikenEntity;
 import zcylas.totality.entity.magic.GrimoireProjectileEntity;
+import zcylas.totality.entity.magic.FireballProjectileEntity;
 import zcylas.totality.entity.magic.LingerEntity;
 import zcylas.totality.entity.magic.OrbitProjectileEntity;
+import zcylas.totality.entity.magic.SpellBoltEntity;
 import zcylas.totality.entity.magic.SummonSkeletonEntity;
+import zcylas.totality.entity.npc.TotalityNpcEntity;
 
 public class ModEntities {
 
@@ -88,14 +91,64 @@ public class ModEntities {
             Registry.register(BuiltInRegistries.ENTITY_TYPE,
                     Identifier.fromNamespaceAndPath(Totality.MOD_ID, "orbit_projectile"),
                     EntityType.Builder.<OrbitProjectileEntity>of(
-                            OrbitProjectileEntity::new,
-                            MobCategory.MISC)
+                                    OrbitProjectileEntity::new,
+                                    MobCategory.MISC)
                             .sized(0.25f, 0.25f)
                             .build(ORBIT_PROJECTILE_KEY)
             );
 
 
+    private static final ResourceKey<EntityType<?>> SPELL_BOLT_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "spell_bolt"));
+
+    public static final EntityType<SpellBoltEntity> SPELL_BOLT =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "spell_bolt"),
+                    EntityType.Builder.<SpellBoltEntity>of(SpellBoltEntity::new, MobCategory.MISC)
+                            .sized(0.25f, 0.25f)
+                            .clientTrackingRange(64)
+                            .updateInterval(1) // update every tick for smooth movement
+                            .build(SPELL_BOLT_KEY)
+            );
+
     public static void register() {}
+
+    private static final ResourceKey<EntityType<?>> FIREBALL_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "fireball_projectile"));
+
+    public static final EntityType<FireballProjectileEntity> FIREBALL_PROJECTILE =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "fireball_projectile"),
+                    EntityType.Builder.<FireballProjectileEntity>of(
+                                    FireballProjectileEntity::new, MobCategory.MISC)
+                            .sized(0.5f, 0.5f)
+                            .clientTrackingRange(64)
+                            .updateInterval(1)
+                            .build(FIREBALL_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> TOTALITY_NPC_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "totality_npc"));
+
+    public static final EntityType<TotalityNpcEntity> TOTALITY_NPC =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "totality_npc"),
+                    EntityType.Builder.<TotalityNpcEntity>of(
+                                    TotalityNpcEntity::new,
+                                    MobCategory.MISC)
+                            .sized(0.6f, 1.8f)
+                            .clientTrackingRange(64)
+                            .build(TOTALITY_NPC_KEY)
+            );
 
     private ModEntities() {}
 }

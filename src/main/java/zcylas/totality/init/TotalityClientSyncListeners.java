@@ -1,6 +1,10 @@
 package zcylas.totality.init;
 
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.equipment.PlayerEquipmentComponent;
+import zcylas.totality.client.equipment.ClientEquipmentManager;
 import zcylas.totality.networking.ClientComponentSyncListeners;
 import zcylas.totality.networking.currency.ClientWalletManager;
 import zcylas.totality.networking.ability.ClientAbilityManager;
@@ -49,6 +53,18 @@ public final class TotalityClientSyncListeners {
         ClientComponentSyncListeners.register(
                 Identifier.fromNamespaceAndPath("totality", "movement"),
                 buf -> ClientMovementManager.sync(buf.readBoolean())
+        );
+
+        // Equipment
+        ClientComponentSyncListeners.register(
+                Identifier.fromNamespaceAndPath("totality", "equipment"),
+                buf -> {
+                    ItemStack[] incoming = new ItemStack[PlayerEquipmentComponent.SLOT_COUNT];
+                    for (int i = 0; i < PlayerEquipmentComponent.SLOT_COUNT; i++) {
+                        incoming[i] = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
+                    }
+                    ClientEquipmentManager.apply(incoming);
+                }
         );
     }
 

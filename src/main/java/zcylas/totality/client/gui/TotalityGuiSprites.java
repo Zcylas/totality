@@ -77,6 +77,11 @@ public class TotalityGuiSprites {
     public static final Identifier HUD_HUNGER_FILL =
             Identifier.fromNamespaceAndPath("totality", "hud/hunger_filled");
 
+    public static final Identifier HUD_RAGE_PIP =
+            Identifier.fromNamespaceAndPath("totality", "hud/rage_pip");
+    public static final Identifier HUD_RAGE_PIP_SPENT =
+            Identifier.fromNamespaceAndPath("totality", "hud/rage_pip_spent");
+
     // Rune icons
     public static final Identifier RUNE_TOUCH =
             Identifier.fromNamespaceAndPath("totality", "gui/rune/touch");

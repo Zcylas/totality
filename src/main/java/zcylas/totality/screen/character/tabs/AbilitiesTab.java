@@ -53,7 +53,7 @@ public class AbilitiesTab extends CharacterScreenTab {
     private static final int FAV_CENTER_SZ  = 24;
     private static final int FAV_GAP        = 8;
     private static final int MAX_FAV_VIS    = 5;
-    public  static final int MAX_FAVORITES  = 8;
+    public  static final int MAX_FAVORITES  = 12;
     private static final int CARD_ICON_SZ   = 24;
     // ── State ─────────────────────────────────────────────────────────────────
     private Filter            activeFilter   = Filter.ALL;
@@ -86,7 +86,7 @@ public class AbilitiesTab extends CharacterScreenTab {
             if (!all.isEmpty()) selectedAbility = all.get(0);
         }
         // Center favorites window on equipped ability
-        List<Identifier> favList = ClientAbilityManager.getFavorites();
+        List<Identifier> favList = ClientAbilityManager.getAbilityFavorites();
         if (eq != null) {
             int idx = favList.indexOf(eq);
             if (idx >= 0) favWindowStart = Math.max(0, idx - MAX_FAV_VIS / 2);
@@ -463,7 +463,7 @@ public class AbilitiesTab extends CharacterScreenTab {
         screen.drawSmallAt(g, altLbl,
                 x + w - PAD * 2 - Math.round(font.width(altLbl) * SMALL), hintY + 1, COLOR_LABEL);
 
-        List<Identifier> favIds  = ClientAbilityManager.getFavorites();
+        List<Identifier> favIds  = ClientAbilityManager.getAbilityFavorites();
         Identifier       equipped = ClientAbilityManager.getEquippedAbility();
 
         if (favIds.isEmpty()) {
@@ -553,11 +553,11 @@ public class AbilitiesTab extends CharacterScreenTab {
                 favWindowStart--; screen.click(); return;
             }
             if (screen.inB(mx, my, clipX + clipW, arrowY - 2, 16, SLH + 4)
-                    && favWindowStart + MAX_FAV_VIS < ClientAbilityManager.getFavorites().size()) {
+                    && favWindowStart + MAX_FAV_VIS < ClientAbilityManager.getAbilityFavorites().size()) {
                 favWindowStart++; screen.click(); return;
             }
 
-            List<Identifier> favIds = ClientAbilityManager.getFavorites();
+            List<Identifier> favIds = ClientAbilityManager.getAbilityFavorites();
             Identifier eqId = ClientAbilityManager.getEquippedAbility();
             int hdrH    = HDR_H + 4;
             int iaY     = y + mainH + hdrH;
@@ -606,7 +606,7 @@ public class AbilitiesTab extends CharacterScreenTab {
             for (StarBound sb : starBounds) {
                 if (screen.inB(mx, my, sb.x(), sb.y(), STAR_SZ, STAR_SZ)) {
                     if (!ClientAbilityManager.isFavorite(sb.ability().getId())
-                            && ClientAbilityManager.getFavorites().size() >= MAX_FAVORITES) return;
+                            && ClientAbilityManager.getAbilityFavorites().size() >= MAX_FAVORITES) return;
                     ClientPlayNetworking.send(new FavoriteAbilityPayload(sb.ability().getId()));
                     screen.click(); return;
                 }
@@ -639,7 +639,7 @@ public class AbilitiesTab extends CharacterScreenTab {
             }
             if (screen.inB(mx, my, favBtnX, favBtnY, favBtnW, favBtnH)) {
                 if (!ClientAbilityManager.isFavorite(selectedAbility.getId())
-                        && ClientAbilityManager.getFavorites().size() >= MAX_FAVORITES) return;
+                        && ClientAbilityManager.getAbilityFavorites().size() >= MAX_FAVORITES) return;
                 ClientPlayNetworking.send(new FavoriteAbilityPayload(selectedAbility.getId()));
                 screen.click(); return;
             }
@@ -656,7 +656,7 @@ public class AbilitiesTab extends CharacterScreenTab {
         if (selectedAbility == null) return false;
         if (key == 70) { // F = favorite
             if (!ClientAbilityManager.isFavorite(selectedAbility.getId())
-                    && ClientAbilityManager.getFavorites().size() >= MAX_FAVORITES) return true;
+                    && ClientAbilityManager.getAbilityFavorites().size() >= MAX_FAVORITES) return true;
             ClientPlayNetworking.send(new FavoriteAbilityPayload(selectedAbility.getId()));
             screen.click(); return true;
         }
@@ -685,9 +685,10 @@ public class AbilitiesTab extends CharacterScreenTab {
         screen.click();
     }
 
-    private List<Ability> getFiltered(Filter filter) {
+    protected List<Ability> getFiltered(Filter filter) {
         return AbilityRegistry.all().stream()
                 .filter(a -> a.isDefault() || ClientAbilityManager.hasAbility(a.getId()))
+                .filter(a -> zcylas.totality.api.magic.spell.SpellRegistry.get(a.getId()) == null)
                 .filter(a -> switch (filter) {
                     case ALL       -> true;
                     case PASSIVE   -> a.getType() == Ability.Type.PASSIVE;

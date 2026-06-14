@@ -9,6 +9,7 @@ import zcylas.totality.api.dice.DiceRollResult;
 import zcylas.totality.api.dice.PendingDiceRollManager;
 import zcylas.totality.api.dice.RollOutcome;
 import zcylas.totality.api.dice.RollType;
+import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
@@ -63,8 +64,11 @@ public final class SavingThrow {
             case NORMAL       -> roll1;
         };
 
-        int total = used + abilityMod + profBonus;
+        int equipSave = (target instanceof ServerPlayer sp) ? EquipmentComponents.get(sp).getSaveBonus() : 0;
+        int total = used + abilityMod + profBonus + equipSave;
 
+        // Saving throws always use D20. Nat 20 = critical success, nat 1 = critical failure.
+        // Note: vanilla D&D 5e doesn't have crit success/fail on saves — this is intentional for Totality.
         if (used == Dice.D20.getSides()) return RollOutcome.CRITICAL_SUCCESS;
         if (used == 1)                   return RollOutcome.CRITICAL_FAILURE;
         return total >= dc ? RollOutcome.SUCCESS : RollOutcome.FAILURE;

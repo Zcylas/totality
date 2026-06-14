@@ -36,8 +36,9 @@ public class MobStatBlock {
     @SerializedName("aggro_type")     private String aggroType  = "hostile";
     @SerializedName("spawn_weight")   private int    spawnWeight = 10;
 
+    @SerializedName("rank")              private String rank             = "E";
     @SerializedName("rank_color_override") private @Nullable Integer rankColorOverride = null;
-    @SerializedName("rarity_variants")     private List<RarityVariant> rarityVariants  = List.of();
+    @SerializedName("spawn_variants")    private List<RarityVariant> spawnVariants = List.of();
 
     @SerializedName("attack_damage_type")
     private @Nullable String attackDamageType = null;
@@ -52,7 +53,7 @@ public class MobStatBlock {
     public List<String> getCategories()    { return categories; }
     public List<String> getResistances()   { return resistances; }
     public List<String> getImmunities()    { return immunities; }
-    public List<RarityVariant> getRarityVariants() { return rarityVariants; }
+    public List<RarityVariant> getSpawnVariants() { return spawnVariants; }
     public @Nullable Integer getRankColorOverride() { return rankColorOverride; }
     public boolean isRanged() { return "ranged".equals(attackType); }
     public @Nullable String getAttackDamageTypeName() { return attackDamageType; }
@@ -87,22 +88,23 @@ public class MobStatBlock {
     }
 
     /** Roll a rarity rank based on variant weights. */
-    public MobRank rollRank(RandomSource random) {
-        if (rarityVariants.isEmpty()) return MobRank.E;
-        int totalWeight = rarityVariants.stream().mapToInt(RarityVariant::getWeight).sum();
-        int roll = random.nextInt(totalWeight);
-        int cumulative = 0;
-        for (RarityVariant v : rarityVariants) {
-            cumulative += v.getWeight();
-            if (roll < cumulative) return v.getRank();
-        }
-        return MobRank.E;
+    /** Fixed display rank for this mob type — never rolled. */
+    public MobRank getFixedRank() {
+        try { return MobRank.valueOf(rank.toUpperCase()); }
+        catch (Exception e) { return MobRank.E; }
     }
 
-    public @Nullable RarityVariant getVariant(MobRank rank) {
-        return rarityVariants.stream()
-                .filter(v -> v.getRank() == rank)
-                .findFirst().orElse(null);
+    /** Roll a spawn variant based on weights. Returns null if no variants defined. */
+    public @Nullable RarityVariant rollVariant(RandomSource random) {
+        if (spawnVariants.isEmpty()) return null;
+        int totalWeight = spawnVariants.stream().mapToInt(RarityVariant::getWeight).sum();
+        int roll = random.nextInt(totalWeight);
+        int cumulative = 0;
+        for (RarityVariant v : spawnVariants) {
+            cumulative += v.getWeight();
+            if (roll < cumulative) return v;
+        }
+        return null;
     }
 
     public static int modifier(int score) { return (score - 10) / 2; }

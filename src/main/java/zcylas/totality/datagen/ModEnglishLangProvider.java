@@ -40,6 +40,11 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.novice_grimoire", "Novice Grimoire");
         translationBuilder.add("item.totality.apprentice_grimoire", "Apprentice Grimoire");
         translationBuilder.add("item.totality.archmage_grimoire", "Archmage Grimoire");
+            //Rings
+        translationBuilder.add("item.totality.ring_of_protection", "Ring of Protection");
+            //Arcane Foci
+        translationBuilder.add("item.totality.arcane_orb", "Arcane Orb");
+        translationBuilder.add("item.totality.bard_guitar", "Bard's Guitar");
             //Rune Items - Blanks
         translationBuilder.add("item.totality.blank_form", "Blank Form Rune");
         translationBuilder.add("item.totality.blank_effect", "Blank Effect Rune");
@@ -81,6 +86,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.rune_accelerate", "Accelerate Rune");
         translationBuilder.add("item.totality.rune_decelerate", "Decelerate Rune");
         translationBuilder.add("item.totality.rune_split", "Split Rune");
+        //Special Weapons
+            //Zanpakutō
+        translationBuilder.add("item.totality.zanpakuto", "Zanpakutō");
         //Basic Weapons
             //Shuriken
         translationBuilder.add("item.totality.copper_shuriken", "Copper Shuriken");
@@ -116,9 +124,10 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
             //Useful
         translationBuilder.add("item.totality.wrench", "Wrench");
             //Coins
-        translationBuilder.add("item.totality.copper_coin", "Coppper Coin");
+        translationBuilder.add("item.totality.copper_coin", "Copper Coin");
         translationBuilder.add("item.totality.silver_coin", "Silver Coin");
         translationBuilder.add("item.totality.gold_coin", "Gold Coin");
+        translationBuilder.add("item.totality.platinum_coin", "Platinum Coin");
 
         //Ingredients
             //Gears
@@ -133,6 +142,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.residuum_flecked_chunk", "Residuum-Flecked Chunk");
             //Rough Gems
         translationBuilder.add("item.totality.rough_ruby", "Rough Ruby");
+
         //Alchemy Ingredients
         translationBuilder.add("item.totality.salmon_roe","Salmon Roe");
         translationBuilder.add("block.totality.red_mountain_flower_bush","Red Mountain Flower Bush");
@@ -145,6 +155,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.true_wheat","True Wheat");
         translationBuilder.add("item.totality.rock_warbler_egg","Rock Warbler Egg");
         translationBuilder.add("item.totality.garlic","Garlic");
+        //Spell Materials
+        translationBuilder.add("item.totality.bat_guano", "Bat Guano");
+        translationBuilder.add("item.totality.sulphur_dust", "Sulphur Dust");
         //Fuel
         translationBuilder.add("item.totality.tiny_coal", "Tiny Coal");
         //Ritual Items
@@ -174,5 +187,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("key.totality.movement_power", "Movement Power");
         //Effects
         translationBuilder.add("effect.totality.glide", "Glide");
+        //Entities
+        translationBuilder.add("entity.totality.totality_npc", "NPC");
     }
 }

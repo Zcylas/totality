@@ -410,11 +410,15 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(IngredientItems.ROUGH_RUBY, ModelTemplates.FLAT_ITEM);
             //Seeds
         generators.generateFlatItem(IngredientItems.TRUE_WHEAT_SEEDS, ModelTemplates.FLAT_ITEM);
+        //Special Weapons
+            //Zanpakutō
+        generators.generateFlatItem(BleachItems.ZANPAKUTO, ModelTemplates.FLAT_ITEM);
         //Tools
             //Coins
         generators.generateFlatItem(CurrencyItems.COPPER_COIN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(CurrencyItems.SILVER_COIN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(CurrencyItems.GOLD_COIN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(CurrencyItems.PLATINUM_COIN, ModelTemplates.FLAT_ITEM);
         //Alchemy Ingredients
         generators.generateFlatItem(SKIngredientItems.SALMON_ROE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);

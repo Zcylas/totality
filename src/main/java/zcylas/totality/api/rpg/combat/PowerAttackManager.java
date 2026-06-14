@@ -14,16 +14,21 @@ public class PowerAttackManager {
     private static final Set<UUID> pendingPowerAttacks = new HashSet<>();
     private static final Set<UUID> activePowerAttacks  = new HashSet<>();
 
-    private static final int BASE_COST_ONE_HANDED = 30;
-    private static final int BASE_COST_TWO_HANDED  = 45;
-    private static final float DAMAGE_MULTIPLIER   = 1.5f;
+    private static final int BASE_COST_ONE_HANDED  = 30;
+    private static final int BASE_COST_TWO_HANDED   = 45;
+    private static final float DAMAGE_MULTIPLIER    = 1.5f;
+
+    // Mastery IDs — kept here so a rename is one-line, not a grep
+    private static final String MASTERY_DISCIPLINED_FIGHTER = "disciplined_fighter";
+    private static final String MASTERY_FIGHTERS_STANCE     = "fighters_stance";
+    private static final String MASTERY_FURIOUS_STRENGTH    = "furious_strength";
 
     public static void onPowerAttackReceived(ServerPlayer player) {
         if (PlayerStaminaManager.getStamina(player) <= 0) return;
         int cost = getStaminaCost(player);
 
         int disciplinedRank = zcylas.totality.api.rpg.skills.core.MasteriesComponents
-                .get(player).getMasteries().getUnlockedRank("disciplined_fighter");
+                .get(player).getMasteries().getUnlockedRank(MASTERY_DISCIPLINED_FIGHTER);
         if (disciplinedRank > 0) cost = (int)(cost * 0.75f);
 
         if (!PlayerStaminaManager.hasStamina(player, cost)) return;
@@ -48,13 +53,14 @@ public class PowerAttackManager {
 
     public static float getDamageMultiplier(ServerPlayer player) {
         float multiplier = DAMAGE_MULTIPLIER;
+
         int stanceRank = zcylas.totality.api.rpg.skills.core.MasteriesComponents
-                .get(player).getMasteries().getUnlockedRank("fighters_stance");
+                .get(player).getMasteries().getUnlockedRank(MASTERY_FIGHTERS_STANCE);
         if (stanceRank == 1) multiplier += 0.25f;
         else if (stanceRank >= 2) multiplier += 0.50f;
 
         int furiousRank = zcylas.totality.api.rpg.skills.core.MasteriesComponents
-                .get(player).getMasteries().getUnlockedRank("furious_strength");
+                .get(player).getMasteries().getUnlockedRank(MASTERY_FURIOUS_STRENGTH);
         if (furiousRank > 0)
             multiplier += PlayerStaminaManager.getStamina(player) * 0.001f;
 

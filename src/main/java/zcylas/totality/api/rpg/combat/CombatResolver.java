@@ -84,6 +84,21 @@ public final class CombatResolver {
                                           int diceCount,
                                           Dice damageDie,
                                           TotalityDamageType damageType) {
+        resolveSpellAttack(caster, target, spellName, spellcastingAbility,
+                attackType, rollType, diceCount, damageDie, damageType
+                /* no extra flags */);
+    }
+
+    public static void resolveSpellAttack(LivingEntity caster,
+                                          LivingEntity target,
+                                          String spellName,
+                                          AbilityScore spellcastingAbility,
+                                          SpellAttackType attackType,
+                                          RollType rollType,
+                                          int diceCount,
+                                          Dice damageDie,
+                                          TotalityDamageType damageType,
+                                          DamageFlags... extraFlags) {
 
         if (attackType == SpellAttackType.MELEE && caster.distanceTo(target) > MELEE_RANGE) {
             if (caster instanceof ServerPlayer p)
@@ -97,7 +112,7 @@ public final class CombatResolver {
         }
 
         RollOutcome outcome = AttackRoll.roll(caster, target, spellcastingAbility, true, effectiveRollType);
-        handleHit(caster, target, outcome, spellName, diceCount, damageDie, 0, damageType, true, null);
+        handleHit(caster, target, outcome, spellName, diceCount, damageDie, 0, damageType, true, null, extraFlags);
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────
@@ -114,7 +129,8 @@ public final class CombatResolver {
                                   int damageModifier,
                                   TotalityDamageType damageType,
                                   boolean isMagical,
-                                  @Nullable AbilityScore abilityScore) { // ← new
+                                  @Nullable AbilityScore abilityScore,
+                                  DamageFlags... extraFlags) {
 
         if (!outcome.isHit()) {
             if (attacker instanceof ServerPlayer p)
@@ -135,11 +151,21 @@ public final class CombatResolver {
         int count      = isCrit ? diceCount * 2 : diceCount;
         DamageRollResult dmg = DamageRoll.roll(attacker, count, damageDie, damageModifier + extraAmount);
 
-        DamageFlags[] flags = isMagical
+        DamageFlags[] baseFlags = isMagical
                 ? new DamageFlags[]{ DamageFlags.MAGICAL }
                 : new DamageFlags[0];
 
-        TotalityDamage.hurt(target, attacker, damageType, dmg.total(), flags);
+        // Merge base flags with any extra flags passed by the caller
+        DamageFlags[] allFlags;
+        if (extraFlags.length == 0) {
+            allFlags = baseFlags;
+        } else {
+            allFlags = new DamageFlags[baseFlags.length + extraFlags.length];
+            System.arraycopy(baseFlags, 0, allFlags, 0, baseFlags.length);
+            System.arraycopy(extraFlags, 0, allFlags, baseFlags.length, extraFlags.length);
+        }
+
+        TotalityDamage.hurt(target, attacker, damageType, dmg.total(), allFlags);
 
         if (attacker instanceof ServerPlayer p)
             DamageRollNotification.send(p, label + (isCrit ? " ✦ CRIT" : ""),

@@ -2,6 +2,7 @@ package zcylas.totality.api.rpg.skills.mining;
 
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.TagKey;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -10,7 +11,6 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 /**
  * Defines which gem items can drop when Prospector mastery is active.
@@ -32,7 +32,6 @@ import java.util.Random;
 public final class ProspectorGemTable {
 
     private static final List<Entry> ENTRIES = new ArrayList<>();
-    private static final Random RNG = new Random();
 
     static {
         // ── Diamond ore → Diamond ─────────────────────────────────────────────
@@ -65,12 +64,13 @@ public final class ProspectorGemTable {
      * Rolls all matching entries for this block state and returns a list of
      * gem items that should be dropped. Empty list = no bonus drops.
      *
-     * Call this server-side in MiningSkillEvents when Prospector is active.
+     * Call this server-side in MiningSkillEvents when Prospector is active,
+     * passing the breaking player's RNG for server-determinism.
      */
-    public static List<Item> rollDrops(BlockState state) {
+    public static List<Item> rollDrops(BlockState state, RandomSource random) {
         List<Item> drops = new ArrayList<>();
         for (Entry entry : ENTRIES) {
-            if (entry.matches(state) && RNG.nextFloat() < entry.chance) {
+            if (entry.matches(state) && random.nextFloat() < entry.chance) {
                 drops.add(entry.gem);
             }
         }

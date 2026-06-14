@@ -6,12 +6,12 @@ import zcylas.totality.Totality;
 public final class RestManager {
 
     public static void shortRest(ServerPlayer player) {
-        Totality.LOGGER.info("Short rest: {}", player.getName().getString());
+        Totality.LOGGER.debug("Short rest: {}", player.getName().getString());
         RestEventBus.fire(player, RestType.SHORT);
     }
 
     public static void longRest(ServerPlayer player) {
-        Totality.LOGGER.info("Long rest: {}", player.getName().getString());
+        Totality.LOGGER.debug("Long rest: {}", player.getName().getString());
         RestEventBus.fire(player, RestType.LONG);
     }
 

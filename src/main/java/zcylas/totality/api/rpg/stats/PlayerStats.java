@@ -10,7 +10,7 @@ import java.util.Map;
  */
 public class PlayerStats {
 
-    public static final int MAX_LEVEL                  = 100;
+    public static final int MAX_LEVEL = 150;
     public static final int BASE_SCORE                 = 10;
     public static final int ATTRIBUTE_POINTS_PER_LEVEL = 5;
 

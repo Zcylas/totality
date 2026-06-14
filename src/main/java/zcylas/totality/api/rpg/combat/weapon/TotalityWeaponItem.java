@@ -13,7 +13,13 @@ import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 
-public interface TotalityWeaponItem {
+import zcylas.totality.api.item.TotalityItem;
+
+public interface TotalityWeaponItem extends TotalityItem {
+
+    /** Weapons don't require attunement by default — only special/magical ones do. */
+    @Override
+    default boolean requiresAttunement() { return false; }
 
     // ── Existing ──────────────────────────────────────────────────────────────
 

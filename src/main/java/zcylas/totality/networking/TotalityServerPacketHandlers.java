@@ -16,6 +16,7 @@ import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.dice.DiceRollClickHandler;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
+import zcylas.totality.networking.dialogue.DialogueChoiceHandler;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 
@@ -83,6 +84,7 @@ public class TotalityServerPacketHandlers {
                 }));
         BrewServerHandler.register();
         DiceRollClickHandler.register();
+        DialogueChoiceHandler.register();
     }
 
     private static ItemStack findGrimoire(ServerPlayer player) {

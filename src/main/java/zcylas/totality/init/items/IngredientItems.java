@@ -5,8 +5,14 @@ import net.minecraft.world.item.Item;
 import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.init.blocks.AlchemyBlocks;
+import zcylas.totality.item.spell_material.BatGuanoItem;
+import zcylas.totality.item.spell_material.SulphurDustItem;
 
 public class IngredientItems {
+
+    // Crafting ingredients (metals, raw materials, etc.)
+    // Spell material components have moved to SpellComponentItems.
+
     //Gears
     public static final Item COPPER_GEAR = TotalityRegistry.registerItem("copper_gear", Item::new, new Item.Properties());
     public static final Item IRON_GEAR = TotalityRegistry.registerItem("iron_gear", Item::new, new Item.Properties());
@@ -17,11 +23,11 @@ public class IngredientItems {
     public static final Item RAW_TIN = TotalityRegistry.registerItem("raw_tin", Item::new, new Item.Properties());
     public static final Item GRAPHITE = TotalityRegistry.registerItem("graphite", Item::new, new Item.Properties());
     //GEMSTONES
-        //ROUGH
+    //ROUGH
     public static final Item ROUGH_RUBY = TotalityRegistry.registerItem("rough_ruby", Item::new, new Item.Properties());
 
     //For Crops
-        //Seeds
+    //Seeds
     public static final Item TRUE_WHEAT_SEEDS = TotalityRegistry.registerItem("true_wheat_seeds",
             properties -> new BlockItem(AlchemyBlocks.TRUE_WHEAT_CROP, properties), new Item.Properties().stacksTo(64));
     // Whitestone

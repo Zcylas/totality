@@ -64,7 +64,7 @@ public class AbilityRegistry {
 
 
     //Classes
-        //Barbarian
+    //Barbarian
     public static final BarbarianRageAbility BARBARIAN_RAGE = register(new BarbarianRageAbility());
 
     public static final UnarmoredDefensePassive BARBARIAN_UNARMORED_DEFENSE = register(new UnarmoredDefensePassive(
@@ -83,6 +83,15 @@ public class AbilityRegistry {
     // ── Registry ──────────────────────────────────────────────────────────────
 
     private static <T extends Ability> T register(T ability) {
+        ABILITIES.put(ability.getId(), ability);
+        return ability;
+    }
+
+    /**
+     * Called by sub-registries (e.g. {@link zcylas.totality.api.magic.spell.SpellRegistry})
+     * to inject entries without declaring them in this class.
+     */
+    public static <T extends Ability> T add(T ability) {
         ABILITIES.put(ability.getId(), ability);
         return ability;
     }

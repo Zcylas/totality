@@ -30,6 +30,10 @@ public class ClassTab extends CharacterScreenTab {
     private int resPanelX,  resPanelY,  resPanelW,  resPanelH;
     private int identDescX,  identDescY,  identDescW,  identDescH;
 
+    // ── Button state ──────────────────────────────────────────────────────────────
+    private int lvlUpBtnX, lvlUpBtnY, lvlUpBtnW, lvlUpBtnH;
+    private int mcBtnX,    mcBtnY,    mcBtnW,    mcBtnH;
+
     public ClassTab(CharacterScreen screen) { super(screen); }
 
     @Override
@@ -40,20 +44,21 @@ public class ClassTab extends CharacterScreenTab {
         int rightX  = x + centerW;
         int rightW  = w - centerW;
 
-        drawCenterColumn(g, font, x, y, centerW, h);
+        drawCenterColumn(g, font, mx, my, x, y, centerW, h);
         drawRightColumn(g, font, rightX, y, rightW, h);
     }
 
     // ── CENTER: Identity + Progression ────────────────────────────────────────
 
     private void drawCenterColumn(GuiGraphicsExtractor g, Font font,
+                                  int mx, int my,
                                   int x, int y, int w, int h) {
         int identH = h * 45 / 100;
         int progY  = y + identH;
         int progH  = h - identH;
         progPanelX = x; progPanelY = progY; progPanelW = w; progPanelH = progH;
         drawIdentityPanel(g, font, x, y, w, identH);
-        drawProgressionPanel(g, font, x, progY, w, progH);
+        drawProgressionPanel(g, font, mx, my, x, progY, w, progH);
     }
 
     // ── CLASS IDENTITY ────────────────────────────────────────────────────────
@@ -157,6 +162,7 @@ public class ClassTab extends CharacterScreenTab {
     // ── CLASS PROGRESSION ─────────────────────────────────────────────────────
 
     private void drawProgressionPanel(GuiGraphicsExtractor g, Font font,
+                                      int mx, int my,
                                       int x, int y, int w, int h) {
         screen.drawPanel(g, x, y, w, h);
         screen.drawPanelHdr(g, x, y, w, "CLASS PROGRESSION");
@@ -255,10 +261,28 @@ public class ClassTab extends CharacterScreenTab {
         if (available > totalSpent) {
             int unspent = available - totalSpent;
             String pts = "✦ " + unspent + (unspent > 1 ? " pts" : " pt") + " to spend!";
+            int ptW = Math.round(font.width(pts) * TINY);
             screen.drawTinyAt(g, pts,
-                    rightX + rightW / 2 - Math.round(font.width(pts) * TINY) / 2,
+                    rightX + rightW / 2 - ptW / 2,
                     rcy, 0xFFFFD700);
-            rcy += TLH + 2;
+            rcy += TLH + 3;
+
+            // ── Spend class point button ──────────────────────────────────────
+            String spendLabel = "✦ SPEND CLASS POINT";
+            int btnW = rightW - PAD * 2;
+            int btnH = SLH + 4;
+            int btnX = rightX + PAD;
+            boolean hovSpend = screen.inB(mx, my, btnX, rcy, btnW, btnH);
+            g.fill(btnX, rcy, btnX + btnW, rcy + btnH, hovSpend ? 0x44FFD700 : 0x22FFD700);
+            screen.drawBorder(g, btnX, rcy, btnW, btnH, 0xFFFFD700);
+            screen.drawTinyAt(g, spendLabel,
+                    btnX + btnW / 2 - Math.round(font.width(spendLabel) * TINY) / 2,
+                    rcy + 3, 0xFFFFD700);
+            lvlUpBtnX = btnX; lvlUpBtnY = rcy; lvlUpBtnW = btnW; lvlUpBtnH = btnH;
+            mcBtnW = 0; // single button now
+            rcy += btnH + 3;
+        } else {
+            lvlUpBtnW = 0; mcBtnW = 0; // no buttons this frame
         }
 
         // Class level — big number or multiclass list
@@ -384,6 +408,18 @@ public class ClassTab extends CharacterScreenTab {
         screen.drawTinyAt(g, rechargeNote, cx - rnw2 / 2, cy, COLOR_LABEL);
 
         screen.esc(g);
+    }
+
+    @Override
+    public void mouseClicked(int mx, int my) {
+        // Single "Spend Class Point" button — opens ClassSelectionScreen.
+        // Picking your existing class levels it up; picking a new one starts multiclassing.
+        // AddClassLevelHandler handles both cases on the server.
+        if (lvlUpBtnW > 0 && screen.inB(mx, my, lvlUpBtnX, lvlUpBtnY, lvlUpBtnW, lvlUpBtnH)) {
+            zcylas.totality.screen.classes.ClassScreenMode.IS_MULTICLASSING = true;
+            net.minecraft.client.Minecraft.getInstance().setScreen(
+                    new zcylas.totality.screen.classes.ClassSelectionScreen());
+        }
     }
 
     @Override

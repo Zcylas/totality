@@ -68,4 +68,5 @@ public class ShurikenItem extends TotalityThrownWeaponItem {
     @Override public boolean isLight()      { return true; }
     @Override public int[]  getThrowRange() { return new int[]{20, 60}; }
     @Override public WeaponCategory getWeaponCategory() { return WeaponCategory.SIMPLE_RANGED; }
+
 }

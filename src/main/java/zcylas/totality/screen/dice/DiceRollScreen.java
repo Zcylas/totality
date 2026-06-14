@@ -587,8 +587,11 @@ public class DiceRollScreen extends Screen {
 
         if (resultPhase == ResultPhase.SHOW_FINAL) {
             int bx = panelX + 8, bw = PANEL_W - 16;
-            if (mx >= bx && mx <= bx + bw && my >= continueY && my <= continueY + CONT_H)
-            { onClose(); return true; }
+            if (mx >= bx && mx <= bx + bw && my >= continueY && my <= continueY + CONT_H) {
+                zcylas.totality.client.dialogue.ClientDialogueManager.onDiceScreenClosed();
+                onClose();
+                return true;
+            }
         }
         return super.mouseClicked(mouse, dc);
     }

@@ -17,6 +17,7 @@ import zcylas.totality.networking.alchemy.BrewResultPayload;
 import zcylas.totality.networking.alchemy.OpenApothecaryTablePayload;
 import zcylas.totality.networking.ancestry.OpenAncestrySelectionPayload;
 import zcylas.totality.networking.classes.OpenClassSelectionPayload;
+import zcylas.totality.networking.classes.OpenSubclassSelectionPayload;
 import zcylas.totality.networking.combat.CombatTextClientHandler;
 import zcylas.totality.networking.config.ItemSideModeSyncPayload;
 import zcylas.totality.networking.config.SideModeSyncPayload;
@@ -83,8 +84,8 @@ public class TotalityClientPacketHandlers {
                 }
         );
         ClientPlayNetworking.registerGlobalReceiver(
-            OpenApothecaryTablePayload.TYPE,
-            (payload, context) -> Minecraft.getInstance().setScreen(new ApothecaryTableScreen())
+                OpenApothecaryTablePayload.TYPE,
+                (payload, context) -> Minecraft.getInstance().setScreen(new ApothecaryTableScreen())
         );
         ClientPlayNetworking.registerGlobalReceiver(
                 BrewResultPayload.TYPE,
@@ -109,11 +110,27 @@ public class TotalityClientPacketHandlers {
                 OpenClassSelectionPayload.TYPE,
                 (payload, ctx) -> ctx.client().setScreen(new ClassSelectionScreen())
         );
+
+        // Server → client: open subclass selection at the correct class level
+        ClientPlayNetworking.registerGlobalReceiver(
+                OpenSubclassSelectionPayload.TYPE,
+                (payload, ctx) -> {
+                    net.minecraft.resources.Identifier classId =
+                            net.minecraft.resources.Identifier.parse(payload.classId());
+                    zcylas.totality.api.rpg.classes.ClassRegistry.get(classId).ifPresent(cls ->
+                            ctx.client().setScreen(
+                                    new zcylas.totality.screen.classes.SubclassSelectionScreen(cls)));
+                }
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.dialogue.ShowDialogueStatePayload.TYPE,
+                (payload, ctx) -> zcylas.totality.client.dialogue.ClientDialogueManager.handle(payload)
+        );
         CombatTextClientHandler.register();
         ClientPlayNetworking.registerGlobalReceiver(
                 MobStatsSyncPayload.TYPE, (payload, ctx) ->
                         MobStatsClientCache.update(payload.entityId(), payload.level(),
-                                payload.rankOrdinal(), payload.ac()));
+                                payload.rankOrdinal(), payload.ac(), payload.rarityOrdinal()));
         DiceRollResultClientHandler.register();
         DiceRollResultClientHandler.registerRequest();
     }

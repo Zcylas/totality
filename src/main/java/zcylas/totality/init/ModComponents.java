@@ -5,6 +5,8 @@ import zcylas.totality.api.core.movement.MovementComponents;
 import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
 import zcylas.totality.api.magic.grimoire.MagicComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
+import zcylas.totality.api.magic.spell.ConcentrationComponents;
+import zcylas.totality.api.magic.spell.SpellSlotComponents;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.classes.ChargeComponents;
 import zcylas.totality.api.rpg.classes.ClassComponents;
@@ -40,6 +42,9 @@ public class ModComponents {
         MovementComponents.register();
         ClassComponents.register();
         ChargeComponents.register();
+        SpellSlotComponents.register();
+        ConcentrationComponents.register();
+        zcylas.totality.api.equipment.EquipmentComponents.register();
     }
 
     private ModComponents() {}

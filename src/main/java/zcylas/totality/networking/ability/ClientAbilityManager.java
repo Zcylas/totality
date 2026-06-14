@@ -33,6 +33,20 @@ public final class ClientAbilityManager {
     public static @Nullable Identifier getEquippedAbility() { return equippedAbility; }
     public static List<Identifier> getFavorites()        { return Collections.unmodifiableList(favorites); }
     public static boolean isFavorite(Identifier id)     { return favorites.contains(id); }
+
+    /** Favorites that are NOT spells — used by the Ability radial and AbilitiesTab. */
+    public static List<Identifier> getAbilityFavorites() {
+        return favorites.stream()
+                .filter(id -> zcylas.totality.api.magic.spell.SpellRegistry.get(id) == null)
+                .toList();
+    }
+
+    /** Favorites that ARE spells — used by the Spell radial and SpellsTab. */
+    public static List<Identifier> getSpellFavorites() {
+        return favorites.stream()
+                .filter(id -> zcylas.totality.api.magic.spell.SpellRegistry.get(id) != null)
+                .toList();
+    }
     public static void setChanneling(@Nullable Identifier id) {
         channelingAbility = id;
     }
