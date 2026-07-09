@@ -3,12 +3,14 @@ package zcylas.totality.networking.combat;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
+import zcylas.totality.api.dice.DiceBonus;
 import zcylas.totality.api.rpg.combat.DamageBonus;
 import zcylas.totality.api.rpg.combat.DamageRollResult;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Sends a damage roll result to the caster as a HUD notification
@@ -23,13 +25,20 @@ public final class DamageRollNotification {
     public static void send(ServerPlayer caster, String label,
                             DamageRollResult result,
                             @Nullable AbilityScore abilityScore,
-                            List<DamageBonus> extraBonuses) {
+                            List<DamageBonus> extraBonuses,
+                            List<DiceBonus> attackBonuses) {
 
         int raw     = result.total();
         int display = Math.round(raw * RpgDisplayUtils.HP_DISPLAY_MULTIPLIER);
 
-        // Line 1: weapon name + dice
-        String line1 = label + " — " + result.rolls();
+        // Attack-roll bonuses shown inline on line 1 (e.g. "+3 Bless")
+        String atkStr = attackBonuses.isEmpty() ? "" :
+                " (" + attackBonuses.stream()
+                        .map(b -> (b.value() > 0 ? "+" : "") + b.value() + " " + b.label())
+                        .collect(Collectors.joining(", ")) + ")";
+
+        // Line 1: weapon name + attack bonuses + dice
+        String line1 = label + atkStr + " — " + result.rolls();
 
         // Line 2: modifiers + total
         StringBuilder line2 = new StringBuilder();

@@ -2,29 +2,16 @@ package zcylas.totality.api.ability.impl.barbarian;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
 import org.jspecify.annotations.Nullable;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityComponent;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityContext;
-import zcylas.totality.api.combat.damage.DamageResistanceComponent;
-import zcylas.totality.api.combat.damage.DamageResistanceRecalculator;
-import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.core.component.ComponentProvider;
-import zcylas.totality.api.dice.RollType;
-import zcylas.totality.api.rpg.check.AbilityCheckResolver;
 import zcylas.totality.api.rpg.classes.*;
-import zcylas.totality.api.rpg.combat.CastingRestrictionRegistry;
-import zcylas.totality.api.rpg.combat.DamageBonus;
-import zcylas.totality.api.rpg.combat.DamageBonusRegistry;
-import zcylas.totality.api.rpg.combat.RollModifierRegistry;
 import zcylas.totality.api.rpg.rest.RestType;
-
-import zcylas.totality.api.ability.trait.Traits;
-import zcylas.totality.api.ability.trait.Trait;
-import zcylas.totality.api.rpg.stats.AbilityScore;
-import zcylas.totality.api.rpg.stats.StatsComponents;
-import zcylas.totality.networking.notification.SendNotificationPayload;
+import zcylas.totality.init.ModEffects;
 
 public class BarbarianRageAbility extends Ability {
 
@@ -44,7 +31,7 @@ public class BarbarianRageAbility extends Ability {
             2,2,3,3,3,4,4,4,4,4,4,5,5,5,5,5,5,6,6,6,6,6,6,6,6
     };
 
-    private static final int RAGE_DURATION_TICKS = 3600; // 3 minutes
+    public static final int RAGE_DURATION_TICKS = 1200; // 1 minute
 
     public BarbarianRageAbility() {
         super(
@@ -95,55 +82,16 @@ public class BarbarianRageAbility extends Ability {
 
     @Override
     public void onToggleOn(ServerPlayer player) {
-        CastingRestrictionRegistry.register(player, ID,
-                p -> "You cannot cast spells while raging.");
-        DamageResistanceComponent comp = DamageResistanceComponent.get(player);
-        comp.addResistance(DamageTypes.BLUDGEONING, false);
-        comp.addResistance(DamageTypes.PIERCING,    false);
-        comp.addResistance(DamageTypes.SLASHING,    false);
-
-        // Register damage bonus
-        DamageBonusRegistry.register(player, ID, (p, ability, magical) -> {
-            if (magical) return null;
-            return new DamageBonus(getRageDamageBonus(p), "Rage");
-        });
-
-        // Register STR advantage modifier
-        RollModifierRegistry.register(player, ID, new RollModifierRegistry.RollModifier() {
-            @Override
-            public RollType modifySave(AbilityScore score, RollType current) {
-                return score == AbilityScore.STR && current == RollType.NORMAL
-                        ? RollType.ADVANTAGE : current;
-            }
-            @Override
-            public AbilityCheckResolver.RollMode modifyCheck(AbilityScore score,
-                                                             AbilityCheckResolver.RollMode current) {
-                return score == AbilityScore.STR && current == AbilityCheckResolver.RollMode.NORMAL
-                        ? AbilityCheckResolver.RollMode.ADVANTAGE : current;
-            }
-        });
-
-        // Visuals
-        player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-                net.minecraft.sounds.SoundEvents.RAVAGER_ROAR,
-                net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.8f);
-        if (player.level() instanceof net.minecraft.server.level.ServerLevel sl) {
-            sl.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME,
-                    player.getX(), player.getY() + 1, player.getZ(),
-                    30, 0.4, 0.4, 0.4, 0.05);
-        }
-        SendNotificationPayload.send(player, "⚔ Rage!", 0xFFCC3333);
+        // Applying the effect triggers RageEffect.onEffectAdded which handles mechanics,
+        // visuals, sound, and the "⚔ Rage!" notification.
+        player.addEffect(new MobEffectInstance(ModEffects.RAGE, RAGE_DURATION_TICKS, 0, false, false, true));
     }
 
     @Override
     public void onToggleOff(ServerPlayer player) {
-        CastingRestrictionRegistry.remove(player, ID);
-        // Recalculate clears everything and re-adds base resistances (species etc.)
-        // Rage resistances are gone since we're not adding them back here
-        DamageResistanceRecalculator.recalculate(player);
-        DamageBonusRegistry.remove(player, ID);
-        RollModifierRegistry.remove(player, ID);
-        SendNotificationPayload.send(player, "Rage ended.", SendNotificationPayload.GRAY);
+        // Removing the effect triggers RageEffect.onEffectRemoved which handles cleanup
+        // and the "Rage ended." notification (only if toggle was still active).
+        player.removeEffect(ModEffects.RAGE);
     }
 
     @Override
@@ -157,8 +105,8 @@ public class BarbarianRageAbility extends Ability {
     }
 
     /**
-     * Force-stops rage on death. Cleans up all registries and resets the
-     * toggle state so the +2 damage and resistances don't persist after respawn.
+     * Force-stops rage on death. Deactivates toggle first (so onEffectRemoved won't notify),
+     * then removes the effect which triggers registry cleanup via RageEffect.onEffectRemoved.
      * Called from StatsServerEvents.COPY_FROM when alive == false.
      */
     public static void forceStop(ServerPlayer player) {
@@ -166,11 +114,7 @@ public class BarbarianRageAbility extends Ability {
         if (abilities.isToggleActive(ID)) {
             abilities.deactivateToggle(ID);
         }
-        // Clean up registries regardless — handles stale entries from death
-        DamageBonusRegistry.remove(player, ID);
-        RollModifierRegistry.remove(player, ID);
-        CastingRestrictionRegistry.remove(player, ID);
-        DamageResistanceRecalculator.recalculate(player);
+        player.removeEffect(ModEffects.RAGE);
     }
 
     /** Call this when a Barbarian attacks or takes damage to keep rage alive. */

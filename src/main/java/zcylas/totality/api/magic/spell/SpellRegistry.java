@@ -11,6 +11,7 @@ import zcylas.totality.api.magic.spell.conjuration.MistyStepSpell;
 import zcylas.totality.api.magic.spell.conjuration.PoisonSpraySpell;
 import zcylas.totality.api.magic.spell.destruction.*;
 import zcylas.totality.api.magic.spell.necromancy.ChillTouchSpell;
+import zcylas.totality.api.magic.spell.restoration.BlessSpell;
 import zcylas.totality.api.magic.spell.transmutation.DisintegrateSpell;
 
 import java.util.Collection;
@@ -48,6 +49,7 @@ public final class SpellRegistry {
     public static final PoisonSpraySpell POISON_SPRAY   = register(new PoisonSpraySpell());
 
     // ── 1st level ─────────────────────────────────────────────────────────────
+    public static final BlessSpell        BLESS         = register(new BlessSpell());
     public static final MagicMissileSpell MAGIC_MISSILE = register(new MagicMissileSpell());
 
     // ── 2nd level ─────────────────────────────────────────────────────────────

@@ -10,8 +10,11 @@ import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
 import zcylas.totality.api.combat.damage.DamageResistanceRecalculator;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.dialogue.DialogueComponents;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
+import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
+import zcylas.totality.api.quest.QuestManager;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 import zcylas.totality.api.rpg.classes.ChargeComponents;
@@ -46,10 +49,13 @@ public class PlayerConnectionEvents {
             AbilityComponents.ABILITIES.sync((ComponentProvider) player);
             RuneComponents.KNOWLEDGE.sync((ComponentProvider) player);
             CurrencyComponents.WALLET.sync((ComponentProvider) player);
+            EquipmentComponents.EQUIPMENT.sync((ComponentProvider) player);
+            DialogueComponents.FLAGS.sync((ComponentProvider) player);
             AlchemyComponents.KNOWLEDGE.sync((ComponentProvider) player);
             SkillsComponents.PLAYER_SKILLS.sync((ComponentProvider) player);
             MasteriesComponents.PLAYER_MASTERIES.sync((ComponentProvider) player);
             StatsComponents.PLAYER_STATS.sync((ComponentProvider) player);
+            QuestManager.onPlayerJoin(player);
             ClassComponents.PLAYER_CLASS.sync((ComponentProvider) player);
             // Sync stamina so the client HUD shows the correct value immediately
             // rather than defaulting to 100 until the first drain/regen event.
@@ -66,6 +72,8 @@ public class PlayerConnectionEvents {
 // Always register charge component as rest listener on join
             RestEventBus.register(player, (p, type) ->
                     ChargeComponents.PLAYER_CHARGES.get((ComponentProvider) p).onRest(p, type));
+            RestEventBus.register(player, (p, type) ->
+                    AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
 
             var classComp = ClassComponents.get(player);
             Identifier primaryClass = classComp.getPrimaryClassId();
@@ -114,6 +122,8 @@ public class PlayerConnectionEvents {
             RestEventBus.clearPlayer(newPlayer.getUUID()); // ← clear first
             RestEventBus.register(newPlayer, (p, type) ->
                     ChargeComponents.PLAYER_CHARGES.get((ComponentProvider) p).onRest(p, type));
+            RestEventBus.register(newPlayer, (p, type) ->
+                    AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
             if (ClassComponents.get(newPlayer).hasClass(TotalityClasses.BARBARIAN_ID)) {
                 BarbarianRageAbility.registerChargePool(newPlayer);
                 ChargeComponents.PLAYER_CHARGES.sync((ComponentProvider) newPlayer);
@@ -131,6 +141,8 @@ public class PlayerConnectionEvents {
             RollModifierRegistry.clearPlayer(handler.player.getUUID());
             DamageBonusRegistry.clearPlayer(handler.player.getUUID());
             RestEventBus.clearPlayer(handler.player.getUUID());
+            zcylas.totality.api.rpg.rest.RestSessionManager.clearPlayer(handler.player);
+            zcylas.totality.api.rpg.rest.RestManager.clearPlayer(handler.player.getUUID());
             CastingRestrictionRegistry.clearPlayer(handler.player.getUUID()); // ← add
             ExhaustionManager.onPlayerLeave(handler.player);
             BowStaminaHandler.onPlayerLeave(handler.player);

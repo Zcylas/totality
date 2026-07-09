@@ -18,6 +18,8 @@ public class ModEffects {
     public static Holder<MobEffect> FORTIFY_STAMINA;
     public static Holder<MobEffect> REGENERATE_STAMINA;
     public static Holder<MobEffect> FORTIFY_HEALTH;
+    public static Holder<MobEffect> RAGE;
+    public static Holder<MobEffect> BLESS;
 
     public static void register() {
         GLIDE = net.minecraft.core.Registry.registerForHolder(
@@ -60,6 +62,16 @@ public class ModEffects {
                 BuiltInRegistries.MOB_EFFECT,
                 Identifier.fromNamespaceAndPath(Totality.MOD_ID, "regenerate_stamina"),
                 RegenerateStaminaEffect.INSTANCE);
+
+        RAGE = Registry.registerForHolder(
+                BuiltInRegistries.MOB_EFFECT,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "rage"),
+                RageEffect.INSTANCE);
+
+        BLESS = Registry.registerForHolder(
+                BuiltInRegistries.MOB_EFFECT,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "bless"),
+                BlessEffect.INSTANCE);
     }
 
 

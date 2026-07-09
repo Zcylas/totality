@@ -4,6 +4,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.Totality;
+import zcylas.totality.api.rpg.rest.RestType;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 
 public abstract class Ability {
@@ -55,6 +56,15 @@ public abstract class Ability {
     public Type getType()            { return type; }
     public int getCooldownTicks()    { return cooldownTicks; }
     public boolean isDefault()       { return false; }
+
+    /**
+     * Abilities whose cooldown recovers on a Short or Long Rest instead of
+     * (or in addition to) ticking down normally. Null (default) means this
+     * ability only uses the tick-based cooldown above. Matches the same
+     * "Long Rest always fully restores" rule used by charge pools.
+     */
+    @Nullable
+    public RestType rechargeOnRest() { return null; }
     public Identifier getIcon()      {return  icon;}
     public Source getSource()       { return source; }
     public String getSourceDetail() { return sourceDetail; } // "Mining Mastery", "Default Ability", etc.

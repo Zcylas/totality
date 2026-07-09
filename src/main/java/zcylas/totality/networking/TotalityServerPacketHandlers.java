@@ -15,8 +15,12 @@ import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
 import zcylas.totality.networking.config.SideModePayload;
 import zcylas.totality.networking.dice.DiceRollClickHandler;
+import zcylas.totality.networking.economy.BankTellerHandler;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.networking.dialogue.DialogueChoiceHandler;
+import zcylas.totality.networking.quest.OpenQuestAppHandler;
+import zcylas.totality.networking.quest.TrackQuestHandler;
+import zcylas.totality.networking.shop.BuyItemHandler;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 import zcylas.totality.networking.magic.grimoire.UpdateGrimoirePayload;
 
@@ -82,9 +86,18 @@ public class TotalityServerPacketHandlers {
                 (payload, context) -> context.server().execute(() -> {
                     PowerAttackManager.onPowerAttackReceived(context.player());
                 }));
+        zcylas.totality.networking.combat.BlockKeyHandler.register();
+        zcylas.totality.networking.combat.OffhandAttackHandler.register();
         BrewServerHandler.register();
         DiceRollClickHandler.register();
         DialogueChoiceHandler.register();
+        BuyItemHandler.register();
+        OpenQuestAppHandler.register();
+        TrackQuestHandler.register();
+        zcylas.totality.networking.quest.FinishQuestHandler.register();
+        BankTellerHandler.register();
+        zcylas.totality.networking.rest.RequestRestHandler.register();
+        zcylas.totality.networking.rest.CancelRestHandler.register();
     }
 
     private static ItemStack findGrimoire(ServerPlayer player) {

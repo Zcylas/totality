@@ -10,6 +10,7 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.entity.npc.BankerNpcEntity;
 import zcylas.totality.entity.npc.TotalityNpcEntity;
 import zcylas.totality.api.ability.AbilityServerTick;
 import zcylas.totality.api.combat.condition.ConditionServerTick;
@@ -99,10 +100,16 @@ public class Totality implements ModInitializer {
 		TotalityCommands.register();
 		RitualRecipeRegistry.register();
 		zcylas.totality.api.dialogue.DialogueComponents.register();
+		zcylas.totality.api.quest.QuestComponents.register();
 		ResourceManagerHelper.get(PackType.SERVER_DATA)
 				.registerReloadListener(new MobStatBlockLoader());
 		ResourceManagerHelper.get(PackType.SERVER_DATA)
 				.registerReloadListener(zcylas.totality.api.dialogue.DialogueRegistry.INSTANCE);
+		ResourceManagerHelper.get(PackType.SERVER_DATA)
+				.registerReloadListener(zcylas.totality.entity.npc.NpcNameRegistry.INSTANCE);
+		ResourceManagerHelper.get(PackType.SERVER_DATA)
+				.registerReloadListener(zcylas.totality.api.quest.QuestRegistry.INSTANCE);
+		zcylas.totality.api.shop.ShopRegistry.register();
 		ModEvents.register();
 	}
 
@@ -129,6 +136,7 @@ public class Totality implements ModInitializer {
 		AbilityServerTick.register();
 		ConditionServerTick.register();
 		ServerScheduler.register();
+		zcylas.totality.api.rpg.rest.RestSessionManager.register();
 		registerPassiveTicker();
 	}
 
@@ -174,6 +182,9 @@ public class Totality implements ModInitializer {
 				zcylas.totality.networking.item.CastFocusPayload.TYPE,
 				(payload, ctx) -> ctx.server().execute(() ->
 						zcylas.totality.networking.item.CastFocusHandler.handle(ctx.player(), payload)));
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
+				zcylas.totality.networking.item.PhoneSetupPayload.TYPE,
+				zcylas.totality.networking.item.PhoneSetupHandler::handle);
 		zcylas.totality.networking.menu.ContainerSortHandler.register();
 		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
 				zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.TYPE,
@@ -234,6 +245,7 @@ public class Totality implements ModInitializer {
 	private void registerAttributes() {
 		FabricDefaultAttributeRegistry.register(ModEntities.SUMMON_SKELETON, Skeleton.createAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.TOTALITY_NPC, TotalityNpcEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(ModEntities.BANKER, BankerNpcEntity.createAttributes());
 	}
 	private void registerSkillEvents(){
 		MiningSkillEvents.register();

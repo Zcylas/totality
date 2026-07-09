@@ -21,12 +21,13 @@ import zcylas.totality.api.item.TotalityItemComponents;
  */
 public class PlayerEquipmentComponent implements SyncedComponent, CopyableComponent<PlayerEquipmentComponent>, Container {
 
-    public static final int SLOT_COUNT = 5;
+    public static final int SLOT_COUNT = 6;
     public static final int IDX_BELT   = 0;
     public static final int IDX_RING_1 = 1;
     public static final int IDX_RING_2 = 2;
     public static final int IDX_AMULET = 3;
     public static final int IDX_POUCH  = 4;
+    public static final int IDX_PHONE  = 5;
 
     private final ItemStack[] stacks = new ItemStack[SLOT_COUNT];
     private final ServerPlayer player;
@@ -110,6 +111,9 @@ public class PlayerEquipmentComponent implements SyncedComponent, CopyableCompon
     public void setItem(int slot, ItemStack stack) {
         stacks[slot] = stack;
         if (!stack.isEmpty() && stack.getCount() > 1) stack.setCount(1);
+        if (player != null && slot == IDX_PHONE && stack.getItem() instanceof zcylas.totality.item.energy.PhoneItem) {
+            zcylas.totality.api.quest.QuestManager.onPhoneEquipped(player);
+        }
     }
 
     @Override public void setChanged() {}

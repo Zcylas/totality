@@ -139,8 +139,8 @@ public class AttributesTab extends CharacterScreenTab {
                 g.fill(x + PAD, rowY + 1, x + PAD + 2, rowY + ROW_H - 2, COLOR_ACCENT);
 
             // Icon (Unicode symbol)
-            int abbrevColor = getScoreColor(score);
-            String icon = getScoreIcon(score);
+            int abbrevColor = score.getIconColor();
+            String icon = score.getIcon();
             g.text(font, Component.literal(icon), nameX, textY + 1, abbrevColor, false);
 
             // Abbreviation
@@ -259,8 +259,8 @@ public class AttributesTab extends CharacterScreenTab {
         int cy = scrollAreaY - detailScrollY;
 
         // ── Icon + large name ─────────────────────────────────────────────────
-        int iconColor = getScoreColor(show);
-        String icon   = getScoreIcon(show);
+        int iconColor = show.getIconColor();
+        String icon   = show.getIcon();
 
         g.text(font, Component.literal(icon), ix, cy + 2, iconColor, false);
 
@@ -460,32 +460,6 @@ public class AttributesTab extends CharacterScreenTab {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private String getScoreIcon(AbilityScore score) {
-        return switch (score) {
-            case STR -> "⚔";
-            case DEX -> "◎";
-            case CON -> "♥";
-            case END -> "⚡";
-            case INT -> "✦";
-            case WIS -> "◈";
-            case CHA -> "★";
-            case FTH -> "✝";
-        };
-    }
-
-    private int getScoreColor(AbilityScore score) {
-        return switch (score) {
-            case STR -> 0xFFCC4444;
-            case DEX -> 0xFFCC8833;
-            case CON -> 0xFF44AACC;
-            case END -> 0xFF44CC88;
-            case INT -> 0xFFAA44CC;
-            case WIS -> 0xFF4488CC;
-            case CHA -> 0xFFCCAA33;
-            case FTH -> 0xFFCCCCCC;
-        };
-    }
 
     private String[] getScoreAffects(AbilityScore score) {
         return switch (score) {

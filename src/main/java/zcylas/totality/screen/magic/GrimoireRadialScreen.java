@@ -13,7 +13,7 @@ import zcylas.totality.api.magic.grimoire.GrimoireCaster;
 import zcylas.totality.api.magic.grimoire.MagicComponents;
 import zcylas.totality.api.magic.grimoire.rune.AbstractFormRune;
 import zcylas.totality.api.magic.grimoire.rune.AbstractRune;
-import zcylas.totality.init.ModKeybinds;
+import org.lwjgl.glfw.GLFW;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 
@@ -162,9 +162,8 @@ public class GrimoireRadialScreen extends Screen {
     @Override
     public void tick() {
         Window window = Minecraft.getInstance().getWindow();
-        boolean vDown = InputConstants.isKeyDown(
-                window, ModKeybinds.OPEN_RADIAL.getDefaultKey().getValue());
-        if (!vDown) {
+        boolean cDown = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_C);
+        if (!cDown) {
             if (selectedSlot != -1 && selectedSlot != currentSlot) {
                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
                         new SwitchGrimoireSlotPayload(selectedSlot));

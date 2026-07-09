@@ -32,7 +32,7 @@ import zcylas.totality.networking.stamina.SyncStaminaPayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 import zcylas.totality.screen.alchemy.ApothecaryTableScreen;
 import zcylas.totality.screen.classes.ClassSelectionScreen;
-import zcylas.totality.screen.menu.MainMenuScreen;
+import zcylas.totality.screen.phone.PhoneScreens;
 
 public class TotalityClientPacketHandlers {
 
@@ -101,7 +101,7 @@ public class TotalityClientPacketHandlers {
                 (payload, ctx) -> NotificationManager.add(payload.message(), payload.color()));
         ClientPlayNetworking.registerGlobalReceiver(
                 OpenMainMenuPayload.TYPE,
-                (payload, ctx) -> ctx.client().setScreen(new MainMenuScreen()));
+                (payload, ctx) -> PhoneScreens.openForEquippedPhone(ctx.client()));
         ClientPlayNetworking.registerGlobalReceiver(
                 OpenAncestrySelectionPayload.TYPE,
                 (payload, ctx) -> ctx.client().setScreen(
@@ -126,6 +126,18 @@ public class TotalityClientPacketHandlers {
                 zcylas.totality.networking.dialogue.ShowDialogueStatePayload.TYPE,
                 (payload, ctx) -> zcylas.totality.client.dialogue.ClientDialogueManager.handle(payload)
         );
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.shop.ShowShopStatePayload.TYPE,
+                (payload, ctx) -> zcylas.totality.client.shop.ClientTradeManager.handle(payload)
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.quest.ShowQuestStatePayload.TYPE,
+                (payload, ctx) -> zcylas.totality.client.quest.ClientQuestManager.handle(payload)
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.economy.ShowBankTellerPayload.TYPE,
+                (payload, ctx) -> zcylas.totality.client.economy.ClientBankTellerManager.handle(payload)
+        );
         CombatTextClientHandler.register();
         ClientPlayNetworking.registerGlobalReceiver(
                 MobStatsSyncPayload.TYPE, (payload, ctx) ->
@@ -133,6 +145,15 @@ public class TotalityClientPacketHandlers {
                                 payload.rankOrdinal(), payload.ac(), payload.rarityOrdinal()));
         DiceRollResultClientHandler.register();
         DiceRollResultClientHandler.registerRequest();
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.rest.OpenRestChoicePayload.TYPE,
+                (payload, ctx) -> ctx.client().setScreen(
+                        new zcylas.totality.screen.rest.RestChoiceScreen(payload.bedPos(), payload.shortRestRemaining()))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.rest.RestTimeSyncPayload.TYPE,
+                (payload, ctx) -> zcylas.totality.client.rest.ClientRestManager.handle(payload)
+        );
     }
 
     private TotalityClientPacketHandlers() {}

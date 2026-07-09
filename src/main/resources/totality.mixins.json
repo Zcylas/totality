@@ -12,6 +12,10 @@
 		"item.KineticWeaponMixin",
 		"item.MaceItemMixin",
 		"item.PiercingWeaponMixin",
+		"item.SwordItemMixin",
+		"LivingEntityHurtMixin",
+		"PlayerRestPoseMixin",
+		"InventoryCreditsMergeMixin",
 		"client.LivingEntityMixin",
 		"item.TridentItemMixin"
 	],
@@ -25,7 +29,11 @@
 		"client.AbstractContainerScreenAccessor",
 		"client.LocalPlayerContainerMixin",
 		"client.MinecraftAttackMixin",
-		"client.GuiGraphicsExtractorMixin"
+		"client.GuiGraphicsExtractorMixin",
+		"client.AvatarRendererMixin",
+		"client.HumanoidModelMixin",
+		"client.ItemInHandRendererMixin",
+		"client.MultiPlayerGameModeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

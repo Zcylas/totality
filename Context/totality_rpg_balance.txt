@@ -1,0 +1,617 @@
+================================================================
+TOTALITY MOD - RPG BALANCE & CHARACTER SYSTEM
+================================================================
+For Claude Code — character stats, classes, species, origins
+================================================================
+
+----------------------------------------------------------------
+PLAYER LEVEL SYSTEM
+----------------------------------------------------------------
+LEVEL CAP: 150 (changed from 100 — confirmed via code: MAX_LEVEL = 150)
+
+XP FORMULA: Skyrim-style exponential
+  skillImproveMult × level^1.95 + skillImproveOffset
+  (verify multiplier values against UESP wiki, not Skyrimcraft)
+
+PER LEVEL REWARD: +1 ability point to spend freely
+
+DESIGN PHILOSOPHY:
+- Players can become genuinely powerful at max level
+- Difficulty comes from custom mobs, quests, events
+- NOT from artificial stat caps
+- Think D&D 5e meets Skyrim meets Hypixel Skyblock
+
+----------------------------------------------------------------
+ABILITY SCORES
+----------------------------------------------------------------
+8 STATS:
+- STR (Strength)
+- DEX (Dexterity)
+- CON (Constitution)
+- INT (Intelligence)
+- WIS (Wisdom)
+- CHA (Charisma)
+- FTH (Faith) — custom addition
+- END (Endurance) — custom addition (replaces/supplements CON for stamina)
+
+ALL START AT: 10 (modifier 0)
+
+MODIFIER FORMULA: (score - 10) / 2 (standard D&D)
+
+POINT SPENDING:
+- NOTE: In code currently +5 per player level (final value not decided yet)
+- Spend freely on any stat
+- No ability score improvements from class levels
+  (class levels give feats ONLY, never ASI)
+- Final per-level amount TBD — balance discussion not completed
+
+FUTURE ATTRIBUTE EFFECTS (must be added to StatAttributeApplier.apply()):
+- STR → attack damage
+- DEX → attack speed
+- WIS → XP rate
+- CHA → merchant prices
+- END → carry weight / stamina pool
+- CON → HP pool
+- INT → mana pool
+
+----------------------------------------------------------------
+RESOURCE FORMULAS (HP / MANA / STAMINA)
+----------------------------------------------------------------
+HP = base + CON modifier × multiplier
+MANA = base + INT modifier × multiplier
+STAMINA = base + END modifier × multiplier
+
+DESIGN CONSTRAINT:
+- A basic sustained spell (Glide) costs ~500 mana
+- A max-level full-INT build (modifier +50) should cast this
+  freely and repeatedly — it should feel basic at that level
+- Non-INT builds should barely be able to cast at all
+- Formulas need balancing to meet this constraint
+
+----------------------------------------------------------------
+CLASS SYSTEM
+----------------------------------------------------------------
+CURRENT IMPLEMENTED CLASSES: Wizard, Barbarian, Warlock, Monk
+
+PLAYER LEVEL CAP: 150 (changed from 100, confirmed via code: MAX_LEVEL = 150)
+CLASS LEVEL CAP: 30 (changed from 25)
+CONVERSION RATIO: 5 player levels = 1 class level
+  150 player levels ÷ 5 = 30 class levels (exact, clean division)
+
+CLASS LEVEL FORMULA (confirmed from code):
+  Math.clamp(playerLevel / 5, 1, 30)
+
+MULTICLASSING: BG3-style
+- Spend class levels freely across any class
+- Subclass requires at least 1 level in parent class first
+- Single "SPEND CLASS POINT" button in UI
+- SelectClassHandler: refactor so each class has onSelect(ServerPlayer)
+  instead of growing if-else chain
+
+SUBCLASS SELECTION:
+- Wizard: Arcane Tradition chosen at class level 2
+  (via ClassLevelUpRegistry, NOT at initial class selection)
+- Other classes: class level 3 (standard D&D timing)
+- Label: "Arcane Tradition" for Wizard, "Subclass" for others
+
+FULL CLASS LEVEL PROGRESSION TABLE:
+  Class Level | Player Level | Proficiency | Max Spell Tier | Feats
+  ------------|--------------|-------------|----------------|------
+  1           | 1–5          | +2          | 1              |
+  2           | 6–10         | +2          | 1              | (Wizard subclass here)
+  3           | 11–15        | +2          | 2              | (subclass for others)
+  4           | 16–20        | +2          | 2              | FEAT
+  5           | 21–25        | +3          | 3              |
+  6           | 26–30        | +3          | 3              |
+  7           | 31–35        | +3          | 4              |
+  8           | 36–40        | +3          | 4              | FEAT
+  9           | 41–45        | +4          | 5              |
+  10          | 46–50        | +4          | 5              |
+  11          | 51–55        | +4          | 6              |
+  12          | 56–60        | +4          | 6              | FEAT
+  13          | 61–65        | +5          | 7              |
+  14          | 66–70        | +5          | 7              |
+  15          | 71–75        | +5          | 8              |
+  16          | 76–80        | +5          | 8              | FEAT
+  17          | 81–85        | +6          | 9              |
+  18          | 86–90        | +6          | 9              |
+  19          | 91–95        | +6          | 10             |
+  20          | 96–100       | +6          | 10             | FEAT
+  21          | 101–105      | +7          | 10 (epic)      |
+  22          | 106–110      | +7          | 10 (epic)      |
+  23          | 111–115      | +7          | 10 (epic)      |
+  24          | 116–120      | +7          | 10 (epic)      | FEAT
+  25          | 121–125      | +7          | 10 (epic)      |
+  26          | 126–130      | +8          | 10 (epic)      |
+  27          | 131–135      | +8          | 10 (epic)      |
+  28          | 136–140      | +8          | 10 (epic)      | FEAT
+  29          | 141–145      | +8          | 10 (epic)      |
+  30          | 146–150      | +8          | 10 (epic)      |
+
+SPELL TIER NOTES:
+- Every 2 class levels = 1 new spell tier
+- Goes up to LEVEL 10 (beyond standard D&D which caps at 9)
+- Class levels 21–30 = "epic" band: no new spell tier
+  These 10 levels give: capstone class features, final feats, class identity
+- Total feats per class: 7 (at levels 4, 8, 12, 16, 20, 24, 28)
+- Feats ONLY — never ASI (ability scores come from player level points)
+
+PROFICIENCY BONUS TABLE:
+- Class levels 1–4:   +2
+- Class levels 5–8:   +3
+- Class levels 9–12:  +4
+- Class levels 13–16: +5
+- Class levels 17–20: +6
+- Class levels 21–25: +7
+- Class levels 26–30: +8
+
+HIT DICE (per class):
+- Barbarian: d12
+- Monk: d8
+- Warlock: d8
+- Wizard: d6
+
+----------------------------------------------------------------
+CLASS DETAILS
+----------------------------------------------------------------
+
+=== WIZARD ===
+Primary stat: INT
+Saving throws: INT, WIS
+Armor: None (no proficiency)
+Spell system: Spell slots (Long Rest recovery)
+Starting feature: Arcane Recovery (Short Rest, recover spell slots)
+Spellbook: SpellbookItem (separate from Grimoire rune system)
+Arcane Tradition: chosen at class level 2
+
+SPELL ACQUISITION:
+- SpellbookItem holds known spells
+- ArcaneScrollItem: learn (popup + gold cost, Wizard only) OR cast once
+- SpellTomeItem: learn instantly, no class restriction
+
+ARCANE TRADITIONS (subclasses):
+- School of Evocation
+- School of Necromancy
+- School of Abjuration
+- School of Illusion
+(others can be added later)
+
+---
+
+=== BARBARIAN ===
+Primary stat: STR
+Saving throws: STR, CON
+Armor: Light, Medium (no heavy, no shields while raging)
+Hit Die: d12
+Starting feature: Rage (now implemented as MobEffect)
+
+RAGE:
+- Converted from toggle Ability to proper MobEffect
+- Mechanical effects in onEffectAdded/onEffectRemoved
+- Visible in HUD with icon, duration timer, swirl
+- STR damage bonus + physical resistance while active
+- Barbarian Unarmored Defense: PhysiologyPassive/UnarmoredDefensePassive pattern
+
+SUBCLASSES:
+- Path of the Berserker
+- Path of the Zealot
+
+FORMS: Barbarian rage at high level could tie into FORMS system (future)
+
+---
+
+=== WARLOCK ===
+Primary stat: CHA
+Saving throws: WIS, CHA
+Armor: Light armor only
+Hit Die: d8
+Spell system: Pact Magic — very few slots (1-2) but SHORT REST recovery
+
+STARTING FEATURES:
+- Eldritch Blast (cantrip, no slot cost)
+- Pact Magic (spell slots recharge on Short Rest, NOT Long Rest)
+
+PATRON SYSTEM:
+- Patron is a named entity (Z rank or near)
+- Killing another player's Warlock patron triggers a server-wide quest:
+  affected player chooses revenge (kill the slayer) or resurrection
+  (ritual requiring rare materials)
+- Uses server-wide narrative flags
+
+SUBCLASSES (Otherworldly Patron):
+- The Fiend
+- The Great Old One
+(The Archfey possible future addition)
+
+---
+
+=== MONK ===
+Primary stat: DEX or STR (player's choice), WIS for AC
+Saving throws: STR, DEX
+Armor: None (Unarmored Defense applies)
+Hit Die: d8
+
+STARTING FEATURES:
+- Ki Points (resource for class abilities)
+- Flurry of Blows
+- Unarmored Defense (DEX + WIS modifier to AC, via UnarmoredDefensePassive)
+
+SUBCLASSES:
+- Way of the Open Hand
+- Way of Shadow
+
+---
+
+PLANNED FUTURE CLASSES (not yet implemented):
+Fighter, Rogue, Paladin, Ranger, Druid, Bard, Sorcerer, Cleric
+(All 12 D&D classes eventually)
+
+----------------------------------------------------------------
+SPECIES & ORIGINS SYSTEM
+----------------------------------------------------------------
+
+ARCHITECTURE:
+- Species: biological identity, NO direct stats
+- Origin: full stat package (skill bonuses, traits, source tag, unlock state)
+- PlayerAncestryComponent: stores species + origin + heightScale
+- Single originBonus layer in PlayerStats (ps_origin_* keys)
+- PlayerResourceRecalculator.recalculate(player) called on any stat change
+
+SOURCE TAGS: DND_5E, ELDER_SCROLLS, BALDURS_GATE_3, WORLD_OF_WARCRAFT,
+             FINAL_FANTASY, TOTALITY, OTHER
+
+UNLOCK STATES: UNLOCKED, LOCKED, HIDDEN
+
+---
+
+IMPLEMENTED SPECIES & THEIR ORIGINS:
+
+=== HUMAN ===
+Category: DND_5E / TOTALITY
+Height: 1.0 (standard)
+Origin bonuses: +2 to all skills
+Traits: Extra skill proficiency (planned), adaptable
+
+=== DWARF ===
+Category: DND_5E / ELDER_SCROLLS
+Height: 0.75f (implemented via LivingEntity.getScale() mixin)
+Origin bonuses (DND origin): +5 Mining, +3 One-Handed
+Traits (planned):
+  - Darkvision (60ft)
+  - Poison resistance
+  - Stonecunning
+  - Beard growth system (future)
+Note: Height sync required server+client to prevent hitbox desync
+
+=== ELF ===
+Category: DND_5E / ELDER_SCROLLS / BALDURS_GATE_3
+Height: 1.0 (standard or slightly tall, TBD)
+Origin bonuses (DND origin): +5 Alchemy, +3 Ritual Arts
+Traits (planned):
+  - Darkvision (60ft)
+  - Fey Ancestry (advantage on charm saves)
+  - Trance (doesn't sleep, meditates — Long Rest mechanic interaction)
+  - Elf Ear model attachment (non-GeckoLib, separate cuboid)
+
+=== GOLIATH ===
+Category: DND_5E
+Height: TBD (tall)
+Origin bonuses: TBD
+Traits (planned):
+  - Stone's Endurance: damage reduction reaction (once per Short Rest)
+  - Powerful Build: increased carry weight
+  - Cold resistance
+
+=== AASIMAR ===
+Category: DND_5E / BALDURS_GATE_3
+Height: 1.0 (standard)
+Origin bonuses: TBD
+Traits (planned):
+  - Darkvision (60ft)
+  - Necrotic resistance
+  - Radiant resistance
+  - Healing Hands
+  - Light Bearer (Light cantrip)
+  - Radiant Soul: timed flight (1 min duration, Long Rest cooldown)
+    Uses existing MovementMode/ToggleFlightPayload
+    Visual: spectral golden wings (PlayerAnimationLibrary or particles)
+
+=== HALFLING ===
+Category: DND_5E
+Height: ~0.6f (small)
+Origin bonuses: TBD
+Traits (planned):
+  - Lucky: reroll Nat 1s
+  - Brave: advantage on fear saving throws
+  - Naturally Stealthy
+
+=== KRYPTONIAN ===
+Category: TOTALITY (Superman universe)
+Height: 1.0
+Origin bonuses: TBD (power-focused)
+Traits (implemented):
+  - ViltrumitePhysiology → PhysiologyPassive pattern (via Trait system)
+  - Heat Vision (implemented)
+  - Flight (via MovementMode)
+Traits (planned):
+  - Freeze Breath
+  - Thunderclap
+  - Solar Flare
+  - Solar Hover
+  - Structure Lift (bounding box → STR check → StructureTemplate carry)
+  - Solar Charge resource (future — replaces stamina cost for Heat Vision)
+
+=== VILTRUMITE ===
+Category: TOTALITY (Invincible universe)
+Height: 1.0
+Traits (implemented):
+  - PhysiologyPassive (high physical stats, damage resistance)
+  - Flight (via MovementMode)
+  - Super Leap
+  - Power Sprint
+
+---
+
+PLANNED FUTURE SPECIES (not yet implemented with full origins):
+- Tiefling (DND_5E)
+- Half-Orc (DND_5E)
+- Gnome (DND_5E)
+- Dragonborn (DND_5E) — connects to Bloodline/Lineage system
+- Argonian (ELDER_SCROLLS)
+- Khajiit (ELDER_SCROLLS)
+- Nord (ELDER_SCROLLS)
+- Saiyan (TOTALITY) — Super Saiyan EXCLUSIVE to this species
+- Gallifreyan / Time Lord (TOTALITY) — Regeneration death mechanic
+  Regeneration: instead of dying → regeneration crisis state
+  Heals fully but loses some stats temporarily or shuffles bonuses
+  Binary vascular system → naturally higher max HP
+- Uchiha (TOTALITY) — connects to Bloodline/Lineage, Sharingan
+- Uzumaki (TOTALITY) — larger Chakra pool bonus
+
+SKYRIM ORIGIN VARIANTS:
+- Each D&D species can have a SKYRIM origin variant
+- Different skill bonus set, different flavor
+- Example: Skyrim Elf origin feels different from DND Elf origin
+- Origin unlock via quests: planned, not yet implemented
+
+---
+
+BLOODLINE / LINEAGE SYSTEM (future, separate from Ancestry):
+- Separate GUI tab
+- For hereditary powers: Uchiha (Sharingan), Uzumaki (seal mastery),
+  Dragonborn (Thu'um/Shouts)
+- NOT part of the Species/Origin selection screens
+
+----------------------------------------------------------------
+SKILLS SYSTEM
+----------------------------------------------------------------
+BASE LEVEL: All skills start at 10
+APPLY FORMULA: setLevelDirectly(10 + bonus) is the canonical formula
+
+RECALCULATION RULE:
+- recalculate(player): any stat change (ancestry, class, items, quests)
+- recalculateAndRestore(player): on join/respawn
+- Do NOT call PlayerResourceRecalculator for skill level changes
+  (skill levels don't affect HP/Mana/Stamina directly)
+
+SKILL CAP: 200 (changed from 100 to support Alchemy masteries at 150/200)
+
+KNOWN SKILLS (partial list):
+- One-Handed (melee weapons, one per hand)
+- Mining
+- Alchemy
+- Ritual Arts
+- Fishing (planned)
+- Smithing (planned, used for anvil skill check)
+- Speech/Charisma (planned, used for merchant prices, dialogue checks)
+- Hunter (planned, gates mob harvesting and card collection rarities)
+
+MASTERY SYSTEM:
+- Each skill has a mastery tree
+- Masteries = passive bonuses (NOT spell or ability unlocks)
+- Unlock thresholds vary per skill (e.g. Alchemy at 150, 200)
+- Double-alchemy-ingredient mastery → convert to passive ability (TODO)
+
+XP FORMULA (Skyrim):
+  skillImproveMult × level^1.95 + skillImproveOffset
+  Verify against UESP wiki (Skyrimcraft values may be custom)
+
+----------------------------------------------------------------
+COMBAT SYSTEM
+----------------------------------------------------------------
+ATTACK ROLL: d20 + ability modifier + proficiency bonus vs target AC
+SAVING THROW: d20 + ability modifier (+ proficiency if class grants it)
+  vs spell save DC
+DAMAGE: dice-based (Dice enum covers all standard dice)
+
+D20 RESULTS:
+- Nat 1: critical failure (animation + negative outcome)
+- Nat 20: critical success (always succeeds regardless of DC)
+- Advantage: roll two dice, take HIGHER
+- Disadvantage: roll two dice, take LOWER
+
+POWER ATTACK:
+- Hold attack key for 12 ticks → power attack activates
+- Costs stamina
+- Grants advantage on attack roll
+- Dual wield power attack: both hands attack simultaneously,
+  costs double stamina
+
+ARMOR CLASS:
+- LIGHT, MEDIUM, HEAVY types
+- CLOTHING: transparent to AC (doesn't provide AC)
+- UnarmoredDefenseRegistry: Barbarian and Monk register their own formulas
+  via UnarmoredDefensePassive (mirrors PhysiologyPassive pattern)
+
+WEAPON STATS:
+- VanillaWeaponStats: maps vanilla weapons to Dice + modifier
+- TotalityMeleeWeaponItem: custom weapons expose stats via data component
+- VanillaDamageInterceptor: d20 mob-to-player vs AC
+- CombatResolver: player-to-mob with power attack advantage
+
+MOB STATS:
+- MobCombatStats: HP scaling by level + CON modifier
+- MobStatsSyncPayload + MobStatsClientCache: sync level/rank/AC/rarity
+- MobHealthBarHud: shows level, rank prefix, AC, rarity color
+
+RANK SYSTEM:
+- E, F, D, C, B, A, S, Z
+- Rank is FIXED per mob type (set in JSON), never rolled mechanically
+- SpawnRarity (COMMON→LEGENDARY): rolled on spawn for hostile mobs only
+  Non-hostile mobs have no spawn_variants
+- Z rank: gods, Warlock patrons, named characters
+  (Naruto, Ichigo, Gilmore etc.) — hand-crafted, never randomly spawned
+
+----------------------------------------------------------------
+DUAL WIELDING
+----------------------------------------------------------------
+CONDITION: One-handed weapon in mainhand AND offhand simultaneously
+BEHAVIOR:
+- Left click: right hand attacks (mainhand)
+- Right click: left hand attacks (offhand)
+- Each hand: independent cooldown
+- Power attack (both): simultaneous attack, double stamina cost
+- Scissor block (V): crossing swords parry when blocking with dual weapons
+- One-handed restriction: only items tagged totality:one_handed can dual wield
+
+DUAL WIELDING SKILL:
+- Dedicated skill (planned)
+- Higher skill = slightly faster cooldowns
+
+----------------------------------------------------------------
+REST SYSTEM
+----------------------------------------------------------------
+SHORT REST:
+- Max 2 per Long Rest (BG3 style)
+- shortRestCount tracked in player component
+- Resets to 0 on Long Rest
+- Triggered via: Rest ability in radial, OR bed interaction choice
+
+SHORT REST EFFECTS:
+- Warlock spell slot recovery
+- Hit Dice healing
+- Attunement processing
+
+LONG REST:
+- Full HP restore
+- All spell slots restored
+- Ability cooldowns reset
+- Wizard spell preparation
+- Triggered via: bed sleep (Minecraft night mechanic = natural 24hr limit)
+
+ATTUNEMENT:
+- Via Short Rest (item in inventory during rest = attuned)
+- Drop item = unattuned immediately
+- D&D 3-slot cap DROPPED (too restrictive for Minecraft)
+
+----------------------------------------------------------------
+SPELL SYSTEM
+----------------------------------------------------------------
+CANTRIPS (spell level 0):
+- No slot cost
+- Always castable
+- Examples: Eldritch Blast, Firebolt, Ray of Frost, etc.
+
+LEVELED SPELLS (1-10):
+- Slot-based
+- Slot level gates which spells are available
+- Spells are innate to player (not stored in items)
+- LearnedSpellsComponent tracks known spells
+
+SPELL COMPONENTS:
+- VERBAL
+- SOMATIC
+- MATERIAL (replaceable or costly)
+- Component Pouch: 27-slot container, bypasses material components
+
+IMPLEMENTED SPELLS:
+Cantrips: Eldritch Blast, Firebolt, Ray of Frost, Chill Touch,
+          Toll the Dead, Poison Spray, Magic Missile (0-level)
+Level 1: Mage Armor, Burning Hands, Sleep, Armor of Agathys, Hex, Misty Step
+Level 2: Silence, Scorching Ray
+Level 3: Lightning Bolt
+Level 5: Cone of Cold
+Level 6: Disintegrate
+Level 7: Crown of Stars
+
+SPELL NOTES:
+- Disintegrate: DEX saving throw, success = 0 damage, kill = immediate DUST
+- Poison Spray: poison DAMAGE only, does NOT apply Poisoned condition
+- Shield, Hellish Rebuke: deferred pending reaction system
+- Multi-dice rolls (8d6 Fireball): lightweight HUD notification, not full dice screen
+
+ITEM-GRANTED SPELLS (4th magic category):
+- Charge-based magic items grant spells without the player having learned them
+- Example: Wand of Fireballs grants Fireball while used
+- No class gate — anyone can use a magic item
+- NOT added to LearnedSpellsComponent (item manages its own charges)
+- References central spell registry for the spell effect
+- Lost when charges run out or item is dropped/lost
+
+BLESS (implemented):
+- Converted to MobEffect (was flat effect before)
+- Visible with icon, duration timer, swirl
+
+----------------------------------------------------------------
+NOTES FOR IMPLEMENTATION
+----------------------------------------------------------------
+
+CENTRAL RECALC RULE:
+Always call PlayerResourceRecalculator.recalculate(player) after ANY
+stat change. Call recalculateAndRestore(player) on join/respawn.
+
+ENTITY DATA SYNC:
+Entity data (EntityDataAccessor) must be used for things visible to clients
+(gender, name, skin). NBT alone only persists to disk, not live-synced.
+
+CLASS HANDLER REFACTOR (TODO):
+SelectClassHandler should call class.onSelect(ServerPlayer) via registry
+lookup instead of if-else chain. Each class defines its own onSelect().
+
+PROFICIENCY BONUS IMPLEMENTATION:
+Use switch with explicit cases per class level (1-4, 5-8, 9-12, 13-16,
+17-20, 21-25, 26-30). No magic math — easy to read and adjust.
++2 through +8 across 30 class levels.
+
+SPECIES HEIGHT:
+Dwarf: 0.75f via LivingEntity.getScale() mixin (NOT Player)
+Requires server+client sync to prevent hitbox desync.
+applyBonuses always uses setLevelDirectly(10 + bonus).
+
+----------------------------------------------------------------
+IMMEDIATE CODE CHANGES NEEDED
+----------------------------------------------------------------
+
+SKILL CAP CHANGE:
+- Change skill level cap from 200 to 150 in SkillData.addXp
+- Current code: level < 200
+- Change to: level < 150
+
+ALCHEMY MASTERY TREE CHANGES:
+- Knowledge Seeker: move from level 150 → level 125
+- Purity: move from level 200 → level 150
+- All other Alchemy masteries unchanged:
+  Level 0:   Alchemy Mastery
+  Level 20:  Poisoner
+  Level 30:  Physician
+  Level 40:  Advanced Lab
+  Level 50:  Experimenter
+  Level 60:  Green Thumb
+  Level 80:  Amplify Lethality
+  Level 80:  Surgeon
+  Level 90:  Witchmaster
+  Level 100: That Which Does Not Kill You
+  Level 125: Knowledge Seeker  ← moved from 150
+  Level 150: Purity            ← moved from 200
+
+RATIONALE:
+- Skill cap 150 aligns with character level cap 150 (clean and intentional)
+- With 41 skills × (sum 11→150 = 11,270 XP each) = 462,070 total character XP
+  the uncapped character level would be ~188, meaning the 150 cap is
+  reachable through broad skill grinding but not trivially
+- Purity at 150 = true capstone (the absolute skill ceiling)
+- Knowledge Seeker at 125 = meaningful late-game stepping stone
+
+================================================================
+END OF RPG BALANCE NOTES
+================================================================

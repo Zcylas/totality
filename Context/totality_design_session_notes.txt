@@ -1,0 +1,1649 @@
+TOTALITY — DESIGN SESSION REFERENCE (for Claude Code)
+========================================================
+Context: Totality is zcylas.totality, MC 26.1.2, Fabric, Mojang mappings.
+Solo dev (Stefan/Zcylas). This doc compiles a long design-only session
+(no code written this session).
+
+CONFIRMED BUILD ORDER (do in this sequence):
+  0. FIRST, BEFORE ANYTHING ELSE — two small numeric changes to existing
+     systems:
+       a. Change the skill level cap from 150 back down to 100 (skills
+          were previously raised to 150, now being lowered to 100).
+       b. Adjust the Alchemy mastery breakpoints to match: Knowledge
+          Seeker moves from level 125 -> level 75, and Purity (the
+          capstone) moves from level 150 -> level 100. These are simple
+          proportional rescales of the two existing Alchemy mastery
+          unlock levels to fit the new 100 skill cap.
+  1. REST SYSTEM (see Priority 1 section below — fully designed, ready).
+  2. SPELL SLOT CONSUMPTION (see Priority 2 section below).
+  3. FISHING API — confirmed self-contained and independent of the above,
+     chosen as the next build specifically because it's simple and the
+     full design (Hypixel Skyblock-style loot/rod/tier system, the
+     Fishing skill + its masteries, and the catch-gating minigame) is
+     already locked, see Reference section below for full detail. Build
+     the Fishing skill and its masteries alongside the core mechanic in
+     the same pass, not as a separate later step.
+  4. MAP AND COMPASS SYSTEM — next after Fishing. Stefan notes there are
+     many existing mods worth drawing inspiration from for this (not
+     specified further this session — worth researching reference mods
+     when this is actually started). This unlocks the Navigation skill's
+     real design (currently blocked on Compass/Map existing) and ties
+     into the already-noted Compass HUD concept (structure tags + quest
+     markers, CompassFeature UUID+tag+pos model) and general quest
+     waypoint/marker needs.
+  5. STORAGE NETWORK (Tom's-Storage-style tier) + STORAGE BARRELS — next
+     after Map/Compass. Reasoning for this placement: Stefan already has
+     a concrete real-world reference (Tom's Storage, which he's used
+     personally) to build the chest-based network tier against, and
+     having the basic Map/Compass API done first should make continuing
+     into this smoother (presumably shared groundwork/patterns, though
+     not explicitly detailed this session). Covers tier 1 (chest-based
+     network, Sophisticated-Storage-style upgradeable chests) and tier 2
+     (Storage Barrels, bulk single-item storage) from the Storage Network
+     reference section below. Tier 3 (the full AE2/RS-inspired digital
+     network with autocrafting) remains deferred separately until the
+     industrial/energy base grows — see that section for full detail.
+
+Everything else in this document is REFERENCE material for later — good
+context for Code to have on hand, not part of the immediate build queue
+above.
+
+IMPORTANT NUMBER CLARIFICATION: after change 0a above, there are THREE
+separate level-cap numbers in Totality that should not be confused with
+each other: SKILL level cap = 100 (just lowered from 150 this session),
+CHARACTER level cap = 150 (unchanged, unrelated to the skill cap change),
+CLASS level cap = 30 shared pool across however many classes (unchanged).
+Any max-character-level-from-maxing-skills math referenced elsewhere in
+this doc that used a 150 skill cap is now STALE and would need
+recalculating against the new 100 skill cap if that number is needed
+again (see the Quest XP Economy section for the most recent version of
+this calculation, done at the 100 skill cap).
+
+========================================================
+PRIORITY 1 — REST SYSTEM (build first)
+========================================================
+This was already designed in an earlier session and is considered fully
+locked, with two corrections made THIS session (marked below).
+
+Trigger — two supported entry points:
+1. Ability-based: equip "Rest" from the abilities menu, can activate anywhere
+   (BG3 camping style).
+2. Bed-based: right-click a bed -> popup (Short Rest / Long Rest / Cancel).
+   Long Rest hooks vanilla sleep via mixin.
+
+REST RESOLUTION IN MULTIPLAYER (resolved this session — important for
+avoiding time-skip conflicts when not everyone wants to rest at once):
+  - LONG REST: uses vanilla SLEEP mechanics as the default path. If not
+    every player wants to sleep at the same time, a player can instead
+    just occupy/use the bed for the REQUIRED DURATION (e.g. 4 hours for
+    an Elf-equivalent Ancestry, matching the real 5e Trance rule below)
+    WITHOUT actually skipping game time — this means Long Rest does NOT
+    have to force a server-wide night-skip just because one player wants
+    to rest; only a genuine vanilla sleep vote/majority should trigger the
+    actual time-skip, otherwise resting just passes that player's own
+    required duration in real time while the world keeps ticking normally
+    for everyone else.
+  - COMFORT BONUS (new, Skyrim-inspired): sleeping in a bed, or some
+    other sufficiently "comfortable" resting spot, should grant a small
+    POSITIVE effect (mirrors Skyrim's Well Rested/Lover's Comfort-style
+    bonuses) — exact bonus not yet decided, just the concept confirmed:
+    resting somewhere genuinely comfortable should feel meaningfully
+    better than resting on the ground.
+  - SHORT REST: the player always just WAITS OUT the full required
+    duration in real time (no time-skip option at all) — this avoids
+    messing with world time in multiplayer, since Short Rest is short
+    enough that skipping it isn't necessary the way Long Rest's 8 hours
+    would be. FUTURE POLISH (not yet built): proper animations for
+    whatever activity is chosen during a Short Rest (reading, meditating,
+    etc.) rather than just standing/waiting — flagged as a nice-to-have
+    visual pass for later, not a blocker on the mechanic itself.
+  - ANCESTRY/RACE-SPECIFIC REST OUTLIERS (confirmed real 5e reference
+    rules found this session, to use as Totality's baseline where
+    relevant Ancestries exist):
+      - ELF-STYLE TRANCE (real 5e rule): Elves meditate semiconsciously
+        for 4 hours instead of sleeping 8, and this counts as a FULL Long
+        Rest. Important: they are SEMICONSCIOUS, not unconscious, the
+        whole time — aware of their surroundings — and they DO still
+        technically "dream" during Trance (described as reflexive mental
+        exercises rather than true dreaming). Applying this to Totality:
+        an Elf-equivalent Ancestry should get the shorter 4-hour Long Rest
+        duration, could plausibly still trigger the NIGHTMARE rest-event
+        (since something dream-like still happens), and being semi-
+        conscious rather than unconscious could reasonably grant a
+        Perception/detection bonus during the rest window (better odds
+        against Ambush/Theft) compared to a fully-unconscious sleeper.
+      - CONSTRUCT-STYLE REST (real 5e rule, Warforged/Autognome
+        reference, "Sentry's Rest"): constructs don't need sleep and are
+        immune to exhaustion from lack of rest, and magic can't put them
+        to sleep — BUT they are NOT exempt from spending the Long Rest
+        DURATION. The actual rule requires spending at least 6 hours in
+        an INACTIVE, MOTIONLESS state instead of sleeping (a "power
+        down"/standby state, not unconsciousness, not skipped entirely).
+        Applying this to Totality's Automaton-style Ancestry (if/when
+        built): should still go through the full Rest duration like
+        anyone else, framed narratively as powering down rather than
+        sleeping, and — matching Stefan's own instinct — NO DREAMS means
+        the NIGHTMARE rest-event genuinely CANNOT apply to them, while
+        Ambush/Theft/Perception Check/Visitor still could (they're still
+        present/vulnerable during standby, just not unconscious).
+  - OTHER OUTLIERS (Vampire needing a coffin, Werewolves potentially
+    transforming and going to hunt during sleep, etc.) EXPLICITLY
+    DEFERRED — Stefan wants to design these once those specific
+    Ancestry/curse systems are actually being built, rather than
+    speculating on their rest behavior now. Noted as a reminder that Rest
+    will likely need per-Ancestry/per-curse override hooks eventually
+    (matching the Elf/Construct pattern above), even though the specific
+    content for Vampire/Werewolf is not decided yet.
+
+Architecture:
+  api/rpg/rest/
+      RestType.java     — enum SHORT, LONG
+      RestManager.java  — handles rest logic, fires events
+      RestEvents.java   — onShortRest(player) / onLongRest(player) hooks
+  Classes/subclasses hook into these events for their own recovery (Rage,
+  Ki, Arcane Recovery, etc.) rather than RestManager special-casing per class.
+
+Recovery table (D&D 2024 rules baseline):
+  HP               | Short: spend Hit Dice (roll class die + CON mod)   | Long: full
+  Stamina          | Short: nothing                                     | Long: full
+  Mana — Warlock   | Short: full (Pact Magic)                           | Long: full
+  Mana — Monk      | Short: full Ki, requires 30 min in-world meditation| Long: full
+  Mana — Wizard    | Short: partial — Arcane Recovery, once per Long
+                     Rest period, recovers slots up to half class level | Long: full
+  Mana — Barbarian | Short: nothing                                     | Long: full
+  Rage charges     | Short: +1 charge                                   | Long: all charges
+  Hit Dice pool    | Short: nothing                                     | Long: ALL restored
+                     (2024 rule — NOT half, that was the old 2014 rule)
+  Spell slots      | Short: Warlock only                                | Long: all casters
+  Class abilities  | Short: some, per-class                             | Long: all
+  Magic item charges| Short: some items                                 | Long: all
+
+CORRECTIONS MADE THIS SESSION (override any older numbers Code may have):
+  - Short Rest real-world duration: previously noted as 3–5 real minutes.
+    THIS IS TOO LONG. Needs to be shorter — reduce it (exact new value TBD
+    by Stefan, but treat 3–5 min as wrong/deprecated).
+  - Rage duration: previously noted as 3 minutes (3600 ticks) scaling with
+    class level. THIS HAS ALREADY BEEN CHANGED — Rage is now 1 minute
+    (1200 ticks), matching vanilla-style short-burst pacing. Use 1 minute,
+    not 3.
+  - Rage charge pips are ALREADY IMPLEMENTED in the HUD (small filled/empty
+    pip row). When Ki (Monk) and future charge-based resources (Sorcery
+    Points, Bardic Inspiration, etc.) are added, reuse this same pip widget
+    pattern rather than building bespoke UI per resource.
+
+Outdoor Long Rest risk (build alongside or shortly after core Rest):
+  - Resting outdoors carries risk; resting in a proper bed does not (or
+    risk is much lower). Makes wilderness resting feel dangerous vs. safe
+    indoor resting. CORRECTION/EXPANSION: this is not just "ambush" — the
+    full planned event pool has FIVE distinct outcomes, only one of which
+    (Ambush) has real mechanical detail worked out so far this session:
+      1. AMBUSH — enemies attack while resting. Fully designed this
+         session: location-keyed AND narrative-flag-keyed encounter
+         tables (cemetery -> undead/grave-robbers, killed-a-noble flag ->
+         assassins/thugs), routed through Dialogue for human/sapient
+         ambushers (demand -> comply/Persuasion-roll/fight/Stealth-
+         escape choices) while non-sapient ambushers (undead) skip
+         dialogue and attack immediately.
+      2. THEFT — items stolen during the Long Rest. No mechanical detail
+         yet: does the player get any chance to notice/prevent it (a
+         Perception check, similar to #4 below), or is it a silent loss
+         discovered only on waking? Not decided.
+      3. NIGHTMARE — a negative effect applied to the player. Not decided
+         what kind of effect (a debuff, a narrative/sanity-style
+         consequence, a plot hook) or what determines whether it
+         triggers.
+      4. PERCEPTION CHECK — player detects something nearby (implies this
+         is a "near-miss" or warning-only outcome, distinct from a full
+         Ambush actually landing) — not decided what happens on success/
+         failure of the check itself, or what the "something" typically
+         is.
+      5. VISITOR — a friendly or neutral encounter, NOT everything that
+         can happen during rest is bad. Not decided what a Visitor
+         actually offers (dialogue, a small quest hook, a trade
+         opportunity, lore) or how it's differentiated from a normal
+         daytime NPC encounter.
+  - REST-TYPE SPLIT (new decision): outdoor rest-risk events do NOT apply
+    identically to Short Rest and Long Rest — during a Long Rest (~8
+    hours) the player is genuinely asleep/unconscious for the duration;
+    during a Short Rest (~30 min) the player is often doing something
+    active (Arcane Recovery study, Ki meditation, etc.) rather than fully
+    unconscious, so alertness differs meaningfully between the two:
+      - NIGHTMARE is LONG-REST-EXCLUSIVE — it requires actual dreaming/
+        sleep, which doesn't apply to an active Short Rest.
+      - AMBUSH, THEFT, PERCEPTION CHECK, and VISITOR can all apply to
+        BOTH rest types, but the player's effective detection odds should
+        be noticeably BETTER during a Short Rest than a Long Rest (less
+        vulnerable when semi-aware/active vs. fully asleep) — exact
+        mechanism (flat bonus to a roll, harder DC for the
+        ambusher/thief to succeed against an alert target, etc.) not yet
+        decided, but the DIRECTION (Short Rest = safer) is confirmed.
+  - PASSIVE PERCEPTION (new mechanic, needed for rest-risk events and
+    likely useful more broadly): rather than every detection check being
+    an active roll, characters should have a PASSIVE PERCEPTION score —
+    a static number derived from build (e.g. a Cleric with good Wisdom
+    might sit around Passive Perception ~30 at medium levels) that acts
+    as an automatic threshold: if an ambusher/thief's stealth/DC doesn't
+    beat the player's Passive Perception, the player just automatically
+    notices them (no active roll needed, similar to 5e's actual Passive
+    Perception mechanic — 10 + relevant modifiers, used specifically so
+    the DM/game doesn't need to call for a roll on every single passing
+    threat). This should be the FIRST check run for rest-risk events
+    (and possibly more broadly for stealth/ambush detection generally)
+    before falling back to an active roll-based check in closer/more
+    contested situations.
+    - FUTURE EXPANSION (not yet designed, explicitly forward-looking):
+      Passive Perception could be further modified by things beyond base
+      stats — e.g. bonuses granted by a Warlock's specific Patron, a
+      worshipped Deity, or specific completed quests. Not yet built or
+      itemized, just flagged as a natural place for those systems to hook
+      in later once Patrons/Deities/relevant quests exist in more detail.
+  - LONG REST detection flow (refined): Passive Perception check runs
+    first (automatic, no roll). If it fails, the player can still get a
+    MID-REST ACTIVE PERCEPTION ROLL, but WITH DISADVANTAGE (reflecting
+    being asleep and only partially rousable) as a second chance to
+    notice before the event fully resolves.
+  - SHORT REST SPLIT INTO TWO SUB-MODES (new): a Short Rest is no longer
+    one uniform state — the player either:
+      1. NORMAL SHORT REST (meditating, reading, sharpening a blade,
+         Arcane Recovery study, etc.) — player is ACTIVE/AWAKE. Mid-rest
+         theft/ambush detection uses a normal Perception check (no
+         advantage or disadvantage).
+      2. TAKING A NAP during the Short Rest — player is asleep for a
+         shorter window than Long Rest. Mid-rest detection uses a
+         Perception check WITH ADVANTAGE (more aware than a full Long
+         Rest sleeper, since the nap is much shorter, but still asleep so
+         not as alert as the Normal Short Rest mode above).
+    (Ordering of alertness, most to least aware: Normal Short Rest >
+    Napping Short Rest > Long Rest.)
+  - FUTURE SHORT REST ACTIVITY IDEA (forward-looking, not yet built): the
+    player could have IN-WORLD THINGS TO DO during a Normal Short Rest
+    beyond just waiting out the timer — reading a found book is just ONE
+    example (granting a quest, an ability, XP, or other reward), NOT the
+    only planned activity type — other situational activities may be
+    added later depending on context/location (exact other examples not
+    yet decided). Some larger activities (e.g. a big book) could require
+    MULTIPLE Short Rests to complete (one chapter per rest, spread across
+    several rests). Not designed in detail, just flagged as a good future
+    use of the "what do you actually do during a Normal Short Rest"
+    question.
+
+--- THEFT (Long/Short Rest event) — full mechanic design ---
+- Detection layer: uses the Passive Perception + advantage/disadvantage
+  rules above, varying by which rest sub-mode the player is in.
+- CRITICAL FAILURE TIER: if the player's active perception roll (the
+  fallback roll after failing Passive Perception) comes up a NATURAL 1,
+  this means the player was sleeping unusually soundly and did NOT notice
+  ANYTHING — this is worse than a normal failed check, and should let the
+  thief take MORE/better items than a standard failed detection would
+  allow (a distinct, harsher failure tier, not just "you failed, roll the
+  normal loss").
+- ITEM SELECTION PRIORITY ORDER: the thief targets items in a defined
+  priority, not randomly:
+    1. Money first — Credits/Coins are the thief's default target before
+       anything else.
+    2. Beyond money, WHAT ELSE the thief can take is constrained by the
+       thief's own carrying capacity — see Weight-based limit below.
+- WEIGHT-BASED THEFT LIMIT (ties into the still-unbuilt WEIGHT SYSTEM,
+  another consumer alongside Mage Hand's carry capacity and Powerful
+  Build-style race traits — see earlier dependency notes): the Thief
+  should be an ACTUAL MOB ENTITY (not an abstract "you got robbed" text
+  event), and their own END/Endurance stat (or whichever stat ends up
+  governing carry weight) determines how much they can physically steal
+  in one theft. This means a heavily-loaded target (e.g. a Barbarian
+  carrying a lot of gear) can't have EVERYTHING stolen even on a bad
+  detection roll — the thief is capped by their own carry capacity, not
+  the victim's total inventory value. Blocked on Weight system existing
+  before this can be fully implemented.
+- QUEST ITEM THEFT (rare, special case): a SMALL chance (~5%) that the
+  thief steals an actual QUEST ITEM, but this should be gated by a new
+  STEALABLE TAG on quest items — not every quest item makes sense to be
+  stolen (a "pile of shit"-tier junk quest item has no reason for a thief
+  to bother with it), so quest items need an explicit stealable/not-
+  stealable flag set per-item by whoever authors the quest, rather than
+  ALL quest items being eligible by default.
+    - If a quest item IS stolen: the player NEEDS to complete a small
+      RECOVERY QUEST to get it back (new quest content, presumably
+      generated/templated rather than hand-written per instance given
+      how rare/random this event is).
+    - Player can also attempt an INVESTIGATION CHECK to find clues
+      leading to the thief/their location, as an alternative or
+      supplement to however the recovery quest surfaces the thief.
+- FUTURE COMPANION INTERACTION (forward-looking, depends on the not-yet-
+  built Companion system): if a Companion is present during a rest, they
+  should get their OWN detection roll independently of the player (a
+  companion might wake and notice/wake the player even if the player's
+  own check fails). Companions can ALSO have items stolen from them
+  directly, separate from the player's own losses. Some stolen companion
+  items could be PERSONALLY IMPORTANT to that companion specifically (not
+  just generic loot) — recovering such an item for them should INCREASE
+  Relationship level with that companion, giving Theft a second use as a
+  Relationship-building hook, not just a punishment mechanic.
+--- PERCEPTION CHECK (Long/Short Rest event) — design ---
+- Not just a Perception roll specifically — this event fires from a
+  RANDOM TABLE of different skill CHECK TYPES, each surfacing different
+  flavor/rewards appropriate to that skill:
+    - INVESTIGATION check — could reveal something usable for a later
+      quest, or an actual physical item found nearby.
+    - RELIGION check — reveals lore/flavor about the location, e.g. "an
+      undead presence was here."
+    - HISTORY check — reveals lore/flavor about past events at the
+      location, e.g. "a conflict happened here."
+    - (Other skill-based variants implied but not enumerated — the
+      pattern is general: roll which check type fires, then reveal
+      something thematically appropriate to that skill.)
+- This makes Perception Check less about pure atmosphere and more about
+  environmental storytelling/light rewards tied to whichever skill the
+  random table lands on — reuses the general "different skills surface
+  different flavor" instinct already established elsewhere (Detect Magic
+  vs. Detect Good and Evil, dialogue class-alternate-stat checks).
+- Not yet decided: full list of which skills can appear on this table,
+  exact odds, and the full reward range per skill (only Investigation/
+  Religion/History examples given so far).
+
+--- VISITOR (Long/Short Rest event) — design ---
+- Should depend on TIME AND PLACE CONTEXT, not be a flat random NPC pull
+  — e.g. resting at night on the outskirts of a shady city should surface
+  a shady/black-market-type merchant, rather than the same generic
+  visitor pool regardless of where/when you rest. This mirrors the
+  location-keyed logic already used for Ambush tables.
+- NPC ELIGIBILITY: rather than a separate dedicated "traveler" NPC pool,
+  ANY existing NPC can be tagged CAN_BE_VISITOR (true/false) to mark them
+  as eligible to show up via this event — reuses existing NPCs (traders,
+  etc.) instead of authoring a whole new cast just for this system.
+- Some Visitors can be QUEST-SPECIFIC, CLASS-SPECIFIC, or ANCESTRY-
+  SPECIFIC — i.e. a given visitor might only be eligible to appear for a
+  player who has a certain quest flag active, is playing a certain class,
+  or is a certain Ancestry/Origin — gated the same way other conditional
+  content in Totality already is (DialogueChoiceCondition-style gating).
+- SAME TAGGING APPROACH SHOULD APPLY TO AMBUSH TOO (retroactive note): the
+  can_be_visitor-style eligibility tag, plus quest/class/ancestry-specific
+  gating, should also apply to potential AMBUSHERS, not just Visitors —
+  i.e. certain ambushers could be restricted to appear only against
+  players with a specific quest flag, class, or ancestry, the same way
+  Visitors can be. This generalizes the existing location/narrative-flag-
+  keyed Ambush table with an additional class/ancestry/quest-eligibility
+  layer.
+
+========================================================
+PRIORITY 2 — SPELL SLOT CONSUMPTION
+========================================================
+Currently spells can be cast infinitely (no slot deduction wired up yet).
+This is the next concrete build step after Rest, since:
+  - Multiclass spell slot math is meaningless until slots exist to share.
+  - Upcasting (below) requires real per-level slot pools.
+  - Rest recovery table above only matters once there's something to
+    recover.
+
+Confirmed: SpellSlotComponent already tracks slots PER LEVEL separately
+(not a single flat pool) — confirmed by Crown of Stars already existing
+as a 7th-level spell. Just needs actual consumption/restoration wired to
+the player.
+
+Upcasting rules (once slots exist):
+  - Default: casting a spell at a higher slot level than its minimum just
+    resolves it normally, no bonus — this is correct for spells with no
+    written scaling (e.g. Detect Magic, Charm Person).
+  - Only spells that explicitly define scaling get a bonus. Confirmed
+    examples: Magic Missile (+1 dart per slot level above 1st), Burning
+    Hands / Scorching Ray (extra damage dice per slot level above min).
+  - Cantrips are excluded from upcasting entirely (no slot-tier UI for them).
+  - Needs an overridable hook per Spell, e.g. getUpcastEffect(slotLevelUsed),
+    defaulting to no-op.
+  - Slot-tier selection when casting should be a deliberate player choice
+    on the cast UI (a slot-tier selector), NOT an automatic "auto-upcast if
+    out of matching-level slots" — a player might want to preserve a higher
+    slot rather than spend it.
+
+Multiclass slot math:
+  - Class levels are ONE SHARED POOL, capped at 30 total across however
+    many classes a player invests in (e.g. 30/0/0, or 10/10/10) — this maps
+    up through the existing 5:1 conversion to the 150 overall character
+    level cap. (Correction from earlier confusion this session: it is NOT
+    30 levels independently per class.)
+  - For the first 20 levels of class-level investment: follow real D&D 5e
+    fractional multiclass slot tables (full casters count full level,
+    half-casters count half rounded down, third-casters count a third,
+    combined number looked up on the standard multiclass slot table).
+  - Levels 21–30 (beyond tabletop's cap): homebrewed by Stefan later, not
+    yet defined.
+  - Subclass unlock levels should follow the REAL per-class 5e table, not
+    a universal number:
+      Level 1: Cleric, Sorcerer, Warlock (Otherworldly Patron)
+      Level 2: Wizard, Druid
+      Level 3: Fighter, Barbarian, Bard, Monk, Paladin, Ranger, Rogue
+                Warlock ALSO gets Pact Boon (Chain/Blade/Tome) at level 3
+                — this is a SEPARATE choice from Patron (level 1), not the
+                same "subclass" moment. Keep as two distinct entries in
+                the per-class feature table.
+  - Each class level should grant its own discrete feature list (like a
+    real 5e class table), generalizing the existing ClassLevelUpRegistry
+    pattern used for Wizard's subclass trigger to cover every feature at
+    every level, not just subclass picks.
+
+Metamagic (build once base casting/slots work):
+  - No action/bonus-action economy in Totality (dropped — hard to balance
+    for Minecraft). Metamagic effects that would normally cost a bonus
+    action are reinterpreted through the existing cooldown system instead.
+  - Quickened Spell = lower cooldown after cast, OR shorter cast/channel
+    time before the effect fires — decide per spell which lever applies
+    (instant-effect spells like Firebolt only meaningfully support cooldown
+    reduction; channeled spells could support either).
+  - Buildable now, no dependency: Twinned (retarget to 2nd target),
+    Quickened (see above), Extended (double duration), Distant (double
+    range), Empowered (reroll damage dice), Heightened (target has
+    disadvantage on the save), Careful (allies auto-succeed the save).
+  - Blocked on future systems: Subtle Spell (needs Stealth/detection AI to
+    mean anything — casting without components is meaningless if nothing
+    currently notices spellcasting). Can sit in the registry unimplemented
+    until Stealth exists.
+  - Needs a CastModifier-style hook between "player initiates cast" and
+    "spell resolves" so a Metamagic modifier can rewrite targeting/cost/
+    cast-time before the Spell's normal resolution runs. This is a
+    retrofit into the existing casting pipeline for all ~13+ implemented
+    spells, not just new content.
+
+Detect Magic / School of Magic tagging:
+  - Every enchanted item, magical block, and some potions need a School of
+    Magic tag (Evocation, Necromancy, Abjuration, Illusion, etc. — schools
+    already exist for Spells, need extending to items/blocks).
+  - Alchemy potions with multiple effects can carry multiple School tags
+    automatically, inherited from whichever effects/ingredients went into
+    them — NOT a manual tagging pass.
+  - Mob magic detection is split into TWO separate senses, do not conflate:
+      - Detect Magic: picks up magical ITEMS/EQUIPMENT a mob is carrying
+        (e.g. a Zombie holding a magic sword) — just checks if an
+        equipped/held item has a magic/School tag. Not mob-intrinsic.
+      - Detect Good and Evil: picks up INHERENTLY magical/otherworldly
+        creatures via a CreatureType tag (Fey, Celestial, Fiend, Undead,
+        Elemental — the classic 5e list). A Unicorn (Fey) is detected by
+        THIS spell, not Detect Magic. Keep these as two independent tags/
+        systems, no overlap.
+  - Ritual Circle aura (ties into Detect Magic):
+      - TWO kinds of circle, structurally different:
+          1. Functional circles (built for an ongoing purpose, e.g. a
+             permanent Teleport hub) — aura = fixed School tag matching
+             the circle's FUNCTION, never fades, not tied to "last spell
+             used."
+          2. General-purpose ritual circles — aura = School of the LAST
+             spell cast there, with a persistence/decay value that scales
+             by that spell's power/nature (not a universal timer): a
+             mundane spell's trace fades over in-game days/weeks; a
+             powerful spell lingers much longer; a reality-bending
+             (Wish-tier) spell's trace does not decay at all short of
+             actively casting Dispel Magic on it to scrub it early.
+      - This is intended as a quest/environmental-storytelling tool (e.g.
+        a quest clue: "find the circle that still shows a Necromancy
+        trace after all these years").
+
+--- FISHING ---
+- Confirmed simple — build EXACTLY like Hypixel Skyblock's fishing system
+  (rod tiers, sea-creature drop tables, treasure/junk/fish categorization,
+  XP-per-catch scaling with rod/bait). No open design questions.
+- Technical injection point already scoped: FishingHookMixin, inject at
+  INVOKE_ASSIGN after LootTable.getRandomItems() in FishingHook.retrieve()
+  (pattern borrowed from the "Fishing Real" mod).
+- Wants a Stardew Valley-style fishing MINIGAME layered on top of the
+  Skyblock-style loot/rod/tier system above. CONFIRMED role: the minigame
+  gates CATCH SUCCESS specifically — fail the minigame, you don't catch
+  the fish at all (the loot roll already happened/is pending, but the
+  minigame is the actual catch mechanic, not just a bonus modifier on top
+  of an already-guaranteed catch).
+  - Fishing MASTERY skills (part of the Fishing skill tree) should make
+    the minigame easier/more forgiving — e.g. a bigger catch bar, slower
+    fish movement, more tolerance for mistakes — as mastery-tier passives,
+    same pattern as other Totality mastery trees (compare Alchemy's
+    Knowledge Seeker/Purity capstones) rather than a separate standalone
+    system.
+  - Still open, not decided: exact minigame mechanics/controls (Stardew's
+    bar-and-fish-icon-tracking is the reference point, but Totality's
+    concrete implementation isn't designed yet), and whether rod/bait
+    tier ALSO affects minigame difficulty (in addition to mastery), or
+    rod/bait stays purely a loot-table-quality lever while mastery alone
+    handles minigame difficulty.
+- Fishing is INDEPENDENT of other systems and can be built in parallel /
+  out of sequence with everything else in this doc. Plan: add a Fisher
+  NPC (own dialogue, own trades, possibly own quest — same NPC-with-
+  dialogue-and-trade pattern already established for the Alchemist) as
+  the natural second "real Trader" after the Alchemist. Uses the Trader
+  Tier and NPC Skill Level systems below like any other trading NPC.
+
+--- TRADER TIERS + NPC SKILL LEVELS (new system, needs building) ---
+- Trader Tiers: not all trading NPCs/villagers offer the same quality of
+  deals. Villagers (and other generic traders) should come in tiers, with
+  higher tiers offering better prices/stock/rarer items — similar in
+  spirit to vanilla villager trade quality but applied more broadly across
+  Totality's NPC traders, not just villagers.
+- Tier should be visually indicated by COLORING THE NPC'S PROFESSION NAME
+  a specific color per tier (e.g. a name-tag or health-bar profession
+  label rendered in a tier-appropriate color) — reuses the existing rarity-
+  color convention already used elsewhere in Totality (tooltips, item
+  rarity borders) rather than inventing a new color language.
+- Named/unique NPCs (the Banker being the first example) should display
+  their PROFESSION as a label — either in the name tag above their head or
+  in the MobHealthBarHud (which already exists and already shows rank/
+  rarity for other mobs) — so players can identify "this is a Banker" at
+  a glance the same way they'd identify a mob's rank. This likely reuses
+  the same HUD label-rendering plumbing already built for MobHealthBarHud
+  rather than needing a separate NPC-specific display system.
+- NPC Skill Levels: individual NPCs (not just tiers) should have their own
+  skill level in relevant trades/services, Skyrim-style — e.g. a given
+  blacksmith or enchanter NPC may or may not be able to Identify, Repair,
+  or Enchant certain items depending on their own skill level, rather than
+  every NPC of a given profession being able to do everything. This means
+  NPCs need a skill-level attribute (or a small set of them, per relevant
+  service) that gates which services/actions they can actually perform in
+  dialogue, separate from and in addition to their overall Trader Tier.
+- Open questions not yet resolved: does Trader Tier determine NPC Skill
+  Level automatically (i.e. tier is a shorthand/aggregate of skill), or
+  are they two fully independent axes (a high-tier trader could still lack
+  skill in a specific service, or vice versa)? Not decided this session —
+  worth deciding before building, since it changes whether NPCs need one
+  stat or several.
+- NPC LEVEL/STATS should be able to DRIVE both Trader Tier and Skill
+  Level, not just be hand-authored per NPC. Examples given: a level 100
+  Enchanter with 400 INT should be a noticeably better enchanter than a
+  low-level one; a level 100 Fighter-profession NPC (e.g. a blacksmith or
+  weaponsmith) should stock/produce noticeably better-quality items than
+  a level 10 one of the same profession. This means NPCs need to run
+  through the SAME underlying stat system players do (level, ability
+  scores, class where relevant) rather than trade quality being a purely
+  hand-set flat value — tier/skill should at least partly be DERIVED from
+  an NPC's own level+stats, with hand-authored overrides where a specific
+  named NPC (the Banker, a unique quest NPC) needs to be pinned to a
+  specific tier regardless of what its stats would otherwise imply.
+
+========================================================
+REFERENCE — SYSTEMS DESIGNED THIS SESSION (build later, not yet prioritized)
+========================================================
+
+--- ANCESTRY / ORIGIN ---
+- Grants happen at ORIGIN level, not Species level. Species is purely
+  cosmetic/categorical (UI grouping only, e.g. "Human" as a category with
+  D&D Human and Nord as selectable Origins underneath). PlayerAncestryComponent
+  only ever needs to look at Origin to decide what to grant.
+- Origin grant types needed: stat modifiers (e.g. D&D Human +1 all scores),
+  single bundled Physiology-style passive, OR a list of separate
+  individually-named abilities, resistances, proficiencies.
+- Physiology bundling rule: use ONE bundled passive (like existing
+  PhysiologyPassive for Kryptonian/Viltrumite) only when the ancestry's
+  identity is ALREADY culturally recognizable as a package deal (pop-
+  culture ancestries — Kryptonian, Viltrumite, future Gallifreyan/Saiyan
+  etc.). For ancestries with no single evocative recognizable name (most
+  classic D&D races), grant several SEPARATE individually-tooltipped
+  abilities instead, so each is discoverable/readable on its own rather
+  than hidden inside one opaque passive name.
+- D&D-ruleset Origins will be implemented EXACTLY per the rules (Stefan
+  will do this batch with Code later, all races at once, using the schema
+  established from a first race like Human). Non-D&D Origins (Nord, etc.)
+  still need individual creative design — not done yet.
+- Darkvision vs. Devil's Sight are TWO SEPARATE capability flags, not one
+  tiered system (confirmed via web search — this matches real 5e):
+    - Darkvision: nonmagical darkness only.
+    - Magical-darkness-sight (Devil's Sight equivalent): sees through
+      magical darkness too, independent of Darkvision, grantable either
+      by species Physiology or independently via a Warlock invocation.
+- Ancestry choice happens at the very start of a new game, before First
+  Signal quest fires (First Signal starts right after ancestry is chosen).
+- Ancestry is "permanent" — and the GUI text intentionally says so, with
+  NO hint that it could ever change. This is deliberate: it's meant to
+  make the player deliberate seriously on the choice, and to make the
+  later reveal (that it CAN be changed) land as a genuine surprise rather
+  than a known mechanic players coast toward. Do not soften this copy.
+- Actual reassignment (later system, not built yet) via: powerful spells
+  (Wish, True Polymorph), items (Dragon Balls), possibly quests. A full
+  species swap should be a COMPLETE reset+regrant (drop old Origin's
+  grants, apply new Origin's grants) rather than trying to merge/preserve
+  overlapping abilities (e.g. Kryptonian and Viltrumite both grant flight/
+  speed/leap via differently-NAMED physiology passives pointing at the
+  same underlying MovementMode enum values — a full swap is clean because
+  the mechanical layer (MovementMode) is shared even though the grant
+  layer (which passive) is not).
+- Some Origins are intentionally unlocked-for-testing right now (Viltrumite,
+  Kryptonian, Gallifreyan) but are meant to be quest-locked later (mostly
+  via Dimensional Quests). REMEMBER to re-enable the unlock filter before
+  calling ancestry "done" — currently locked-but-visible (greyed out)
+  species should instead be fully INVISIBLE when locked, not just
+  disabled/greyed. SourceTag = which universe/franchise an Origin is from
+  (DC, Doctor Who, D&D 5e, etc.) — already has an unlock/lock state system.
+
+--- CLASSES ---
+- Class levels ADD UP every level (unlike Origins, which are one-and-done).
+  Needs a per-class-level feature table (see Priority 2 section above for
+  the subclass-timing specifics).
+- Class point-buy formula from an older session (1 class point per 5
+  character levels, 20 points max at level 100, formula
+  min(20, ceil(charLevel*20/90))) IS NOW SUPERSEDED — current numbers are
+  150 character level cap / 30 shared class-level pool / 5:1 conversion.
+  Confirmed correct as of this session; may still be tuned further after
+  playtesting.
+- Starter classes (from earlier session): Wizard (priority), Monk, Fighter,
+  each with 3 subclasses. Wizard build already includes ArcaneFocusItem,
+  SpellComponent enum (VERBAL/SOMATIC/MATERIAL), SpellMaterial enum,
+  Component Pouch, LearnedSpellsComponent. Spells are innate to the
+  player, not stored in items.
+- Plan: finish basic class/race/spell-slot systems first, playtest for a
+  while in an actual world to find gaps, THEN return to design classes/
+  races further.
+
+--- ALCHEMIST NPC + "FIRST BREW" QUEST ---
+- Alchemist is a full dialogue NPC (not just a vendor): can Identify
+  ingredient effects via dialogue interaction, may give quests, spawns
+  with an Apothecary Table.
+- First quest ("First Brew" or similar, name TBD): craft a Health Potion
+  using True Wheat + Blue Mountain Flower (both already gatherable in the
+  world — True Wheat via breaking grass, Blue Mountain Flower already
+  spawning). Purpose is ONBOARDING to alchemy, not gating anything.
+- Objective structure needs a NEW UNORDERED/PARALLEL objective mode —
+  currently objectives are strictly sequential. Need a generalized
+  "objective group" concept: objectives can be tagged into a group with
+  mode=parallel (all active/trackable simultaneously, satisfied in any
+  order) vs mode=sequential (current behavior). Quest tracker UI/HUD needs
+  to show all currently-active objectives in a parallel group at once
+  (checkbox style), not reveal them one at a time. Build this generically
+  — reusable for any future "gather X and Y in any order" quest.
+- Trading (buy AND sell) with the Alchemist is NOT gated by this quest at
+  all — the shop is live from first interaction regardless of quest
+  status. The quest exists purely to teach Identify -> gather ->
+  Apothecary Table -> craft.
+- Turn-in: normal manual "Finish Quest" via Quests app is fine (nothing
+  time-critical, unlike Mobile Banking's immediate-unlock exception).
+- Identify system and its tooltip already exist and work — this quest
+  is built on top of existing tech, not new teaching infrastructure.
+- SELL tab's first real item list = whatever the Alchemist deals in
+  (ingredients, potions, etc. — exact list not finalized, but tied
+  thematically to Alchemy rather than a generic merchant list).
+
+--- RACE/ORIGIN FEATURES THAT WILL BE HARD (flagged, not all resolved) ---
+- Legendary Resistance / Halfling's Lucky reroll-on-Nat-1: RESOLVED, see
+  the dice-reroll hook entry in the tricky-spells section below (build as
+  a generic reusable reroll-prompt hook).
+- Tabaxi Cat's Claws: RESOLVED, see tricky-spells section below (unarmed-
+  only gate).
+- Telepathy (some Fey/Gith-style race traits): needs actual private
+  cross-player message delivery bypassing normal chat/proximity — simple
+  to build (a private message channel) but conceptually different from
+  every other "physical" racial ability. Not yet built, not yet urgent.
+- Racial/class features written in 5e as costing a "bonus action" (e.g.
+  certain races' innate extra unarmed strike): since Totality has DROPPED
+  the action/bonus-action economy entirely in favor of cooldowns (see
+  Metamagic note below for why), ANY 5e feature referencing bonus actions
+  — not just Warlock Metamagic — needs the same conversion treatment:
+  reinterpret as a cooldown reduction or an independent cooldown-gated
+  action, decided per-feature. Worth writing this conversion rule down
+  once as a general principle so it's applied consistently rather than
+  re-decided ad hoc every time a bonus-action feature comes up.
+- Size-category-dependent traits (e.g. Powerful Build / counts-as-larger-
+  for-carrying traits): blocked on the WEIGHT SYSTEM, which is not yet
+  implemented (Weight exists as a stat slot but currently does nothing —
+  same dependency status as Mage Hand's carry capacity above). Do not
+  attempt to build these traits until Weight is functional, to avoid
+  shipping a stub limit that needs revisiting.
+- Polymorph-adjacent minor race traits (Changeling shapeshifting face,
+  Lizardfolk natural armor + worn armor interaction, natural-weapon traits
+  beyond Tabaxi) share the same "how do innate/natural features interact
+  with equipped gear" problem as Wild Shape, just at smaller scale. Not
+  resolved, may fall out of whatever general solution Wild Shape ends up
+  using.
+
+--- METAMAGIC / UPCASTING / DETECT MAGIC ---
+(see Priority 2 section above — these are grouped there since they're
+build-order-adjacent to spell slots)
+
+--- TRICKY D&D SPELLS/FEATURES — IMPLEMENTATION CALLS MADE THIS SESSION ---
+General note: Stefan wants to attempt ALMOST ALL of these properly rather
+than cutting them — do not treat any of the below as "too hard, skip it"
+without an explicit decision saying so.
+
+- Plane Shift: reflavored via reusable, non-consumed "Tuning Fork" items —
+  find a Fork for a given plane (Nether, End, etc.), cast Plane Shift with
+  it to travel there instead of needing an obsidian portal. For the End
+  specifically: Minecraft already tracks whether a world's Ender Dragon
+  has been defeated at least once (persisted dragon-fight state per End
+  dimension — check the decompiled 26.1.2 source for the exact accessor).
+  Use that flag: if already defeated, Plane Shift lands the player on an
+  outer End island; if not yet defeated, land on the main island and let
+  the dragon fight trigger normally.
+- Gate (the spell): mostly an entity-summoning spell in 5e, not a movement
+  spell — deferred, ties into future Dimensional content/boss-summon
+  mechanics rather than being solved now.
+  NOTE: "Gate" (the spell) is DIFFERENT from "Gates" (the world-content
+  term) — see Gates section below, these are separate concepts that
+  happen to share a name.
+- Simulacrum: creates a permanent, weaker, independently-controlled
+  duplicate of a creature. Should SHARE underlying "spawn a mechanically-
+  real controllable duplicate entity" plumbing with the planned future
+  Kage Bunshin no Jutsu ability, rather than building the duplication
+  tech twice.
+- Time Stop: confirmed HARD YES, not to be cut despite being one of the
+  more invasive builds (freeze all other entities/ticks except the
+  caster). One of Stefan's favorite spells, must be attempted.
+- Dominate Person/Monster: adapted for small player-count (solo or up to
+  3-4 friends) — after landing Dominate on a target, present a short menu
+  of context-appropriate actions ("attack that mob," "open this door,"
+  "hand over an item") for the target to execute. Matches the real rule
+  that a dominated creature cannot be commanded to harm itself.
+- Wish: scoped narrowly and deliberately — build as a curated list of
+  effects the player can choose from (not a free-form/open-ended spell),
+  matching how the actual tabletop rule constrains it. Confirmed as one of
+  the (few) ways to later reassign Ancestry.
+- Tabaxi Cat's Claws (racial feature, not a spell, but same "natural
+  weapon vs. held weapon" problem class): resolved simply — the claws
+  only function when the wielder is attacking UNARMED (empty hands), no
+  interaction with WeaponDataResolver needed.
+- Halfling's Lucky feat/trait: build as a dice-roll-pipeline hook — when
+  an entity with the Lucky trait rolls a Nat 1, PAUSE and prompt the
+  player with a reroll-or-not choice (NOT an automatic silent reroll,
+  since a Nat 1 is sometimes the better outcome, e.g. intentionally
+  failing a save). Build this as a generic "prompt reroll on result X"
+  hook reusable by any future reroll-granting trait/feat/Vestige.
+- Other flagged-hard features noted but not yet resolved with a concrete
+  plan (still open, may need their own future design pass): Wall of
+  Force/Stone/Fire/Ice, Forcecage, Move Earth, illusion-fools-the-AI
+  spells (Silent Image, Minor Illusion, Major Image, Mislead, Seeming,
+  Hallucinatory Terrain), Animate Objects/Awaken, Clone, Contingency/
+  Delayed Blast Fireball/Glyph of Warding (stored-trigger spells — could
+  reuse NarrativeFlags-style condition-checking if generalized), Magic
+  Jar/Reincarnate, Scrying/Arcane Eye/Clairvoyance, Wild Shape (see
+  below), Polymorph/True Polymorph/Alter Se
+lf/Shapechange.
+- Wild Shape specifically: flagged as one of the most architecturally
+  invasive class features to implement well, since it TEMPORARILY
+  REPLACES the whole combat-stat pipeline (new HP pool, new attack
+  profile, movement type changes) rather than just adding/modifying —
+  most other abilities only add or modify. No concrete build plan yet,
+  just flagged as needing special care whenever Druid is built.
+- Mage Hand: not a targeted/instant spell or a passive buff — needs its
+  own controllable ghostly entity (closest existing precedent is the
+  non-GeckoLib hand-authored Blockbench entity pattern already used for
+  BlueButterfly). Should be able to carry/pick up items — Stefan wants
+  this tied into the WEIGHT SYSTEM (see dependency note below) so Mage
+  Hand's carry capacity is a real, checkable number rather than an
+  arbitrary stub limit. Open question not yet answered: does it need to
+  carry real ItemStacks, or is flipping levers/pressing buttons/opening
+  doors/retrieving a dropped item enough?
+- Physics-related spells/features (pushing, pulling, levitation-style
+  forces, gravity manipulation) — Stefan noted existing mods like the
+  "Gravity" mod may have reusable groundwork worth referencing/borrowing
+  from rather than building custom physics from scratch. Raised as a
+  general implementation note, not tied to one specific spell.
+
+--- VESTIGES (Critical Role-style evolving legendary items) ---
+- Concept confirmed from Critical Role source material: legendary items
+  that exist in three states — dormant, awakened, exalted — evolving not
+  from raw usage/XP but from narrative/personal-growth milestones (per
+  the source material; DM-judged in tabletop).
+- Totality implementation approach: each Vestige is tied to its OWN quest.
+  The quest's stages ARE the evolution — item is granted DORMANT at some
+  point in the quest (sometimes not at the very start — may require
+  proving yourself first), a mid-quest turning point flips it to AWAKENED,
+  final turn-in delivers EXALTED. No separate "milestone detector" system
+  needed — state is just driven by which quest stage/narrative flag is
+  currently active. This means state tracking reuses the EXISTING quest/
+  NarrativeFlagsComponent system, nothing new to architect there.
+- Bespoke per Vestige, matching real Critical Role approach (not a generic
+  numeric formula) — Stefan intends to follow how each Vestige actually
+  evolved in the Critical Role campaign as the template for that Vestige's
+  specific quest.
+- Items are typically GIVEN/LOANED by an NPC with an in-fiction reason,
+  not found cold in a dungeon (e.g. an in-universe analog of "Fjord loans
+  you Dwueth'var because a returning threat means he needs a new
+  champion").
+- Architecture: VestigeItem interface, implemented alongside the normal
+  item class hierarchy. E.g. FenthrasItem extends TotalityBowItem
+  implements VestigeItem. A NEW TotalityBowItem base class is needed
+  (bows are mechanically distinct enough from melee weapons — draw/charge
+  behavior, projectile spawning — to warrant their own base rather than
+  extending TotalityWeaponItem). VestigeItem should carry the shared
+  dormant/awakened/exalted state machinery (state field driven by the
+  owning quest's current stage) plus a way for each concrete Vestige class
+  to define its own per-state stat/ability changes.
+- Some Vestige quests will eventually require Reputation/Relationship
+  and/or Alignment gates once those systems exist (see below) — treat as
+  a forward dependency, not a blocker on writing the Vestige system now.
+
+--- RELATIONSHIP SYSTEM (new concept, needs full design later) ---
+- Combines Skyrim/BG3/Sims/Stardew Valley-style relationship mechanics.
+  Distinct from simple binary reputation flags.
+- Tiered track per NPC (exact tier names NOT FINAL, placeholder only):
+  Acquaintance -> Friend -> Good Friend -> Best Friend, branching to
+  Partner/Spouse on a romance route, or souring to Enemy/Hated on a
+  negative route.
+- Concrete rewards at higher tiers, per NPC: companion recruitment,
+  marriage, free ingredients from an Alchemist you're close with, etc.
+  (specific rewards are NPC-specific, not generic).
+- IMPORTANT: specific narrative-flag story events can OVERRIDE relationship
+  level — e.g. killing Caleb (a specific story action) makes Fjord attack
+  you even if you were previously Best Friends with Fjord. Relationship
+  level and specific-event flags need to feed into NPC behavior
+  INDEPENDENTLY — do not just have flags subtract relationship points,
+  since that would let a high enough relationship score "buy out" a
+  serious story consequence. The consequence should be able to override
+  regardless of tier.
+- Ties into Vestige quest prerequisites (a Vestige quest may require a
+  certain Relationship/Reputation level with a specific NPC).
+
+--- COMPANION SYSTEM (new concept, needs full design later) ---
+- Full Skyrim/BG3-style recruitable NPC party members who fight alongside
+  the player — distinct from Pets (passive stat buffs, Skyblock-style) and
+  Familiars (active combat companions, collectible/swappable via Find
+  Familiar spell) which are ALREADY DESIGNED separately and are currently
+  SET ASIDE (Stefan wants to think more about Pets/Familiars specifically
+  before continuing those).
+  - There is also an existing standalone teleport-companion mechanic
+    already implemented in a Dimension Door-style spell (detects a
+    "willing companion" near the player and pulls them along through the
+    teleport) — this predates the full Companion system design and should
+    probably be considered a piece of it, not a separate thing.
+- Reference: the "Nether Follower Framework" mod is a good architectural
+  reference for recruit/command-follower mechanics.
+- Open question: max party size (not decided; BG3 caps at 4 total
+  including the player, worth considering as a starting point).
+
+--- ABYSSAL ENGINE (Critical Role Aeor-inspired demon-binding ritual) ---
+- Two independent axes:
+    - RITUAL TIER = containment/safety (how likely the demon escapes).
+    - DEMON TIER = power/energy yield (how much output the Engine
+      produces).
+  These are SEPARATE variables, not one combined difficulty score.
+- Escape check: a weak ritual binding any demon rolls a DAILY escape
+  check. The PINNACLE ritual tier removes the escape roll entirely
+  regardless of demon tier (mirrors Aeor's Grand-demon-tier binding in the
+  source lore — total containment via the ritual itself, independent of
+  how powerful the bound demon is).
+- Sabotage path: the Engine carries a PERMANENT functional Detect-Magic
+  aura while active (same "functional circle" pattern as a permanent
+  Teleport ritual circle — see Detect Magic/School section above). If a
+  player successfully casts Dispel Magic on the Engine, the demon is freed
+  IMMEDIATELY — this is a separate failure path from the daily escape
+  roll, not a modifier to it.
+
+--- GATES (world content, distinct from the "Gate" spell) ---
+- Normal Gates: small vanilla-flavor dungeons, no special mobs.
+- Dimensional Gates: either (a) a small dungeon with special/exotic mobs,
+  or (b) a dungeon paired with a quest. These are the gateway (mechanically
+  and narratively) to exotic Ancestries (Kryptonian, Viltrumite,
+  Gallifreyan) and to Coins (the physical-only currency, currently has no
+  in-game source — waiting on Dimensional Gates/events to exist before a
+  Coin-to-Credit exchange rate is even worth defining).
+- E-S rank Gates (procedural dungeons) and hand-crafted Special Gates
+  (franchise-specific bosses, unique loot) were named in an earlier
+  session — worth reconciling whether these map onto "Normal" vs.
+  "Dimensional" Gates as defined this session, or represent a third
+  distinct tier. NOT YET RECONCILED — flag for a future session.
+
+--- CREDITS / COIN ECONOMY ---
+- Coin -> Credit exchange rate: deliberately DEFERRED until Coins have an
+  actual in-game source (Dimensional Gates/events). No point fixing a rate
+  when one side of the exchange doesn't exist yet.
+- Credit tier textures: already generated via ChatGPT reference images,
+  just need the Photopea hand-cleanup pass (same pipeline as the completed
+  Component Pouch icon) — no design work left, just art production.
+
+--- ENCHANTING REWORK (Soul Stones — designed earlier, missing from doc until now) ---
+- This is the system World Events (Blood Moon etc.) were noted as waiting
+  behind on the roadmap (#12) — was designed in an earlier session but
+  never made it into this doc until now.
+- Confirmed direction: Skyrim-style Soul Stone system, fully REPLACING
+  vanilla's enchanting table (not layered alongside it):
+    - Soul Stones come in tiers (Petty -> Lesser -> Common -> Greater ->
+      Grand, or renamed to fit Totality's lore) — same shape as Skyrim's
+      soul gems.
+    - Filled via a Soul Trap mechanic/spell — kill a soul-trapped creature,
+      the stone captures a soul sized according to the creature's own
+      power/tier.
+    - Enchanting Table consumes a filled Soul Stone + a weapon/armor piece
+      to apply an enchantment.
+  - RESOLVED: soul tier maps DIRECTLY to enchantment level as the default
+    rule (Petty->I, Lesser->II, Common->III, Greater->IV, Grand->V) —
+    handles standard 5-level enchantments (Sharpness, Protection, etc.)
+    with no per-enchantment curation needed for the common case.
+  - EXCEPTION HANDLING: enchantments with a non-standard number of levels
+    (e.g. Unbreaking, which only has 3, not 5) need their own individual
+    tier-to-level mapping rather than assuming every enchantment divides
+    cleanly across all 5 soul tiers — this is a small curation task
+    covering only the exceptions, not every enchantment in the game.
+  - MASTERY GATE (new layer): using a given soul tier requires having
+    unlocked the corresponding Enchanting mastery perk, independent of
+    simply possessing/holding that tier of soul stone — e.g. a "Greater
+    Enchanter" mastery perk is required to use Greater souls at all, so a
+    player who finds/buys a Greater soul early still cannot apply level
+    IV enchantments until that mastery is unlocked. This means Enchanting
+    mastery gates CAPABILITY (which soul tiers can be used at all), not
+    just potency/output — consistent with how other Totality mastery
+    trees (e.g. Alchemy's Knowledge Seeker/Purity) gate capability rather
+    than just scaling numbers.
+  - OPEN ARCHITECTURAL PROBLEM (flagged, not yet resolved): many vanilla
+    enchantments don't actually work correctly against Totality's own
+    combat math and need to be REIMPLEMENTED, not just re-tiered. Vanilla
+    Sharpness/Protection/etc. work by modifying vanilla attributes
+    (ATTACK_DAMAGE, ARMOR, ARMOR_TOUGHNESS) — but Totality's real combat
+    resolution runs on its own dice-based system instead (VanillaWeapon-
+    Stats' Dice enum, CombatResolver, VanillaDamageInterceptor, AC/d20
+    checks via ArmorClass/VanillaArmorStats). This means enchantments
+    like Sharpness either do nothing meaningful under Totality's resolver
+    (if it ignores the vanilla attribute) or interact incorrectly/double-
+    dip (if it doesn't) — this is the SAME category of bug already fixed
+    once for vanilla WEAPONS falling through WeaponDataResolver
+    incorrectly (see dual-wield/attack-speed fix in the historical
+    context), now recurring for ENCHANTMENTS specifically.
+  - Likely fix direction (not yet built): enchantment effects that touch
+    damage/defense need their own resolver hooks into CombatResolver/
+    WeaponDataResolver/ArmorClass directly (e.g. Sharpness adds bonus
+    dice or a flat bonus INSIDE the dice-roll calculation, Protection
+    reduces damage via whatever mechanism ArmorClass actually uses now)
+    rather than relying on vanilla's native attribute-based application.
+    Needs a full audit of which vanilla enchantments are combat-math-
+    dependent (Sharpness, Protection variants, Fire Aspect, Knockback,
+    possibly Smite/Bane of Arthropods as damage-type-conditional bonuses)
+    versus which ones are unaffected because they don't touch combat math
+    at all (Looting, Silk Touch, Unbreaking, Mending, Fortune) and can
+    keep working natively — CONFIRMED this session: these "safe" vanilla
+    enchantments stay as-is/unmodified, only the combat-math-dependent
+    ones need rework. NOT YET AUDITED OR BUILT — flag as a prerequisite
+    piece of work before the Enchanting rework can be considered
+    functionally complete, separate from the soul-tier/mastery-gate
+    design above (which is resolved).
+  - ALSO CONFIRMED: new CUSTOM enchantments (beyond the vanilla list) will
+    be added to Totality on top of reworking the existing ones — the
+    Enchanting rework isn't just "fix vanilla enchantments," it's also an
+    opportunity to add original ones. Not yet designed/listed.
+  - EXTENDED SOUL QUALITY AXIS: souls can ALSO carry the existing mob RANK
+    system (E through S, the same rank already used for general mob
+    difficulty/display) as a quality axis independent of stone TIER
+    (Petty/Lesser/Common/Greater/Grand). So a filled soul stone has two
+    properties: which TIER of stone it is, and which RANK of creature's
+    soul is inside it.
+  - NAMED/UNIQUE ARTIFACT SOUL STONES can push enchanting beyond the
+    normal vanilla level cap: e.g. a specific hand-crafted artifact soul
+    stone (a "Black Star"-style unique item, referencing Skyrim's Azura's
+    Star/Black Star artifacts) combined with BOTH the required Enchanting
+    mastery AND an S-rank soul could allow reaching enchantment level VI
+    — beyond the standard I-V range any normal stone permits. This means
+    exceeding the normal cap requires stacking three separate
+    requirements (unlocked mastery + a specific named artifact stone +
+    the highest soul rank), not just having a big enough generic stone.
+    Not yet fully designed (only one example level given — VI via Black-
+    Star-equivalent + S-rank soul); other named artifact stones and
+    exactly how far beyond VI (if at all) is possible are open.
+  - Z-RANK SOULS should do something BETTER still than S-rank — Z rank is
+    already reserved elsewhere in Totality for hand-crafted, story-
+    triggered, never-random named bosses/patrons/gods (see Rank system in
+    architecture reference below), so a Z-rank soul would be extremely
+    rare/hard to obtain by nature. DELIBERATELY DEFERRED this session:
+    Stefan wants to design the actual Z-rank soul benefit only once
+    Enchanting is built and actually being played/tested, so it can be
+    balanced against real in-game numbers rather than designed blind —
+    this is a conscious sequencing choice, not an oversight.
+  - SOUL TRAP AS AN ABILITY, NOT A SPELL (important scoping decision):
+    Soul Trap should be built as an ABILITY rather than a Wizard/caster-
+    exclusive spell, specifically so non-caster classes (Fighter,
+    Barbarian, Monk, etc.) can also use it — Enchanting shouldn't be
+    locked out for martial builds. Mechanic: apply a Soul-Trap-style
+    EFFECT/debuff to a target entity (enemy, or an ally too if the player
+    is playing an "evil" character); if that entity dies while the effect
+    is still active on it, the player automatically captures its soul
+    into an empty Soul Stone they're carrying (mirrors Skyrim's Soul Trap
+    spell exactly, but generalized as an Ability available mod-wide
+    rather than gated to spellcasting classes). Needs: an applied-effect/
+    debuff component tracking "soul trap active" per entity, a check on
+    entity death for that flag, and logic to consume/fill the first
+    empty Soul Stone in the player's inventory on a successful trap+kill.
+  - ACQUISITION: Soul Trap should not just be handed out freely — it's
+    unlocked via a QUEST, and that quest itself should be LEVEL-GATED
+    (requires reaching a certain character level before the quest even
+    becomes available to start). LEVEL THRESHOLD: 5 or 10 (not further
+    narrowed down this session) — reasoning being that the ability itself
+    unlocking early isn't a balance risk on its own, since all the OTHER
+    gating factors already layered on top (Enchanting mastery unlocks,
+    soul stone tiers/ranks needing to actually be found/earned, the
+    mastery-gated access to higher soul tiers above) naturally prevent a
+    player from getting overpowered too fast even with early access to
+    the ability itself. Consistent with how other capability-granting
+    content in Totality is gated behind quests rather than automatic
+    unlocks (mirrors the Alchemist's Identify-teaching quest and Mobile
+    Banking's dialogue-gated unlock pattern, just with an added level-
+    floor on top).
+- Magic Items were noted elsewhere as forming a distinct "4th magic
+  category" involving charge-based items — RESOLVED this session: these
+  are basically real D&D-style magic items (Wand of Fireballs being the
+  reference example given: a rare wand requiring Spellcaster attunement,
+  holds a charge pool, expending charges casts a spell at a scaling slot
+  level per charge spent, regenerates a random number of charges daily at
+  dawn, small percentage chance of being destroyed on expending its last
+  charge). This is a DIFFERENT category from Vestiges (which evolve
+  through dedicated quests, state-tracked via NarrativeFlagsComponent)
+  and from Spells/Abilities (innate to the player character) — Magic
+  Items are physical, attunable items with their OWN charge economy that
+  either cast a spell when used or grant an ability while held/equipped.
+  Needs: a charge-pool data component per item (current charges, max
+  charges, daily regen roll), an attunement requirement (reuses the
+  existing Attunement-via-Short-Rest system), and a generic "on charge
+  expend, do X" hook (cast a specific spell at a scaled level, or trigger
+  some other effect) — likely its own small API alongside Spells/
+  Abilities rather than folded into either.
+- Four planned events (named in an earlier session, roadmap position #12,
+  after the Enchanting rework): Blood Moon, Solar Eclipse, Meteor Shower,
+  Demonic Incursion.
+- Blood Moon is the CONFIRMED infection vector for becoming a Werewolf
+  (get bitten during a Blood Moon = cursed). Vampire's trigger has NOT
+  been decided yet (may be event-tied too, or quest/ritual/item-based —
+  open question).
+- Technical approach already scoped: SavedData-backed event tracker on the
+  server + sync packet to clients + client-side sky/moon-texture mixins.
+  Moon phases already live in a swappable sprite sheet
+  (textures/environment/moon_phases.png) — a STATIC full reskin needs zero
+  code (just a resource pack override), but a DYNAMIC swap (normal moon ->
+  blood moon only during the event) needs one small client-side mixin
+  redirecting the texture bind call, driven by a boolean flag set when the
+  event-start packet arrives. Solar Eclipse can reuse the same pattern for
+  the sun texture.
+- Meteor Shower and Demonic Incursion are NAMED ONLY — no mechanics
+  defined yet, unlike Blood Moon which has both a visual and gameplay hook
+  worked out.
+
+--- VAMPIRE / WEREWOLF TRANSFORMATIONS ---
+- IMPORTANT correction to earlier assumption: these are NOT single unified
+  curses. There will be MULTIPLE TYPES of both Vampire and Werewolf, and
+  not all variants come from the same source/trigger.
+- Correct build order: first make a full LIST of all intended Vampire and
+  Werewolf types/variants, THEN decide which specific variant(s) the Blood
+  Moon event actually creates (rather than assuming Blood Moon = "the"
+  Werewolf curse and designing backward from that).
+- Architecturally, likely wants the same "Origin-style" pattern as
+  Ancestry: a shared base (e.g. LycanthropyCurse / VampirismCurse) with
+  distinct flavor subtypes carrying different stat packages, weaknesses,
+  and visual forms — rather than one monolithic class with if-branches.
+- This is explicitly a LATER system (not to be designed further until
+  much more of the base game — classes, races, balancing, Z-rank Blockbench
+  work, etc. — is done and tested first).
+
+--- BASE BUILDING / PLAYER HOUSING ---
+- No dedicated housing/settlement system planned. Resolved instead via
+  implementing two actual D&D spells properly: Magnificent Mansion
+  (a lavish extradimensional dwelling) and a Rope Trick/Demiplane-style
+  "pocket dimension" spell (a smaller hidden extradimensional refuge).
+  Both are, in the real rules, already "a bounded custom dimension keyed
+  to the caster" — so this isn't a workaround, it's just implementing the
+  actual spells correctly and getting persistent housing as a natural
+  side effect.
+- Open question, not yet decided: should these persist PERMANENTLY once
+  cast (functioning as a real player home), or keep the true D&D time
+  limits (Mansion = 24 hours, Rope Trick = limited duration) with a
+  SEPARATE permanent variant added later for players who want an actual
+  base? Not resolved this session.
+
+--- SPEAK WITH ANIMALS / SPEAK WITH PLANTS ---
+- Now that the Dialogue system is generic (not NPC-exclusive), these two
+  spells can gate their own dialogue trees the same way any NPC dialogue
+  does (a DialogueChoiceCondition checking whether the relevant Speak-With
+  spell is currently active) — no new plumbing needed, purely a content
+  question of which animals/plants have something to say and what they
+  offer (could include quests, similar in spirit to Outer Wilds-style
+  environmental/quiet storytelling, as a foil to the louder NPC-driven
+  quest content).
+
+--- TEMPERATURE / THIRST / DISEASE (three related but DISTINCT systems) ---
+- CONFIRMED this session: Temperature, Thirst, and (new) Disease will
+  each have their OWN distinct effects — NOT a shared/combined
+  "environmental exposure" penalty pool. Each needs its own debuff
+  profile rather than all three reducing to the same generic penalty.
+- DISEASE (new system, motivated by wanting real targets for the Lesser
+  Restoration and Greater Restoration spells):
+    - Real 5e reference for what these spells actually do, so Disease
+      needs enough mechanical substance to give them something to act
+      on: LESSER RESTORATION cures one disease OR ends one of a specific
+      set of conditions (blinded, deafened, paralyzed, poisoned) affecting
+      the target. GREATER RESTORATION handles more severe afflictions —
+      reduces/removes Exhaustion levels, restores a reduced ability score,
+      removes a curse, restores HP that had been reduced by a draining
+      effect, or cures petrification.
+    - This means Totality needs an actual DISEASE system (specific named
+      diseases, each with its own effect/symptom profile and a way to be
+      contracted — e.g. from unclean water tying into Thirst, from
+      contaminated food tying into Cooking/Farming, from certain mob
+      attacks, from environmental exposure) for Lesser Restoration to
+      have something real to cure, rather than the spell existing with
+      no disease content to target.
+    - NOT YET DESIGNED: the actual list of diseases, their individual
+      symptom/debuff profiles, contraction sources, and cure conditions
+      beyond "Lesser Restoration cures it." This is a new, real design
+      gap on top of Temperature/Thirst — needs its own session.
+    - Worth deciding whether Disease is its own HUD-visible bar/indicator
+      (like Temperature/Thirst) or a more discrete status-effect-style
+      system (diseases show up as named debuffs/conditions rather than a
+      depleting resource) — the latter seems more natural given 5e's own
+      disease model is condition-based, not resource-based, but not
+      confirmed this session.
+- THIRST — fully designed this session:
+  - BASE DRAIN: bar drains slowly over time by default.
+  - FASTER DRAIN SOURCES:
+      - Casting spells with the VERBAL component specifically (not all
+        spells — only ones requiring speech) drains Thirst a little
+        faster per cast; casting many VERBAL spells in a short window
+        compounds this (talking dries your mouth out, silent/somatic-only
+        spells don't).
+      - Being in a desert biome drains Thirst somewhat faster passively.
+  - DRINKING WATER — RISK MECHANIC: drinking normal/unpurified water has
+    a CHANCE of giving a negative effect alongside restoring Thirst
+    (mirrors how eating rotten flesh works in vanilla — you get the
+    benefit but risk a debuff). Water from an OCEAN biome specifically
+    should have a HIGHER chance of triggering the negative effect than
+    other water sources (real-world rationale: seawater/salt water is
+    genuinely worse to drink).
+  - PURIFIED WATER (new fluid, to be added): a clean water fluid variant
+    that presumably avoids or reduces the negative-effect chance from
+    drinking normal water — ties into the Engineering/industrial side
+    already floated for Thirst (water purification systems).
+  - OTHER DRINKS (new items, to be added): additional drinkable items
+    beyond plain water that restore Thirst AND grant other effects
+    (similar in spirit to Alchemy potions or Cooking dishes) — not yet
+    itemized, just confirmed as planned content.
+  - DEBUFF TARGETING (important distinction vs. Temperature): Thirst's
+    debuffs should primarily affect SPELLCASTING/MANA rather than
+    Stamina — rationale given: thirst is mouth/speech-related, so it
+    makes more sense to hurt spellcasting (especially VERBAL spells) than
+    physical stamina. This is a deliberate split from Temperature, where
+    EXTREME HEAT specifically should affect STAMINA instead — the two
+    systems intentionally hit different resources so they don't feel
+    redundant with each other.
+  - REST INTERACTION (resolved): Long Rest does NOT restore Thirst — and
+    should actually CAUSE some Thirst loss instead (realistic: you go all
+    night without drinking). Short Rest behaves the same way (causes
+    loss, does not restore) but the PROBABILITY and AMOUNT of loss differs
+    depending on which Short Rest sub-type (the ~25-real-second "30
+    minute" version vs. the ~100-real-second "2 hour" version) and
+    depending on the specific ACTIVITY performed during that Short Rest
+    (exact numbers/activity-specific modifiers not yet decided, just the
+    principle that longer/more strenuous Short Rest activities should
+    lose more Thirst than shorter/lighter ones).
+- TEMPERATURE — fully designed this session:
+  - HUD DISPLAY: a state-based indicator (not a numeric bar) using COLOR
+    to communicate hot vs. cold — red-tinted for hot, blue-tinted for
+    cold (exact visual treatment TBD, but the red/blue hot/cold color
+    language is confirmed).
+  - END SCORE contributes a SMALL amount to temperature resistance (minor
+    factor, not the primary lever).
+  - CLOTHING WARMTH is the PRIMARY lever (bigger factor than END): every
+    wearable item gets a WARMTH value/stat depending on its type/material
+    — e.g. a plain shirt has low Warmth, a wool jacket has high Warmth.
+    Explicitly modeled on Skyrim survival mods (Frostfall/Survival Mod,
+    Sunhelm) as the reference point for how per-garment warmth values and
+    layering should feel.
+  - FOOD can ALSO affect Temperature, not just clothing: some foods grant
+    Warmth (presumably hot/hearty meals), and some foods can grant
+    COLDNESS instead (a cooling effect) — e.g. ice cream specifically
+    LOWERS Warmth. This gives Cooking another real mechanical hook
+    (alongside the Thirst-offsetting hot/cold meal idea already noted),
+    and ties Temperature management partly into what you eat, not just
+    what you wear.
+  - DEBUFFS (severity/type-dependent, exact tuning deferred to later):
+    - HEAT/hot-side debuffs primarily drain STAMINA.
+    - COLD/freezing-side debuffs primarily drain HEALTH (more dangerous
+      than the heat side, consistent with freezing being the more
+      immediately lethal extreme).
+    - Exact severity thresholds and drain rates NOT yet decided — "these
+      will be thought about later," just the STAMINA-for-heat / HEALTH-
+      for-cold split is confirmed now.
+  - CROSS-SYSTEM INTERACTION WITH THIRST (confirmed): being in extreme
+    HEAT should ALSO increase Thirst drain rate (on top of Thirst's own
+    desert-biome drain modifier already designed) — heat and thirst
+    reinforcing each other realistically, rather than being fully
+    independent systems.
+
+--- BESTIARY ---
+- RESOLVED this session — see the "CARD-BASED CREATURE COLLECTION
+  (RESOLVED...)" section above for full detail. Summary: Bestiary uses a
+  tiered knowledge-depth structure (Observe via Spyglass -> Capture via
+  Card -> Identify via spell on the card), and the card-collection idea
+  is Bestiary's own capture mechanic, not a separate system.
+- The mob-ABSORPTION system (previously considered as possibly the same
+  thing as Bestiary) is NOW EXPLICITLY SHELVED, separately and
+  unresolved — NOT merged into Bestiary. See the CARD-BASED section above
+  for full detail on why.
+
+--- CHEMISTRY API (genuinely undeveloped, currently just a tooltip idea) ---
+- Started as a small tooltip feature: real materials show their actual
+  chemical symbol in the tooltip (Iron -> Fe, Gold -> Au, Copper -> Cu,
+  etc.), fantasy/Totality-specific materials get an INVENTED plausible-
+  sounding symbol (e.g. something like Vc for a Void Crystal-style
+  material). Real-world-accurate for real materials, made up for custom
+  ones — matches Stefan's construction/architecture background and
+  general preference for grounded realism where it doesn't conflict with
+  fantasy content.
+- FLOATED BUT NEVER DESIGNED FURTHER: a full "Chemistry API" beyond just
+  tooltip display — real elements carrying atomic number/atomic mass/
+  state-at-room-temp data, custom elements for fantasy materials with
+  their own invented stats, and eventually actual CHEMISTRY MECHANICS:
+  reactions between materials, alloy crafting based on real metallurgy,
+  smelting temperatures affecting outcomes, material properties
+  (conductivity, hardness) feeding into industrial systems. This would
+  connect directly to the existing Limestone/Chalk production chain and
+  the broader cement/industrial machine content (Jaw Crusher, Rotary
+  Kiln, Ball Mill) since those are already grounded in real industrial
+  chemistry. Currently: ZERO mechanical design exists beyond the tooltip-
+  symbol idea — the "reactions/alloys/smelting temps" vision is just one
+  enthusiastic paragraph, not a real system.
+- DEFERRED (same reasoning pattern as Storage Network): Stefan wants to
+  hold off on the full Chemistry API until Totality's energy/industrial
+  base is more developed, similar to why the full Storage Network is
+  parked. The tooltip-only chemical-symbol display could still be added
+  earlier/independently since it has no dependency on energy systems.
+- IMPLEMENTATION REFERENCE: Stefan recalls an old mod called "MineChem"
+  as roughly matching what he has in mind for the full Chemistry API
+  (real elements, reactions, etc.) — worth using as inspiration when this
+  is picked up, despite being built for Forge and an old Minecraft
+  version (1.20.1), meaning it's a conceptual/design reference only, not
+  directly portable code.
+
+--- CARD-BASED CREATURE COLLECTION (RESOLVED — this IS Bestiary, not a separate system) ---
+- QUICK FRAMING: Bestiary is basically Totality's Pokédex — a creature
+  compendium with tiered knowledge depth per entry, filled in through
+  play (observing, capturing, identifying) rather than unlocked all at
+  once.
+- RESOLVED this session: the card-based capture idea is NOT a third
+  separate system — it IS the Bestiary system, specifically its capture/
+  knowledge-depth mechanic. Bestiary entries have TIERED KNOWLEDGE DEPTH
+  depending on how the player has interacted with that creature:
+    1. OBSERVE (lightest tier): using a Spyglass on a mob adds a Bestiary
+       entry for it, but with minimal/surface-level information only.
+    2. CAPTURE (middle tier): actually capturing the creature via a CARD
+       (Pokémon-style, card visually reflects the captured creature,
+       shiny/rare alternate-color variants included) grants a
+       meaningfully deeper Bestiary entry than passive observation alone.
+    3. IDENTIFY (deepest tier): using an Identify spell ON THE CARD itself
+       (reusing the same Identify system already built for Alchemy
+       ingredients) reveals the fullest/deepest information about that
+       creature.
+  This gives Bestiary a natural, reusable progression structure (observe
+  -> capture -> identify) rather than a flat "discovered or not" binary,
+  and cleanly folds the card-collection idea into Bestiary instead of
+  needing its own separate system. Hunter skill still likely governs the
+  actual capture mechanic (catching creatures), rarity system still
+  likely governs card tiers, Wallet/currency still likely supports card
+  trading with NPCs — none of those hooks change, they just now sit
+  under Bestiary rather than a separate "Card API."
+- THE MOB-ABSORPTION SYSTEM IS NOW EXPLICITLY SHELVED (separate from
+  Bestiary/Cards, not merged into it): Stefan confirmed the still-unnamed
+  absorption system (Vestige/Sigil naming, before Vestige got reassigned)
+  was "just an idea" and he's unsure how well it would balance — it is
+  NOT being folded into Bestiary/Cards, it's simply being SET ASIDE for
+  now, unresolved, with no immediate plan to revisit. Do not build or
+  further design this unless Stefan explicitly brings it back up.
+- Full architecture already scoped in an earlier session: a CUSTOM system
+  (not integrating with the actual AE2/RS mods, an original system just
+  inspired by them). Core blocks:
+    - NetworkControllerBlock — heart of the network, manages the node
+      graph and item index.
+    - NetworkCableBlock — passive connector only, no block entity, just
+      pathfinding/graph glue.
+    - StorageDriveBlock — holds items, connected via cables or placed
+      directly adjacent to the controller.
+    - A dedicated Terminal block (AE2 ME Terminal-style) as the player-
+      facing interface.
+  - First milestone scope: item store/retrieve only. Autocrafting
+    explicitly deferred to later, on top of the base network working.
+- DELIBERATELY DEFERRED (not a design gap, a sequencing decision):
+  Stefan is holding off on building this until Totality's industrial/
+  energy base is bigger — currently only a Coal Generator and a Basic
+  Cell Battery exist, which wouldn't provide enough power to meaningfully
+  run a storage network once built. Build more energy-generation/storage
+  content first, then come back to this.
+- IMPLEMENTATION REFERENCE: the actual build is considered straightforward
+  once started — Stefan plans to look at Refined Storage's actual source
+  code directly for implementation inspiration/guidance rather than
+  designing the internals from scratch.
+- RESOLVED THIS SESSION: NOT an either/or choice — Totality will have
+  BOTH systems long-term, as complementary tiers rather than one
+  replacing the other:
+    1. A Tom's-Storage-style chest-based network (the interim/earlier-
+       game option) — functionally similar to AE2 (networked, terminal-
+       based access), but uses regular CHESTS as the storage medium
+       instead of AE2-style disks/cells. Stefan has direct hands-on
+       experience with the actual mod, having used it as his real storage
+       solution in his own personal Minecraft world, so this is a system
+       he already trusts in practice, not just a conceptual reference.
+       Its two known limitations are (a) no autocrafting, and (b) storage capacity is bounded by regular chest capacity. (b)
+       can be solved by adding Sophisticated-Storage-style UPGRADEABLE/
+       EXPANDABLE chests as the storage medium for this network, removing
+       the chest-capacity ceiling without needing the full digital
+       network. Autocrafting (a) remains exclusive to tier 3 below.
+    2. STORAGE BARRELS (new, separate system) — referencing the actual
+       "Storage Barrels"/Storage-Drawers-style mod concept: bulk, single-
+       item-type storage (one barrel holds a large quantity of ONE item
+       type efficiently, rather than general mixed storage). Good fit
+       given how many new stackable item types (ingredients, ores,
+       materials) are being added across all these new systems.
+    3. The full AE2/RS-inspired digital Storage Network (see full
+       architecture above) — the only tier with autocrafting, deliberately
+       deferred until the industrial/energy base is bigger (see reasoning
+       above).
+  These three are meant to coexist as different storage tiers serving
+  different needs/game stages, not a linear upgrade path where each
+  replaces the last.
+
+--- COOKING (reference model + dependency chain) ---
+- MECHANIC COMPLEXITY (clarified this session): Cooking is intentionally
+  SIMPLE, NOT an Alchemy-style discovery/combination system — no
+  ingredient-combining-to-discover-effects mechanic like Alchemy has.
+  Basic Cooking should just use straightforward recipes and simple post-
+  processing steps, e.g. a Pizza item + a Knife used in a crafting table
+  cuts it into slices. This kind of simple transformation/recipe pattern
+  is the baseline for most Cooking content, not deep experimentation.
+- REFERENCE MODEL: Cooking should be built like "Pam's HarvestCraft"
+  (the classic Minecraft food-expansion mod) — many recipes, dedicated
+  kitchen utensils/appliances (not just a single cooking pot/stove) —
+  but with MORE recipes than Pam's has, i.e. Pam's is the baseline to
+  exceed, not just match. This is about RECIPE VOLUME/VARIETY, not
+  mechanical depth — the individual recipes themselves stay simple.
+- THE INTERESTING PART IS BUTCHERING, NOT COOKING ITSELF: Stefan
+  considers Butchering to be where the real mechanical interest in this
+  chain comes from, once it's built — Cooking's own recipes are meant to
+  stay comparatively basic/simple by design.
+- DEPENDENCY CHAIN (important, blocks full Cooking depth): Stefan wants
+  to add a lot of Cooking content that depends on BUTCHERING, and
+  Butchering itself depends on the CorpseEntity system working for
+  ANIMALS, not just humanoid/player death. The existing CorpseEntity
+  design (FRESH -> DECOMPOSING -> SKELETAL -> DUST stages, persistent
+  inventory, magical items survive all stages, undead reanimation
+  chance at SKELETAL) was originally scoped around PLAYER/humanoid
+  death flow — it needs to be confirmed/extended to cover animal
+  corpses specifically before Butchering can be built, and Butchering
+  needs to exist before Cooking's full recipe depth (meat cuts,
+  processed animal ingredients, etc.) can be realized. So the real
+  build order for Cooking's full vision is: CorpseEntity-for-animals ->
+  Butchering system -> expanded Cooking recipes/utensils. Cooking CAN
+  still get some basic recipes/utensils built without waiting for this
+  whole chain, but won't be "complete" per Stefan's vision until
+  Butchering exists.
+- Combat stamina regen (Skyrim-style: ~5%/s out of combat, ~2%/s in
+  combat, detected via getCombatTracker()) — LIKELY ALREADY BUILT, Stefan
+  believes so but wants to verify against the actual code before assuming.
+- Timed Block / Perfect Parry — NOT YET BUILT, but confirmed low
+  difficulty to add on top of the existing basic Block (V key, dual-
+  wield). The only real design piece: a perfectly-timed block should
+  STAGGER the opponent for a short duration (exact duration TBD) — this
+  is the one new mechanic needed beyond what Block already does.
+- Dodge (-5 stamina per dodge, blocked while exhausted) — DESIGNED BUT
+  NOT BUILT, explicitly stalled because Stefan doesn't yet have a dodge
+  ANIMATION to use, not because of any mechanical/code blocker. Should be
+  revisited once a suitable animation is available (possibly via the
+  PlayerAnimationLibrary dependency already bundled for other player
+  animations like faint/cast/flight-lean).
+
+--- MAP AND COMPASS SYSTEM (initial design) ---
+- Map: bound to keybind M. Starts BASIC (core map functionality only) at
+  first — advanced features (showing buildings/structures, showing mobs,
+  etc.) are unlocked progressively via Navigation MASTERIES, not present
+  from the start.
+- Compass: does not appear by default — only becomes visible/available
+  once the specific mastery that unlocks it has been earned.
+- MASTERY DESIGN DELIBERATELY DEFERRED: the actual Navigation mastery
+  tree (what each mastery unlocks, in what order) will be designed AFTER
+  the base Map system is built, not before — Stefan wants to see what's
+  actually technically possible/sensible once the Map exists before
+  committing to specific mastery effects. This is a deliberate sequencing
+  choice, not an oversight.
+- NAVIGATION SKILL LEVELING: Navigation levels up via DISCOVERY — finding
+  new locations/structures grants Navigation XP (mirrors classic Bethesda-
+  style "you have discovered X" progression, applied here as a real skill
+  XP source rather than just a fame/achievement notification).
+- DISCOVERY NOTIFICATION (new, small UI feature): when a player discovers
+  a location for the first time (e.g. a village), a notification should
+  display naming the location ("Village Discovered" or similar) alongside
+  the Navigation XP granted for finding it — gives discovery a satisfying,
+  visible payoff beyond just the XP number ticking up silently.
+- Sits in the Survival skill category with only a one-line flavor
+  description ("locate structures, resources and points of interest more
+  easily") — no real mechanic designed.
+- Confirmed this session: Navigation's design is intentionally deferred
+  until a proper Compass + Map system exists, since Navigation's actual
+  mechanics (structure/POI discovery, map-reveal, etc.) only become
+  meaningful once there's a Compass/Map to hook into. Stefan considers
+  Compass/Map buildable in the NEAR FUTURE (not a distant roadmap item)
+  since it also ties into other already-planned systems — e.g. the
+  Compass HUD already noted elsewhere (structure tags + quest markers,
+  CompassFeature UUID+tag+pos model) and quest marker/waypoint needs
+  generally. Once Compass/Map is built, Navigation skill design should
+  become much easier/natural to slot in on top.
+- Confirmed: "Reputation" in Totality is now understood to mean the
+  Relationship system above (tiered, per-NPC, Sims/Stardew-influenced),
+  NOT a simple numeric faction-reputation score as originally sketched in
+  an older session. That older ReputationComponent-per-faction/per-NPC
+  sketch should be considered SUPERSEDED by the Relationship system
+  described above.
+- Specific story consequences (e.g. Caleb/Fjord example) work through
+  narrative flags exactly like the existing BG3-style narrative-flag
+  system already built for quests/dialogue — NOT a separate mechanic.
+  Relationship level and narrative flags both independently influence NPC
+  behavior (see Relationship section above for why this must NOT be a
+  simple subtraction).
+
+--- QUEST XP ECONOMY (character XP sources beyond skill leveling) ---
+- Confirmed: character level XP does NOT need to come solely from skill
+  level-ups. Quests are a separate, additional character XP source. This
+  directly resolves the skill-cap-vs-character-level-cap tension above —
+  at a lower skill cap (e.g. 100), skill XP alone wouldn't be enough to
+  reach the character level cap, but quest XP can close that gap.
+- Quests can ALSO grant SKILL XP directly, not just character XP —
+  thematically tied to the quest's subject matter. Confirmed examples:
+  an Alchemy-themed quest (e.g. "First Brew") granting Alchemy skill XP;
+  a Mining-themed quest granting Mining skill XP. This should be a
+  standard, reusable reward type any quest's JSON can declare (skill +
+  amount), not a one-off per quest.
+- Quests can ALSO grant TEMPORARY skill XP boosts as a reward, not just
+  a one-time XP lump sum — e.g. "double skill XP for 10 minutes" as a
+  timed buff reward. This is a different reward type from flat skill XP
+  and should be modeled as its own timed-modifier reward (reuses the same
+  skillImproveMult modifier-stack architecture already designed for
+  potions/enchantments that boost skill leveling speed — see the
+  standing-stone-equivalent modifier system already sketched for skills).
+
+- Simple fetch/kill daily types (the bulk/volume content, distinct from
+  the bespoke Headhunting bounties above): straightforward "bring NPC-X
+  N of item-Y" (e.g. bring the Blacksmith 10 Iron, bring the Alchemist 20
+  Blue Mountain Flowers) or "kill N of mob-type" (e.g. kill 10 Zombies for
+  a Priest) quests. These need NO new mechanics — just the existing
+  data-driven quest template system with an item/mob target and a count,
+  tied to whichever NPC makes thematic sense for that resource (Blacksmith
+  = ores/metals, Alchemist = ingredients, Priest = undead, etc.). This is
+  the low-effort, high-volume quest type that fills out the board day to
+  day, with Headhunting-style bounties as the occasional bespoke/higher-
+  effort content on the same board.
+
+--- DAILY QUESTS + BULLETIN BOARD (new system, needs building) ---
+- Wants a Solo Leveling-style daily quest system: quests that reset on a
+  daily cycle, presumably scaling with player/class level, giving
+  reliable repeatable progression/rewards.
+- Delivery mechanism: a physical BULLETIN BOARD / notice board block the
+  player interacts with to see available quest postings and pick one up
+  — reference is the "Missives" mod for Skyrim (procedurally-generated,
+  low-stakes fetch/kill/delivery-style quests posted on a board, no NPC
+  dialogue required to receive them, unlike Totality's normal hand-
+  authored dialogue-driven quests).
+- This gives Totality two parallel quest delivery paths: hand-authored,
+  narrative, dialogue-gated quests (Mobile Banking, First Brew, Vestige
+  quests, etc.) vs. lightweight, repeatable, board-posted daily quests
+  that don't need bespoke NPC dialogue per quest.
+- Open questions, not yet decided: how many quests appear on the board at
+  once and how are they chosen/generated (fully random from a pool per
+  category? weighted toward skills the player is actively using? tied to
+  the quest's existing reset_flags/objective-group tech already built for
+  other quests?); do daily quests reuse the exact same underlying quest-
+  template JSON system as regular quests (objectives, turn-in, rewards)
+  just with a daily-reset flag and no dialogue requirement, or do they
+  need a lighter-weight parallel data format since they're meant to be
+  numerous/low-effort to author (likely procedurally-assembled from
+  templates rather than hand-written one at a time, given the volume a
+  "daily quest" system implies)? Given Totality's quest system is already
+  data-driven and generic, reusing the same template format with a
+  daily-reset+board-sourced flag seems like the natural fit, but not
+  explicitly confirmed this session.
+
+--- HEADHUNTING-STYLE BOUNTIES (Skyrim "Headhunter" mod reference) ---
+- Reference mod confirmed (Headhunter - Bounties Redone, Skyrim): bounty
+  quests where killing the target isn't enough on its own — you must
+  loot a TROPHY item from the corpse (a head/signet/marked item) and
+  bring it back as PROOF. Turning in without the trophy is explicitly
+  rejected by the quest-giver ("you expect me to believe that?").
+- Also includes a NON-LETHAL capture path: target can be made to kneel/
+  surrender at low health, then a dialogue option takes them prisoner
+  instead of killing them (handed to an authority figure rather than
+  looted), and separately some bounty types can be resolved via
+  Persuasion/Intimidation alone (e.g. intimidating a thief into returning
+  stolen goods) with no combat at all.
+- Delivered via the same Notice Board pattern as Missives — confirms this
+  should be UNIFIED with the Daily Quests/Bulletin Board system above,
+  not built as a third separate quest-delivery mechanism. A bounty board
+  posting could just be one quest TYPE among the board's daily offerings
+  (fetch/kill/delivery/bounty), all going through the same board UI.
+- Totality-specific fit: this slots naturally onto systems already built:
+    - Bounty targets = boss-tier mobs, likely tied to the existing
+      Rank system (E-S, hand-crafted Z for named/story bosses) — a
+      board-posted bounty could target a randomly-rolled higher-rank mob
+      in a specific structure/biome, similar to how Dimensional Gates
+      already spawn special mobs.
+    - Trophy-drop-on-kill is a simple, generic loot-table addition (target
+      mob type gets a guaranteed "proof" item drop on death) — no new
+      engine capability needed, just a quest-linked loot entry.
+    - Non-lethal capture (kneel-at-low-health -> dialogue-surrender ->
+      hand off) reuses the existing Dialogue system plus presumably a
+      "kneeling/surrendered" AI state on the mob — worth checking if this
+      is close enough to the Dominate Person "present a menu of actions"
+      pattern to share some plumbing, or if it needs its own surrender-
+      state AI flag.
+    - Persuasion/Intimidation-resolved bounties (no combat at all) reuse
+      existing DialogueChoiceCondition roll-based checks (same pattern as
+      the Banker's account-opening alternate paths) applied to a bounty
+      context instead of a banking one.
+- CORRECTION on delivery structure: the Notice Board is actually an
+  OPTIONAL ADD-ON in the reference mod (only relevant if you also have a
+  Missives-style notice-board mod installed) — the Headhunter mod's
+  NORMAL/default delivery is via an NPC, specifically a Jarl's steward-
+  type figure (e.g. Proventus Avenicci equivalent), not a board. So for
+  Totality: the PRIMARY bounty-giver should be a proper dialogue NPC
+  (a steward/quest-giver figure, following the same pattern as the
+  Banker/Alchemist), with the Bulletin Board being an ADDITIONAL,
+  secondary delivery channel layered on top (for daily/repeatable/no-
+  dialogue-needed bounties specifically) rather than the sole or primary
+  way to receive bounties.
+- Turn-in without a trophy — TWO separate roll-based alternate paths, not
+  one:
+    1. PERSUASION path (you actually did kill the target, you just don't
+       have the trophy — lost it, whatever): a straightforward Persuasion
+       roll convinces the commissioner to believe/pay out anyway.
+    2. DECEPTION path (you did NOT actually kill the target, lying about
+       it): also roll-based, but the DIFFICULTY SCALES WITH ELAPSED TIME
+       since the quest was accepted. Claiming a kill mere seconds after
+       accepting the quest should be an extremely high difficulty (e.g.
+       ~99), passable in practice only via a natural 20 or a very high
+       relevant modifier/level; claiming it after a plausible amount of
+       time has passed should use a normal/lower difficulty. This means
+       the Deception check needs to read quest-acceptance timestamp vs.
+       current time as an input to the roll's DC, not just a flat
+       difficulty — a genuinely novel mechanic, worth building as a
+       reusable "time-since-X-affects-DC" pattern in case other systems
+       want the same trick later (lying about anything time-sensitive).
+- Non-lethal surrender path also gets multiple roll options, not just one
+  fixed check:
+    - Standard Persuasion roll to talk the target into surrendering.
+    - Class/build-specific alternate stat substitution — e.g. a Barbarian
+      can use an INTIMIDATION check keyed off STRENGTH instead of the
+      normal governing stat, reflecting a physically-imposing character
+      intimidating through raw presence rather than social skill. This
+      generalizes into a broader rule worth writing down once: certain
+      classes/builds should be able to substitute their signature ability
+      score into checks that would normally key off a different stat
+      (mirrors 5e's occasional "you can use X instead of Y for this
+      check" exceptions) — likely relevant well beyond just this one
+      bounty interaction, so worth building as a general
+      DialogueChoiceCondition capability (declare an alternate governing
+      stat per class/condition) rather than a one-off for Barbarians.
+- Not yet decided: does a captured/surrendered bounty target go anywhere
+  meaningful in Totality (an actual prison/holding system, like the
+  Skyrim mod's "prisoner stays in prison permanently"), or is capture
+  purely a flavor/reward-flavor choice with no persistent world-state
+  consequence? Worth deciding before building the surrender path, since
+  a real prison system is a bigger commitment than just branching
+  dialogue.
+
+--- CRIME SYSTEM (new, Skyrim-inspired but corrected) ---
+- Confirmed this session: this should be its OWN real reputation-adjacent
+  system (a "you committed a crime, the world reacts" mechanic), Skyrim-
+  inspired but with deliberate improvements over Skyrim's actual
+  implementation.
+- KEY CORRECTION vs. Skyrim: witness detection must be SENTIENCE-GATED.
+  Skyrim is (in)famous for non-sentient/implausible witnesses being able
+  to somehow report crimes to guards (a chicken, a horse). Totality's
+  version should only let ACTUALLY SENTIENT/CAPABLE witnesses report a
+  crime — a normal horse should NOT be able to tell a guard you stole
+  something, UNLESS that horse is specifically magical/sentient (e.g. a
+  talking/intelligent magical creature, tying into the existing Speak
+  With Animals-adjacent thinking and general creature-intelligence
+  tagging elsewhere in the mod). This likely needs a WITNESS-CAPABLE flag
+  on entities (sentient NPCs = yes by default, ordinary animals = no by
+  default, specific magical/named creatures = yes as an exception),
+  rather than treating "was nearby" as sufficient to generate a witness
+  report the way vanilla Skyrim effectively does.
+- Beyond the witness-sentience fix, NOT yet designed in detail: how
+  bounty/crime severity accrues, how guards/authority figures react at
+  different severity thresholds, whether this integrates with the
+  existing Relationship system (a witnessed crime presumably should be
+  able to sour Relationship with witnesses/victims, similar to how the
+  Caleb/Fjord narrative-flag example already establishes that specific
+  story actions can override relationship independent of tier).
+- BUILD ORDER FOR THIS SYSTEM (confirmed this session): first make an
+  actual LIST OF CRIMES, and crucially, crimes are DIMENSION-SPECIFIC —
+  what counts as a crime depends on where/whose territory you're in. E.g.
+  in the Nether, a Piglin witnessing you mine Gold counts as a crime to
+  Piglins specifically (references vanilla Piglin gold-aggro lore), even
+  though mining gold is obviously not a crime in the Overworld. This means
+  the crime list needs a location/faction-scoping field per crime type,
+  not one universal crime list.
+- PRISON STRUCTURE(S) — needs at least one, likely SEVERAL, physical
+  prison structures depending on crime type/severity:
+    - Standard crimes (theft, minor violence, etc.) → a normal, mundane
+      prison structure (Skyrim-style holding cell/jail).
+    - REALITY-BENDING crimes (using Wish-tier magic destructively, other
+      cosmic-scale transgressions) → could trigger a UNIVERSAL-level
+      response: a cosmic/interdimensional AGENCY intervenes and sends the
+      offender to a completely different kind of prison (a "space
+      prison" or similar) — a much higher-stakes, higher-narrative-weight
+      consequence than a normal jail cell. This ties thematically into
+      the Wish/reality-bending spell list already discussed and hints at
+      an eventual watcher/enforcer faction concept (not yet named or
+      designed).
+  Not yet decided: exact number/tiers of prison structures needed, what
+  escape/sentence mechanics look like, or how a player actually ends up
+  IN one (auto-teleport on conviction? an escort quest? combat-then-
+  capture like the Bounty surrender path?).
+
+--- SPACE EXPLORATION (new idea, VERY long-term, placeholder only) ---
+- New idea raised this session, explicitly flagged as VERY far future —
+  deliberately not designed at all yet, just recorded so it isn't lost.
+- Intended sequencing: should come only after Totality's energy/
+  industrial systems are considerably more developed than they are now
+  (ties into the same "energy base too small" reasoning already used to
+  defer the full Storage Network).
+- Intended to tie into: future quests, and specifically the space-faring/
+  sci-fi-flavored exotic Ancestries already earmarked for Dimensional
+  content (Viltrumite, Kryptonian, Gallifreyan all have real thematic
+  reasons to eventually involve space/other worlds).
+- Also thematically connects to the "space prison" idea directly above —
+  a cosmic-agency-run prison and a Space Exploration system would
+  plausibly share the same underlying "beyond normal dimensions" content
+  space. Purely conceptual at this stage — no mechanics, structures, or
+  scope decided.
+
+--- MAIN STORY (idea exists, deliberately deferred) ---
+- Stefan has an idea for Totality's main story/overarching narrative, but
+  has deliberately chosen NOT to design it yet — wants to wait until the
+  mod is more polished and all the core APIs/basic systems (Classes,
+  Races, Rest, Spell Slots, Quests, Vestiges, Relationship, Crime, etc.)
+  are actually in place first, so the story can be built on top of
+  systems that already work rather than designed around gaps or locking
+  in beats that might not fit what gets built later. No content recorded
+  this session — purely a sequencing note for future reference.
+
+========================================================
+END OF SESSION NOTES
+========================================================

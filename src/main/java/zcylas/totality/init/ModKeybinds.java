@@ -22,12 +22,21 @@ public class ModKeybinds {
     public static final KeyMapping OPEN_RADIAL = KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
                     "key.totality.open_radial",
+                    GLFW.GLFW_KEY_UNKNOWN,
+                    TOTALITY_CATEGORY
+            )
+    );
+
+    public static final KeyMapping BLOCK = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.block",
                     GLFW.GLFW_KEY_V,
                     TOTALITY_CATEGORY
             )
     );
     /**
-     * Opens the main TAB menu (CHARACTER, CODEX etc.)
+     * Opens the Phone app grid (or setup screen, if not yet set up) for the equipped Phone.
+     * No-op if no Phone is equipped.
      * TODO: Once fully wired, remove /totality stats command.
      */
     public static final KeyMapping OPEN_MENU = KeyMappingHelper.registerKeyMapping(

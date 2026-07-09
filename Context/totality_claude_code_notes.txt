@@ -1,0 +1,971 @@
+================================================================
+TOTALITY MOD - FULL PLANNING NOTES FOR CLAUDE CODE
+================================================================
+Minecraft Fabric Mod | MC 26.1.2 | Mojang Mappings
+Mod ID: zcylas.totality
+================================================================
+
+----------------------------------------------------------------
+COMBAT SYSTEM - DUAL WIELDING
+----------------------------------------------------------------
+STATUS: Mostly implemented, one bug remaining.
+
+COMPLETED:
+- Two one-handed weapons equipped (mainhand + offhand) = dual wield mode detected
+- Left click = right hand attacks
+- Right click = left hand attacks
+- Each hand has its own independent cooldown
+- Power attack with both hands simultaneously = both weapons attack at same time,
+  costs double the normal power attack stamina
+- Scissor block (V key) = crossing swords parry animation works
+
+REMAINING BUG:
+- Right hand needs to mirror left hand behavior for all interaction types:
+  attacking air, hitting mobs, hitting blocks
+- Currently mostly an animation issue
+- Fix approach: copy how Minecraft handles mainhand interactions and mirror
+  onto the offhand when dual wield is active
+
+----------------------------------------------------------------
+COMBAT SYSTEM - BLOCK
+----------------------------------------------------------------
+STATUS: Fixed.
+- V key triggers block
+- Was previously animating but not actually reducing damage
+- Now works correctly
+
+----------------------------------------------------------------
+COMBAT SYSTEM - LANCE ITEM
+----------------------------------------------------------------
+STATUS: Planned, Blockbench model not yet built.
+
+DESIGN DECISION:
+- Treating the lance as a D&D Spear (not a full mounted lance)
+- Reason: Minecraft's new vanilla spear (added in Mounts of Mayhem update,
+  December 9, 2025) already functions mechanically like a lance (charge attack,
+  velocity-based damage, mounted combat)
+- Therefore Totality's lance fills the D&D spear role instead
+
+STATS:
+- Damage: 1d6 one-handed / 1d8 two-handed (Versatile)
+- Damage type: Piercing
+- Thrown property: optional future addition
+
+VANILLA SPEAR PLAN:
+- Later: mixin into vanilla spear entity to give it proper D&D lance stats
+  (1d12, Reach, two-handed) via Totality's combat system
+- Not priority now
+
+BLOCKBENCH CUBOID DIMENSIONS (from blueprint):
+- Tip (Copper Spearhead): X=4, Y=24, Z=4
+- Socket (Copper): X=6, Y=6, Z=6
+- Shaft Upper (Wood): X=4, Y=34, Z=4
+- Shaft Lower (Wood): X=4, Y=22, Z=4
+- Grip Wrap (Dark Leather): X=6, Y=12, Z=6
+- Ferrule (Copper): X=6, Y=4, Z=6
+- Butt Cap (Copper): X=6, Y=4, Z=6
+- Total length: 128px (~2.75 player heights)
+- Pivot/hold point: ~64px from bottom
+
+PLAN:
+1. Build Blockbench model first using copper lance reference images
+2. Test with a test item (spawn in creative)
+3. Then create LanceItem class and register it
+4. Material tier variants (iron, gold, diamond etc.) added later
+
+----------------------------------------------------------------
+BUGS TO FIX
+----------------------------------------------------------------
+BUG 1 - EQUIPMENT SLOT COMPONENT POUCH:
+- Component Pouch placed in equipment slot cannot be taken out
+- When player tries to take it out, item gets dropped instead of
+  returning to cursor/player inventory
+- Likely cause: mayPickup or slot click handling issue in the
+  equipment slot GUI screen
+- Fix with Claude Code (has full file context for equipment API)
+
+BUG 2 - VANILLA DAMAGE INTERCEPTOR:
+- VanillaDamageInterceptor only handles vanilla weapons
+- Does not take into account custom Totality weapons
+- Current state: low priority since only Shuriken is implemented
+  and it uses entity damage rather than the interceptor
+- Fix approach: in the interceptor, before falling back to
+  VanillaWeaponStats.get(item), check if the item is a
+  TotalityMeleeWeaponItem and read stats from its data component instead
+- Example fix:
+    if (weapon instanceof TotalityMeleeWeaponItem totWeapon) {
+        // use totWeapon's dice, ability score, damage type directly
+    } else {
+        // fall back to VanillaWeaponStats lookup
+        WeaponData data = VanillaWeaponStats.get(weapon);
+    }
+- Note from VanillaWeaponStats: comment already says
+  "When TotalityWeaponItem is built, weapons expose these via a
+  data component and this lookup is bypassed" — the bypass was
+  planned but not fully implemented
+
+----------------------------------------------------------------
+CLASSES SYSTEM
+----------------------------------------------------------------
+STATUS: Base infrastructure done, content population needed.
+
+IMPLEMENTED CLASSES:
+- Wizard
+- Barbarian
+- Warlock
+- Monk
+
+TODO:
+- Add feats and features per level for each class
+- Hook spell slots to caster classes (Wizard, Warlock)
+- Add corresponding abilities and spells per class level
+
+LEVEL CAP: 25 (5 extra levels beyond D&D standard 20)
+- Levels 21-25 design: not priority now, takes years of gameplay to reach
+- Post-20 = epic tier, should feel genuinely superhuman
+
+SHORT REST / LONG REST:
+- Add Rest ability to the ability radial
+- OR: intercept bed sleep interaction to show rest choice GUI
+  (mixin into sleep logic, cancel vanilla animation, open rest GUI)
+- Short Rest: capped at 2 per Long Rest (BG3 style)
+  - Tracked via shortRestCount in player component
+  - Increments on use, caps at 2, resets to 0 on Long Rest
+- Long Rest: Minecraft bed mechanics already handle restrictions
+  - Can't sleep until night = 24hr cooldown
+  - Mobs wake you up = interrupted rest
+  - Edge case: time manipulation by players = add timestamp component
+    to track last Long Rest regardless of in-game time (future)
+
+SHORT REST EFFECTS:
+- Warlock spell slot recovery
+- Hit Dice healing
+- Attunement for equipment
+
+LONG REST EFFECTS:
+- Full HP restore
+- All spell slots restored
+- Ability cooldowns reset
+- Wizard spell preparation
+
+----------------------------------------------------------------
+SPECIES / ORIGINS (ANCESTRY SYSTEM)
+----------------------------------------------------------------
+STATUS: Infrastructure done, passives need populating.
+
+SPECIES WITH CONTENT:
+- Kryptonian: Physiology passive + Heat Vision
+- Viltrumite: Physiology passive
+
+STANDARD SPECIES NEEDING PASSIVES:
+- Human: extra skill proficiency OR +1 to all stats
+- Elf: Darkvision, Fey Ancestry (advantage on charm saves), Trance
+- Dwarf: Darkvision (60ft), poison resistance, stonecunning
+- Goliath: Stone's Endurance (damage reduction reaction),
+           Powerful Build (carry weight), cold resistance
+- Aasimar: Darkvision, necrotic/radiant resistance, Healing Hands,
+           Light Bearer cantrip, Radiant Soul (timed flight)
+- Halfling: Lucky (reroll Nat 1s), Brave (advantage on fear saves),
+            Naturally Stealthy
+
+AASIMAR RADIANT SOUL FLIGHT:
+- 1 minute duration with Long Rest cooldown (like D&D 5e)
+- Uses existing MovementMode / ToggleFlightPayload system
+- Timed activation (not permanent like Kryptonian)
+- Visual: spectral golden wings appearing on player model
+  (PlayerAnimationLibrary wing bones, OR particle effect as simpler option)
+
+SKYRIM ORIGIN VARIANTS:
+- Same species but different origin = different stat bonuses and flavor
+- e.g. Skyrim Human origin feels different from DnD Human origin
+
+----------------------------------------------------------------
+ECONOMY SYSTEM - CREDITS (FULL REDESIGN)
+----------------------------------------------------------------
+
+CURRENCY SYMBOL: ₵ (C with bar through it)
+- Used in UI as: ₵1000, ₵500 etc.
+- Cyan C with circular ring emblem as the visual icon
+  (not just a plain letter, has depth and feels like an official currency)
+
+OLD SYSTEM (being replaced):
+- Multi-denomination coins (Copper/Silver/Gold)
+- Right-clicking coins auto-deposited to wallet
+- WalletComponent tracked three separate values
+
+NEW SYSTEM:
+- Single unified credit balance stored as one integer in player component
+- Physical coins stay as loot items but do NOT auto-deposit
+- Player must visit Banker NPC to exchange physical coins for credits
+
+PHYSICAL CREDIT ITEM (ONE ITEM, DYNAMIC VISUALS):
+- Registry name: totality:credits
+- One item with internal amount component: amount: [value]
+- Visual tier changes based on amount (handled by model predicate system):
+
+  Tier 1 — Credit Chip
+  Amount: 1–9₵
+  Visual: single octagonal chip
+  Use: tiny loot, small change, weak mob drops
+
+  Tier 2 — Credit Stack
+  Amount: 10–99₵
+  Visual: 2-3 chips stacked or scattered
+  Use: starter quest rewards, daily quests, common loot
+
+  Tier 3 — Credit Pile
+  Amount: 100–999₵
+  Visual: larger pile of chips
+  Use: dungeon loot, quest rewards, merchant withdrawals
+
+  Tier 4 — Credit Card
+  Amount: 1,000–9,999₵
+  Visual: dark card with cyan ₵ symbol
+  Use: large quest rewards, rich NPCs, expensive trades
+
+  Tier 5 — Encrypted Credit Card
+  Amount: 10,000₵+
+  Visual: premium glowing card, more cyan/gold detail
+  Use: boss rewards, bank withdrawals, late-game loot
+
+- Display name changes with tier (e.g. "Credit Pile", "Credit Card")
+- Tooltip always shows: Value: [amount]₵ / Physical currency / Drops on death
+
+STACKING BEHAVIOR (IMPORTANT):
+- Credits do NOT stack normally (different amount components)
+- Instead: credits MERGE when picked up
+  Example: Credits 75₵ + Credits 25₵ picked up = Credits 100₵
+  Visual updates automatically from Stack to Pile
+- Max per item slot: 10,000₵
+  If player has more, creates a second Credits item
+  Example: Credits 10,000₵ + Credits 2,450₵ as two separate items
+
+DEPOSIT BEHAVIOR:
+- Banker/ATM checks all totality:credits items in inventory
+- Reads their values, removes/reduces them
+- Adds total to account balance
+- Example: Credits 75₵ + Credits 500₵ → deposit all → account +575₵
+
+WITHDRAWAL BEHAVIOR:
+- Player chooses amount
+- Receives one Credits item with that amount
+- Visual tier assigned automatically based on amount
+- Example: Withdraw 750₵ → receive Credits item (Credit Pile visual)
+- Example: Withdraw 2,000₵ → receive Credits item (Credit Card visual)
+
+ITEM VALUE SYSTEM:
+- Each Totality item has base value defined at registration
+  Example: ItemValue.of(1000) on item register
+- Vanilla items: separate JSON mapping minecraft items to base values
+  Example: { "minecraft:iron_sword": 800, "minecraft:diamond": 2000 }
+- Items without defined value: either untradeable or fallback calculation
+  based on rarity/material tier
+- Sell price = percentage of base value (default 50%)
+- Charisma or relationship can modify buy/sell rates
+
+ITEM TAGS FOR TRADING:
+- totality:sellable — accepted by any merchant
+- totality:shady_only — only shady dealers accept
+- totality:stolen — flagged as stolen; normal merchants refuse;
+                    shady dealers accept at worse rate
+- Future: stealing/pickpocketing system sets stolen tag automatically
+
+DIMENSIONAL CURRENCIES:
+- Different dimensions drop different physical currency items
+- Examples: Septims (Skyrim), Ryo (Naruto), Zeni (Dragon Ball),
+            Dollars (modern dimension), etc.
+- All convert to ₵ credits via Banker or Value Exchanger NPC
+- Value Exchanger: shadier alternative, worse rates, operates in
+  locations Banker doesn't (inside dungeons, gates)
+- Currency type as environmental storytelling:
+  finding Ryo as drop = you're in a Naruto dimension
+
+----------------------------------------------------------------
+ECONOMY SYSTEM - BANK ACCOUNT
+----------------------------------------------------------------
+
+ACCOUNT TIERS:
+- Basic Account:
+  Free, opened at first Banker visit
+  Credit storage cap: ₵10,000
+  No interest
+  Basic ATM access
+  Basic transaction history
+
+- Standard Account:
+  Small one-time fee or quest requirement
+  Storage cap: ₵100,000
+  Player-to-player transfers enabled
+  Extended buyback history
+
+- Premium Account:
+  Subscription (monthly credit fee)
+  Unlimited storage
+  Small daily interest on balance
+  Free delivery from phone store
+  Better exchange rates at Banker
+  Priority merchant restocking notifications via mail
+
+- Dimensional Account:
+  Unlocked via specific gate or questline
+  Can hold multiple currency types (Septims, Ryo etc.) + credits
+  Exclusive dimensional store access
+
+ACCOUNT vs PHYSICAL CREDITS:
+- No account: credits are items in inventory, drop on death if you die
+- With account: credits stored safely, don't drop on death
+- Both systems coexist; players choose how to manage money
+- Trading screen can use either physical credits OR account balance
+
+INVESTMENT SYSTEM (like Skyrim):
+- Merchants have a credit pool cap (how much they can pay for items)
+- Selling TO a merchant increases their pool beyond normal cap
+- Investment options to make increase permanent:
+  Option 1: Speech/Charisma mastery perk
+  Option 2: Good enough relationship with that merchant
+- Investment costs a one-time credit fee
+  (e.g. ₵500 for Novice, ₵2000 for Master)
+- Without investment: pool resets on restock timer
+- With investment: permanently raised pool
+
+----------------------------------------------------------------
+ECONOMY SYSTEM - BANKER NPC
+----------------------------------------------------------------
+
+DESIGN (reference sheet generated):
+- Dark vest, white shirt, pocket watch with ₵ pendant, monocle, mustache
+- Carries ledger book
+- Three detail levels: 16x16 (low), 32x32 (medium), 64x64 (high)
+- Standard player proportions (Steve body + skin work + small cuboid additions)
+  - Monocle: small flat cuboid on face
+  - Mustache: small cuboid under nose
+  - Ledger book: flat rectangle held in hand
+  - Pocket watch/pendant: tiny cube on chest with ₵ texture
+
+DROPS:
+- Credit Chips (common)
+- Bank Ledger (uncommon) — detailed account ledger, may contain useful data
+- Quill Pen (rare, flavor only) — fine quill for signing documents, no practical use
+
+STAT BLOCK:
+- Rank: B or A (not a pushover, not Z rank)
+- High CHA and INT (reflected in dialogue options)
+- Low combat stats
+- Ability: Summon Guards — calls 2-4 armored bank guards if attacked
+- Ability: Lockdown — seals bank temporarily if combat starts
+
+FOR TESTING:
+- Use a standard NPC with a banker skin from online (NameMC, Planet Minecraft)
+- Full custom model built later
+
+SERVICES:
+- Open basic credit account
+- Exchange physical dimensional currencies to ₵ credits
+- Invest in merchants (with right conditions)
+- Better exchange rates than Value Exchanger
+
+----------------------------------------------------------------
+ECONOMY SYSTEM - ATM BLOCK
+----------------------------------------------------------------
+
+DESIGN (reference sheet generated):
+- Block entity
+- Dark metal with gold trim and corner brackets
+- Cyan screen on front with ₵ emblem
+- Keyboard and card slot on front face
+- Cyan glow on screen (emissive texture layer)
+- All 6 faces textured (sides have ₵ emblem, top has gold trim only)
+- Palette: black/dark grey, gold, cyan
+
+NOT CRAFTABLE:
+- No crafting recipe
+- Found in banks and towns only
+- Players cannot build their own ATMs
+- Breaking an ATM = triggers guard alert + criminal flag
+
+ATM GUI (simple screen):
+- Balance displayed prominently at top
+- 4 buttons: DEPOSIT / WITHDRAW / TRANSFER / TRANSACTIONS
+- Transactions = scrollable list of recent activity with timestamps
+
+BANKING APP (on phone):
+- Unlocked via quest or account tier (not available from start)
+- Remote deposit/withdraw
+- Transfers have small fee (remote convenience cost)
+- Cannot exchange physical currencies remotely (must visit Banker)
+- Unlocked later than the phone itself
+
+----------------------------------------------------------------
+ECONOMY SYSTEM - MERCHANT TRADING
+----------------------------------------------------------------
+
+SHOP JSON STRUCTURE:
+{
+  "shop_id": "blacksmith_novice",
+  "credit_pool": 500,
+  "restock_days": 3,
+  "accepts_tags": [
+    "totality:weapons",
+    "totality:armor",
+    "totality:tools",
+    "totality:ingots",
+    "totality:crafting_materials"
+  ],
+  "sells": [
+    { "item": "minecraft:iron_sword", "stock": 2 },
+    { "item": "minecraft:iron_chestplate", "stock": 1 }
+  ]
+}
+
+STOCK SYSTEM:
+- Each merchant has limited quantity per item
+- Resets on timer (restock_days)
+- NPC inventory stored as actual component data on entity
+  (not just JSON defaults, live values tracked separately)
+- Supports pickpocketing later since inventory is real data
+- Selling TO a merchant adds items to their real inventory
+- Buyback reads from their real inventory
+
+BUYBACK SYSTEM:
+- Items sold to merchant persist in their inventory permanently
+- Never reset on restock timer (unlike normal stock)
+- Dedicated BUYBACK tab in trading screen
+- Buyback price: FULL buy price (two confirmation screens = player's fault)
+- In multiplayer: another player can buy your sold item before you buy back
+  (inter-player trading through merchant as middleman)
+
+TRADING SCREEN LAYOUT (mockup generated):
+- Left: 3x4 item grid (item name above slot, price below in gold ₵)
+- Right: Detail panel (large item icon, name, description, stats list,
+         lore line at bottom)
+- Top right of detail panel: Player credit balance with ₵ icon
+- Bottom left: BUY tab / SELL tab / BUYBACK tab
+- Bottom right: Green checkmark (confirm) + Red X (cancel)
+- Selected item highlight: cyan border glow
+- Affordable indicator: items player can't afford shown dimmed or red price
+- SELL tab: filters player inventory by merchant's accepts_tags
+- High value confirm popup: second confirmation for purchases above threshold
+- Bulk buy/sell: slider + text input field, live price update as you drag
+  Capped at: merchant stock available OR player credit balance OR item limit
+
+VILLAGER OVERHAUL (via mixin):
+- Mixin into Villager.mobInteract()
+- Cancel vanilla trading GUI
+- Open Totality dialogue API instead
+- Each villager type = own dialogue tree + own shop_id reference
+- Villager profession determines shop_id and dialogue
+
+VILLAGER TIERS (Skyrim trainer style):
+- Novice: common/uncommon items only
+- Apprentice: uncommon/rare
+- Journeyman: rare/epic, exotic materials
+- Expert: epic/legendary
+- Master: anything, very rare to find, possibly named NPC
+
+EXAMPLE NAMED MERCHANT NPC:
+- Gilmore (Critical Role): Master Enchanter
+  Unique dialogue, quest hooks, exclusive enchanting services,
+  relationship system with discounts for completing his quests
+
+----------------------------------------------------------------
+ECONOMY SYSTEM - DELIVERY / SHIPPING
+----------------------------------------------------------------
+
+PHONE STORE:
+- Browse and purchase items remotely via phone
+- Delivery fee added on top of normal price
+- No delivery fee with Premium account subscription
+
+SHIPPING TIERS:
+- Standard Shipping: normal wooden box delivered to designated location
+  (bank, your base, courier NPC), takes X in-game days, cheapest option
+- Express Shipping: fancier box, arrives faster, moderate fee
+- Dimensional Delivery: Dimensional Supply Cache materializes near player
+  instantly, premium price, works anywhere (mid-dungeon, inside gates),
+  free/discounted for Premium subscription holders
+
+DIMENSIONAL SUPPLY CACHE:
+- Block entity (animated)
+- Design: dark metal, gold corner brackets, cyan glowing sigil on front,
+  concentric square glow pattern on top, cyan particles surrounding it
+- Appears with cyan particles and faint sound
+- Lid opens with animation when player approaches/interacts
+- After looting: sigil fades, glow dims, cache dissolves/disappears
+  after a set time (not permanent world clutter)
+- Also used for: quest reward drops, rare loot events, dungeon rewards
+
+----------------------------------------------------------------
+ANVIL OVERHAUL
+----------------------------------------------------------------
+
+PLANNED:
+- Intercept vanilla anvil interaction
+- Instead of flat XP cost: trigger a Smithing skill check (d20 roll)
+- Roll modified by player's Smithing skill level
+
+OUTCOMES:
+- Nat 1: repair fails, possible additional damage to item
+- Nat 20: perfect repair, bonus durability or small enchantment bonus
+- Normal success: standard repair
+- Failure: partial repair or wasted materials
+- Higher Smithing skill = lower success threshold = rarely fail at high level
+
+BLACKSMITH NPC vs ANVIL:
+- Blacksmith NPC: guaranteed success (you pay for reliability)
+- DIY anvil: skill-gated, risky but free
+- Creates meaningful choice between the two systems
+
+BLACKSMITH REPAIR SCREEN (custom GUI via dialogue API):
+- Left slot: item to repair
+- Middle slot: ingredient (optional, offsets gold cost)
+- Right slot: output with check/X overlay
+- Hover tooltip: cost breakdown (base credits, ingredient discount, final price)
+- Check = green if affordable, X = red if not enough credits/materials
+- Ingredient offset: relevant material reduces credit cost
+  Example: iron ingot reduces cost of repairing iron sword based on durability
+
+BLACKSMITH UPGRADES (future):
+- Second tab or dialogue option
+- Pay extra to upgrade item material tier
+- Only certain tiers available per Blacksmith tier
+
+----------------------------------------------------------------
+SMARTPHONE SYSTEM
+----------------------------------------------------------------
+
+PHONE ITEM:
+- Equipment slot (dedicated phone slot, does not use inventory space)
+- Required to open the main Totality menu (TAB key)
+- Single item: totality:basic_copper_phone
+- Internal component: setup_complete: false/true
+  (not two separate items, one item with state)
+
+PHONE TIERS:
+- Basic (Copper border): starter tier, limited apps
+- Higher tiers (Iron, Gold, Diamond, Netherite): more app slots, more features
+- Higher tier phones show locked app icons as progression roadmap
+
+BEFORE SETUP:
+- Tooltip: "A basic copper-framed phone. The screen is waiting for first-time setup."
+- Right-clicking opens boot/setup screen (small GUI)
+
+AFTER SETUP:
+- Tooltip: "A basic copper-framed phone. Opens the Totality menu."
+- Right-clicking OR pressing TAB opens phone app grid
+
+PHONE APP GRID (full screen when browsing):
+- Status bar: carrier name "TOTALITY", time, battery percentage
+- Main 3x3 app grid (changes per page/tab)
+- Bottom favourites bar: 4 fixed icons (Character, Skills, Quests, Wallet suggested)
+- Gold divider between grid and favourites
+- Page system: swipe/arrow to next page as more apps added
+- Locked app icons: visible but greyed out, hover shows unlock requirement
+
+LOCKED APP TOOLTIP EXAMPLES:
+- Bank app: "Requires an active credit account. Visit a Banker."
+- Store app: "Requires Standard account tier."
+- Bestiary: "Unlock by discovering your first creature."
+
+APPS UNLOCKED ON BASIC PHONE (starter):
+- Character
+- Skills
+- Quests
+- Wallet
+- Settings
+
+APPS VISIBLE BUT LOCKED ON BASIC PHONE:
+- Bank
+- Mail
+- Map
+- Bestiary
+- Classes
+- Abilities
+- Spells
+- Store
+
+APP SCREENS:
+- Each app opens FULL SCREEN GUI (not confined to phone frame)
+- Phone frame only appears when browsing app grid
+- Apps use same dark aesthetic, gold/cyan colors as phone
+- BACK button returns to phone app grid
+
+MAIL SYSTEM (from app grid):
+- Player to player messaging (multiplayer)
+- System notifications: quest updates, daily reset, bank statements,
+  merchant restocking alerts
+- Item delivery notifications from phone store
+- NPC correspondence (exclusive offers from merchants with good relationship)
+
+----------------------------------------------------------------
+QUEST SYSTEM
+----------------------------------------------------------------
+
+STARTER QUEST: "First Signal"
+Quest ID: totality:first_signal
+Trigger: first time player joins a world
+
+FLOW:
+Stage 1 — Quest popup appears:
+  "New Quest: First Signal"
+  "A strange copper-framed device hums in your pocket."
+  Player spawns with Basic Copper Phone already in inventory/phone slot
+  Player also receives: Credit Chips (75₵ worth)
+  Objective: Check the device
+
+Stage 2 — Player right-clicks phone or equips it:
+  Small setup GUI appears:
+  "TOTALITY NETWORK"
+  "New signal detected."
+  "Create local profile?"
+  Button: "Begin"
+  After pressing: phone marked as setup_complete = true
+  TAB menu becomes available
+  Objective: Open the Quest app
+
+Stage 3 — Quest complete:
+  "Quest Complete: First Signal"
+  "You are now connected."
+  Rewards: Basic Copper Phone (already obtained), 75₵ Credits, 50 XP
+  Unlocks: daily quests (after first Minecraft day or after opening Quest app)
+
+DESIGN PRINCIPLES FOR STARTER QUEST:
+- No second phone item (one item with component state, not inactive/active)
+- No banking tutorial (credits introduced as reward, not lecture)
+- No big lore dump
+- Mysterious but minimal
+- Implication: "Something placed this with you when you arrived"
+- Who placed it: not explained yet (long-term mystery)
+
+FOLLOW-UP QUEST: "A Safer Place"
+Trigger: player talks to a Banker while carrying physical credits
+(NOT forced immediately after First Signal)
+
+Banker dialogue trigger line:
+"Carrying chips on the road? Brave. Or careless.
+I can open an account and keep those safe for you."
+
+Quest starts naturally:
+"New Quest: A Safer Place"
+"Open a basic credit account with a Banker."
+Rewards: Basic Account, deposit access, ATM access
+Banking app remains locked until later account tier or quest
+
+QUEST SCREEN LAYOUT (full screen mockup generated):
+- Three tabs: ACTIVE / DAILY / COMPLETED
+- Left panel: quest list (icon, name, type tag, diamond if tracked)
+- Right panel: selected quest details
+  - Quest icon (large)
+  - Quest name
+  - Tags: type (Starter Quest, Daily Quest, etc.) + TRACKED indicator
+  - Description text
+  - OBJECTIVES section with checkboxes
+  - REWARDS section with item icons + amounts
+- Bottom bar: TRACK button / ABANDON button (greyed for starter) / CONTINUE button
+- Background: dark atmospheric blur of game world
+
+DAILY QUESTS:
+- Automatically assigned each day (no NPC/board needed)
+- Random selection from JSON pool
+- Reset daily (midnight or day change)
+- Claim rewards through Quest app when objectives met
+- Track progress via events:
+  - LivingDeathEvent (kill objectives)
+  - CraftingEvent (crafting objectives)
+  - PlayerTickEvent (distance/time objectives)
+
+DAILY QUEST JSON EXAMPLE:
+{
+  "id": "kill_zombies",
+  "type": "kill",
+  "target": "minecraft:zombie",
+  "count": 20,
+  "reward_credits": 500,
+  "reward_xp": 100
+}
+
+NARRATIVE QUESTS (future, post-trading):
+- BG3/Skyrim style flag-based
+- Multiple resolution paths (combat, Charisma, stealth, intelligence)
+- Dialogue API integrated
+- Charisma rolls affect outcomes
+- Quest rewards include credits
+- Narrative flags: Map<String, Integer> per player
+  Example: "inn_debt_riverdale: 500"
+
+DIALOGUE CONDITION NEEDED:
+- Item-in-inventory check as a dialogue condition in the JSON
+  (needed for "A Safer Place" trigger and many future quests)
+- Important to support this in the dialogue API JSON schema
+
+----------------------------------------------------------------
+DIMENSIONAL GATE SYSTEM
+----------------------------------------------------------------
+
+GATE CONTENT TIERS:
+- Common: basic enemies from that universe (Hollows, generic ninjas)
+  Good for farming universe-specific drops
+- Uncommon: stronger themed enemies, minor named characters
+- Rare: significant named characters, harder quests, better rewards
+- Legendary: Z rank encounters, major story moments, extremely rare
+
+Z RANK DEFINITION:
+- Covers both: powerful entities (Naruto, Ichigo, Denji)
+  AND legendary named characters (Gilmore, Pumat Sol)
+- Hand-crafted, story-triggered, never randomly spawned
+
+RESOLUTION OPTIONS (NOT ALWAYS COMBAT):
+- High Charisma: talk through encounters
+- High Stealth/DEX: sneak past entirely
+- High Intelligence: recognize dimension, special dialogue options
+- High Strength: combat path
+- Multiple resolution paths reward different builds
+
+DIMENSIONAL TIMELINES (same character, different states):
+Example — Naruto variants:
+- Genin era Naruto: approachable, quests about proving yourself
+- Shippuden Naruto: serious, harder quests, better rewards
+- Hokage Naruto: near untouchable, legendary quests
+- Dark Timeline Naruto: Iruka died before meeting him → hates ninjas
+  (cannot be reached via Iruka references since he never knew him)
+  Peaceful resolution: find Jiraiya or Tsunade in that dimension
+  If they're also dead: no-win situation, fight or leave
+
+DARK TIMELINE PRINCIPLE:
+- Same character but tragic alternate path
+- Familiar to lore-knowledgeable players without needing explanation
+- Charisma checks fail differently than normal timeline
+  (no emotional anchor to pull on)
+
+FUTURE COMEDIC TIMELINES:
+- Same character, absurd wrong turn instead of tragic one
+- Tonal variety keeps players on their toes
+
+DIMENSIONAL CURRENCIES:
+- Each dimension drops its own physical currency items
+- All convert to ₵ at Banker or Value Exchanger
+- Currency as environmental storytelling
+
+----------------------------------------------------------------
+NPC SYSTEMS
+----------------------------------------------------------------
+
+NAMED NPCS (current plans):
+- Gilmore (Critical Role): Master Enchanter
+  - Unique dialogue with personality
+  - Quest hooks before accessing best services
+  - Exclusive enchanting (artifact tier, combining normally-impossible enchantments)
+  - Relationship system (quests = discounts, hidden stock)
+  - Bestiary entry
+
+- Pumat Sol (Critical Role): Master merchant
+  - Four simulacra in same shop (all polite, slightly different dialogue)
+  - Unique shopping experience
+
+- Gilear (Dimension 20): Quest series (comedic)
+  - Sad divorced elf, terrible yogurt cart
+  - Contrast between tragedy and epic RPG quest format
+
+- Dimensional NPCs (Naruto, Ichigo, Denji, etc.):
+  - Gated behind Dimensional Gates
+  - Power level justifies Z rank
+  - Multiple timeline variants possible
+
+BANK GUARDS:
+- Custom NPC type
+- Heavy armor, B rank
+- Hostile only if player attacks first or is flagged criminal
+- Summoned by Banker's Summon Guards ability
+
+BANK STRUCTURE (planned):
+- Dedicated building with proper architecture
+- Blackstone/stone exterior, gold and cyan accents
+- Counter area for Banker NPC
+- ATMs on walls
+- Decorative vault door in back (possible functional future use)
+- Bank Guards patrol inside
+
+REPUTATION SYSTEM (future):
+- Narrative flags track per-NPC and per-town relationships
+- Merchants react to past business
+- Inn tab system: Charisma to stay on credit, must pay later
+  Consequences: not paying = merchant refuses service in that town,
+  word spreads, debt collectors sent
+- Criminal flag: from stealing, breaking ATMs, attacking innocents
+
+STEALING/PICKPOCKETING (future):
+- Items get totality:stolen tag
+- Connects to merchant system (refusal to buy)
+- Connects to reputation system
+
+TAXES (future):
+- Property/land ownership costs periodic tax
+- Subscription counts as recurring bill
+- Not paying = escalating consequences
+
+----------------------------------------------------------------
+CARD COLLECTION SYSTEM (FUTURE)
+----------------------------------------------------------------
+
+CONCEPT:
+- Pokemon-inspired creature collection via cards
+- Cards instead of Pokeballs
+
+CARD STATES:
+- Card Back: Yu-Gi-Oh style dark decorated back
+  = item used to attempt catching a mob
+  Crafted/found, used on a mob to capture it
+- Card Front: template with mob portrait, name, stats, rarity gem
+  = result after successful catch
+  Generated dynamically when mob is caught
+
+FRONT/BACK AS 3D BLOCKBENCH ITEM:
+- Very thin cuboid (1 pixel thick, like a real card)
+- Front face: captured mob card texture
+- Back face: card back texture
+- Display transforms:
+  Inventory/GUI: front faces camera (see mob)
+  Held in hand / on ground: back faces outward (unknown/face-down)
+
+MOB PORTRAIT OPTIONS:
+- Pre-made 2D pixel art portraits per mob (best quality, most work)
+- Skin texture baked from mob texture (simpler, looks flat)
+- Render to framebuffer (complex, proper 3D look)
+
+MOB DATA ON CARD:
+- Mob type, rarity, shiny status stored as data component
+
+FEATURES:
+- Rarity tiers matching existing rarity system
+- Shiny variants (rare alternate colors, similar to Pokemon odds)
+- Bestiary integration: catching = discovery entry
+- Hunter skill gate: higher skill = rarer mobs catchable
+- NPC trading for cards
+- Card album screen: completion percentage, shiny indicators
+
+----------------------------------------------------------------
+TEXTURE STATUS
+----------------------------------------------------------------
+
+COMPONENT POUCH:
+- Closed state: DONE (32x32, Photopea)
+- Open state: NOT DONE YET
+  - Would need 64x64 due to added detail (open top takes more space)
+  - May not be needed since pouch is not a container that opens in gameplay
+  - Defer until needed
+
+PHONE ITEM:
+- Basic Copper Phone: copper border, black screen (off state)
+- Reference image generated (ChatGPT)
+- TODO: recreate as actual 32x32 texture in Photopea
+- Straightforward rectangle shape, should be quick
+
+CREDIT ITEMS:
+- Credit Chip: reference generated
+- Credit Pile: reference generated
+- Credit Card: reference generated
+- TODO: recreate all three as actual textures in Photopea
+- All use same gold/cyan/dark aesthetic
+- Note: these are 2D flat item textures, NOT Blockbench models
+- Model predicate system switches texture based on amount component
+
+CURRENCY SYMBOL:
+- Cyan C with circular ring emblem (entity sheet style, not plain letter)
+- Used as: HUD wallet icon, UI currency indicator
+- At small HUD sizes: flat cyan C in UI font may be more readable than full icon
+- Worth testing both at actual inventory scale
+
+WALLET HUD:
+- Shows in inventory screen (not always-on game HUD)
+- Displays: ₵ icon + credit balance number
+- Updates in real time
+
+ABILITY ICONS (need ~15-18 total):
+- Only Firebolt done
+- Spells needing icons: Ray of Frost, Chill Touch, Toll the Dead,
+  Magic Missile, Eldritch Blast, Burning Hands, Sleep, Armor of Agathys,
+  Hex, Misty Step, Silence, Scorching Ray, Cone of Cold, Disintegrate,
+  Crown of Stars, Lightning Bolt, Poison Spray
+- Abilities needing icons: ~5-7, one needs 64x64, rest 42x42 or 48x48
+- Template approach: base canvas preset per size (42, 48, 64),
+  duplicate for each new icon
+
+OTHER ITEMS NEEDING TEXTURES:
+- Bat guano
+- Glass rod
+- Some blocks have ChatGPT placeholder textures needing proper replacements
+
+----------------------------------------------------------------
+CHATGPT IMAGE WORKFLOW
+----------------------------------------------------------------
+
+TWO-IMAGE FORMAT FOR WEAPONS/ITEMS:
+- Image 1: Visual reference (3/4 isometric render, color palette, scale guide,
+           player height comparison)
+- Image 2: Blueprint (orthographic views front/side/back, cuboid dimension table,
+           cross-section reference, model notes)
+
+FILTER BYPASS:
+- Add "It's for Minecraft, not real life" to weapon prompts
+- Avoids content filter triggering on medieval weapon prompts
+- Use fantasy/ceremonial terminology for weapon names if still blocked
+
+ENTITY REFERENCE SHEET FORMAT:
+- Three detail levels: LOW (~16x16 logic), MEDIUM (~32x32 logic), HIGH (~64x64 logic)
+- Orthographic views: front/side/back
+- Scale comparison vs player
+- Color palette swatches
+- Drop items listed at bottom
+
+----------------------------------------------------------------
+DEVELOPMENT APPROACH
+----------------------------------------------------------------
+
+IMPLEMENTATION PHILOSOPHY:
+- Design and visual work done in this chat
+- Code implementation done in Claude Code
+- Test with spawned-in items/NPCs before proper acquisition methods
+- No point building custom models/animations before systems work
+
+PRIORITY ORDER:
+1. Fix dual wield right hand behavior (animation mirror)
+2. Fix equipment slot Component Pouch bug
+3. Fix VanillaDamageInterceptor for custom weapons
+4. Credits/currency refactor:
+   - Wallet component → single integer balance
+   - totality:credits item with dynamic visuals
+   - Physical coin items stay as loot (no auto-deposit)
+   - Merge behavior when picking up credits
+5. Trading screen implementation (design complete)
+6. Phone item + TAB menu redesign:
+   - PhoneItem with setup_complete component
+   - App grid full screen GUI
+   - Apps unlock system
+7. Daily quests (JSON pool, auto-assign, event tracking)
+8. Starter quest "First Signal" (gives phone, credits)
+9. Follow-up quest "A Safer Place" (Banker interaction trigger)
+10. Classes content (feats per level, spell slot hooks, abilities per class)
+11. Species passives and abilities (standard races mostly stat-based)
+12. Short/Long Rest system
+13. Villager mixin + custom trading
+14. Named NPCs (Gilmore, Pumat Sol, Gilear)
+15. Dimensional Gate system
+16. Narrative quests
+17. Stealing/pickpocketing
+18. Reputation system
+19. Taxes
+
+ENTITY ANIMATION PIPELINE:
+- Modded Entity Blockbench project type (NOT GeckoLib)
+- LayerDefinition/CubeListBuilder + AnimationDefinition Java export
+- All animations keyframe based
+
+DATA DRIVEN PHILOSOPHY:
+- Shop JSONs for trading
+- Quest JSONs for quest definitions
+- Dialogue JSONs for NPC conversations
+- Item value defined at registration, not per-shop
+- Adding new content = edit JSON, not code changes where possible
+
+================================================================
+END OF NOTES
+================================================================

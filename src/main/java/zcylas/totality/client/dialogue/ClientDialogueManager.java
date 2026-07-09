@@ -38,7 +38,13 @@ public final class ClientDialogueManager {
             ShowDialogueStatePayload update = pendingUpdate;
             pendingUpdate = null;
             Minecraft.getInstance().execute(() -> {
-                if (update.ended()) return;
+                // Only skip reopening when there's genuinely nothing to show (mirrors handle()'s
+                // check) — an "ended" state can still carry real closing text (e.g. a roll that
+                // routes straight into a farewell/declined end node), which DialogueScreen already
+                // knows how to display (hides choices, shows "[E: Continue]"). Treating "ended"
+                // alone as "nothing to show" was dropping that text entirely, leaving no dialogue
+                // UI visible at all after the dice screen closed.
+                if (update.ended() && update.npcText().getString().isEmpty()) return;
                 Minecraft.getInstance().setScreen(new DialogueScreen(update));
             });
         }

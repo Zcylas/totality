@@ -13,21 +13,25 @@ package zcylas.totality.api.rpg.stats;
  * FTH — Faith:        religion favour gain, divine intervention power
  */
 public enum AbilityScore {
-    STR("Strength",     "Governs melee damage and carry weight."),
-    DEX("Dexterity",    "Governs attack speed, dodge chance and ranged accuracy."),
-    CON("Constitution", "Governs maximum health points."),
-    END("Endurance",    "Governs maximum stamina and poison resistance."),
-    INT("Intelligence", "Governs maximum mana and spell power."),
-    WIS("Wisdom",       "Governs skill XP gain rate and magic resistance."),
-    CHA("Charisma",     "Governs NPC interactions and merchant prices."),
-    FTH("Faith",        "Governs religion favour gain and divine intervention.");
+    STR("Strength",     "Governs melee damage and carry weight.",                     "⚔", 0xFFCC4444),
+    DEX("Dexterity",    "Governs attack speed, dodge chance and ranged accuracy.",     "◎", 0xFFCC8833),
+    CON("Constitution", "Governs maximum health points.",                             "♥", 0xFF44AACC),
+    END("Endurance",    "Governs maximum stamina and poison resistance.",             "⚡", 0xFF44CC88),
+    INT("Intelligence", "Governs maximum mana and spell power.",                      "✦", 0xFFAA44CC),
+    WIS("Wisdom",       "Governs skill XP gain rate and magic resistance.",           "◈", 0xFF4488CC),
+    CHA("Charisma",     "Governs NPC interactions and merchant prices.",              "★", 0xFFCCAA33),
+    FTH("Faith",        "Governs religion favour gain and divine intervention.",      "✝", 0xFFCCCCCC);
 
     private final String displayName;
     private final String description;
+    private final String icon;
+    private final int iconColor;
 
-    AbilityScore(String displayName, String description) {
+    AbilityScore(String displayName, String description, String icon, int iconColor) {
         this.displayName = displayName;
         this.description = description;
+        this.icon = icon;
+        this.iconColor = iconColor;
     }
 
     public String getDisplayName() {
@@ -36,6 +40,15 @@ public enum AbilityScore {
 
     public String getDescription() {
         return description;
+    }
+
+    /** Unicode glyph used to represent this score in UI (character screen, dice bonus cards, etc.). */
+    public String getIcon() {
+        return icon;
+    }
+
+    public int getIconColor() {
+        return iconColor;
     }
 
     /**

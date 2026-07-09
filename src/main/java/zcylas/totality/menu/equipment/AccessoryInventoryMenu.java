@@ -21,6 +21,7 @@ import zcylas.totality.mixin.CraftingMenuAccessor;
 import zcylas.totality.api.equipment.PlayerEquipmentComponent;
 import zcylas.totality.api.equipment.TotalityAccessorySlot;
 import zcylas.totality.api.equipment.TotalityRingItem;
+import zcylas.totality.item.energy.PhoneItem;
 
 /**
  * Inventory menu that mirrors vanilla InventoryMenu's slot layout and adds
@@ -33,9 +34,10 @@ import zcylas.totality.api.equipment.TotalityRingItem;
  *   9–35    — main inventory (3 rows × 9)
  *   36–44   — hotbar (9)
  *   45      — offhand
- *   46      — ring slot 1 (component index 1)
- *   47      — ring slot 2 (component index 2)
- *   48      — pouch slot  (component index 4)
+ *   46      — phone slot  (component index 5)
+ *   47      — ring slot 1 (component index 1)
+ *   48      — ring slot 2 (component index 2)
+ *   49      — pouch slot  (component index 4)
  */
 public class AccessoryInventoryMenu extends AbstractContainerMenu {
 
@@ -60,9 +62,11 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
     public static final int RING_PANEL_X = 178; // 2px gap from inv right edge (176)
     public static final int RING_PANEL_Y = 20;  // panel top, relative to topPos
     public static final int RING_SLOT_X  = 183; // RING_PANEL_X + 4(border) + 1(item offset)
-    public static final int RING_1_Y     = 25;  // RING_PANEL_Y + 4(border) + 1(item offset)
-    public static final int RING_2_Y     = 43;  // RING_1_Y + 18 — adjacent, no gap
-    public static final int POUCH_Y      = 61;  // RING_2_Y + 18 — adjacent, no gap
+    // Phone sits in the top row — important enough to want at-a-glance, above the rings/pouch.
+    public static final int PHONE_Y      = 25;  // RING_PANEL_Y + 4(border) + 1(item offset)
+    public static final int RING_1_Y     = 43;  // PHONE_Y + 18 — adjacent, no gap
+    public static final int RING_2_Y     = 61;  // RING_1_Y + 18 — adjacent, no gap
+    public static final int POUCH_Y      = 79;  // RING_2_Y + 18 — adjacent, no gap
 
     private final Player player;
     private final CraftingContainer craftMatrix = new TransientCraftingContainer(this, 2, 2);
@@ -130,6 +134,10 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
         }
         Identifier ringIcon  = Identifier.fromNamespaceAndPath("totality", "container/slot/ring");
         Identifier pouchIcon = Identifier.fromNamespaceAndPath("totality", "container/slot/pouch");
+        Identifier phoneIcon = Identifier.fromNamespaceAndPath("totality", "container/slot/phone");
+        addSlot(new TotalityAccessorySlot(ringContainer, player,
+                PlayerEquipmentComponent.IDX_PHONE, RING_SLOT_X, PHONE_Y, phoneIcon,
+                stack -> stack.getItem() instanceof PhoneItem));
         addSlot(new TotalityAccessorySlot(ringContainer, player,
                 PlayerEquipmentComponent.IDX_RING_1, RING_SLOT_X, RING_1_Y, ringIcon));
         addSlot(new TotalityAccessorySlot(ringContainer, player,
@@ -192,8 +200,12 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
         } else {
             // Inventory (9–44): try to equip ring, armor, offhand, or swap halves
             if (stack.getItem() instanceof TotalityRingItem) {
-                if (!moveItemStackTo(stack, 46, 48, false)) {
+                if (!moveItemStackTo(stack, 47, 49, false)) {
                     // Ring slots full — swap between inv halves
+                    if (!swapInventoryHalves(stack, index)) return ItemStack.EMPTY;
+                }
+            } else if (stack.getItem() instanceof PhoneItem) {
+                if (!moveItemStackTo(stack, 46, 47, false)) {
                     if (!swapInventoryHalves(stack, index)) return ItemStack.EMPTY;
                 }
             } else {

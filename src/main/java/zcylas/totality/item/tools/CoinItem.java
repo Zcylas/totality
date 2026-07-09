@@ -3,22 +3,21 @@ package zcylas.totality.item.tools;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.TooltipDisplay;
-import net.minecraft.world.level.Level;
-import zcylas.totality.api.core.component.ComponentProvider;
-import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.currency.CurrencyHelper;
 import zcylas.totality.api.economy.currency.Denomination;
 
 import java.util.function.Consumer;
 
+/**
+ * Physical Coins — pure loot/inventory item, no wallet interaction on its own.
+ * The Wallet ({@link zcylas.totality.api.economy.currency.CurrencyComponents#WALLET})
+ * holds Credits only; exchanging Coins for Credits happens via a Banker, not by
+ * right-clicking the coin (that auto-deposit behavior was removed 2026-07-08).
+ */
 public class CoinItem extends Item {
 
     private final Denomination denomination;
@@ -36,18 +35,6 @@ public class CoinItem extends Item {
 
     public long getValue(ItemStack stack) {
         return denomination.toRawValue(stack.getCount());
-    }
-
-    @Override
-    public InteractionResult use(Level level, Player user, InteractionHand hand) {
-        ItemStack stack = user.getItemInHand(hand);
-        if (!level.isClientSide() && user instanceof ServerPlayer serverPlayer) {
-            long rawValue = getValue(stack);
-            CurrencyComponents.WALLET.get((ComponentProvider) serverPlayer).modify(rawValue);
-            stack.shrink(stack.getCount());
-            return InteractionResult.SUCCESS;
-        }
-        return InteractionResult.SUCCESS;
     }
 
     @Override

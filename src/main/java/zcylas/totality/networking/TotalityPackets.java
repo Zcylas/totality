@@ -26,6 +26,9 @@ import zcylas.totality.networking.config.SideModeSyncPayload;
 import zcylas.totality.networking.dice.DiceCheckRequestPayload;
 import zcylas.totality.networking.dice.DiceRollClickPayload;
 import zcylas.totality.networking.dice.DiceRollResultPayload;
+import zcylas.totality.networking.economy.DepositCreditsPayload;
+import zcylas.totality.networking.economy.ShowBankTellerPayload;
+import zcylas.totality.networking.economy.WithdrawCreditsPayload;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.networking.inventory.InventoryDropPayload;
 import zcylas.totality.networking.inventory.InventoryEquipPayload;
@@ -42,11 +45,17 @@ import zcylas.totality.networking.movement.PowerSprintStatePayload;
 import zcylas.totality.networking.movement.ToggleFlightPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 import zcylas.totality.networking.item.AttunementPayload;
+import zcylas.totality.networking.item.PhoneSetupPayload;
 import zcylas.totality.networking.item.UnAttunePayload;
 import zcylas.totality.networking.skills.UnlockMasteryPayload;
 import zcylas.totality.networking.stamina.SyncStaminaPayload;
 import zcylas.totality.networking.dialogue.DialogueChoicePayload;
 import zcylas.totality.networking.dialogue.ShowDialogueStatePayload;
+import zcylas.totality.networking.quest.OpenQuestAppPayload;
+import zcylas.totality.networking.quest.ShowQuestStatePayload;
+import zcylas.totality.networking.quest.TrackQuestPayload;
+import zcylas.totality.networking.shop.BuyItemPayload;
+import zcylas.totality.networking.shop.ShowShopStatePayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 import zcylas.totality.networking.stats.SpendAttributePointPayload;
 
@@ -74,6 +83,10 @@ public class TotalityPackets {
         registry.register(FavoriteAbilityPayload.TYPE, FavoriteAbilityPayload.CODEC);
         registry.register(VeinminerKeyPayload.TYPE, VeinminerKeyPayload.CODEC);
         registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
+        registry.register(zcylas.totality.networking.combat.BlockKeyPayload.TYPE,
+                zcylas.totality.networking.combat.BlockKeyPayload.CODEC);
+        registry.register(zcylas.totality.networking.combat.OffhandAttackPayload.TYPE,
+                zcylas.totality.networking.combat.OffhandAttackPayload.CODEC);
         registry.register(SelectAncestryPayload.TYPE, SelectAncestryPayload.STREAM_CODEC);
         registry.register(AttunementPayload.TYPE, AttunementPayload.CODEC);
         registry.register(UnAttunePayload.TYPE, UnAttunePayload.CODEC);
@@ -93,6 +106,18 @@ public class TotalityPackets {
                 zcylas.totality.networking.equipment.OpenInventoryPayload.TYPE,
                 zcylas.totality.networking.equipment.OpenInventoryPayload.CODEC);
         registry.register(DialogueChoicePayload.TYPE, DialogueChoicePayload.STREAM_CODEC);
+        registry.register(PhoneSetupPayload.TYPE, PhoneSetupPayload.CODEC);
+        registry.register(BuyItemPayload.TYPE, BuyItemPayload.STREAM_CODEC);
+        registry.register(OpenQuestAppPayload.TYPE, OpenQuestAppPayload.STREAM_CODEC);
+        registry.register(TrackQuestPayload.TYPE, TrackQuestPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.quest.FinishQuestPayload.TYPE,
+                zcylas.totality.networking.quest.FinishQuestPayload.STREAM_CODEC);
+        registry.register(DepositCreditsPayload.TYPE, DepositCreditsPayload.STREAM_CODEC);
+        registry.register(WithdrawCreditsPayload.TYPE, WithdrawCreditsPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.rest.RequestRestPayload.TYPE,
+                zcylas.totality.networking.rest.RequestRestPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.rest.CancelRestPayload.TYPE,
+                zcylas.totality.networking.rest.CancelRestPayload.STREAM_CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
@@ -114,6 +139,13 @@ public class TotalityPackets {
         registry.register(OpenSubclassSelectionPayload.TYPE, OpenSubclassSelectionPayload.STREAM_CODEC);
         registry.register(MobStatsSyncPayload.TYPE, MobStatsSyncPayload.CODEC);
         registry.register(ShowDialogueStatePayload.TYPE, ShowDialogueStatePayload.STREAM_CODEC);
+        registry.register(ShowShopStatePayload.TYPE, ShowShopStatePayload.STREAM_CODEC);
+        registry.register(ShowQuestStatePayload.TYPE, ShowQuestStatePayload.STREAM_CODEC);
+        registry.register(ShowBankTellerPayload.TYPE, ShowBankTellerPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.rest.OpenRestChoicePayload.TYPE,
+                zcylas.totality.networking.rest.OpenRestChoicePayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.rest.RestTimeSyncPayload.TYPE,
+                zcylas.totality.networking.rest.RestTimeSyncPayload.STREAM_CODEC);
     }
 
     private TotalityPackets() {}

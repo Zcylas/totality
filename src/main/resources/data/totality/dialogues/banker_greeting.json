@@ -1,0 +1,186 @@
+{
+  "start_at": "greeting",
+  "unskippable": false,
+  "states": {
+    "greeting": {
+      "text": "Back again. What can I do for you?",
+      "choices": [
+        { "text": "I'd like to open an account.", "next": "open_account", "hidden": true,
+          "conditions": [ { "type": "flag", "flag": "has_account", "min": 0, "max": 0 } ] },
+        { "text": "I'd like to make a deposit or withdrawal.", "next": "teller_opened", "hidden": true,
+          "conditions": [ { "type": "flag", "flag": "has_account", "min": 1 } ],
+          "action": { "type": "open_bank_teller" } },
+        { "text": { "text": "[", "color": "gray", "extra": [
+              { "text": "!", "color": "green" },
+              { "text": "] Is there a way to check my balance without visiting?" }
+            ] },
+          "next": "offer_mobile_banking", "hidden": true,
+          "conditions": [
+            { "type": "flag", "flag": "has_account", "min": 1 },
+            { "type": "flag", "flag": "mobile_banking_offered", "min": 0, "max": 0 }
+          ],
+          "action": { "type": "composite", "actions": [
+            { "type": "grant_quest", "quest": "totality:mobile_banking" },
+            { "type": "set_flag", "flag": "mobile_banking_offered", "value": 1 }
+          ] } },
+        { "text": { "text": "[", "color": "gray", "extra": [
+              { "text": "!", "color": "green" },
+              { "text": "] Hand over your phone." }
+            ] },
+          "next": "phone_linked", "hidden": true,
+          "conditions": [
+            { "type": "flag", "flag": "mobile_banking_offered", "min": 1 },
+            { "type": "flag", "flag": "mobile_banking_linked", "min": 0, "max": 0 },
+            { "type": "has_phone" },
+            { "type": "credit_cost", "amount": 50 }
+          ],
+          "action": { "type": "composite", "actions": [
+            { "type": "spend_credits", "amount": 50 },
+            { "type": "set_flag", "flag": "mobile_banking_linked", "value": 1 },
+            { "type": "link_phone" }
+          ] } },
+        { "text": "Just saying hello.", "next": "farewell" }
+      ]
+    },
+    "offer_mobile_banking": {
+      "text": "As it happens, yes. Hand me your phone and 50 Credits whenever you're ready, and I'll have it linked to your account in a moment.",
+      "choices": [
+        { "text": "I'll do that.", "next": "farewell" }
+      ]
+    },
+    "phone_linked": {
+      "text": "There we are — hand it back to me a moment... and done. Try it out whenever you like.",
+      "type": "end"
+    },
+    "open_account": {
+      "text": "A wise decision. A Basic Account runs 100 Credits to set up — non-negotiable, as a rule. Do you have that much on you?",
+      "choices": [
+        { "text": "[100 CREDITS] Of course, here you go.", "next": "account_opened",
+          "conditions": [ { "type": "credit_cost", "amount": 100, "physical_only": true } ],
+          "action": { "type": "composite", "actions": [
+            { "type": "spend_credits", "amount": 100, "physical_only": true },
+            { "type": "set_flag", "flag": "has_account", "value": 1 }
+          ] } },
+        { "text": "[PERSUASION DC 12] Nothing on me, but I'd still like an account.",
+          "roll": { "skill": "Persuasion", "subtype": "Charisma Check", "dc": 12,
+                     "success": "account_opened_empty", "failure": "account_declined",
+                     "critical_success": "account_opened_critical",
+                     "critical_failure": "account_declined_critical" } },
+        { "text": "[BARBARIAN] [INTIMIDATION DC 15] Waive the fee. Now.", "hidden": true,
+          "conditions": [ { "type": "class", "class": "totality:barbarian" } ],
+          "roll": { "skill": "Intimidation", "ability": "STR", "subtype": "Strength Check", "dc": 15,
+                     "success": "account_opened_intimidated", "failure": "account_declined_intimidated",
+                     "critical_success": "account_opened_intimidated_critical",
+                     "critical_failure": "account_declined_intimidated_critical" } },
+        { "text": "[WIZARD] [INVESTIGATION DC 15] Point out the clerical error in your fee structure.", "hidden": true,
+          "conditions": [ { "type": "class", "class": "totality:wizard" } ],
+          "roll": { "skill": "Investigation", "subtype": "Intelligence Check", "dc": 15,
+                     "success": "account_opened_investigated", "failure": "account_declined_investigated",
+                     "critical_success": "account_opened_investigated_critical",
+                     "critical_failure": "account_declined_investigated_critical" } }
+      ]
+    },
+    "account_opened": {
+      "text": "Excellent. Consider yourself banked — I'll keep an eye on your ledger from here.",
+      "type": "end"
+    },
+    "account_opened_empty": {
+      "text": "...Very well. Not everyone convinces me so easily. Consider yourself banked, empty ledger and all — try not to make me regret it.",
+      "choices": [
+        { "text": "I won't. Thank you.", "next": "account_opened_empty_end",
+          "action": { "type": "set_flag", "flag": "has_account", "value": 1 } }
+      ]
+    },
+    "account_opened_empty_end": {
+      "text": "See that you don't.",
+      "type": "end"
+    },
+    "account_opened_critical": {
+      "text": "...That may be the finest argument I've heard in years. Fine — no deposit required at all, and I'll make a note of your name for future considerations.",
+      "choices": [
+        { "text": "I appreciate it.", "next": "account_opened_critical_end",
+          "action": { "type": "set_flag", "flag": "has_account", "value": 1 } }
+      ]
+    },
+    "account_opened_critical_end": {
+      "text": "See to it you live up to that impression.",
+      "type": "end"
+    },
+    "account_declined": {
+      "text": "A fair try, but I'll need those 100 Credits before your name goes in the ledger. Come back when you've got them.",
+      "type": "end"
+    },
+    "account_declined_critical": {
+      "text": "No. In fact, I'd ask you not to return until you have something worth my time.",
+      "type": "end"
+    },
+    "account_opened_intimidated": {
+      "text": "...(his hand trembles slightly as he reaches for the ledger) ...Of course. No charge needed. Consider it done.",
+      "choices": [
+        { "text": "Good.", "next": "account_opened_intimidated_end",
+          "action": { "type": "set_flag", "flag": "has_account", "value": 1 } }
+      ]
+    },
+    "account_opened_intimidated_end": {
+      "text": "Will there be... anything else?",
+      "type": "end"
+    },
+    "account_opened_intimidated_critical": {
+      "text": "...(he actually takes a step back) There's truly no need for that. Take the account. Take whatever you need. Just go easy on the furniture.",
+      "choices": [
+        { "text": "Wise choice.", "next": "account_opened_intimidated_critical_end",
+          "action": { "type": "set_flag", "flag": "has_account", "value": 1 } }
+      ]
+    },
+    "account_opened_intimidated_critical_end": {
+      "text": "Please. Take your business elsewhere next time.",
+      "type": "end"
+    },
+    "account_declined_intimidated": {
+      "text": "You can loom all you like — I've dealt with worse than you. No account without payment.",
+      "type": "end"
+    },
+    "account_declined_intimidated_critical": {
+      "text": "(he doesn't even flinch) I've had actual monsters try that line on me. Get out of my bank.",
+      "type": "end"
+    },
+    "account_opened_investigated": {
+      "text": "...(he frowns, flipping through his ledger) ...Well, I'll be. You're right — that clause is in violation of our own bylaws. Fine. Account opened, no charge, and my thanks for the correction.",
+      "choices": [
+        { "text": "Glad to help.", "next": "account_opened_investigated_end",
+          "action": { "type": "set_flag", "flag": "has_account", "value": 1 } }
+      ]
+    },
+    "account_opened_investigated_end": {
+      "text": "Do come back if you find anything else... unusual.",
+      "type": "end"
+    },
+    "account_opened_investigated_critical": {
+      "text": "(stunned) I've overseen this branch for over a decade and never noticed that. You have my full attention — and my ledger, apparently. No charge, and consider yourself a person of interest for future business.",
+      "choices": [
+        { "text": "I'll keep that in mind.", "next": "account_opened_investigated_critical_end",
+          "action": { "type": "set_flag", "flag": "has_account", "value": 1 } }
+      ]
+    },
+    "account_opened_investigated_critical_end": {
+      "text": "I imagine we'll be seeing more of each other.",
+      "type": "end"
+    },
+    "account_declined_investigated": {
+      "text": "An admirable attempt, but I've heard cleverer arguments from actual auditors. The fee stands.",
+      "type": "end"
+    },
+    "account_declined_investigated_critical": {
+      "text": "(unimpressed) That's not even the right ledger. Good day.",
+      "type": "end"
+    },
+    "farewell": {
+      "text": "Very well. Take care.",
+      "type": "end"
+    },
+    "teller_opened": {
+      "text": "",
+      "type": "end"
+    }
+  }
+}

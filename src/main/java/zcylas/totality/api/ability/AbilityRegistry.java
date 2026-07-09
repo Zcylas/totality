@@ -23,6 +23,7 @@ public class AbilityRegistry {
     public static final VeinminerAbility VEINMINER = register(new VeinminerAbility());
     public static final GroundSlamAbility GROUND_SLAM = register(new GroundSlamAbility());
     public static final HeatVisionAbility HEAT_VISION = register(new HeatVisionAbility());
+    public static final RestAbility REST = register(new RestAbility());
     // ── Viltrumite ────────────────────────────────────────────────────────────
     public static final PhysiologyPassive VILTRUMITE_PHYSIOLOGY = register(new PhysiologyPassive(
             Identifier.fromNamespaceAndPath("totality", "viltrumite_physiology"),

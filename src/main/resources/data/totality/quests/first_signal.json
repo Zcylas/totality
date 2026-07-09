@@ -1,0 +1,14 @@
+{
+  "name": "First Signal",
+  "description": "A strange copper-framed device hums in your pocket.",
+  "type": "starter",
+  "objectives": [
+    "Check the device",
+    "Equip the phone",
+    "Open the Quest app"
+  ],
+  "reward": {
+    "credits": 50,
+    "xp": 50
+  }
+}

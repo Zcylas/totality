@@ -8,6 +8,7 @@ import zcylas.totality.api.rpg.stats.StatsServerEvents;
 import zcylas.totality.init.events.CombatServerEvents;
 import zcylas.totality.init.events.PlayerConnectionEvents;
 import zcylas.totality.init.events.MagicServerEvents;
+import zcylas.totality.init.events.RestBedInteraction;
 import zcylas.totality.init.events.VanillaDamageInterceptor;
 
 public class ModEvents {
@@ -26,6 +27,7 @@ public class ModEvents {
             }
         });
         VanillaDamageInterceptor.register();
+        RestBedInteraction.register();
     }
 
     private ModEvents() {}

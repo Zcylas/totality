@@ -13,13 +13,12 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.equipment.Equippable;
-import zcylas.totality.api.economy.currency.CurrencyHelper;
-import zcylas.totality.networking.currency.ClientWalletManager;
+import zcylas.totality.item.tools.CreditsItem;
 import zcylas.totality.networking.inventory.InventoryActionHandler;
 import zcylas.totality.networking.inventory.InventoryDropPayload;
 import zcylas.totality.networking.inventory.InventoryEquipPayload;
 import zcylas.totality.networking.inventory.InventoryUsePayload;
-import zcylas.totality.screen.menu.MainMenuScreen;
+import zcylas.totality.screen.phone.PhoneScreens;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -325,36 +324,23 @@ public class TotalityInventoryScreen extends Screen {
                     PADDING, cy, withAlpha(LABEL, ba), false);
         }
 
-        long walletValue  = ClientWalletManager.getValue();
-        long goldCount = 0, silverCount = 0, copperCount = 0;
-        for (var cc : CurrencyHelper.breakdown(walletValue)) {
-            switch (cc.denomination()) {
-                case GOLD   -> goldCount   = cc.count();
-                case SILVER -> silverCount = cc.count();
-                case COPPER -> copperCount = cc.count();
+        long physicalCredits = 0;
+        if (player != null) {
+            for (int i = 0; i < 36; i++) {
+                ItemStack stack = player.getInventory().getItem(i);
+                if (stack.getItem() instanceof CreditsItem) {
+                    physicalCredits += CreditsItem.getAmount(stack);
+                }
             }
         }
-        String gs = ": " + goldCount, ss = ": " + silverCount, cs = ": " + copperCount;
-        int sqGap  = 3, entryGap = 14;
-        int textW  = Math.max(font.width(gs), Math.max(font.width(ss), font.width(cs)));
-        int entryW = COIN_SQ + sqGap + textW;
-        int totalW = entryW * 3 + entryGap * 2;
-        int cx     = width / 2 - totalW / 2;
-        int sqY    = cy + (8 - COIN_SQ) / 2;
-        drawCoin(g, cx, cy, sqY, GOLD,   gs, ba); cx += entryW + entryGap;
-        drawCoin(g, cx, cy, sqY, SILVER, ss, ba); cx += entryW + entryGap;
-        drawCoin(g, cx, cy, sqY, COPPER, cs, ba);
+        String credits = "₵ " + physicalCredits;
+        g.text(font, Component.literal(credits),
+                width / 2 - font.width(credits) / 2, cy, withAlpha(VALUE, ba), false);
 
         String tabHint = mainTab == MainTab.INVENTORY ? "[TAB] Equipment" : "[TAB] Inventory";
         g.text(font, Component.literal(tabHint),
                 width - PADDING - font.width(tabHint), cy,
                 withAlpha(LABEL, ba), false);
-    }
-
-    private void drawCoin(GuiGraphicsExtractor g, int x, int cy, int sqY,
-                          int color, String str, int ba) {
-        g.fill(x, sqY, x+COIN_SQ, sqY+COIN_SQ, withAlpha(color, ba));
-        g.text(font, Component.literal(str), x+COIN_SQ+3, cy, withAlpha(color, ba), false);
     }
 
     // ── Input ─────────────────────────────────────────────────────────────────
@@ -440,7 +426,10 @@ public class TotalityInventoryScreen extends Screen {
             playClick(); return true;
         }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-            fadeOutTo(() -> Minecraft.getInstance().setScreen(new MainMenuScreen()));
+            fadeOutTo(() -> {
+                Minecraft client = Minecraft.getInstance();
+                if (!PhoneScreens.openForEquippedPhone(client)) client.setScreen(null);
+            });
             return true;
         }
 

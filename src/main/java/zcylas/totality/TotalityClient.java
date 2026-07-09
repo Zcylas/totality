@@ -2,6 +2,7 @@ package zcylas.totality;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -26,6 +27,7 @@ import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
 import zcylas.totality.client.renderer.ability.HeatVisionBeamRenderer;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
 import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
+import zcylas.totality.client.renderer.entity.npc.BankerNpcRenderer;
 import zcylas.totality.client.renderer.entity.npc.TotalityNpcRenderer;
 import zcylas.totality.client.renderer.entity.magic.SpellBoltRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
@@ -87,6 +89,12 @@ public class TotalityClient implements ClientModInitializer {
         zcylas.totality.client.spell.CastBarHud.register();
         ClientTickEvents.END_CLIENT_TICK.register(client -> FluidTankScrollHandler.tick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> MobHealthBarHud.tick());
+
+        // A fresh join never gets an explicit "cleared" rest sync from the server (it only sends
+        // one when a rest actually starts/changes), so without this a rest HUD/forced camera left
+        // over from a previous world/session would otherwise be stuck forever.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+                zcylas.totality.client.rest.ClientRestManager.reset());
     }
 
     private void registerRenderers(){
@@ -103,7 +111,9 @@ public class TotalityClient implements ClientModInitializer {
                 RitualDaisRenderer::new
         );
         TotalityHudRenderer.register();
+        zcylas.totality.client.hud.rest.RestHud.register();
         NotificationManager.register();
+        zcylas.totality.client.quest.QuestTrackerHud.register();
         MobHealthBarHud.register();
         CombatTextRenderer.register();
         HeatVisionBeamRenderer.register();
@@ -156,6 +166,8 @@ public class TotalityClient implements ClientModInitializer {
                 SkeletonRenderer::new);
 
         EntityRenderers.register(ModEntities.TOTALITY_NPC, TotalityNpcRenderer::new);
+        EntityRenderers.register(ModEntities.BANKER, BankerNpcRenderer::new);
+        EntityRenderers.register(ModEntities.REST_SEAT, NoopRenderer::new);
 
         //Basic Weapons
         //Shuriken

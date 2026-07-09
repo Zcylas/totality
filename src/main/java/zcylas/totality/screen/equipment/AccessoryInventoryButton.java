@@ -11,7 +11,11 @@ import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.NonNull;
+import zcylas.totality.api.equipment.PlayerEquipmentComponent;
+import zcylas.totality.client.equipment.ClientEquipmentManager;
+import zcylas.totality.item.energy.PhoneItem;
 import zcylas.totality.mixin.client.AbstractContainerScreenAccessor;
 import zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload;
 import zcylas.totality.networking.equipment.OpenInventoryPayload;
@@ -28,6 +32,20 @@ public class AccessoryInventoryButton extends AbstractButton {
         super(buttonX(screen), buttonY(screen), W, H, Component.literal("R"));
         this.screen = screen;
         this.isAccessoryScreen = screen instanceof AccessoryInventoryScreen;
+    }
+
+    /** True when the player is carrying an unequipped phone — used to draw attention to
+     *  this button, since equipping the phone requires knowing this button exists first. */
+    private boolean hasUnequippedPhone() {
+        if (isAccessoryScreen) return false;
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) return false;
+        if (!ClientEquipmentManager.getStack(PlayerEquipmentComponent.IDX_PHONE).isEmpty()) return false;
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (stack.getItem() instanceof PhoneItem) return true;
+        }
+        return false;
     }
 
     private static int buttonX(AbstractContainerScreen<?> screen) {
@@ -79,6 +97,14 @@ public class AccessoryInventoryButton extends AbstractButton {
         fixPos();
         Minecraft mc = Minecraft.getInstance();
         boolean hovered = isHoveredOrFocused();
+
+        if (hasUnequippedPhone()) {
+            float pulse = (float) (Math.sin(System.currentTimeMillis() / 150.0) * 0.5 + 0.5);
+            int alpha = (int) (0x60 + pulse * 0x9F);
+            int glow = (alpha << 24) | 0x00D4A030;
+            gui.fill(getX() - 2, getY() - 2, getX() + W + 2, getY() + H + 2, glow);
+        }
+
         int face = hovered ? 0xFFAAAAAA : 0xFF888888;
         gui.fill(getX(),     getY(),     getX() + W,     getY() + H,     0xFF3F3F3F);
         gui.fill(getX() + 1, getY() + 1, getX() + W - 1, getY() + H - 1, face);
@@ -87,6 +113,10 @@ public class AccessoryInventoryButton extends AbstractButton {
                 getX() + (W - mc.font.width(getMessage())) / 2,
                 getY() + (H - mc.font.lineHeight) / 2,
                 textColor, true);
+
+        if (hovered) {
+            gui.setTooltipForNextFrame(mc.font, Component.literal("Equipment (Rings, Phone, Pouch...)"), mx, my);
+        }
     }
 
     @Override

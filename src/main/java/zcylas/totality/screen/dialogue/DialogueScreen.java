@@ -159,13 +159,13 @@ public class DialogueScreen extends Screen {
 
             if (locked) {
                 drawSmall(g, "✗ " + numLabel, cx, cy, C_LOCK_ICON);
-                drawSmall(g, choice.text().getString(), cx + numW + 10, cy, textColor);
+                drawSmall(g, choice.text(), cx + numW + 10, cy, textColor);
                 if (selected && !choice.lockReason().isEmpty()) {
                     g.setTooltipForNextFrame(font, Component.literal(choice.lockReason()), cx, cy);
                 }
             } else {
                 drawSmall(g, numLabel, cx, cy, numColor);
-                drawSmall(g, choice.text().getString(), cx + numW, cy, textColor);
+                drawSmall(g, choice.text(), cx + numW, cy, textColor);
             }
 
             cy += CHOICE_ROW_H;
@@ -192,9 +192,15 @@ public class DialogueScreen extends Screen {
     }
 
     private void drawSmall(GuiGraphicsExtractor g, String text, int x, int y, int color) {
+        drawSmall(g, Component.literal(text), x, y, color);
+    }
+
+    /** Component overload — preserves per-run style colors (e.g. a rich-text quest-offer
+     *  choice's colored "[!]" tag) instead of flattening to a plain string first. */
+    private void drawSmall(GuiGraphicsExtractor g, Component text, int x, int y, int color) {
         g.pose().pushMatrix();
         g.pose().scale(0.65f, 0.65f);
-        g.text(font, Component.literal(text),
+        g.text(font, text,
                 Math.round(x / 0.65f),
                 Math.round(y / 0.65f), color, false);
         g.pose().popMatrix();

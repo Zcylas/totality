@@ -10,6 +10,9 @@ import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.magic.spell.Spell;
+import zcylas.totality.api.rpg.combat.CastingRestrictionRegistry;
+import zcylas.totality.networking.notification.SendNotificationPayload;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 
 public class ActivateAbilityHandler {
@@ -33,6 +36,15 @@ public class ActivateAbilityHandler {
 
         Ability ability = AbilityRegistry.get(payload.abilityId());
         if (ability == null) return;
+
+        if (ability instanceof Spell) {
+            String restriction = CastingRestrictionRegistry.check(player);
+            if (restriction != null) {
+                SendNotificationPayload.send(player, restriction, 0xFFFF4444);
+                return;
+            }
+        }
+
         // Reconstruct context from the block pos the client sent
         AbilityContext context = null;
         if (payload.pos() != null) {

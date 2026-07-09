@@ -2,12 +2,15 @@ package zcylas.totality.client.renderer.hud;
 
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ShieldItem;
 import zcylas.totality.Totality;
@@ -16,8 +19,10 @@ import zcylas.totality.api.rpg.classes.ClientClassManager;
 import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.api.rpg.combat.ArmorClass;
 import zcylas.totality.api.rpg.combat.armor.VanillaArmorStats;
+import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
+import zcylas.totality.client.combat.DualWieldTracker;
 import zcylas.totality.client.equipment.ClientEquipmentManager;
 import zcylas.totality.client.gui.TotalityGuiSprites;
 import zcylas.totality.client.hud.resource.ISecondaryResource;
@@ -35,6 +40,15 @@ public class TotalityHudRenderer {
 
     public static final Identifier HUD_ID =
             Identifier.fromNamespaceAndPath(Totality.MOD_ID, "totality_hud");
+
+    // Vanilla's own crosshair attack-indicator sprites — reused as-is for the offhand's mirrored
+    // indicator (drawn above the crosshair instead of below) so it matches vanilla's style exactly.
+    private static final Identifier CROSSHAIR_ATTACK_INDICATOR_FULL =
+            Identifier.fromNamespaceAndPath("minecraft", "hud/crosshair_attack_indicator_full");
+    private static final Identifier CROSSHAIR_ATTACK_INDICATOR_BACKGROUND =
+            Identifier.fromNamespaceAndPath("minecraft", "hud/crosshair_attack_indicator_background");
+    private static final Identifier CROSSHAIR_ATTACK_INDICATOR_PROGRESS =
+            Identifier.fromNamespaceAndPath("minecraft", "hud/crosshair_attack_indicator_progress");
 
     private static final int BG_PNG_W      = 83;
     private static final int BG_PNG_H      = 8;
@@ -84,6 +98,7 @@ public class TotalityHudRenderer {
                 int flashColor = ColorUtils.setAlpha(0xFFFF6600, (int)(PowerAttackFlash.getAlpha() * 255));
                 graphics.fill(0, 0, screenW, screenH, flashColor);
             }
+            renderOffhandAttackIndicator(graphics, client, screenW, screenH);
             // ── LEFT SIDE — HP, Stamina, Mana ──
             float hp    = client.player.getHealth();
             float maxHp = client.player.getMaxHealth();
@@ -400,6 +415,46 @@ public class TotalityHudRenderer {
             }
         }
     }
+    /**
+     * Offhand's own attack-readiness indicator — mirrors vanilla's crosshair attack indicator
+     * (same sprites, same style) but drawn above the crosshair instead of below, since vanilla
+     * only ever shows one such indicator (tied to the mainhand). Only shown while dual-wielding.
+     */
+    private static void renderOffhandAttackIndicator(GuiGraphicsExtractor graphics, Minecraft client, int screenW, int screenH) {
+        if (client.player == null || !client.options.getCameraType().isFirstPerson()) return;
+        if (client.options.attackIndicator().get() != AttackIndicatorStatus.CROSSHAIR) return;
+
+        ItemStack main = client.player.getMainHandItem();
+        ItemStack off  = client.player.getOffhandItem();
+        boolean dualWielding = (main.is(ItemTags.SWORDS) || main.getItem() instanceof TotalityMeleeWeaponItem)
+                && (off.is(ItemTags.SWORDS) || off.getItem() instanceof TotalityMeleeWeaponItem);
+        if (!dualWielding) return;
+
+        float scale = DualWieldTracker.getOffhandAttackStrengthScale(client.player);
+
+        // Vanilla's indicator top edge sits at centerY + 9 (centerY - 7 + 16), i.e. its near edge
+        // to the crosshair is 9px away. Mirror that same 9px near-edge distance on the opposite
+        // side: the mirrored sprite's BOTTOM edge sits at centerY - 9, extending upward from there.
+        int x = screenW / 2 - 8;
+        int bottomY = screenH / 2 - 9;
+
+        // MIN_CROSSHAIR_ATTACK_SPEED parity: vanilla only shows the "ready" icon when the weapon
+        // is slow enough (delay > 5 ticks) that the indicator is actually meaningful.
+        boolean readyOnTarget = client.crosshairPickEntity instanceof LivingEntity living
+                && living.isAlive() && scale >= 1.0f
+                && DualWieldTracker.getOffhandAttackStrengthDelay(client.player) > 5.0;
+
+        if (readyOnTarget) {
+            graphics.blitSprite(RenderPipelines.CROSSHAIR, CROSSHAIR_ATTACK_INDICATOR_FULL, x, bottomY - 16, 16, 16);
+        } else if (scale < 1.0f) {
+            int y = bottomY - 4;
+            graphics.blitSprite(RenderPipelines.CROSSHAIR, CROSSHAIR_ATTACK_INDICATOR_BACKGROUND, x, y, 16, 4);
+            int filled = (int)(scale * 17);
+            graphics.blitSprite(RenderPipelines.CROSSHAIR, CROSSHAIR_ATTACK_INDICATOR_PROGRESS,
+                    16, 4, 0, 0, x, y, filled, 4);
+        }
+    }
+
     private static int calculateClientAC(Minecraft client) {
         if (client.player == null) return 10;
 

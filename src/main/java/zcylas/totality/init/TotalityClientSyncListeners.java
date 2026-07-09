@@ -4,6 +4,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.equipment.PlayerEquipmentComponent;
+import zcylas.totality.client.dialogue.ClientNarrativeFlagsManager;
 import zcylas.totality.client.equipment.ClientEquipmentManager;
 import zcylas.totality.networking.ClientComponentSyncListeners;
 import zcylas.totality.networking.currency.ClientWalletManager;
@@ -64,6 +65,19 @@ public final class TotalityClientSyncListeners {
                         incoming[i] = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
                     }
                     ClientEquipmentManager.apply(incoming);
+                }
+        );
+
+        // Narrative flags
+        ClientComponentSyncListeners.register(
+                Identifier.fromNamespaceAndPath("totality", "narrative_flags"),
+                buf -> {
+                    int count = buf.readVarInt();
+                    Map<String, Integer> flags = new HashMap<>();
+                    for (int i = 0; i < count; i++) {
+                        flags.put(buf.readUtf(), buf.readInt());
+                    }
+                    ClientNarrativeFlagsManager.sync(flags);
                 }
         );
     }

@@ -1,7 +1,9 @@
 package zcylas.totality.api.rpg.combat;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.init.ModTags;
 
@@ -67,10 +69,30 @@ public class PowerAttackManager {
         return multiplier;
     }
 
+    /** Stamina cost for the offhand's own independent power attack (RMB hold-to-charge). */
+    public static int getOffhandStaminaCost(ServerPlayer player) {
+        int cost = BASE_COST_ONE_HANDED;
+        int disciplinedRank = zcylas.totality.api.rpg.skills.core.MasteriesComponents
+                .get(player).getMasteries().getUnlockedRank(MASTERY_DISCIPLINED_FIGHTER);
+        if (disciplinedRank > 0) cost = (int)(cost * 0.75f);
+        return cost;
+    }
+
     private static int getStaminaCost(ServerPlayer player) {
         ItemStack held = player.getMainHandItem();
-        if (held.is(ModTags.TWO_HANDED_WEAPONS)) return BASE_COST_TWO_HANDED;
-        return BASE_COST_ONE_HANDED;
+        int cost = held.is(ModTags.TWO_HANDED_WEAPONS) ? BASE_COST_TWO_HANDED : BASE_COST_ONE_HANDED;
+        // Dual-wield power attack strikes with both weapons at once — double the power attack
+        // cost (not the normal per-swing stamina, which is charged separately per hand).
+        if (isDualWielding(player)) cost *= 2;
+        return cost;
+    }
+
+    private static boolean isDualWielding(ServerPlayer player) {
+        ItemStack main = player.getMainHandItem();
+        ItemStack off = player.getOffhandItem();
+        boolean mainIsMelee = main.is(ItemTags.SWORDS) || main.getItem() instanceof TotalityMeleeWeaponItem;
+        boolean offIsMelee = off.is(ItemTags.SWORDS) || off.getItem() instanceof TotalityMeleeWeaponItem;
+        return mainIsMelee && offIsMelee;
     }
 
     public static void onPlayerLeave(ServerPlayer player) {

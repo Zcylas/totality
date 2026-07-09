@@ -115,6 +115,24 @@ public final class TotalityDamage {
         return CombatTextEntry.TextType.DAMAGE;
     }
 
+    /** Cancels incoming damage and shows a Block or Parry combat text. */
+    public static void block(LivingEntity target,
+                             @Nullable LivingEntity source,
+                             TotalityDamageType type,
+                             boolean isParry) {
+        target.level().playSound(null, target.getX(), target.getY(), target.getZ(),
+                net.minecraft.sounds.SoundEvents.SHIELD_BLOCK,
+                net.minecraft.sounds.SoundSource.PLAYERS,
+                1.0f, isParry ? 1.3f : 1.0f);
+
+        Vec3 pos = source != null
+                ? source.position().add((Math.random() - 0.5) * 1.5, 1.0, 0)
+                : target.position();
+        sendCombatTextAt(pos, target, source,
+                CombatTextEntry.TextType.DAMAGE, type, 0f,
+                isParry ? "Parry" : "Block");
+    }
+
     private static void sendCombatText(LivingEntity target,
                                        @Nullable LivingEntity source,
                                        CombatTextEntry.TextType textType,

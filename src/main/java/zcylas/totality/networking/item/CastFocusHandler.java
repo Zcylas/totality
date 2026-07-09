@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
 import zcylas.totality.api.magic.spell.Spell;
 import zcylas.totality.api.magic.spell.SpellRegistry;
+import zcylas.totality.api.rpg.combat.CastingRestrictionRegistry;
 import zcylas.totality.item.spell_material.ArcaneFocusItem;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 
@@ -21,6 +22,12 @@ public final class CastFocusHandler {
         Spell spell = SpellRegistry.get(Identifier.parse(payload.spellId()));
         if (spell == null) {
             SendNotificationPayload.send(player, "Unknown spell selected.", 0xFFFF4444);
+            return;
+        }
+
+        String restriction = CastingRestrictionRegistry.check(player);
+        if (restriction != null) {
+            SendNotificationPayload.send(player, restriction, 0xFFFF4444);
             return;
         }
 

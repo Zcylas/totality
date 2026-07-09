@@ -163,13 +163,13 @@ public final class MasteryRegistry {
                                 "per second. If you survive for 60 seconds, you receive 3 mastery points and a " +
                                 "permanent 25% bonus to all potions and poisons you create."),
 
-                // Level 150 — spine
-                Mastery.of("knowledge_seeker", "Knowledge Seeker", 150,
+                // Level 75 — spine
+                Mastery.of("knowledge_seeker", "Knowledge Seeker", 75,
                         "Allows you to craft the Philosopher's Stone, which grants the ability to " +
                                 "transmute metal ingots into more valuable metals."),
 
-                // Level 200 — spine top
-                Mastery.of("purity", "Purity", 200,
+                // Level 100 — spine top
+                Mastery.of("purity", "Purity", 100,
                         "You create two potions or poisons instead of one. All negative effects are " +
                                 "removed from created potions, and all positive effects are removed from " +
                                 "created poisons.")

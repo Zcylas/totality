@@ -40,6 +40,20 @@ public final class TotalityItemComponents {
                             ZanpakutoType::name))
                     .build();
 
+    /** ₵ amount carried by a totality:credits stack. Absent = 0. */
+    public static final DataComponentType<Long> CREDIT_AMOUNT =
+            DataComponentType.<Long>builder()
+                    .persistent(Codec.LONG)
+                    .networkSynchronized(ByteBufCodecs.VAR_LONG)
+                    .build();
+
+    /** Whether this phone stack has completed first-time setup. Absent = not set up. */
+    public static final DataComponentType<Boolean> PHONE_SETUP_COMPLETE =
+            DataComponentType.<Boolean>builder()
+                    .persistent(Codec.BOOL)
+                    .networkSynchronized(ByteBufCodecs.BOOL)
+                    .build();
+
     /** Identification state of this item stack. Defaults to UNIDENTIFIED if absent. */
     public static final DataComponentType<IdentificationStatus> IDENTIFICATION_STATUS =
             DataComponentType.<IdentificationStatus>builder()
@@ -71,6 +85,12 @@ public final class TotalityItemComponents {
         Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
                 Identifier.fromNamespaceAndPath(Totality.MOD_ID, "identification_status"),
                 IDENTIFICATION_STATUS);
+        Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "phone_setup_complete"),
+                PHONE_SETUP_COMPLETE);
+        Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+                Identifier.fromNamespaceAndPath(Totality.MOD_ID, "credit_amount"),
+                CREDIT_AMOUNT);
     }
 
     private TotalityItemComponents() {}

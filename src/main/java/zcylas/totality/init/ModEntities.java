@@ -14,7 +14,9 @@ import zcylas.totality.entity.magic.LingerEntity;
 import zcylas.totality.entity.magic.OrbitProjectileEntity;
 import zcylas.totality.entity.magic.SpellBoltEntity;
 import zcylas.totality.entity.magic.SummonSkeletonEntity;
+import zcylas.totality.entity.npc.BankerNpcEntity;
 import zcylas.totality.entity.npc.TotalityNpcEntity;
+import zcylas.totality.entity.rest.RestSeatEntity;
 
 public class ModEntities {
 
@@ -148,6 +150,40 @@ public class ModEntities {
                             .sized(0.6f, 1.8f)
                             .clientTrackingRange(64)
                             .build(TOTALITY_NPC_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> BANKER_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "banker"));
+
+    public static final EntityType<BankerNpcEntity> BANKER =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "banker"),
+                    EntityType.Builder.<BankerNpcEntity>of(
+                                    BankerNpcEntity::new,
+                                    MobCategory.MISC)
+                            .sized(0.6f, 1.8f)
+                            .clientTrackingRange(64)
+                            .build(BANKER_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> REST_SEAT_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "rest_seat"));
+
+    public static final EntityType<RestSeatEntity> REST_SEAT =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "rest_seat"),
+                    EntityType.Builder.<RestSeatEntity>of(
+                                    RestSeatEntity::new,
+                                    MobCategory.MISC)
+                            .sized(0.0001f, 0.0001f)
+                            .clientTrackingRange(64)
+                            .build(REST_SEAT_KEY)
             );
 
     private ModEntities() {}

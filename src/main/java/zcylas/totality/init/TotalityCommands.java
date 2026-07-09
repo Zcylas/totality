@@ -13,7 +13,6 @@ import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
-import zcylas.totality.api.economy.currency.CurrencyHelper;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.ancestry.OriginData;
 import zcylas.totality.api.rpg.classes.ClassComponents;
@@ -301,28 +300,125 @@ public class TotalityCommands {
                                         }
 
                                         long raw = wallet.getValue();
-                                        var breakdown = CurrencyHelper.breakdown(raw);
-
-                                        if (breakdown.isEmpty()) {
-                                            ctx.getSource().sendSuccess(() ->
-                                                    Component.literal("Wallet is empty. (0 copper raw)"), false);
-                                            return 1;
-                                        }
-
-                                        StringBuilder sb = new StringBuilder("Wallet: ");
-                                        for (int i = 0; i < breakdown.size(); i++) {
-                                            var cc = breakdown.get(i);
-                                            sb.append(cc.count())
-                                                    .append(" ")
-                                                    .append(cc.denomination().displayName);
-                                            if (i < breakdown.size() - 1) sb.append(", ");
-                                        }
-                                        sb.append("  (").append(raw).append(" copper raw)");
-
-                                        String msg = sb.toString();
+                                        String msg = "Wallet: " + raw + "₵";
                                         ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
                                         return 1;
                                     })
+                                    .then(Commands.literal("set")
+                                            .then(Commands.argument("amount", IntegerArgumentType.integer(0))
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        int amount = IntegerArgumentType.getInteger(ctx, "amount");
+
+                                                        CurrencyComponents.WALLET
+                                                                .get((ComponentProvider) player)
+                                                                .setValue(amount);
+
+                                                        String msg = "Wallet set to " + amount + "₵";
+                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                                    .then(Commands.literal("give")
+                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        int amount = IntegerArgumentType.getInteger(ctx, "amount");
+
+                                                        for (ItemStack stack :
+                                                                zcylas.totality.init.items.CurrencyItems.CREDITS
+                                                                        .createStacks(amount)) {
+                                                            player.getInventory().add(stack);
+                                                        }
+
+                                                        String msg = "Gave " + amount + "₵ in physical Credits.";
+                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                            )
+                            // ── /totality quest reset [id] ────────────────────────────────
+                            .then(Commands.literal("quest")
+                                    .then(Commands.literal("reset")
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                zcylas.totality.api.quest.QuestComponents.PROGRESS
+                                                        .get((ComponentProvider) player)
+                                                        .clear();
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("Cleared all quest progress."), false);
+                                                return 1;
+                                            })
+                                            .then(Commands.argument("id", StringArgumentType.word())
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        String idStr = StringArgumentType.getString(ctx, "id");
+                                                        Identifier questId = Identifier.tryParse("totality:" + idStr);
+                                                        if (questId == null) {
+                                                            ctx.getSource().sendFailure(Component.literal("Invalid quest id: " + idStr));
+                                                            return 0;
+                                                        }
+                                                        zcylas.totality.api.quest.QuestComponents.PROGRESS
+                                                                .get((ComponentProvider) player)
+                                                                .remove(questId);
+                                                        ctx.getSource().sendSuccess(() ->
+                                                                Component.literal("Cleared progress for " + questId), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                            )
+                            // ── /totality phone reset ─────────────────────────────────────
+                            .then(Commands.literal("phone")
+                                    .then(Commands.literal("reset")
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                var equipment = EquipmentComponents.get(player);
+                                                ItemStack equipped = equipment.getItem(
+                                                        zcylas.totality.api.equipment.PlayerEquipmentComponent.IDX_PHONE);
+                                                if (!equipped.isEmpty()) {
+                                                    equipped.remove(zcylas.totality.api.item.TotalityItemComponents.PHONE_SETUP_COMPLETE);
+                                                    equipment.setItem(
+                                                            zcylas.totality.api.equipment.PlayerEquipmentComponent.IDX_PHONE,
+                                                            ItemStack.EMPTY);
+                                                    if (!player.getInventory().add(equipped)) {
+                                                        player.drop(equipped, false);
+                                                    }
+                                                    equipment.sync();
+                                                }
+                                                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                                                    ItemStack stack = player.getInventory().getItem(i);
+                                                    if (stack.getItem() instanceof zcylas.totality.item.energy.PhoneItem) {
+                                                        stack.remove(zcylas.totality.api.item.TotalityItemComponents.PHONE_SETUP_COMPLETE);
+                                                    }
+                                                }
+                                                ctx.getSource().sendSuccess(() ->
+                                                        Component.literal("Reset phone setup and unequipped phone."), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
+                            // ── /totality reset quest <id> — full reset (progress + declared flags) ──
+                            .then(Commands.literal("reset")
+                                    .then(Commands.literal("quest")
+                                            .then(Commands.argument("id", StringArgumentType.word())
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        String idStr = StringArgumentType.getString(ctx, "id");
+                                                        Identifier questId = Identifier.tryParse("totality:" + idStr);
+                                                        if (questId == null) {
+                                                            ctx.getSource().sendFailure(Component.literal("Invalid quest id: " + idStr));
+                                                            return 0;
+                                                        }
+                                                        zcylas.totality.api.quest.QuestManager.fullReset(player, questId);
+                                                        ctx.getSource().sendSuccess(() ->
+                                                                Component.literal("Fully reset " + questId + " (progress + its own flags)."), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
                             )
                             // ── /totality unlockability <id> ──────────────────────────────
                             .then(Commands.literal("unlockability")

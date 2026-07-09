@@ -70,6 +70,21 @@ public class AccessoryInventoryScreen extends AbstractContainerScreen<AccessoryI
         addRenderableWidget(new AccessoryInventoryButton(this));
     }
 
+    // The ring/pouch panel is rendered outside the vanilla 176x166 background box (RING_PANEL_X=178
+    // > imageWidth=176) — vanilla's own hasClickedOutside() only knows about that background box,
+    // so without this override every click on those slots is misclassified as "clicked outside the
+    // inventory", which forces AbstractContainerScreen.mouseClicked to send ContainerInput.THROW
+    // instead of PICKUP for a perfectly valid slot — the item gets dropped instead of picked up.
+    @Override
+    protected boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop) {
+        int px = guiLeft + AccessoryInventoryMenu.RING_PANEL_X;
+        int py = guiTop + AccessoryInventoryMenu.RING_PANEL_Y;
+        int pw = ADDON_W;
+        int ph = 4 + 18 * 4 + 4; // matches renderRingPanel's 4-row layout
+        if (mouseX >= px && mouseX < px + pw && mouseY >= py && mouseY < py + ph) return false;
+        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
+    }
+
     @Override
     public boolean mouseClicked(MouseButtonEvent mouse, boolean doubleClick) {
         if (mouse.button() == 0) {
@@ -111,7 +126,7 @@ public class AccessoryInventoryScreen extends AbstractContainerScreen<AccessoryI
     private void renderRingPanel(@NonNull GuiGraphicsExtractor gui) {
         int px = leftPos + AccessoryInventoryMenu.RING_PANEL_X;
         int pt = topPos + AccessoryInventoryMenu.RING_PANEL_Y;
-        int rows = 3;
+        int rows = 4;
         for (int j = 0; j < rows; j++) {
             gui.blit(RenderPipelines.GUI_TEXTURED, SLOT_ADDON, px + 4, pt + 4 + 18 * j, 4, 4, 18, 18, ADDON_W, ADDON_H);
         }
@@ -197,9 +212,10 @@ public class AccessoryInventoryScreen extends AbstractContainerScreen<AccessoryI
                 case 7  -> Component.literal("Leggings");
                 case 8  -> Component.literal("Boots");
                 case 45 -> Component.literal("Offhand");
-                case 46 -> Component.literal("Left Ring");
-                case 47 -> Component.literal("Right Ring");
-                case 48 -> Component.literal("Pouch");
+                case 46 -> Component.literal("Phone");
+                case 47 -> Component.literal("Left Ring");
+                case 48 -> Component.literal("Right Ring");
+                case 49 -> Component.literal("Pouch");
                 default -> null;
             };
             if (tip != null) {

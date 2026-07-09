@@ -25,4 +25,6 @@ public abstract class MixinLocalPlayer implements ComponentProvider {
     public ComponentContainer getComponentContainer() {
         return totality$componentContainer;
     }
+
+
 }

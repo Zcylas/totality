@@ -1,0 +1,21 @@
+{
+  "name": "Test Trader",
+  "sells": [
+    {
+      "item": { "id": "minecraft:iron_sword", "count": 1 },
+      "price": 450
+    },
+    {
+      "item": {
+        "id": "minecraft:enchanted_book",
+        "count": 1,
+        "components": {
+          "minecraft:stored_enchantments": {
+            "minecraft:sharpness": 3
+          }
+        }
+      },
+      "price": 800
+    }
+  ]
+}

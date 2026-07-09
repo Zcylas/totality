@@ -10,6 +10,7 @@ import zcylas.totality.api.combat.damage.DamageFlags;
 import zcylas.totality.api.combat.damage.TotalityDamage;
 import zcylas.totality.api.combat.damage.TotalityDamageType;
 import zcylas.totality.api.dice.Dice;
+import zcylas.totality.api.dice.DiceBonus;
 import zcylas.totality.api.dice.RollOutcome;
 import zcylas.totality.api.dice.RollType;
 import zcylas.totality.api.rpg.stats.AbilityScore;
@@ -49,8 +50,8 @@ public final class CombatResolver {
                                      int damageModifier,
                                      TotalityDamageType damageType) {
 
-        RollOutcome outcome = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
-        handleHit(attacker, target, outcome, resolveWeaponName(attacker), diceCount, damageDie, damageModifier, damageType, false, abilityScore);
+        AttackRoll.Result ar = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
+        handleHit(attacker, target, ar.outcome(), resolveWeaponName(attacker), diceCount, damageDie, damageModifier, damageType, false, abilityScore, ar.bonuses());
     }
 
     // convenience overload
@@ -70,8 +71,8 @@ public final class CombatResolver {
                                      RollType rollType, int diceCount, Dice damageDie,
                                      TotalityDamageType damageType, String weaponName) {
         int mod = resolveAbilityMod(attacker, abilityScore);
-        RollOutcome outcome = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
-        handleHit(attacker, target, outcome, weaponName, diceCount, damageDie, mod, damageType, false, abilityScore);
+        AttackRoll.Result ar = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
+        handleHit(attacker, target, ar.outcome(), weaponName, diceCount, damageDie, mod, damageType, false, abilityScore, ar.bonuses());
     }
 
     // resolveSpellAttack — spell damage is always magical
@@ -111,8 +112,8 @@ public final class CombatResolver {
             effectiveRollType = RollType.DISADVANTAGE;
         }
 
-        RollOutcome outcome = AttackRoll.roll(caster, target, spellcastingAbility, true, effectiveRollType);
-        handleHit(caster, target, outcome, spellName, diceCount, damageDie, 0, damageType, true, null, extraFlags);
+        AttackRoll.Result ar = AttackRoll.roll(caster, target, spellcastingAbility, true, effectiveRollType);
+        handleHit(caster, target, ar.outcome(), spellName, diceCount, damageDie, 0, damageType, true, null, ar.bonuses(), extraFlags);
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────
@@ -130,6 +131,7 @@ public final class CombatResolver {
                                   TotalityDamageType damageType,
                                   boolean isMagical,
                                   @Nullable AbilityScore abilityScore,
+                                  List<DiceBonus> attackBonuses,
                                   DamageFlags... extraFlags) {
 
         if (!outcome.isHit()) {
@@ -169,7 +171,7 @@ public final class CombatResolver {
 
         if (attacker instanceof ServerPlayer p)
             DamageRollNotification.send(p, label + (isCrit ? " ✦ CRIT" : ""),
-                    dmg, abilityScore, extraBonuses);
+                    dmg, abilityScore, extraBonuses, attackBonuses);
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────

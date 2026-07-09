@@ -1,0 +1,907 @@
+================================================================
+TOTALITY MOD - HISTORICAL CONTEXT FOR CLAUDE CODE
+================================================================
+This file covers systems designed and implemented in earlier sessions.
+Companion to: totality_claude_code_notes.txt
+================================================================
+
+----------------------------------------------------------------
+MOD IDENTITY & PHILOSOPHY
+----------------------------------------------------------------
+Mod ID: zcylas.totality
+Minecraft: 26.1.2
+Loader: Fabric
+Mappings: Mojang official
+
+DESIGN INFLUENCES:
+- D&D 5e (class system, spell slots, saving throws, dice mechanics)
+- Skyrim / Elder Scrolls (skill trees, alchemy, world exploration)
+- Baldur's Gate 3 (dice roll screen, advantage/disadvantage, short rest)
+- Hypixel Skyblock (bestiary, skill milestones, fishing tiers)
+- Solo Leveling, Naruto, Bleach, One Piece, Dragon Ball (power systems)
+- Critical Role (named NPCs, patron system, Abyssal Engine lore)
+- Ars Nouveau (Grimoire/rune system)
+- Tinker's Construct (future casting table system)
+- Kenshi (wound system, planned)
+
+CORE PHILOSOPHY:
+- Powers interact with the world, scale with RPG stats, feel physical,
+  have visual impact, and work for both players AND mobs
+- Avoids pure cooldown-damage loops
+- D&D-style checks layered on deterministic mechanics
+  (Nat 1 failures, Nat 20 crits)
+- Data-driven wherever possible (JSON recipes, shop configs, quest defs)
+
+----------------------------------------------------------------
+UI DESIGN SYSTEM
+----------------------------------------------------------------
+ESTABLISHED COLOR SCHEME (applied across all screens):
+- Background: 0xFF080A0F (near-pure black, slight blue tint)
+- Border: 0xFF0A5070 (dark cyan)
+- Value text: 0xFF00CCFF (bright cyan)
+- Label text: 0xFF5599BB (muted cyan)
+- Copper border accent: 0xFF8B6914
+- Selected/active: 0xFF00CCFF
+
+AVOID: Cyan + dark blue that resembles Duolingo branding
+
+HUD ICON FRAME STYLE:
+- Dark background: 0xDD08090D
+- Copper border: 0xFFB87333
+- Cyan border when selected/active: 0xFF00CCFF
+- Small cyan corner accents
+- Icon centered inside
+- Used in: ability radial, spell slots, favourites strip
+
+CONTEXT-SENSITIVE HUD BARS (planned):
+- Resource bars fade in ONLY when actively being used
+- Fade out ~4 seconds after last use
+- HP + Stamina always visible
+- Mana/Ki/Chakra/Reiatsu: appear only when drawn from
+- Each bar color-coded:
+  Mana → blue
+  Ki → yellow/gold
+  Chakra → green
+  Reiatsu → purple
+- Implemented via HudElementRegistry with visibility condition
+  tied to recent usage timestamp
+
+HUD ELEMENTS THAT EXIST:
+- HP / Stamina / Mana bars
+- Mob health bar (copper border, dynamic width based on name length,
+  grey name when passive, colored in combat, HP numbers inside bar,
+  Perception mastery stubs at levels 0-4)
+- Wallet display
+
+HUD ELEMENTS STILL NEEDED:
+- Solar Charge bar (Kryptonian)
+- XP + level display
+- Armor value
+- Spell slot indicators
+- Ability slot indicator (Z key)
+- Compass HUD (structure tags, quest markers, CompassFeature UUID+tag+pos)
+
+----------------------------------------------------------------
+KEY BINDINGS (ESTABLISHED)
+----------------------------------------------------------------
+- G: Spell cast key (also opens SpellRadialScreen on hold)
+- Z: Opens AbilityRadialScreen on hold
+- F: Favourite spell in SpellsTab
+- V: Block (sword) / Scissor block (dual wield)
+- TAB: Opens phone menu (planned)
+- CTRL: Sprint
+- Note: X is NOT a conflict since AbilitiesTab uses mouse interaction
+
+----------------------------------------------------------------
+MAGIC SYSTEM - THREE FRAMEWORKS
+----------------------------------------------------------------
+FRAMEWORK 1 — ACTION RPG SPELLS (Skyrim/WoW/Metin2 style):
+- Cost: Mana + cooldown
+- Acquisition: learned from spell books found in world
+- No class gate
+
+FRAMEWORK 2 — D&D SPELLS (implemented):
+- Cost: Spell slots (SlotComponent, leveled)
+- Rest-gated (Short Rest for Warlock, Long Rest for others)
+- Cast via ArcaneFocusItem (supports class gating via requiresClass param)
+- Acquisition: SpellTomeItem (right-click to learn), ArcaneScrollItem (one-use)
+- SpellbookItem: separate from Grimoire, Wizard-specific
+- Cantrips: no slot cost
+- Spell cast key: G
+
+FRAMEWORK 3 — GRIMOIRE SYSTEM (implemented, Ars Nouveau equivalent):
+- Rune-based: Form + Effect + Augment combinations
+- GrimoireItem tiers: Novice → Apprentice → Archmage
+- Physical rune items right-clicked to learn and consume
+- RuneKnowledgeComponent: server-side Set<String> storage, ALWAYS_COPY respawn
+
+ALL THREE UNIFIED BY:
+- Magic school skill trees
+- Masteries = passive bonuses (NOT spell unlocks)
+- Spell acquisition exclusively through world-found books/tomes
+
+D&D MAGIC ITEMS (4th category):
+- Charge-based items referencing central spell registry
+- Example: Wand of Fireballs
+- Usable by anyone, no class gate
+
+IMPLEMENTED SPELLS:
+Cantrips: Eldritch Blast, Firebolt, Ray of Frost, Chill Touch,
+          Toll the Dead, Poison Spray, Magic Missile
+Level 1: Mage Armor, Burning Hands, Sleep, Armor of Agathys,
+         Hex, Misty Step
+Level 2: Silence, Scorching Ray
+Level 3: Lightning Bolt
+Level 5: Cone of Cold
+Level 6: Disintegrate
+Level 7: Crown of Stars (orbiting END_ROD particle motes, per-player
+         charge tracking, subsequent casts consume one mote)
+
+SPELL IMPLEMENTATION NOTES:
+- Disintegrate: DEX saving throw (NOT ranged spell attack), fail = damage,
+  success = nothing, 0 damage on success. Forces DUST stage on CorpseEntity.
+- Poison Spray: green HAPPY_VILLAGER particles, deals poison DAMAGE only —
+  does NOT apply Poisoned condition (common D&D misconception)
+- Magic Missile: random spread with ENCHANTED_HIT particle streams
+- Multi-dice damage like 8d6 Fireball: lightweight HUD notification,
+  NOT full dice screen
+- SpellBoltEntity: spawn 1.5 blocks forward to prevent face-clipping
+
+RUNE KNOWLEDGE SYSTEM:
+- RuneKnowledgeComponent: server-side Set<String> storage, ALWAYS_COPY
+- ClientRuneKnowledgeManager: client cache via generic ComponentSync
+- RuneItem: right-click to learn, consumed, added to known runes,
+  sends SendNotificationPayload for feedback
+- All 34 rune items registered in RuneItems (Forms/basic = UNCOMMON,
+  powerful effects = RARE, Summon Undead = EPIC)
+- Textures: textures/item/rune/ auto-stitched into items/blocks atlas
+  atlases/gui.json with "prefix": "gui/rune/" avoids duplicates
+  TotalityGuiSprites uses totality:gui/rune/<name> identifiers
+- DEFAULT RUNES granted on first join (MagicServerEvents):
+  Touch, Projectile, Self, Break, Harm
+- TODO: Create individual rune rituals for progressive unlock
+  (currently all auto-unlocked, needs proper system)
+- Rune rituals give Ritual Skill XP
+
+COMPONENT POUCH (implemented):
+- 27-slot GUI filtered to SpellMaterialIngredient items
+- Contents stored in DataComponents.CONTAINER via ItemContainerContents
+- Implements SortableContainerMenu interface
+- 4 sort/transfer buttons: sort (ALPHABETICAL/BY_COUNT/BY_TYPE via Normal/Shift/Ctrl),
+  quick-stack, transfer to container, transfer to inventory
+- ContainerSortPayload carries List<ItemStack> for client-side sort computation
+- SortableContainerMenu is generic: getSortableContainer(), getContainerSlotCount(),
+  afterAction() — any future chest/bag implements this to get 4 buttons free
+
+SPELLBOOK / SCROLL / TOME:
+- SpellbookItem: separate from Grimoire, Wizard-specific
+- ArcaneScrollItem: one-use cast
+- SpellTomeItem: right-click to learn
+
+CLASSES:
+- Wizard: SpellbookItem, Arcane Tradition chosen at class level 2 (not initial)
+- Warlock: Eldritch Blast, patron system, short-rest slots
+- Barbarian: Rage (now a MobEffect)
+- Monk: Ki points, martial arts, unarmored defense
+
+BLESS (implemented):
+- Was a flat effect, converted to proper MobEffect
+- Visible in HUD with icon, duration timer, swirl
+
+RAGE (implemented):
+- Was a toggle Ability with raw stat/trait manipulation
+- Converted to MobEffect via MobEffectInstance
+- STR bonus and resistance now in onEffectAdded/onEffectRemoved
+- Visible in HUD with icon and duration
+
+ARCANE FOCUS ITEM:
+- requiresClass constructor param for class gating
+- Context-sensitive HUD shows spell info when held
+
+----------------------------------------------------------------
+RITUAL SYSTEM (implemented)
+----------------------------------------------------------------
+COMPONENTS:
+- RitualAltarBlockEntity + RitualDaisBlockEntity
+- chalk sigils (ChalkSigil, not ChalkGlyph — renamed)
+- SIGIL property (not GLYPH — renamed)
+- PLACEHOLDER second enum value required (Minecraft needs ≥2 blockstate values)
+
+CRITICAL BUG FIX (documented for future reference):
+- loadAdditional was resetting ritualActive and ritualState to defaults
+  on every sync packet, not just world load
+- Fix: saveAdditional always writes IDLE/false to disk
+  loadAdditional reads normally
+  Sync packets carry real state without being overwritten
+- Apply this pattern to any future block entity with runtime state
+
+CHALK TINT RULE (critical):
+- All ChalkColor tint values MUST use 0xFFRRGGBB format (with 0xFF alpha prefix)
+- Without 0xFF prefix: block faces render as fully transparent
+- Particle effects (use texture directly) always worked
+- Block faces (apply tint) were invisible — this was the root cause
+- RESIDUUM chalk color: 0xFF2D8A4E
+
+CHALK COLORS: White, Gold, Blue, Purple, Red, Residuum
+
+SIGIL TEXTURES:
+- Pure white pixels on transparent background
+- Tint color applied at render time
+- Smaller, sparser hand-drawn style (not large decorative symbols)
+- Focus, Transportation, Inquisition sigils created
+
+RITUAL SKILL XP:
+- Amount depends on the specific ritual (JSON field)
+- Some rituals give more XP than others
+- TODO: Wire ritual completion into Ritual Skill XP system
+
+----------------------------------------------------------------
+MATERIAL PROCESSING CHAINS
+----------------------------------------------------------------
+WHITESTONE CHAIN:
+Flecked Whitestone Chunk → (cold Acid Vial in Stone Mortar) → Raw Residuum
+→ (Pestle grinding) → Residuum Powder
+→ (Residuum Powder + Acid Vial in heated Stone Mortar) → Refined Residuum
+
+Whitestone worldgen: Feature.REPLACE_BLOBS with ReplaceSphereConfiguration
+Flecked Whitestone: same UNDERGROUND_ORES step, registered AFTER Whitestone
+(must have Whitestone to replace — order matters)
+
+LIMESTONE / CHALK CHAIN:
+Limestone Chunk → (Stone Mortar + Pestle) → Limestone Powder
+→ (smelt) → Quicklime
+→ (right-click water source block) → consumes Quicklime, places Slaked Lime fluid block
+→ (bucket Slaked Lime) → Slaked Lime Bucket
+→ (Casting Table with Wood Cast) → White Chalk
+
+Limestone worldgen: Feature.REPLACE_BLOBS, UniformInt.of(6, 12) radius,
+Y: 0–80, count 4, overworld biomes
+CRITICAL: radius cap is 12, exceeding it causes silent serialization error
+
+SLAKED LIME:
+- Totality's FIRST custom fluid (milky white)
+- Future uses: mortar/cement chain, agriculture, alchemy, whitewash, leather
+
+CASTING TABLE:
+- Dual-purpose: early chalk production + future Tinker's Construct equivalent
+- Wood Casts: single-use
+- Metal Casts: reusable (future)
+- Cast Former block needed to shape blank casts (future)
+- This is the foundation for the full Tinker's system later
+
+COLORED CHALKS:
+- Gold, Blue, Purple, Red: small Tier 1 rituals with thematic ingredients
+- Residuum Chalk: ritual — White Chalk on altar + Residuum Powder on dais
+
+STONE MORTAR:
+- Cold mode: Acid Vial reactions
+- Heated mode: fire underneath, enables different reactions
+
+ORE WORLDGEN (registered):
+- Graphite, Tin, Lead, Silver, Ruby
+- Limestone (as described above)
+- Whitestone + Flecked Whitestone
+
+RESIDUUM ITEMS:
+- Raw Residuum, Residuum Powder, Refined Residuum
+- Residuum-Flecked Chunk with loot tables
+
+INDUSTRIAL CHAIN (future/backlog):
+- Jaw Crusher → Rotary Kiln → Ball Mill → Cement Mixer (cement chain)
+- Storage network terminal
+- Machine multiblocks
+- Drill block
+- Machine upgrade system
+
+----------------------------------------------------------------
+ALCHEMY SYSTEM
+----------------------------------------------------------------
+STATUS: Implemented with XP hooks
+
+AlchemyEffect.xpValue field: added via withXpValue() builder
+XP values scaled from Skyrim base costs:
+- Restore Health: 5
+- Invisibility: 80
+- Waterbreathing: 50
+
+AlchemySkillEvents hooks called from:
+- AlchemyIngredient.onAlchemyEat(): eating new ingredient = +10 XP
+- BrewingLogic.brew(): sums effect XP values, +15 per new discovery,
+  +25 for first recipe
+
+FORTIFY EFFECTS:
+- FortifyHealthEffect: AttributeModifier on MAX_HEALTH via onEffectAdded/onEffectRemoved
+- Amplifier precision: ×10 (NOT ×100, which exceeded byte max of 255)
+  amplifier = Math.round(vanillaBonus * 10) - 1
+  recovered as: (amplifier + 1) / 10f
+- All Fortify effects (FORTIFY_HEALTH, FORTIFY_STAMINA, FORTIFY_MANA):
+  flat display values (e.g. 17f), NOT percentage-based (0.17f)
+  Matches Skyrim's flat-number design
+- Apply timed effects BEFORE instant effects in finishUsingItem
+  (Fortify Health raises max HP BEFORE Restore Health heals against it)
+
+ALCHEMY MASTERY TREE:
+- Skill level cap changed from 100 to 200 to support masteries at 150 and 200
+- SkillData.addXp: was only looping once per call — fixed with while loop
+- PlayerSkillsComponent.addSkillXp: fires onSkillLevelUp once per level
+  using for (int l = levelBefore + 1; l <= newLevel; l++)
+- Double-alchemy-ingredients mastery → converts to passive ability (planned)
+
+APOTHECARY TABLE:
+- Restyled: COLOR_BG = 0xEE000814, COLOR_BORDER = 0xFF0A5070
+- isInGameUi() = false (suppress vanilla HUD)
+- rightVisible flag: third panel appears only on hover/selection
+- Alchemy XP bar bottom-right, reads from ClientSkillsManager
+- Continuous crafting via lastBrewedIngredientIds + reSelectLastIngredients()
+- Empty-state reset when ingredients run out
+
+SPELL MATERIAL ITEMS:
+- SpellMaterialItem: single generic class
+- Replaces: BatGuanoItem, SulphurDustItem, FurItem, GlassRodItem
+
+----------------------------------------------------------------
+COMBAT SYSTEM - ESTABLISHED
+----------------------------------------------------------------
+D20 ROLL SCREEN:
+- Matches BG3 visual aesthetic
+- Die geometry: proper face-forward d20 (central downward triangle + 3 nook faces)
+- Colors: DiceSkin.DEFAULT — 0xFF3A3860 outer, 0xFF8080C0 center
+- Advantage: takes HIGHER of two rolls
+- Disadvantage: takes LOWER of two rolls
+- Two-dice: displayNum2, dimFactor on losing die colors, proportional vertical offset
+- DC section always visible including in SHOW_FINAL
+- Bonus cards outside panel below it
+- Ornate border with L-accent corners
+- "Click dice to roll" and "Continue": plain white text, no hover states
+- DiceSkin + DiceSkinRegistry: 5 built-in skins
+
+COMBAT API ORDER (established architecture):
+ProficiencyBonus → ArmorClass → AttackRoll → SavingThrow → DamageRoll → CombatResolver
+
+SAVING THROWS:
+- Reuse existing DiceRollContext system with different labeling
+
+VANILLA WEAPON STATS:
+- VanillaWeaponStats: maps vanilla weapons
+- Comment says "TotalityWeaponItem bypasses this via data component"
+- BUG: bypass not fully implemented (see bugs section in main notes)
+
+WEAPON ITEMS:
+- TotalityWeaponStats: universal weapon stats record (replaced SkyrimSwordStats)
+- SkyrimSwordItem: extends TotalityMeleeWeaponItem
+- ArcaneOrbItem: UNCOMMON/MAGICAL
+- IronSwordItem: 1d6 SLASHING, STR, MARTIAL_MELEE, ONE_HANDED, 512 durability
+  (Skyrim recipe: 1 custom iron ingot + leather strip)
+- SpellMaterialItem: generic, replaces individual material items
+
+STAMINA:
+- Sprint stamina regen deadlock FIXED: holding CTRL after depletion no longer
+  permanently blocks recovery (was bug in StaminaServerTick)
+- Sprint issue: can also be caused by vanilla hunger (insufficient food pips)
+- Stamina sync added on player join
+
+----------------------------------------------------------------
+PLAYER DEATH & CORPSE SYSTEM (designed, not yet implemented)
+----------------------------------------------------------------
+DEATH PIPELINE:
+1. HP hits 0 → player FAINTS (lying down animation via PlayerAnimationLibrary)
+2. Death saving throws begin (D&D style)
+3. 3 failed saves → actually dies
+4. CorpseEntity spawns at death location
+5. Player respawns naked at spawn point / bed
+6. Player gets compass pointer toward their corpse location
+
+CORPSE ENTITY:
+- Single entity (not block)
+- Stores: original EntityType, UUID, persistent inventory
+- Renderer: wraps original mob renderer with 90-degree X rotation (lay flat)
+  PoseStack rotation approach (works for vanilla mobs)
+  GeckoLib mobs need separate handling eventually
+- Decomposition stages (timer-based):
+
+  FRESH (0-5 min):
+  Full loot intact
+  Resurrectable with Raise Dead, True Resurrection
+  Usable in blood rituals
+
+  DECOMPOSING (5-20 min):
+  Skin shows decay overlay (or particle effects: flies, green wisps, dust motes)
+  Food/perishable items disappear
+  Raise Dead no longer works, Animate Dead still does
+
+  SKELETAL (20+ min):
+  Only bones and durable items remain
+  Only Animate Dead works
+  Good for bone meal / ritual sacrifice
+  Spontaneous undead reanimation chance (always-on until configs added)
+
+  DUST:
+  Despawns entirely
+  Creature-specific dust items drop
+
+- Gentle Repose spell: pauses decomposition timers
+- Disintegrate: forces immediate DUST stage, skips all stages
+
+ITEMS LOST OVER TIME:
+- Food → gone at DECOMPOSING
+- Potions → gone or degraded at DECOMPOSING
+- Paper/books → gone at SKELETAL
+- Armor/weapons/gems → persist to DUST stage
+
+CORPSE ITEMS (carrying corpses):
+- CorpseItem: inventory item representing a corpse you're carrying
+- STR threshold checks (heavy to carry)
+- Nested loot inside
+
+BUTCHERING:
+- Animals + dark ritual ingredients
+- Planned system
+
+PLAYER ANIMATION LIBRARY:
+- MIT licensed, bundled as dependency in Gradle
+- Used for: faint collapse animation, cast poses, flight lean,
+  power attack wind-up
+- Cast animations double as cooldown indicators
+- NOT GeckoLib — separate library
+
+ATTUNEMENT:
+- Via Short Rest (NOT current 10-second hold-R)
+- Item in inventory during Short Rest = attuned
+- Drop item = unattuned
+- D&D 3-slot cap DROPPED (too restrictive for Minecraft)
+
+----------------------------------------------------------------
+POWER SYSTEMS (future, designed)
+----------------------------------------------------------------
+ALL POWER SYSTEMS:
+- NOT race or class locked (except Super Saiyan which is Saiyan-exclusive)
+- Races provide BONUSES to these systems, not locks
+- Each has own resource bar (context-sensitive HUD, see HUD section)
+
+CHAKRA SYSTEM:
+- Chakra bar (green, fades in on use)
+- Schools: Ninjutsu, Genjutsu, Taijutsu
+- Race bonuses: Uzumaki (larger Chakra pool), Uchiha (Sharingan abilities)
+- Shadow Clone Jutsu: creates entity with caster's skin UUID, follows/fights,
+  costs Chakra, ability-aware
+
+REIATSU SYSTEM:
+- Reiatsu bar (purple, fades in on use)
+- Zanpakuto item: Sealed / Shikai / Bankai states
+- Quincy bow variant
+- Hollow abilities (Jinchuuriki listed as FORMS transformation)
+
+KI SYSTEM:
+- Ki bar (yellow/gold, fades in on use)
+- Charged beam attacks (Kamehameha)
+- Flight at high Ki
+- Super Saiyan transformation: Saiyan race ONLY
+
+FORMS (CharacterMenuScreen):
+- Supernatural transformations listed in CHARACTER screen
+- Types: Vampire, Werewolf, Hollow, Jinchuuriki, Demon
+- These are FORMS, not classes
+
+BLOODLINE / LINEAGE SYSTEM (planned):
+- SEPARATE from Ancestry system, separate GUI tab
+- For Uchiha, Uzumaki, Dragonborn and similar hereditary powers
+- Not part of the Species/Origin selection
+
+----------------------------------------------------------------
+PLAYER TRANSFORMATIONS (future)
+----------------------------------------------------------------
+VAMPIRE:
+- Transformation system
+- Planned: Vampire NPCs in world
+
+WEREWOLF:
+- Transformation system
+- Planned: Werewolf NPCs in world
+
+HOLLOW (Bleach):
+- Listed as a FORM in CharacterMenuScreen
+- Part of Reiatsu/Shinigami power system
+
+JINCHUURIKI (Naruto):
+- Listed as a FORM in CharacterMenuScreen
+- Tied to Chakra system, Tailed Beast power
+
+----------------------------------------------------------------
+WORLD EVENTS (designed, future)
+----------------------------------------------------------------
+RANDOM WORLD EVENTS:
+- Blood Moon: increased hostile mob spawns, special drops
+- Solar Eclipse: planned
+- Meteor Shower: planned
+- Demonic Incursion: waves of demon enemies
+- Long Rest events:
+  Ambush: enemies attack while resting
+  Theft: items stolen during Long Rest
+  Nightmare: negative effect applied
+  Perception check: player detects something nearby
+  Visitor: friendly or neutral encounter
+  Omen: foreshadowing event, narrative flag set
+
+GATES (E-S rank):
+- E through S rank = procedural dungeons
+- Special Gates = hand-crafted, narrative, franchise-specific bosses
+
+ABYSSAL ENGINE (Critical Role inspiration / Aeor lore):
+- Demon binding via ritual for industrial power
+- Alternative energy source (dark magic industrial)
+
+----------------------------------------------------------------
+PET & FAMILIAR SYSTEM (designed, future)
+----------------------------------------------------------------
+PET SYSTEM (Hypixel Skyblock style):
+- Passive stat buffs
+- Collectible pets
+- Not active combat companions
+
+FAMILIAR SYSTEM:
+- Active combat companions
+- Collectible and swappable
+- Acquired via: Find Familiar spell, ritual, or class kit
+- Different from pets (active vs passive)
+
+----------------------------------------------------------------
+ENCHANTING SYSTEM (designed, future)
+----------------------------------------------------------------
+SOUL STONE REWORK (Skyrim-inspired):
+- Soul Stones: different tiers (like soul gems in Skyrim)
+- Soul Trap mechanic
+- Enchanting Table rework using Soul Stones
+- Replaces vanilla enchanting
+
+MAGIC ITEMS (4th magic category):
+- Charge-based items (e.g. Wand of Fireballs)
+- Reference central spell registry
+- Usable by anyone regardless of class
+
+----------------------------------------------------------------
+GROOMING / HYGIENE SYSTEM (designed, future)
+----------------------------------------------------------------
+BEARD GROWTH:
+- float beardLength component per player
+- Grows over in-game days (Dwarves faster, longer max)
+- Maps to beard texture overlay tiers (short → medium → long → bushy)
+- Other races: slower growth, shorter max
+- Beard color: chosen at race selection, tinted via color layer (like chalk sigils)
+- Greyscale UV texture on head outer layer
+
+GROOMING:
+- Razor or Barber's Kit item
+- NPC Barber in towns (economy integration)
+
+HYGIENE:
+- Dirt/grime texture overlay builds over time
+- Swimming or rain slowly cleans
+- Bathtub / Washing Basin block to fully clean
+- Dirty player = worse NPC deals (Charisma debuff)
+- Ties into trading/social systems
+
+BEARD IMPLEMENTATION NOTE:
+- Flat texture overlay on player head outer layer (Minecraft "hat" layer)
+- Short/Bushy beards: fit within face area, no extra model needed
+- Long/Braided beards: extend below head → need separate model attachment
+
+----------------------------------------------------------------
+ENTITIES - PLANNED & IN PROGRESS
+----------------------------------------------------------------
+BLUE BUTTERFLY:
+- Nearly complete
+- Needs: wing texture refinement + animation work
+- Uses Modded Entity Blockbench project type (NOT GeckoLib)
+- Placeholder: right-click gives wing item until Hunter skill built
+
+TAINTWEED:
+- Hostile sentient purple flower with a face
+- Has planned alchemy effects of its own
+- Joke/humorous content
+- Texture reference exists
+
+CYBERMEN (Doctor Who):
+- Possible future addition
+- Stats planned: 6 hearts, 20 tick cooldown, 2.5 block range,
+  Slowness I on hit, 80% knockback resistance
+- Immunity: Wither, Poison
+- Vulnerability: EMP/Redstone Pulse
+- Drops: Cyber Core (5% rare), Scrap Alloy (100%)
+- Height: 1.5 blocks
+
+GALLIFREYAN ANCESTRY (Doctor Who):
+- Could be added as an Ancestry
+- Regeneration: unique death mechanic (regeneration crisis instead of death)
+  Heals fully but loses some stats temporarily or shuffles bonuses
+- Binary vascular system: naturally higher max HP
+- Time Lord mental discipline: resistance to mind-affecting effects
+- Better as Lineage than full Ancestry
+
+AEORMATONS (Critical Role):
+- Content tied to Abyssal Engine / Aeor lore
+- Planned but not designed in detail
+
+----------------------------------------------------------------
+RECIPE SYSTEMS
+----------------------------------------------------------------
+RITUAL INGREDIENTS (new mob drops planned):
+- Arcane Dust: drops from Endermen
+- Soul Essence: drops from Wither Skeletons or Ghasts
+- Mystic Membrane: drops from Phantoms
+
+OR: create an actual Arcane ore for players to find (alternative to mob drops)
+
+RITUAL ALTAR RECIPE:
+- 4 Deepslate Bricks
+- 2 Copper Rune Plates (Copper Ingot + Amethyst Shard)
+- 2 Arcane Dust
+- 1 Amethyst Crystal (full block, not shard)
+
+NOVICE GRIMOIRE RITUAL:
+- Altar input: Book
+- Dais 1: Arcane Crystal (Amethyst Cluster + Arcane Dust)
+- Dais 2: Arcane Crystal
+- Dais 3: Mystic Membrane
+- Dais 4: Arcane Dust ×4
+- Pattern: White chalk conduit glyphs
+
+RUNE PLATE: Copper Ingot + Amethyst Shard
+
+CASTING TABLE:
+- Future: Tinker's Construct equivalent foundation
+- Wood Casts: single-use
+- Cast Former block: shapes blank casts into molds
+
+----------------------------------------------------------------
+SKILLS MENU REDESIGN (partial)
+----------------------------------------------------------------
+PLANNED AESTHETIC: Skyrim pillar style
+- Dark atmospheric background
+- Glowing nodes
+- Dark blue + cyan palette
+- Skill name color = category color
+- PanoramaRenderer CubeMap background (attempted but abandoned due to
+  26.1.2 async texture loading requirements — cannot initialize during
+  screen lifecycle)
+
+CURRENT IMPLEMENTATION:
+- SkillsMenuScreen: two-state layout
+  State 1: skill overview (icon, name, level, XP bar, description)
+  Navigation: A/D keys
+  State 2: two-panel mastery layout (left scrollable list, right detail)
+  Opened with S key
+
+----------------------------------------------------------------
+ANCESTRY / SPECIES SYSTEM (implemented)
+----------------------------------------------------------------
+ARCHITECTURE:
+- Species: biological identity, NO stats
+- Origin: full stat package, source tag, unlock state
+- SpeciesCategory: UI filter only
+- SourceTag: DND_5E, ELDER_SCROLLS, BALDURS_GATE_3, WORLD_OF_WARCRAFT,
+             FINAL_FANTASY, TOTALITY, OTHER
+- UnlockState: UNLOCKED, LOCKED, HIDDEN
+- PlayerAncestryComponent: replaces old RaceComponent
+  stores species + origin + heightScale
+  single originBonus layer (replaced old racial + subrace layers)
+- Serialization keys: ps_origin_* (replaced ps_racial_* and ps_subrace_*)
+
+NETWORKING:
+- SelectAncestryPayload, OpenAncestrySelectionPayload (in networking/ancestry/)
+
+GUI (three screens):
+- SpeciesSelectionScreen: category filter + species list + details
+- OriginSelectionScreen: species summary + origins list + details
+- ConfirmAncestryScreen: summary + player render + confirm
+- All panels scrollable
+- Panel sizing: CAT_W=100, LIST_W=100, detail panel = remaining width
+- Text: 0.75f scale for small text
+
+CENTRAL RECALCULATION:
+- PlayerResourceRecalculator (api/rpg/stats/)
+- Call recalculate(player): when any stat changes (ancestry, class, items, quests)
+- Call recalculateAndRestore(player): on join/respawn
+- Handles: StatAttributeApplier, HP/Stamina/Mana clamping, client sync
+- Skills do NOT go through PlayerResourceRecalculator
+  (skill levels don't affect HP/Mana/Stamina directly)
+
+FUTURE ATTRIBUTE EFFECTS (must be added to StatAttributeApplier.apply()):
+- STR → attack damage
+- DEX → attack speed
+- WIS → XP rate
+- CHA → merchant prices
+- END → carry weight
+
+ORIGIN UNLOCK VIA QUESTS: planned but not yet implemented
+
+----------------------------------------------------------------
+BESTIARY API (designed, not implemented)
+----------------------------------------------------------------
+CATEGORIES:
+- Mobs (kills)
+- Fishing mobs (Hypixel Skyblock style, fishing)
+- Flowers (pickup/interact)
+- Ingredients (pickup)
+- Blocks (mining)
+- Artifacts (found/collected)
+
+DISCOVERY TRIGGERS:
+- Each category needs its own discovery hook
+- First kill, first pickup, first fish catch, first mine, etc.
+
+BONUSES:
+- Flat stat bonuses or unlocked recipes
+- Tiered milestones (like Hypixel kill milestones)
+
+PERSISTENCE:
+- Per-player SavedData tracking Set<Identifier> of discovered entries per category
+- Or attachment component approach
+
+GUI:
+- Codex/grimoire style screen with category tabs
+- Could tie into GrimoireItem UI
+
+INTEGRATION:
+- Hunter skill gate: higher Hunter skill = rarer mobs catchable
+- Fishing skill: Bestiary discovery on first catch of a fish type
+- Card collection system: catching triggers Bestiary discovery
+
+----------------------------------------------------------------
+FISHING SYSTEM (designed, not implemented)
+----------------------------------------------------------------
+IMPLEMENTATION PATTERN (from Fishing Real mod):
+- FishingHookMixin: inject into FishingHook.retrieve()
+- Injection point: INVOKE_ASSIGN after LootTable.getRandomItems()
+- This is the correct hook for intercepting caught items
+
+FEATURES TO ADD:
+- Fishing Skill XP on catch
+- Bestiary discovery on first catch of new fish type
+- Rare catch modifiers based on Fishing mastery
+- Special ingredient fishing (Skyrim-style)
+- Data-driven fishing conversions (JSON registry)
+
+HYPIXEL-STYLE FISHING:
+- Custom loot table registry with rarity tiers
+- Sea creature spawning (living fish entities with Hunter skill gate)
+- Custom fishing rod support
+
+----------------------------------------------------------------
+JOKE CONTENT (planned)
+----------------------------------------------------------------
+TAINTWEED:
+- Hostile sentient purple flower with a face
+- Has dedicated alchemy effects (hostile/dark themed)
+- Humor through behavior, not just stats
+
+CONSUMABLES:
+- Bottled Silence
+- Concentrated Confidence
+- Mystery Jam
+- Essence of Regret
+
+TRINKETS/CURIOS:
+- Lucky Rabbit's Foot
+- Novelty Mustache
+- The Withered Bell
+
+WEAPONS:
+- Rubber Sword (joke)
+- The Honest Dagger
+
+JUNK/FILLER:
+- Suspiciously Round Rock
+- Unlabeled Vial
+- Bent Spoon
+
+LONG-CON NARRATIVE:
+- A Letter You Cannot Read: tooltip text shifts/changes over playtime
+
+MECHANIC JOKES:
+- Nat 1 failure animation
+- Mob health bar showing absurd names for joke mobs
+- CorpseEntity decay showing comedic items in inventory
+- Structure Lift: STR check that comically fails on trivial structures
+
+----------------------------------------------------------------
+EQUIPMENT API (implemented)
+----------------------------------------------------------------
+SLOTS: Ring ×2, Amulet, Belt, Cloak, Trinket
+PHONE SLOT: dedicated equipment slot for phone item
+NOTE: Equipment slot Component Pouch bug — see main notes bugs section
+
+----------------------------------------------------------------
+SOUL STONE ENCHANTING (future)
+----------------------------------------------------------------
+- Replaces vanilla enchanting table
+- Soul Stones: tiered (like Skyrim soul gems)
+- Soul Trap mechanic to fill Soul Stones
+- Enchanting uses filled Soul Stones
+
+----------------------------------------------------------------
+MOVEMENT SYSTEM (implemented)
+----------------------------------------------------------------
+MovementMode enum: FLIGHT, POWER_SPRINT, SUPER_LEAP
+PlayerMovementComponent
+ClientMovementManager
+
+KRYPTONIAN (next planned powers):
+- Heat Vision: channeling, raycasting, Solar Charge resource (future)
+- Freeze Breath
+- Thunderclap
+- Solar Flare
+- Solar Hover
+- Solar Charge resource (future)
+
+GROUND SLAM: canonical example of Totality design philosophy
+- World interaction (blocks break/deform)
+- Physical feel
+- Stat-scaling
+- Mob-usable (not just player)
+
+STRUCTURE LIFT (planned):
+- Requires flight
+- STR check vs block count × weight
+- StructureTemplate capture
+- Ghost renderer carry phase
+- Both joke and serious uses
+
+----------------------------------------------------------------
+COIN / WALLET SYSTEM (being replaced - see main notes)
+----------------------------------------------------------------
+OLD SYSTEM (for reference, being replaced):
+- Denomination enum: Copper, Silver, Gold
+- WalletComponent: tracked three values
+- ClientWalletManager: static client cache
+- Coin items: right-click to deposit
+- HUD renderer: existed
+
+REPLACEMENT: see main notes file (totality_claude_code_notes.txt)
+for complete new credit system design
+
+----------------------------------------------------------------
+ELECTRIC FURNACE / MACHINE SYSTEMS (implemented)
+----------------------------------------------------------------
+- ElectricFurnaceBlockEntity
+- Item side config
+- SidedOverlayRenderer (persistent pin system, X button dismiss)
+- CableBlock: 6 boolean blockstate properties, CableShapeUtil, tick transfer
+- NOTE: SidedOverlayRenderer rendering code may need audit for raw OpenGL calls
+  before Vulkan transition (planned for summer 2026)
+
+----------------------------------------------------------------
+PREVIOUS DESIGN PRIORITIES (from earlier planning session)
+----------------------------------------------------------------
+This list is historical — some items completed, some deferred.
+Use CLAUDE.md and recent commits as ground truth for current status.
+
+PREVIOUSLY ACTIVE LIST:
+1. Ritual API + Identify Spell
+2. Classes + Races
+3. Dialog GUI + basic NPC
+4. Pet system
+5. ArcaneFocusItem + D&D spell registry
+6. Action RPG spell system
+7. Magic items
+8. Grimoire school tagging
+9. Familiar system
+10. Enchanting rework (Soul Stones)
+11. Random Events
+12. Player Transformations
+13. Abyssal Engine
+14. Quest System
+15. Gates
+
+BACKLOG (from earlier session, for reference):
+Combat: Dodge, Block + Timed Block, Mounted combat, Wound system
+Survival: Thirst, Temperature, Sanity, Hunterborn-style harvesting
+World: Reputation, Factions, Bounty board, Dialog ability checks,
+       World map, Custom inventory screen, QuickLoot panel,
+       Archaeology/Ruins, Dynamic weather, Seasonal availability
+Magic: Blood Magic rituals, Alchemy fortify hooked to skills,
+       Ingredient discovery XP, Weapon poison application
+Industrial: Full machine chain, storage network, cement production
+
+================================================================
+END OF HISTORICAL CONTEXT
+================================================================

@@ -9,11 +9,13 @@ import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.rpg.rest.RestListener;
+import zcylas.totality.api.rpg.rest.RestType;
 import zcylas.totality.screen.character.tabs.AbilitiesTab;
 
 import java.util.*;
 
-public class AbilityComponent implements SyncedComponent, CopyableComponent<AbilityComponent> {
+public class AbilityComponent implements SyncedComponent, CopyableComponent<AbilityComponent>, RestListener {
 
     /** Ability IDs the player has unlocked. */
     private final Set<Identifier> unlocked = new HashSet<>();
@@ -137,6 +139,28 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
             }
         }
         cooldowns.entrySet().removeIf(e -> e.getValue() <= 0);
+        if (changed) sync();
+    }
+
+    // -------------------------------------------------------------------------
+    // Rest recovery
+    // -------------------------------------------------------------------------
+
+    /** Clears cooldowns for any unlocked ability whose rechargeOnRest() matches. */
+    @Override
+    public void onRest(ServerPlayer player, RestType type) {
+        if (cooldowns.isEmpty()) return;
+        boolean changed = false;
+        var it = cooldowns.entrySet().iterator();
+        while (it.hasNext()) {
+            var entry = it.next();
+            Ability ability = AbilityRegistry.get(entry.getKey());
+            RestType recharge = ability != null ? ability.rechargeOnRest() : null;
+            if (recharge != null && (recharge == type || type == RestType.LONG)) {
+                it.remove();
+                changed = true;
+            }
+        }
         if (changed) sync();
     }
 

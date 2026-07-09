@@ -7,8 +7,12 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ShieldItem;
 import net.minecraft.world.phys.Vec3;
+import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
+import zcylas.totality.networking.combat.BlockKeyHandler;
 import zcylas.totality.api.combat.damage.*;
 import zcylas.totality.api.dice.RollType;
 import zcylas.totality.api.mob.stats.MobCombatStats;
@@ -17,10 +21,8 @@ import zcylas.totality.api.mob.stats.MobStatBlock;
 import zcylas.totality.api.rpg.combat.ArmorClass;
 import zcylas.totality.api.rpg.combat.CombatResolver;
 import zcylas.totality.api.rpg.combat.PowerAttackManager;
-import zcylas.totality.api.rpg.combat.weapon.VanillaWeaponStats;
+import zcylas.totality.api.rpg.combat.weapon.WeaponDataResolver;
 import zcylas.totality.api.rpg.stats.AbilityScore;
-import zcylas.totality.api.rpg.stats.PlayerStats;
-import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.client.combat.CombatTextEntry;
 import zcylas.totality.networking.combat.CombatTextPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
@@ -48,7 +50,12 @@ public final class VanillaDamageInterceptor {
                     && attacker != null
                     && !(attacker instanceof Player)) {
 
-                if (attacker instanceof MobCombatStatsHolder holder
+                String srcPath = source.typeHolder().unwrapKey()
+                        .map(k -> k.identifier().getPath()).orElse("");
+                boolean isExplosion = srcPath.contains("explosion");
+
+                // Explosions bypass AC — in D&D they use a DEX save, not an attack roll
+                if (!isExplosion && attacker instanceof MobCombatStatsHolder holder
                         && holder.totality$getMobCombatStats().isInitialized()) {
 
                     MobCombatStats mobStats = holder.totality$getMobCombatStats();
@@ -68,7 +75,14 @@ public final class VanillaDamageInterceptor {
                     }
 
                     if (d20 == 1 || d20 + mobStats.getAttackBonus() < playerAC) {
-                        sendMissAt(attacker, player); // ← add this
+                        sendMissAt(attacker, player);
+                        return false;
+                    }
+
+                    // Check blocking before applying damage (nat-20 crits bypass this above)
+                    if (isPlayerBlocking(player)) {
+                        TotalityDamage.block(player, attacker, dmgType,
+                                !(player.getOffhandItem().getItem() instanceof ShieldItem));
                         return false;
                     }
 
@@ -85,6 +99,11 @@ public final class VanillaDamageInterceptor {
 
                 // Mob has no stat block — still route through TotalityDamage
                 // so resistances and combat text apply
+                if (isPlayerBlocking(player)) {
+                    TotalityDamage.block(player, attacker, dmgType,
+                            !(player.getOffhandItem().getItem() instanceof ShieldItem));
+                    return false;
+                }
                 TotalityDamage.hurt(player, attacker, dmgType, amount, new DamageFlags[0]);
                 return false;
             }
@@ -98,6 +117,11 @@ public final class VanillaDamageInterceptor {
             // ── Player taking damage from another player ──────────────────────
             if (entity instanceof ServerPlayer player
                     && attacker instanceof ServerPlayer) {
+                if (isPlayerBlocking(player)) {
+                    TotalityDamage.block(player, attacker, dmgType,
+                            !(player.getOffhandItem().getItem() instanceof ShieldItem));
+                    return false;
+                }
                 TotalityDamage.hurt(player, attacker, dmgType, amount, new DamageFlags[0]);
                 return false;
             }
@@ -111,25 +135,35 @@ public final class VanillaDamageInterceptor {
             }
 
             // ── Player attacking mob ──────────────────────────────────────────
-            // ── Player attacking mob ──────────────────────────────────────────
-            // ── Player attacking mob ──────────────────────────────────────────
             if (!(entity instanceof Player) && attacker instanceof ServerPlayer player) {
                 ItemStack weapon = player.getMainHandItem();
-                VanillaWeaponStats.WeaponData data = VanillaWeaponStats.get(weapon.getItem());
-                if (data == null) data = VanillaWeaponStats.unarmed();
 
-                PlayerStats stats = StatsComponents.getStats(player);
-                AbilityScore ability = stats != null ? data.resolveAbility(stats) : data.ability();
-
-                RollType rollType = PowerAttackManager.clearPowerAttack(player.getUUID())
+                RollType baseRollType = PowerAttackManager.clearPowerAttack(player.getUUID())
                         ? RollType.ADVANTAGE : RollType.NORMAL;
+
+                WeaponDataResolver.Resolved data = WeaponDataResolver.resolve(player, entity, weapon, baseRollType);
 
                 String weaponName = weapon.isEmpty()
                         ? "Unarmed Strike" : weapon.getHoverName().getString();
 
                 CombatResolver.resolveAttack(player, entity,
-                        ability, true, rollType,
-                        1, data.damageDie(), data.damageType(), weaponName);
+                        data.ability(), data.proficient(), data.rollType(),
+                        data.diceCount(), data.damageDie(), data.damageType(), weaponName);
+
+                // Dual-wield power attack: both weapons strike together as one finisher.
+                // Normal attacks don't auto-mirror the offhand — that's RMB-triggered
+                // independently via OffhandAttackHandler.
+                if (data.rollType() == RollType.ADVANTAGE && isDualWielding(player)) {
+                    ItemStack offWeapon = player.getOffhandItem();
+                    WeaponDataResolver.Resolved offData =
+                            WeaponDataResolver.resolve(player, entity, offWeapon, RollType.ADVANTAGE);
+                    CombatResolver.resolveAttack(player, entity, offData.ability(), offData.proficient(), offData.rollType(),
+                            offData.diceCount(), offData.damageDie(), offData.damageType(), offWeapon.getHoverName().getString());
+                    if (!offWeapon.isEmpty()) {
+                        offWeapon.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.OFFHAND);
+                    }
+                }
+
                 return false;
             }
 
@@ -166,6 +200,9 @@ public final class VanillaDamageInterceptor {
         String path = source.typeHolder().unwrapKey()
                 .map(k -> k.identifier().getPath()).orElse("");
 
+        // All explosion variants (explosion, player_explosion, creeper_explosion, etc.) → FORCE
+        if (path.contains("explosion")) return DamageTypes.FORCE;
+
         return switch (path) {
             // Player unarmed / vanilla weapon fallback
             case "player_attack"             -> DamageTypes.BLUDGEONING;
@@ -194,8 +231,6 @@ public final class VanillaDamageInterceptor {
 
             // Magical
             case "magic", "indirect_magic"   -> DamageTypes.ARCANE;
-            case "explosion",
-                 "player_explosion"          -> DamageTypes.FORCE;
             case "sonic_boom"                -> DamageTypes.SONIC;
 
             // Necrotic
@@ -214,6 +249,21 @@ public final class VanillaDamageInterceptor {
             return type != null ? type : DamageTypes.BLUDGEONING;
         }
         return block.isRanged() ? DamageTypes.PIERCING : DamageTypes.BLUDGEONING;
+    }
+
+    private static boolean isPlayerBlocking(ServerPlayer player) {
+        if (!BlockKeyHandler.isBlocking(player.getUUID())) return false;
+        if (player.getOffhandItem().getItem() instanceof ShieldItem) return true;
+        ItemStack main = player.getMainHandItem();
+        return main.is(ItemTags.SWORDS) || main.getItem() instanceof TotalityMeleeWeaponItem;
+    }
+
+    private static boolean isDualWielding(ServerPlayer player) {
+        ItemStack main = player.getMainHandItem();
+        ItemStack off = player.getOffhandItem();
+        boolean mainIsMelee = main.is(ItemTags.SWORDS) || main.getItem() instanceof TotalityMeleeWeaponItem;
+        boolean offIsMelee = off.is(ItemTags.SWORDS) || off.getItem() instanceof TotalityMeleeWeaponItem;
+        return mainIsMelee && offIsMelee;
     }
 
     public static void sendMissAt(LivingEntity attacker, ServerPlayer victim) {

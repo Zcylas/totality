@@ -1,0 +1,84 @@
+plugins {
+    id 'idea'
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    base {
+        archivesName = "${mod_id}-${project.path.substring(1)}-${minecraft_version}"
+    }
+
+    java.toolchain.languageVersion = JavaLanguageVersion.of(java_version)
+
+    repositories {
+        maven {
+            url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/"
+        }
+    }
+
+    jar {
+        destinationDirectory = file("../build/libs")
+
+        from(rootProject.file("LICENSE")) {
+            rename { "${it}_${mod_name}" }
+        }
+
+        manifest {
+            attributes([
+                    'Specification-Title'     : mod_name,
+                    'Specification-Vendor'    : mod_author,
+                    'Specification-Version'   : project.jar.archiveVersion,
+                    'Implementation-Title'    : project.name,
+                    'Implementation-Version'  : project.jar.archiveVersion,
+                    'Implementation-Vendor'   : mod_author,
+                    'Built-On-Minecraft'      : minecraft_version
+            ])
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        it.options.encoding = 'UTF-8'
+        it.options.getRelease().set(java_version.toInteger())
+    }
+
+    tasks.withType(AbstractTestTask).configureEach {
+        failOnNoDiscoveredTests = false
+    }
+
+    processResources {
+        var expandProps = [
+                'version'                      : version,
+                'minecraft_version'            : minecraft_version,
+                'java_version'                 : java_version,
+                'license'                      : license,
+                'mod_id'                       : mod_id,
+                'mod_name'                     : mod_name,
+                'description'                  : project.description,
+                'mod_author'                   : mod_author,
+                'minecraft_version_range'      : minecraft_version_range,
+                'fcap_version'                 : fcap_version,
+                'minimum_neoforge_version'     : minimum_neoforge_version
+        ]
+        var jsonExpandProps = expandProps.collectEntries {
+            key, value -> [(key): value instanceof String ? value.replace("\n", "\\\\n") : value]
+        }
+
+        filesMatching(['META-INF/neoforge.mods.toml']) {
+            expand expandProps
+        }
+
+        filesMatching(['fabric.mod.json', '*.mixins.json']) {
+            expand jsonExpandProps
+        }
+
+        inputs.properties(expandProps)
+    }
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

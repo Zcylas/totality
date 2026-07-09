@@ -17,8 +17,12 @@ public class DialogueComponents {
         );
         PlayerComponentEvents.registerForPlayers(
                 FLAGS,
-                player -> new NarrativeFlagsComponent(),
+                NarrativeFlagsComponent::new,
                 RespawnStrategy.ALWAYS_COPY
+        );
+        PlayerComponentEvents.registerClientComponent(
+                FLAGS,
+                () -> new NarrativeFlagsComponent(null)
         );
     }
 }

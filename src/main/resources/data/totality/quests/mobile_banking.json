@@ -1,0 +1,12 @@
+{
+  "name": "Mobile Banking",
+  "description": "The Banker mentioned he could link your phone to your account, for a fee — bring it by next time you're in.",
+  "type": "starter",
+  "objectives": [
+    "Give your phone to the Banker"
+  ],
+  "reward": {
+    "xp": 25
+  },
+  "reset_flags": ["mobile_banking_offered", "mobile_banking_linked", "bank_app_unlocked"]
+}

@@ -5,7 +5,9 @@ import zcylas.totality.api.core.rpgutils.WeightComponent;
 import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.energy.BatteryItem;
+import zcylas.totality.item.energy.PhoneItem;
 import zcylas.totality.item.energy.UmbraVisorItem;
+import zcylas.totality.screen.phone.PhoneFrame;
 
 public class EnergyItems {
 
@@ -47,6 +49,17 @@ public class EnergyItems {
             "umbra_visor",
             properties -> new UmbraVisorItem(properties, 32_000, 32, 32),
             new Item.Properties()
+    );
+
+    public static final PhoneItem BASIC_COPPER_PHONE = TotalityRegistry.registerItem(
+            "basic_copper_phone",
+            properties -> new PhoneItem(PhoneFrame.COPPER, properties),
+            new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.CRUDE))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.TOOL))
+                    .component(ItemComponents.WEIGHT, new WeightComponent(1))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A basic copper-framed phone. The screen is waiting for first-time setup."))
     );
 
     public static void register() {}

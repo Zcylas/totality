@@ -370,6 +370,7 @@ public class ModModelProvider extends FabricModelProvider {
                         Identifier.fromNamespaceAndPath("totality", "item/umbra_visor")
                 )
         );
+        generators.generateFlatItem(EnergyItems.BASIC_COPPER_PHONE, ModelTemplates.FLAT_ITEM);
         generators.itemModelOutput.accept(
                 RitualBlocks.RITUAL_ALTAR.asItem(),
                 ItemModelUtils.plainModel(
@@ -413,12 +414,15 @@ public class ModModelProvider extends FabricModelProvider {
         //Special Weapons
             //Zanpakutō
         generators.generateFlatItem(BleachItems.ZANPAKUTO, ModelTemplates.FLAT_ITEM);
+        //Magic Items
+        generators.generateFlatItem(SpellComponentItems.COMPONENT_POUCH, ModelTemplates.FLAT_ITEM);
         //Tools
             //Coins
         generators.generateFlatItem(CurrencyItems.COPPER_COIN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(CurrencyItems.SILVER_COIN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(CurrencyItems.GOLD_COIN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(CurrencyItems.PLATINUM_COIN, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(CurrencyItems.CREDITS, ModelTemplates.FLAT_ITEM);
         //Alchemy Ingredients
         generators.generateFlatItem(SKIngredientItems.SALMON_ROE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);

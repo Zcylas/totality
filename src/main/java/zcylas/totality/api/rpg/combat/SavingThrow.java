@@ -64,7 +64,8 @@ public final class SavingThrow {
             case NORMAL       -> roll1;
         };
 
-        int equipSave = (target instanceof ServerPlayer sp) ? EquipmentComponents.get(sp).getSaveBonus() : 0;
+        int equipSave = (target instanceof ServerPlayer sp) ?
+                EquipmentComponents.get(sp).getSaveBonus() + RollModifierRegistry.resolveSaveBonus(sp, abilityScore) : 0;
         int total = used + abilityMod + profBonus + equipSave;
 
         // Saving throws always use D20. Nat 20 = critical success, nat 1 = critical failure.
@@ -114,6 +115,7 @@ public final class SavingThrow {
         List<DiceBonus> bonuses = new ArrayList<>();
         bonuses.add(new DiceBonus(abilityScore.name() + " Modifier", abilityMod));
         if (proficient) bonuses.add(new DiceBonus("Save Proficiency", profBonus));
+        bonuses.addAll(RollModifierRegistry.resolveSaveBonusList(target, abilityScore));
 
         DiceRollContext context = new DiceRollContext(
                 checkName,

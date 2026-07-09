@@ -10,9 +10,14 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.dice.Dice;
+import zcylas.totality.api.dice.DiceBonus;
 import zcylas.totality.api.dice.DiceRollContext;
 import zcylas.totality.api.dice.PendingDiceRollManager;
 import zcylas.totality.api.dice.RollType;
+import zcylas.totality.api.rpg.check.SkillAbilityMap;
+import zcylas.totality.api.rpg.combat.RollModifierRegistry;
+import zcylas.totality.api.rpg.stats.AbilityScore;
+import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.networking.dialogue.ChoiceDisplayData;
 import zcylas.totality.networking.dialogue.ShowDialogueStatePayload;
 
@@ -54,6 +59,9 @@ public final class DialogueSessionManager {
         int npcId = npc != null ? npc.getId() : -1;
         ActiveDialogue dialogue = new ActiveDialogue(dialogueId, template, template.start(), npcId, npcName);
         SESSIONS.put(player.getUUID(), dialogue);
+        if (npc instanceof zcylas.totality.entity.npc.TotalityNpcEntity totNpc) {
+            totNpc.setDialoguePartner(player);
+        }
         sendState(player, dialogue, false);
     }
 
@@ -78,13 +86,33 @@ public final class DialogueSessionManager {
 
         if (choice.roll().isPresent()) {
             DiceRollSpec spec = choice.roll().get();
+            AbilityScore governingScore = spec.ability()
+                    .map(name -> {
+                        try {
+                            return AbilityScore.valueOf(name);
+                        } catch (IllegalArgumentException e) {
+                            LOGGER.warn("Dialogue roll for skill '{}' has invalid ability override '{}'", spec.skill(), name);
+                            return null;
+                        }
+                    })
+                    .orElseGet(() -> SkillAbilityMap.resolve(spec.skill()));
+            AbilityScore scoreForModifiers = governingScore != null ? governingScore : AbilityScore.WIS;
+
+            List<DiceBonus> bonuses = new ArrayList<>();
+            if (governingScore != null) {
+                int modifier = StatsComponents.getStats(player).getModifier(governingScore);
+                bonuses.add(new DiceBonus(governingScore.getDisplayName(), modifier, governingScore.getIcon()));
+            }
+            // Collect active flat bonuses (e.g. Bless +1d4) for the roll context
+            bonuses.addAll(RollModifierRegistry.resolveSaveBonusList(player, scoreForModifiers));
+
             DiceRollContext ctx = new DiceRollContext(
                     spec.skill(),
                     spec.subtype().isEmpty() ? spec.skill() + " Check" : spec.subtype(),
-                    Dice.D20, spec.dc(), RollType.NORMAL, List.of()
+                    Dice.D20, spec.dc(), RollType.NORMAL, bonuses
             );
             PendingDiceRollManager.request(player, ctx, result -> {
-                String nextKey = result.outcome().isSuccess() ? spec.success() : spec.failure();
+                String nextKey = spec.resolveNext(result.outcome());
                 advanceDialogue(player, dialogue, nextKey);
             });
         } else {
@@ -96,7 +124,8 @@ public final class DialogueSessionManager {
     }
 
     public static void endDialogue(ServerPlayer player) {
-        SESSIONS.remove(player.getUUID());
+        ActiveDialogue removed = SESSIONS.remove(player.getUUID());
+        releaseDialoguePartner(player, removed);
         ServerPlayNetworking.send(player, new ShowDialogueStatePayload(
                 -1, Component.empty(), Component.empty(), List.of(), false, true
         ));
@@ -115,12 +144,22 @@ public final class DialogueSessionManager {
         }
         if (nextState.type() == StateType.END) {
             SESSIONS.remove(player.getUUID());
+            releaseDialoguePartner(player, dialogue);
             sendState(player, dialogue.withState(nextKey), true);
             return;
         }
         ActiveDialogue updated = dialogue.withState(nextKey);
         SESSIONS.put(player.getUUID(), updated);
         sendState(player, updated, false);
+    }
+
+    /** Stops forcing the NPC's look-at/freeze once its dialogue with this player is over. */
+    private static void releaseDialoguePartner(ServerPlayer player, @Nullable ActiveDialogue dialogue) {
+        if (dialogue == null || dialogue.npcEntityId() == -1) return;
+        if (player.level().getEntity(dialogue.npcEntityId())
+                instanceof zcylas.totality.entity.npc.TotalityNpcEntity totNpc) {
+            totNpc.setDialoguePartner(null);
+        }
     }
 
     private static void sendState(ServerPlayer player, ActiveDialogue dialogue, boolean ended) {
@@ -154,15 +193,17 @@ public final class DialogueSessionManager {
             boolean conditionsMet = choice.conditions().stream().allMatch(c -> c.test(player, flags));
             boolean locked = !conditionsMet;
             if (locked && choice.hidden()) continue;
-            String lockReason = locked ? buildLockReason(choice) : "";
+            String lockReason = locked ? buildLockReason(choice, player, flags) : "";
             result.add(new IndexedChoice(choice, locked, lockReason));
         }
         return result;
     }
 
-    private static String buildLockReason(DialogueChoice choice) {
-        if (choice.conditions().isEmpty()) return "";
-        return "Requirements not met";
+    private static String buildLockReason(DialogueChoice choice, ServerPlayer player, NarrativeFlagsComponent flags) {
+        for (DialogueCondition condition : choice.conditions()) {
+            if (!condition.test(player, flags)) return condition.lockReason();
+        }
+        return "";
     }
 
     private record IndexedChoice(DialogueChoice choice, boolean locked, String lockReason) {}

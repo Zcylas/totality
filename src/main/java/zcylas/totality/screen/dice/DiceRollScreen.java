@@ -5,11 +5,13 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Util;
+import org.lwjgl.glfw.GLFW;
 import zcylas.totality.api.client.gui.TotalityGuiRenderer;
 import zcylas.totality.api.dice.*;
 import zcylas.totality.networking.dice.DiceRollClickPayload;
@@ -427,7 +429,11 @@ public class DiceRollScreen extends Screen {
         }
 
         drawSmallC(g, b.valueString(), x + w / 2, y + 3, active ? C_GOLD_BRIGHT : C_GOLD);
-        g.fill(x + w/2 - 8, y + 14, x + w/2 + 8, y + 28, 0xFF1A1408);
+        if (b.iconId() != null) {
+            drawBonusIcon(g, b.iconId(), x + w / 2, y + 21, active ? C_GOLD_BRIGHT : C_GOLD);
+        } else {
+            g.fill(x + w/2 - 8, y + 14, x + w/2 + 8, y + 28, 0xFF1A1408);
+        }
 
         String lbl  = b.label();
         int    maxW = (int)((w - 2) / 0.65f);
@@ -556,20 +562,22 @@ public class DiceRollScreen extends Screen {
         displayNum  = receivedResult.roll1();
         displayNum2 = receivedResult.roll2();
         displayTotal   = receivedResult.usedRoll();
-        if (receivedResult.outcome() == RollOutcome.CRITICAL_SUCCESS)
-            playSound(SoundEvents.PLAYER_LEVELUP, 1.4f);
-        else if (receivedResult.outcome() == RollOutcome.CRITICAL_FAILURE)
-            playSound(SoundEvents.GLASS_BREAK, 0.6f);
+        // No sound here — playing the crit fanfare/break sound the instant the natural number is
+        // revealed (before bonuses are added and the outcome is actually finalized) gives away
+        // a nat 1/nat 20 before the "Critical Success/Failure" reveal, ruining the surprise.
+        // All outcome sounds now fire together in transitionToFinal() instead.
     }
 
     private void transitionToFinal() {
         resultPhase    = ResultPhase.SHOW_FINAL;
         activeBonusIdx = -1;
         recalcLayout();
-        if (receivedResult.outcome().isSuccess())
-            playSound(SoundEvents.PLAYER_LEVELUP, 1.0f);
-        else
-            playSound(SoundEvents.VILLAGER_NO, 1.0f);
+        switch (receivedResult.outcome()) {
+            case CRITICAL_SUCCESS -> playSound(SoundEvents.PLAYER_LEVELUP, 1.4f);
+            case CRITICAL_FAILURE -> playSound(SoundEvents.GLASS_BREAK, 0.6f);
+            case SUCCESS          -> playSound(SoundEvents.PLAYER_LEVELUP, 1.0f);
+            case FAILURE          -> playSound(SoundEvents.VILLAGER_NO, 1.0f);
+        }
     }
 
     // ── Input ─────────────────────────────────────────────────────────────────
@@ -588,12 +596,37 @@ public class DiceRollScreen extends Screen {
         if (resultPhase == ResultPhase.SHOW_FINAL) {
             int bx = panelX + 8, bw = PANEL_W - 16;
             if (mx >= bx && mx <= bx + bw && my >= continueY && my <= continueY + CONT_H) {
-                zcylas.totality.client.dialogue.ClientDialogueManager.onDiceScreenClosed();
-                onClose();
+                confirmClose();
                 return true;
             }
         }
         return super.mouseClicked(mouse, dc);
+    }
+
+    // Mirrors DialogueScreen's E/Enter convention — so the whole roll+dialogue flow can be
+    // driven with a single key: E rolls the die, E again (once settled) continues, same as
+    // E already advances dialogue choices.
+    @Override
+    public boolean keyPressed(KeyEvent input) {
+        var options = Minecraft.getInstance().options;
+        boolean confirm = options.keyInventory.matches(input) || input.key() == GLFW.GLFW_KEY_ENTER;
+        if (!confirm) return super.keyPressed(input);
+
+        if (phase == Phase.IDLE) { startRolling(); return true; }
+
+        if (phase == Phase.ROLLING) {
+            if (receivedResult != null) enterResult(); else skipRequested = true;
+            return true;
+        }
+
+        if (resultPhase == ResultPhase.SHOW_FINAL) { confirmClose(); return true; }
+
+        return true;
+    }
+
+    private void confirmClose() {
+        zcylas.totality.client.dialogue.ClientDialogueManager.onDiceScreenClosed();
+        onClose();
     }
 
     private boolean isDieHovered(int mx, int my) {
@@ -622,6 +655,18 @@ public class DiceRollScreen extends Screen {
     }
 
     // ── Text helpers ──────────────────────────────────────────────────────────
+
+    /** Centered ability-score glyph for a bonus card (e.g. "★" for Charisma). */
+    private void drawBonusIcon(GuiGraphicsExtractor g, String glyph, int cx, int cy, int col) {
+        float scale = 1.4f;
+        g.pose().pushMatrix();
+        g.pose().scale(scale, scale);
+        g.text(font, Component.literal(glyph),
+                Math.round(cx / scale) - font.width(glyph) / 2,
+                Math.round(cy / scale) - font.lineHeight / 2,
+                col, false);
+        g.pose().popMatrix();
+    }
 
     private void drawHuge(GuiGraphicsExtractor g, String t, int cx, int y, int col) {
         g.pose().pushMatrix(); g.pose().scale(2f, 2f);

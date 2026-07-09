@@ -2,6 +2,7 @@ package zcylas.totality.api.rpg.combat;
 
 import net.minecraft.world.entity.LivingEntity;
 import zcylas.totality.api.dice.Dice;
+import zcylas.totality.api.dice.DiceBonus;
 import zcylas.totality.api.dice.RollOutcome;
 import zcylas.totality.api.dice.RollType;
 import zcylas.totality.api.mob.stats.MobCombatStatsHolder;
@@ -10,6 +11,8 @@ import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 import net.minecraft.server.level.ServerPlayer;
+
+import java.util.List;
 
 /**
  * Server-side attack roll utility. No UI — rolls instantly and returns the outcome.
@@ -22,6 +25,9 @@ public final class AttackRoll {
 
     private AttackRoll() {}
 
+    /** Outcome plus any labeled attack-roll bonuses that were applied (e.g. Bless d4). */
+    public record Result(RollOutcome outcome, List<DiceBonus> bonuses) {}
+
     /**
      * Rolls a weapon or spell attack for any living entity attacker.
      *
@@ -30,13 +36,13 @@ public final class AttackRoll {
      * @param abilityScore STR for melee, DEX for ranged, spellcasting ability for spells
      * @param proficient   whether the attacker is proficient
      * @param rollType     NORMAL, ADVANTAGE, or DISADVANTAGE
-     * @return             the roll outcome (CRITICAL_SUCCESS, SUCCESS, FAILURE, CRITICAL_FAILURE)
+     * @return             outcome and any labeled attack-roll bonuses that were applied
      */
-    public static RollOutcome roll(LivingEntity attacker,
-                                   LivingEntity target,
-                                   AbilityScore abilityScore,
-                                   boolean proficient,
-                                   RollType rollType) {
+    public static Result roll(LivingEntity attacker,
+                              LivingEntity target,
+                              AbilityScore abilityScore,
+                              boolean proficient,
+                              RollType rollType) {
 
         int abilityMod = resolveAbilityMod(attacker, abilityScore);
         int profBonus  = proficient ? resolveProficiency(attacker) : 0;
@@ -50,13 +56,17 @@ public final class AttackRoll {
             case NORMAL       -> roll1;
         };
 
-        int total = used + abilityMod + profBonus;
+        // Collect labeled bonuses (rolls any random dice exactly once)
+        List<DiceBonus> atkBonuses = (attacker instanceof ServerPlayer sp)
+                ? RollModifierRegistry.resolveAttackBonusList(sp, abilityScore)
+                : List.of();
+        int attackBonus = atkBonuses.stream().mapToInt(DiceBonus::value).sum();
+        int total = used + abilityMod + profBonus + attackBonus;
 
         // Nat 20 = always a critical hit. Nat 1 = always a miss.
-        // Attack rolls always use D20, but guard explicitly in case that changes.
-        if (used == Dice.D20.getSides()) return RollOutcome.CRITICAL_SUCCESS;
-        if (used == 1)                   return RollOutcome.CRITICAL_FAILURE;
-        return total >= targetAc ? RollOutcome.SUCCESS : RollOutcome.FAILURE;
+        if (used == Dice.D20.getSides()) return new Result(RollOutcome.CRITICAL_SUCCESS, atkBonuses);
+        if (used == 1)                   return new Result(RollOutcome.CRITICAL_FAILURE, atkBonuses);
+        return new Result(total >= targetAc ? RollOutcome.SUCCESS : RollOutcome.FAILURE, atkBonuses);
     }
 
     // ── Internal ──────────────────────────────────────────────────────────────

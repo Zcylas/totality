@@ -3,78 +3,100 @@ package zcylas.totality.init;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ShieldItem;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
 import zcylas.totality.networking.ability.ActivateAbilityPayload;
 import zcylas.totality.networking.ability.ClientAbilityManager;
 import zcylas.totality.networking.ability.ToggleAbilityPayload;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyPayload;
+import zcylas.totality.client.combat.DualWieldTracker;
+import zcylas.totality.networking.combat.BlockKeyPayload;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.screen.ability.AbilityRadialScreen;
 import zcylas.totality.screen.magic.GrimoireRadialScreen;
 import zcylas.totality.screen.magic.GrimoireScreen;
-import zcylas.totality.screen.menu.MainMenuScreen;
+import zcylas.totality.screen.phone.PhoneScreens;
+import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 
 public final class TotalityKeybindHandlers {
 
     private static boolean lastAbilityKeyHeld = false;
 
+    // ── Grimoire hold state ──────────────────────────────────────────────────
+    private static int     grimoireHoldTicks    = 0;
+    private static boolean grimoireWasDown      = false;
+    private static boolean grimoireRadialOpened = false;
+
+    // ── Block (V) state ──────────────────────────────────────────────────────
+    private static boolean blockWasDown   = false;
+    private static boolean blockingActive = false;
+
     public static void register() {
         ModKeybinds.register();
         registerGrimoireKeybind();
-        registerRadialKeybind();
         registerMenuKeybind();
         registerAbilityKeybind();
+        registerBlockKeybind();
         registerVeinminerKeyKeybind();
         registerAbilityRadialKeybind();
     }
 
     private static void registerGrimoireKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (ModKeybinds.OPEN_GRIMOIRE.consumeClick()) {
-                if (client.player == null) return;
+            if (client.player == null || client.level == null) return;
+            com.mojang.blaze3d.platform.Window window = client.getWindow();
 
-                // SHIFT + C → jump straight to the Class tab in the character screen
-                com.mojang.blaze3d.platform.Window window = client.getWindow();
-                boolean shiftHeld =
-                        com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
-                                org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT) ||
-                                com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
-                                        org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT);
-                if (shiftHeld) {
-                    client.setScreen(new zcylas.totality.screen.character.CharacterScreen(
-                            zcylas.totality.screen.character.CharacterScreen.CharacterTab.CLASS));
-                    return;
-                }
+            boolean cDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_C);
 
-                // C alone → open Grimoire
-                ItemStack main = client.player.getMainHandItem();
-                ItemStack off  = client.player.getOffhandItem();
-                ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
-                        : off.getItem() instanceof GrimoireItem ? off
-                        : ItemStack.EMPTY;
-                if (!grimoire.isEmpty()) {
-                    client.setScreen(new GrimoireScreen(grimoire));
+            if (cDown) {
+                if (!grimoireWasDown) { grimoireHoldTicks = 0; grimoireRadialOpened = false; }
+                grimoireHoldTicks++;
+                // Hold → open Grimoire radial
+                if (grimoireHoldTicks >= HOLD_THRESHOLD && !grimoireRadialOpened
+                        && client.screen == null) {
+                    ItemStack main = client.player.getMainHandItem();
+                    ItemStack off  = client.player.getOffhandItem();
+                    ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
+                            : off.getItem() instanceof GrimoireItem ? off
+                            : ItemStack.EMPTY;
+                    if (!grimoire.isEmpty()) {
+                        client.setScreen(new GrimoireRadialScreen(grimoire));
+                        grimoireRadialOpened = true;
+                    }
                 }
+            } else {
+                if (grimoireWasDown && !grimoireRadialOpened && client.screen == null) {
+                    // Quick tap
+                    boolean shiftHeld =
+                            com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
+                                    org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT) ||
+                            com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
+                                    org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT);
+                    if (shiftHeld) {
+                        client.setScreen(new zcylas.totality.screen.character.CharacterScreen(
+                                zcylas.totality.screen.character.CharacterScreen.CharacterTab.CLASS));
+                    } else {
+                        ItemStack main = client.player.getMainHandItem();
+                        ItemStack off  = client.player.getOffhandItem();
+                        ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
+                                : off.getItem() instanceof GrimoireItem ? off
+                                : ItemStack.EMPTY;
+                        if (!grimoire.isEmpty()) {
+                            client.setScreen(new GrimoireScreen(grimoire));
+                        }
+                    }
+                }
+                grimoireHoldTicks    = 0;
+                grimoireRadialOpened = false;
             }
-        });
-    }
-
-    private static void registerRadialKeybind() {
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (ModKeybinds.OPEN_RADIAL.consumeClick()) {
-                if (client.player == null) return;
-                ItemStack main = client.player.getMainHandItem();
-                ItemStack off  = client.player.getOffhandItem();
-                ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
-                        : off.getItem() instanceof GrimoireItem ? off
-                        : ItemStack.EMPTY;
-                if (!grimoire.isEmpty()) {
-                    client.setScreen(new GrimoireRadialScreen(grimoire));
-                }
-            }
+            grimoireWasDown = cDown;
         });
     }
 
@@ -83,7 +105,9 @@ public final class TotalityKeybindHandlers {
             while (ModKeybinds.OPEN_MENU.consumeClick()) {
                 if (client.player == null) return;
                 if (client.screen == null) {
-                    client.setScreen(new MainMenuScreen());
+                    if (!PhoneScreens.openForEquippedPhone(client)) {
+                        NotificationManager.add("No phone equipped.", 0xFFAA8833);
+                    }
                 }
             }
         });
@@ -167,6 +191,60 @@ public final class TotalityKeybindHandlers {
             }
             spellWasDown = xDown;
         });
+    }
+
+    private static void registerBlockKeybind() {
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.player == null || client.level == null) return;
+            com.mojang.blaze3d.platform.Window window = client.getWindow();
+
+            boolean vDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
+                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_V);
+
+            // Start blocking: V just went down with no screen open
+            if (vDown && !blockWasDown && client.screen == null && !blockingActive) {
+                InteractionHand blockHand = resolveBlockHand(client.player.getOffhandItem(),
+                        client.player.getMainHandItem());
+                if (blockHand != null) {
+                    client.player.startUsingItem(blockHand);
+                    ClientPlayNetworking.send(new BlockKeyPayload(true));
+                    blockingActive = true;
+                    DualWieldTracker.isDualBlocking = isDualWielding(
+                            client.player.getMainHandItem(), client.player.getOffhandItem());
+                }
+            }
+
+            // Re-apply if V is held but local item use was cancelled (e.g., by right-click)
+            if (blockingActive && vDown && client.screen == null
+                    && !client.player.isUsingItem()) {
+                InteractionHand blockHand = resolveBlockHand(client.player.getOffhandItem(),
+                        client.player.getMainHandItem());
+                if (blockHand != null) client.player.startUsingItem(blockHand);
+            }
+
+            // Stop blocking: V released, or a screen opened while we were blocking
+            if (blockingActive && (!vDown || client.screen != null)) {
+                client.player.stopUsingItem();
+                ClientPlayNetworking.send(new BlockKeyPayload(false));
+                blockingActive = false;
+                DualWieldTracker.isDualBlocking = false;
+            }
+
+            blockWasDown = vDown;
+        });
+    }
+
+    private static InteractionHand resolveBlockHand(ItemStack offhand, ItemStack mainhand) {
+        if (offhand.getItem() instanceof ShieldItem) return InteractionHand.OFF_HAND;
+        if (mainhand.is(ItemTags.SWORDS) || mainhand.getItem() instanceof TotalityMeleeWeaponItem)
+            return InteractionHand.MAIN_HAND;
+        return null;
+    }
+
+    private static boolean isDualWielding(ItemStack mainhand, ItemStack offhand) {
+        boolean mainIsMelee = mainhand.is(ItemTags.SWORDS) || mainhand.getItem() instanceof TotalityMeleeWeaponItem;
+        boolean offIsMelee = offhand.is(ItemTags.SWORDS) || offhand.getItem() instanceof TotalityMeleeWeaponItem;
+        return mainIsMelee && offIsMelee;
     }
 
     private static void registerAbilityRadialKeybind() {

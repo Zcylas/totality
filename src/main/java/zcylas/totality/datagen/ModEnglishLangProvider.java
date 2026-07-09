@@ -123,11 +123,14 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         //Tools
             //Useful
         translationBuilder.add("item.totality.wrench", "Wrench");
+            //Phone
+        translationBuilder.add("item.totality.basic_copper_phone", "Basic Copper Phone");
             //Coins
         translationBuilder.add("item.totality.copper_coin", "Copper Coin");
         translationBuilder.add("item.totality.silver_coin", "Silver Coin");
         translationBuilder.add("item.totality.gold_coin", "Gold Coin");
         translationBuilder.add("item.totality.platinum_coin", "Platinum Coin");
+        translationBuilder.add("item.totality.credits", "Credits");
 
         //Ingredients
             //Gears
@@ -189,5 +192,6 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("effect.totality.glide", "Glide");
         //Entities
         translationBuilder.add("entity.totality.totality_npc", "NPC");
+        translationBuilder.add("entity.totality.banker", "Banker");
     }
 }
