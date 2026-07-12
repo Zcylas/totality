@@ -92,6 +92,7 @@ public class Totality implements ModInitializer {
 		ModComponents.register();
 		ModItems.register();
 		ModBlocks.register();
+		zcylas.totality.worldgen.ModFeatures.register();
 		ModBlockEntities.register();
 		ModEntities.register();
 		MagicRunes.register();

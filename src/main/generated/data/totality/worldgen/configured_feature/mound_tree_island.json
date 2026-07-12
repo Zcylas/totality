@@ -1,0 +1,11 @@
+{
+  "type": "totality:mound",
+  "config": {
+    "max_radius": 2,
+    "min_radius": 1,
+    "tree_candidates": [
+      "minecraft:swamp_oak",
+      "minecraft:birch"
+    ]
+  }
+}

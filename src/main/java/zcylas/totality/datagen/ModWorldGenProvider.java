@@ -17,6 +17,8 @@ public class ModWorldGenProvider extends FabricDynamicRegistryProvider {
     protected void configure(HolderLookup.@NonNull Provider provider, @NonNull Entries entries) {
         entries.addAll(provider.lookupOrThrow(Registries.CONFIGURED_FEATURE));
         entries.addAll(provider.lookupOrThrow(Registries.PLACED_FEATURE));
+        entries.addAll(provider.lookupOrThrow(Registries.BIOME));
+        entries.addAll(provider.lookupOrThrow(Registries.NOISE));
     }
 
     @Override

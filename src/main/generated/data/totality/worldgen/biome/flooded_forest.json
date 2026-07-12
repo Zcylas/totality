@@ -1,0 +1,107 @@
+{
+  "attributes": {
+    "minecraft:gameplay/surface_slime_spawn_chance": 0.15,
+    "minecraft:visual/fog_color": "#c8d8c0",
+    "minecraft:visual/fog_start_distance": 16.0,
+    "minecraft:visual/water_fog_color": "#1f6e68"
+  },
+  "carvers": [
+    "minecraft:cave",
+    "minecraft:cave_extra_underground",
+    "minecraft:canyon"
+  ],
+  "downfall": 0.9,
+  "effects": {
+    "foliage_color": "#6fa05c",
+    "grass_color": "#7baf6b",
+    "water_color": "#3f8e82"
+  },
+  "features": [
+    [],
+    [
+      "minecraft:lake_lava_underground",
+      "totality:mound_tree_island_placed",
+      "totality:mound_bare_island_placed"
+    ],
+    [],
+    [
+      "minecraft:monster_room",
+      "minecraft:monster_room_deep"
+    ],
+    [],
+    [],
+    [
+      "minecraft:ore_dirt",
+      "minecraft:ore_gravel",
+      "minecraft:ore_granite_upper",
+      "minecraft:ore_granite_lower",
+      "minecraft:ore_diorite_upper",
+      "minecraft:ore_diorite_lower",
+      "minecraft:ore_andesite_upper",
+      "minecraft:ore_andesite_lower",
+      "minecraft:ore_tuff",
+      "minecraft:ore_coal_upper",
+      "minecraft:ore_coal_lower",
+      "minecraft:ore_iron_upper",
+      "minecraft:ore_iron_middle",
+      "minecraft:ore_iron_small",
+      "minecraft:ore_gold",
+      "minecraft:ore_gold_lower",
+      "minecraft:ore_redstone",
+      "minecraft:ore_redstone_lower",
+      "minecraft:ore_diamond",
+      "minecraft:ore_diamond_medium",
+      "minecraft:ore_diamond_large",
+      "minecraft:ore_diamond_buried",
+      "minecraft:ore_lapis",
+      "minecraft:ore_lapis_buried",
+      "minecraft:ore_copper",
+      "minecraft:underwater_magma",
+      "minecraft:disk_clay"
+    ],
+    [],
+    [],
+    [
+      "minecraft:glow_lichen",
+      "minecraft:patch_large_fern",
+      "minecraft:trees_swamp",
+      "minecraft:flower_swamp",
+      "minecraft:patch_grass_normal",
+      "minecraft:patch_dead_bush",
+      "minecraft:patch_waterlily",
+      "minecraft:brown_mushroom_swamp",
+      "minecraft:red_mushroom_swamp",
+      "minecraft:brown_mushroom_normal",
+      "minecraft:red_mushroom_normal",
+      "totality:fallen_oak_placed",
+      "totality:fallen_birch_placed"
+    ]
+  ],
+  "has_precipitation": true,
+  "spawn_costs": {},
+  "spawners": {
+    "ambient": [],
+    "axolotls": [],
+    "creature": [
+      {
+        "type": "minecraft:frog",
+        "maxCount": 5,
+        "minCount": 2,
+        "weight": 10
+      }
+    ],
+    "misc": [],
+    "monster": [
+      {
+        "type": "minecraft:slime",
+        "maxCount": 2,
+        "minCount": 1,
+        "weight": 1
+      }
+    ],
+    "underground_water_creature": [],
+    "water_ambient": [],
+    "water_creature": []
+  },
+  "temperature": 0.7
+}

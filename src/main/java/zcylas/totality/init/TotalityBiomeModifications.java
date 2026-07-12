@@ -44,7 +44,10 @@ public final class TotalityBiomeModifications {
     }
 
     private static void registerFlowers() {
-        // Blue Mountain Flower — plains, forests, meadows
+        // Blue Mountain Flower — plains, forests, meadows. Excludes "flooded" (totality:flooded_forest):
+        // that one already gets the vanilla Swamp flower (Blue Orchid, via addSwampVegetation in its
+        // own biome bootstrap) — Blue Mountain Flower there would be thematically wrong, matching it
+        // on "forest" was accidental substring overlap, not an intentional inclusion.
         BiomeModifications.addFeature(
                 BiomeSelectors.tag(BiomeTags.IS_OVERWORLD)
                         .and(ctx -> {
@@ -53,7 +56,8 @@ public final class TotalityBiomeModifications {
                                     || path.contains("meadow")
                                     || (path.contains("forest")
                                     && !path.contains("birch")
-                                    && !path.contains("dark"));
+                                    && !path.contains("dark")
+                                    && !path.contains("flooded"));
                         }),
                 GenerationStep.Decoration.VEGETAL_DECORATION,
                 ModPlacedFeatures.BLUE_MOUNTAIN_FLOWER_BUSH_PLACED_KEY

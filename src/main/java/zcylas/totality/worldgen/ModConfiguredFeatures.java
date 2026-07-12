@@ -1,7 +1,10 @@
 package zcylas.totality.worldgen;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.data.worldgen.features.TreeFeatures;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.BlockTags;
@@ -21,6 +24,7 @@ import zcylas.totality.init.blocks.AlchemyBlocks;
 import zcylas.totality.init.blocks.NaturalBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
 import zcylas.totality.init.blocks.WhitestoneBlocks;
+import zcylas.totality.worldgen.feature.MoundFeatureConfiguration;
 
 import java.util.List;
 
@@ -53,6 +57,12 @@ public class ModConfiguredFeatures {
         //Limestone
     public static final ResourceKey<ConfiguredFeature<?, ?>> LIMESTONE_KEY = ResourceKey.create(
             Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "limestone"));
+
+    // Flooded Forest
+    public static final ResourceKey<ConfiguredFeature<?, ?>> MOUND_BARE_ISLAND_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "mound_bare_island"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> MOUND_TREE_ISLAND_KEY = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "mound_tree_island"));
 
     public static void bootstrap(BootstrapContext<ConfiguredFeature<?,?>> context){
         //Ores
@@ -112,5 +122,25 @@ public class ModConfiguredFeatures {
                         NaturalBlocks.LIMESTONE.defaultBlockState(),
                         UniformInt.of(6, 12)
                 )));
+
+        // Flooded Forest — bare mound, no tree candidates. MOUND_TREE_ISLAND below shares this same
+        // Feature/config type (milestone 7) with a populated candidate list; the two are registered
+        // as independent placed features so each gets its own rarity, rather than making tree growth
+        // a per-mound coin flip inside one placement. Small (1-2 radius) — reference image shows
+        // many small, tightly-packed islands rather than fewer large ones; density is tuned via the
+        // placed feature's count.
+        context.register(MOUND_BARE_ISLAND_KEY, new ConfiguredFeature<>(
+                ModFeatures.MOUND, new MoundFeatureConfiguration(1, 2, List.of())));
+
+        // Tree candidates are resolved once here (bootstrap time), never inside MoundFeature.place()
+        // — FeaturePlaceContext has no registry access, and features are singletons that may run
+        // concurrently across chunk-gen threads. Baked straight into the config as already-resolved
+        // Holders, same pattern vanilla's own RandomFeatureConfiguration uses.
+        HolderGetter<ConfiguredFeature<?, ?>> treeLookup = context.lookup(Registries.CONFIGURED_FEATURE);
+        List<Holder<ConfiguredFeature<?, ?>>> moundTreeCandidates = List.of(
+                treeLookup.getOrThrow(TreeFeatures.SWAMP_OAK),
+                treeLookup.getOrThrow(TreeFeatures.BIRCH));
+        context.register(MOUND_TREE_ISLAND_KEY, new ConfiguredFeature<>(
+                ModFeatures.MOUND, new MoundFeatureConfiguration(1, 2, moundTreeCandidates)));
     }
 }

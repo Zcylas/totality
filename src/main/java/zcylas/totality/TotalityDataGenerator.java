@@ -7,8 +7,11 @@ import net.minecraft.core.registries.Registries;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.datagen.*;
 import zcylas.totality.init.ModBlocks;
+import zcylas.totality.worldgen.ModBiomes;
 import zcylas.totality.worldgen.ModConfiguredFeatures;
+import zcylas.totality.worldgen.ModNoises;
 import zcylas.totality.worldgen.ModPlacedFeatures;
+import zcylas.totality.worldgen.TotalityOverworldSurfaceRules;
 
 public class TotalityDataGenerator implements DataGeneratorEntrypoint {
 	@Override
@@ -22,12 +25,16 @@ public class TotalityDataGenerator implements DataGeneratorEntrypoint {
 		pack.addProvider(ModBlockTagProvider::new);
 		pack.addProvider(ModBlockLootTableProvider::new);
 		pack.addProvider(ModItemTagProvider::new);
+		pack.addProvider(ModBiomeTagProvider::new);
+		pack.addProvider(TotalityOverworldSurfaceRules::new);
 	}
 
 	@Override
 	public void buildRegistry(@NonNull RegistrySetBuilder registryBuilder) {
 		registryBuilder
 				.add(Registries.CONFIGURED_FEATURE, ModConfiguredFeatures::bootstrap)
-				.add(Registries.PLACED_FEATURE, ModPlacedFeatures::bootstrap);
+				.add(Registries.PLACED_FEATURE, ModPlacedFeatures::bootstrap)
+				.add(Registries.BIOME, ModBiomes::bootstrap)
+				.add(Registries.NOISE, ModNoises::bootstrap);
 	}
 }
