@@ -37,6 +37,7 @@ import zcylas.totality.networking.TotalityPackets;
 import zcylas.totality.networking.TotalityServerPacketHandlers;
 import zcylas.totality.networking.ability.ActivateAbilityHandler;
 import zcylas.totality.networking.ability.EquipAbilityHandler;
+import zcylas.totality.networking.ability.SelectSpellHandler;
 import zcylas.totality.networking.ability.FavoriteAbilityHandler;
 import zcylas.totality.networking.ability.ToggleAbilityHandler;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyHandler;
@@ -164,6 +165,7 @@ public class Totality implements ModInitializer {
 		InventoryActionHandler.register();
 		SpendAttributePointHandler.register();
 		EquipAbilityHandler.register();
+		SelectSpellHandler.register();
 		FavoriteAbilityHandler.register();
 		ToggleFlightHandler.register();
 		MovementStaminaHandler.register();

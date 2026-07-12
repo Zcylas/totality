@@ -819,6 +819,31 @@ public class TotalityCommands {
                                     })
                             )
 
+                            // ── /totality spellslots ──────────────────────────────────────
+                            // Temporary text readout until the Spell Slots GUI/HUD is built.
+                            .then(Commands.literal("spellslots")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        var slots = zcylas.totality.api.magic.spell.SpellSlotComponents.get(player);
+
+                                        StringBuilder sb = new StringBuilder("Spell Slots:");
+                                        boolean any = false;
+                                        for (int level = 1; level <= zcylas.totality.api.magic.spell.SpellSlotComponent.MAX_SPELL_LEVEL; level++) {
+                                            int max = slots.getMax(level);
+                                            if (max <= 0) continue;
+                                            any = true;
+                                            int used = slots.getUsed(level);
+                                            sb.append("\n  ").append(ordinal(level)).append(": ")
+                                              .append(max - used).append("/").append(max);
+                                        }
+                                        if (!any) sb.append(" none (no caster class levels yet).");
+
+                                        String msg = sb.toString();
+                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
+                                        return 1;
+                                    })
+                            )
+
                             // ── /totality dialogue ────────────────────────────────────────
                             .then(Commands.literal("dialogue")
                                     .then(Commands.literal("start")
@@ -893,6 +918,15 @@ public class TotalityCommands {
                                 return 1;
                             }));
         });
+    }
+
+    private static String ordinal(int level) {
+        return switch (level) {
+            case 1 -> "1st";
+            case 2 -> "2nd";
+            case 3 -> "3rd";
+            default -> level + "th";
+        };
     }
 
     private TotalityCommands() {}

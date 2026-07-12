@@ -8,15 +8,19 @@ import net.minecraft.world.level.storage.ValueOutput;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.rpg.rest.RestListener;
+import zcylas.totality.api.rpg.rest.RestType;
 
 /**
  * Tracks spell slot availability for a player.
  * Slots are indexed 0–9 (spell levels 1–10). Level 0 = cantrips, no slots.
  *
- * Long rest → {@link #restoreAll()}. Warlock short rest → {@link #restoreSome}.
- * Max slots per level set via {@link #recalculate} from {@link SpellSlotTable}.
+ * Long rest → {@link #restoreAll()}. Warlock short rest → {@link #restoreSome} (not yet wired —
+ * Pact Magic is a separate pool this component doesn't model, see {@link CasterProgression}).
+ * Max slots per level set via {@link #recalculate} from {@link SpellSlotTable}
+ * ({@link SpellSlotRecalculator} drives this from class levels).
  */
-public final class SpellSlotComponent implements SyncedComponent, CopyableComponent<SpellSlotComponent> {
+public final class SpellSlotComponent implements SyncedComponent, CopyableComponent<SpellSlotComponent>, RestListener {
 
     public static final int MAX_SPELL_LEVEL = 10;
 
@@ -75,6 +79,15 @@ public final class SpellSlotComponent implements SyncedComponent, CopyableCompon
         sync();
     }
 
+    // ── RestListener ──────────────────────────────────────────────────────────
+
+    /** A Long Rest fully restores every caster's slots (D&D 2024 rule). Short Rest only
+     *  matters for Warlock Pact Magic / Wizard Arcane Recovery — not wired yet (see class doc). */
+    @Override
+    public void onRest(ServerPlayer player, RestType type) {
+        if (type == RestType.LONG) restoreAll();
+    }
+
     // ── TotalityComponent ─────────────────────────────────────────────────────
 
     @Override
@@ -109,6 +122,7 @@ public final class SpellSlotComponent implements SyncedComponent, CopyableCompon
             maxSlots[i]  = buf.readByte();
             usedSlots[i] = buf.readByte();
         }
+        ClientSpellSlotManager.apply(maxSlots, usedSlots);
     }
 
     private void sync() {

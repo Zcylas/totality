@@ -14,6 +14,8 @@ import zcylas.totality.api.dialogue.DialogueComponents;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
+import zcylas.totality.api.magic.spell.SpellSlotComponents;
+import zcylas.totality.api.magic.spell.SpellSlotRecalculator;
 import zcylas.totality.api.quest.QuestManager;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.networking.stamina.StaminaServerTick;
@@ -55,6 +57,7 @@ public class PlayerConnectionEvents {
             SkillsComponents.PLAYER_SKILLS.sync((ComponentProvider) player);
             MasteriesComponents.PLAYER_MASTERIES.sync((ComponentProvider) player);
             StatsComponents.PLAYER_STATS.sync((ComponentProvider) player);
+            SpellSlotComponents.SPELL_SLOTS.sync((ComponentProvider) player);
             QuestManager.onPlayerJoin(player);
             ClassComponents.PLAYER_CLASS.sync((ComponentProvider) player);
             // Sync stamina so the client HUD shows the correct value immediately
@@ -74,6 +77,8 @@ public class PlayerConnectionEvents {
                     ChargeComponents.PLAYER_CHARGES.get((ComponentProvider) p).onRest(p, type));
             RestEventBus.register(player, (p, type) ->
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
+            RestEventBus.register(player, (p, type) ->
+                    SpellSlotComponents.get(p).onRest(p, type));
 
             var classComp = ClassComponents.get(player);
             Identifier primaryClass = classComp.getPrimaryClassId();
@@ -89,6 +94,7 @@ public class PlayerConnectionEvents {
                 if (classLevel > 0) {
                     ClassFeatureRegistry.onPlayerJoin(player, primaryClass, classLevel);
                 }
+                SpellSlotRecalculator.recalculate(player);
             }
 
 
@@ -109,10 +115,11 @@ public class PlayerConnectionEvents {
             } else {
                 AncestryComponents.get(player).sync();
                 player.refreshDimensions();
-                // Has ancestry but no class yet → open class selection
-                if (!ClassComponents.get(player).hasAnyClass()) {
-                    ServerPlayNetworking.send(player, new OpenClassSelectionPayload());
-                }
+                // Auto-open disabled for now — class selection is planned to become a quest
+                // trigger instead of automatic, re-enable/replace once that's built.
+                // if (!ClassComponents.get(player).hasAnyClass()) {
+                //     ServerPlayNetworking.send(player, new OpenClassSelectionPayload());
+                // }
             }
         });
 
@@ -124,6 +131,8 @@ public class PlayerConnectionEvents {
                     ChargeComponents.PLAYER_CHARGES.get((ComponentProvider) p).onRest(p, type));
             RestEventBus.register(newPlayer, (p, type) ->
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
+            RestEventBus.register(newPlayer, (p, type) ->
+                    SpellSlotComponents.get(p).onRest(p, type));
             if (ClassComponents.get(newPlayer).hasClass(TotalityClasses.BARBARIAN_ID)) {
                 BarbarianRageAbility.registerChargePool(newPlayer);
                 ChargeComponents.PLAYER_CHARGES.sync((ComponentProvider) newPlayer);

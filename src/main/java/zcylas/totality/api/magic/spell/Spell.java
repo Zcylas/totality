@@ -95,6 +95,18 @@ public abstract class Spell extends Ability {
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
+    // ── Cast result ───────────────────────────────────────────────────────────
+
+    /** Server tick thread only, reset before every activation by ActivateAbilityHandler — a spell
+     *  whose onActivate() can silently do nothing (no valid target in range, etc.) should call
+     *  {@link #markNoEffect()} on that path so the cast doesn't consume a slot or start its
+     *  cooldown. Defaults to true; only relevant if a subclass calls markNoEffect(). */
+    private static boolean castSucceeded = true;
+
+    public static void resetCastResult()      { castSucceeded = true; }
+    public static boolean didCastSucceed()     { return castSucceeded; }
+    protected static void markNoEffect()       { castSucceeded = false; }
+
     public int getSpellLevel()                                   { return spellLevel; }
     public SpellSchool getSchool()                               { return school; }
     public SpellActionType getActionType()                       { return actionType; }

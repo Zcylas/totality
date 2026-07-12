@@ -98,6 +98,7 @@ public class TotalityServerPacketHandlers {
         BankTellerHandler.register();
         zcylas.totality.networking.rest.RequestRestHandler.register();
         zcylas.totality.networking.rest.CancelRestHandler.register();
+        zcylas.totality.networking.rest.ResumeRestHandler.register();
     }
 
     private static ItemStack findGrimoire(ServerPlayer player) {

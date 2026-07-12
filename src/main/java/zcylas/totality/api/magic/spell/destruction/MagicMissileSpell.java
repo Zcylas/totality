@@ -73,7 +73,7 @@ public class MagicMissileSpell extends Spell {
             if (toEnt.normalize().dot(look) < 0.97) continue;
             if (dist < best) { best = dist; target = e; }
         }
-        if (target == null) return;
+        if (target == null) { markNoEffect(); return; }
         final LivingEntity finalTarget = target;
 
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(),

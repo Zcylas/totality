@@ -6,6 +6,7 @@ import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.equipment.PlayerEquipmentComponent;
 import zcylas.totality.client.dialogue.ClientNarrativeFlagsManager;
 import zcylas.totality.client.equipment.ClientEquipmentManager;
+import zcylas.totality.client.spell.ClientSelectedSpellManager;
 import zcylas.totality.networking.ClientComponentSyncListeners;
 import zcylas.totality.networking.currency.ClientWalletManager;
 import zcylas.totality.networking.ability.ClientAbilityManager;
@@ -49,6 +50,20 @@ public final class TotalityClientSyncListeners {
                         favorites.add(buf.readIdentifier());
                     }
                     ClientAbilityManager.sync(unlocked, cooldowns, equipped, favorites);
+
+                    // Read active toggles (must stay in lockstep with AbilityComponent#writeSyncPacket)
+                    int toggleCount = buf.readInt();
+                    for (int i = 0; i < toggleCount; i++) {
+                        buf.readIdentifier();
+                    }
+
+                    // Read selected spell
+                    Identifier selectedSpell = buf.readBoolean() ? buf.readIdentifier() : null;
+                    if (selectedSpell != null) {
+                        ClientSelectedSpellManager.setSelectedSpell(selectedSpell.toString());
+                    } else {
+                        ClientSelectedSpellManager.clear();
+                    }
                 }
         );
         ClientComponentSyncListeners.register(

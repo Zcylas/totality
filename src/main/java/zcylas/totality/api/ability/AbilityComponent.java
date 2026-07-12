@@ -31,6 +31,11 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     private @Nullable Identifier equippedAbility = null;
     private @Nullable Identifier channelingAbility = null;
+    /** Last spell selected in the Spell radial — the spell equivalent of equippedAbility, kept
+     *  separate since a player can have both an equipped (non-spell) ability and a selected spell
+     *  active at once. Persisted/synced the same way so it survives a disconnect, unlike the old
+     *  client-only {@code ClientSelectedSpellManager} field it feeds. */
+    private @Nullable Identifier selectedSpell = null;
 
     public AbilityComponent(ServerPlayer player) {
         this.player = player;
@@ -71,6 +76,15 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     public void setEquippedAbility(@Nullable Identifier id) {
         this.equippedAbility = id;
+        sync();
+    }
+
+    public @Nullable Identifier getSelectedSpell() {
+        return selectedSpell;
+    }
+
+    public void setSelectedSpell(@Nullable Identifier id) {
+        this.selectedSpell = id;
         sync();
     }
 
@@ -196,6 +210,9 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
         buf.writeInt(activeToggles.size());
         for (Identifier id : activeToggles) buf.writeIdentifier(id);
+
+        buf.writeBoolean(selectedSpell != null);
+        if (selectedSpell != null) buf.writeIdentifier(selectedSpell);
     }
 
     @Override
@@ -220,6 +237,8 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         activeToggles.clear();
         int toggleCount = buf.readInt();
         for (int i = 0; i < toggleCount; i++) activeToggles.add(buf.readIdentifier());
+
+        selectedSpell = buf.readBoolean() ? buf.readIdentifier() : null;
     }
 
     @Override
@@ -248,6 +267,13 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         if (equippedAbility != null && !unlocked.contains(equippedAbility)) {
             equippedAbility = null;
         }
+
+        selectedSpell = input.getString("selectedSpell")
+                .map(Identifier::tryParse)
+                .orElse(null);
+        if (selectedSpell != null && !unlocked.contains(selectedSpell)) {
+            selectedSpell = null;
+        }
     }
 
     @Override
@@ -262,6 +288,7 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
         // Write equipped
         if (equippedAbility != null) output.putString("equippedAbility", equippedAbility.toString());
+        if (selectedSpell != null) output.putString("selectedSpell", selectedSpell.toString());
     }
 
     @Override
@@ -272,6 +299,7 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         this.cooldowns.clear();
         this.cooldowns.putAll(other.cooldowns);
         this.equippedAbility = other.equippedAbility;
+        this.selectedSpell = other.selectedSpell;
         this.favorites.clear();
         this.favorites.addAll(other.favorites);
 
@@ -281,6 +309,7 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         cooldowns.remove(id);
         if (id.equals(equippedAbility)) equippedAbility = null;
         if (id.equals(channelingAbility)) channelingAbility = null; // ← add this
+        if (id.equals(selectedSpell)) selectedSpell = null;
         sync();
     }
 

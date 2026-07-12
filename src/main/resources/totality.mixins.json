@@ -14,8 +14,10 @@
 		"item.PiercingWeaponMixin",
 		"item.SwordItemMixin",
 		"LivingEntityHurtMixin",
-		"PlayerRestPoseMixin",
+		"LivingEntityRestSleepMixin",
+		"PlayerRestSleepMixin",
 		"InventoryCreditsMergeMixin",
+		"MultiNoiseBiomeSourceParameterListMixin",
 		"client.LivingEntityMixin",
 		"item.TridentItemMixin"
 	],

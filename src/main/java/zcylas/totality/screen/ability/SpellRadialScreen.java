@@ -11,9 +11,11 @@ import net.minecraft.util.Mth;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.magic.spell.ClientSpellSlotManager;
 import zcylas.totality.api.magic.spell.Spell;
 import zcylas.totality.client.spell.ClientSelectedSpellManager;
 import zcylas.totality.networking.ability.ClientAbilityManager;
+import zcylas.totality.networking.ability.SelectSpellPayload;
 import zcylas.totality.util.RadialAnimationHelper;
 
 import java.util.List;
@@ -34,6 +36,12 @@ public class SpellRadialScreen extends Screen {
     private static final int COL_CENTER        = 0x99000000;
     private static final int COL_NAME          = 0xFFFFFFFF;
     private static final int COL_LEVEL         = 0xFFCCA0FF;  // lavender for spell level
+    private static final int COL_PIP_AVAILABLE = 0xFFCCA0FF;  // filled — slot available
+    private static final int COL_PIP_USED      = 0xFF6A5A80;  // hollow border only — slot used
+
+    private static final int PIP_SIZE   = 6;
+    private static final int PIP_GAP    = 3;
+    private static final int PIP_MARGIN = 10; // gap between the ring's top edge and the pip row
 
     private final List<Identifier> spellIds;
     private int   selectedSlot = -1;
@@ -133,7 +141,39 @@ public class SpellRadialScreen extends Screen {
                             Math.round((cy + 5) / 0.85f),
                             COL_LEVEL, false);
                     g.pose().popMatrix();
+
+                    drawSlotIndicator(g, cx, cy, spell);
                 }
+            }
+        }
+    }
+
+    /** Filled square = available slot, hollow square = used slot, drawn above the ring.
+     *  Cantrips show an infinity symbol instead — they never consume a slot. */
+    private void drawSlotIndicator(GuiGraphicsExtractor g, int cx, int cy, Spell spell) {
+        int topY = cy - (int) RADIUS_OUT - PIP_MARGIN - PIP_SIZE;
+
+        if (spell.isCantrip()) {
+            String inf = "∞";
+            g.text(font, Component.literal(inf), cx - font.width(inf) / 2, topY, COL_PIP_AVAILABLE, true);
+            return;
+        }
+
+        int max = ClientSpellSlotManager.getMax(spell.getSpellLevel());
+        if (max <= 0) return;
+        int remaining = ClientSpellSlotManager.getRemaining(spell.getSpellLevel());
+
+        int totalW = max * PIP_SIZE + (max - 1) * PIP_GAP;
+        int startX = cx - totalW / 2;
+        for (int i = 0; i < max; i++) {
+            int x = startX + i * (PIP_SIZE + PIP_GAP);
+            if (i < remaining) {
+                g.fill(x, topY, x + PIP_SIZE, topY + PIP_SIZE, COL_PIP_AVAILABLE);
+            } else {
+                g.fill(x, topY, x + PIP_SIZE, topY + 1, COL_PIP_USED);                     // top
+                g.fill(x, topY + PIP_SIZE - 1, x + PIP_SIZE, topY + PIP_SIZE, COL_PIP_USED); // bottom
+                g.fill(x, topY, x + 1, topY + PIP_SIZE, COL_PIP_USED);                     // left
+                g.fill(x + PIP_SIZE - 1, topY, x + PIP_SIZE, topY + PIP_SIZE, COL_PIP_USED); // right
             }
         }
     }
@@ -145,8 +185,7 @@ public class SpellRadialScreen extends Screen {
         if (!spellHeld) {
             // Only SELECT the spell — tap X to fire it
             if (selectedSlot >= 0 && selectedSlot < spellIds.size()) {
-                Identifier id = spellIds.get(selectedSlot);
-                ClientSelectedSpellManager.setSelectedSpell(id.toString());
+                selectSpell(spellIds.get(selectedSlot));
             }
             Minecraft.getInstance().setScreen(null);
         }
@@ -155,12 +194,18 @@ public class SpellRadialScreen extends Screen {
     @Override
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean dc) {
         if (selectedSlot >= 0 && selectedSlot < spellIds.size()) {
-            Identifier id = spellIds.get(selectedSlot);
-            ClientSelectedSpellManager.setSelectedSpell(id.toString());
+            selectSpell(spellIds.get(selectedSlot));
             Minecraft.getInstance().setScreen(null);
             return true;
         }
         return false;
+    }
+
+    /** Updates the client-local selection immediately and tells the server so it persists
+     *  across a disconnect (mirrors EquipAbilityPayload for non-spell abilities). */
+    private void selectSpell(Identifier id) {
+        ClientSelectedSpellManager.setSelectedSpell(id.toString());
+        ClientPlayNetworking.send(new SelectSpellPayload(id));
     }
 
     // ── Ring helpers (identical to AbilityRadialScreen) ───────────────────────

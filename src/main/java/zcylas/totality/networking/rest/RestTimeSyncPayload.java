@@ -7,17 +7,9 @@ import net.minecraft.resources.Identifier;
 import zcylas.totality.Totality;
 import zcylas.totality.api.rpg.rest.RestType;
 
-/**
- * S2C — periodic (and on state-change) sync of the client's rest HUD countdown.
- *
- * @param lyingDown true when the server is forcing Pose.SLEEPING on this player itself rather
- *                  than a genuine vanilla sleep (see RestSessionManager's class doc) — vanilla
- *                  locks the camera to third-person for real sleep on its own, but our fake pose
- *                  needs the client to do the same manually, or first-person sits at the pose's
- *                  much shorter eye height and looks broken.
- */
+/** S2C — periodic (and on state-change) sync of the client's rest HUD countdown. */
 public record RestTimeSyncPayload(boolean active, boolean inGrace, RestType restType,
-                                   int remainingTicks, int graceRemainingTicks, boolean lyingDown)
+                                   int remainingTicks, int graceRemainingTicks)
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<RestTimeSyncPayload> TYPE =
@@ -33,7 +25,6 @@ public record RestTimeSyncPayload(boolean active, boolean inGrace, RestType rest
                         buf.writeEnum(p.restType());
                         buf.writeVarInt(p.remainingTicks());
                         buf.writeVarInt(p.graceRemainingTicks());
-                        buf.writeBoolean(p.lyingDown());
                     },
                     buf -> {
                         boolean active = buf.readBoolean();
@@ -42,13 +33,12 @@ public record RestTimeSyncPayload(boolean active, boolean inGrace, RestType rest
                         RestType type = buf.readEnum(RestType.class);
                         int remaining = buf.readVarInt();
                         int graceRemaining = buf.readVarInt();
-                        boolean lyingDown = buf.readBoolean();
-                        return new RestTimeSyncPayload(true, inGrace, type, remaining, graceRemaining, lyingDown);
+                        return new RestTimeSyncPayload(true, inGrace, type, remaining, graceRemaining);
                     }
             );
 
     public static RestTimeSyncPayload cleared() {
-        return new RestTimeSyncPayload(false, false, RestType.SHORT, 0, 0, false);
+        return new RestTimeSyncPayload(false, false, RestType.SHORT, 0, 0);
     }
 
     @Override

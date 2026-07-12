@@ -5,8 +5,6 @@ import net.minecraft.world.item.Item;
 import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.init.blocks.AlchemyBlocks;
-import zcylas.totality.item.spell_material.BatGuanoItem;
-import zcylas.totality.item.spell_material.SulphurDustItem;
 
 public class IngredientItems {
 

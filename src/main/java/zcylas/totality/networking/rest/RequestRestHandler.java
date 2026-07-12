@@ -30,15 +30,12 @@ public final class RequestRestHandler {
         }
 
         BlockPos bedPos = payload.bedPos();
-        boolean realVanillaSleep = false;
-
-        if (payload.restType() == RestType.LONG && bedPos != null) {
-            var result = player.startSleepInBed(bedPos);
-            // If real vanilla sleep refuses (daytime, monsters nearby, etc.) we keep bedPos —
-            // RestSessionManager still fake-lies the player into the same bed cosmetically
-            // instead of discarding the anchor and leaving them standing next to it.
-            realVanillaSleep = result.left().isEmpty();
-        }
+        // Only a Long Rest at a real bed while it's currently valid to sleep (see BedRule)
+        // qualifies for vanilla's own automatic night-skip — RestSessionManager still drives the
+        // actual sleep state uniformly for every case (see its class doc), this flag only decides
+        // whether that automatic skip is allowed to fire early instead of waiting on our timer.
+        boolean realVanillaSleep = payload.restType() == RestType.LONG && bedPos != null
+                && RestSessionManager.isBedRuleSatisfied(player);
 
         int totalTicks = payload.restType() == RestType.SHORT
                 ? (payload.length() != null ? payload.length().getTicks() : ShortRestLength.ONE_HOUR.getTicks())

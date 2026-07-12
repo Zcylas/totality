@@ -11,6 +11,8 @@ import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.magic.spell.Spell;
+import zcylas.totality.api.magic.spell.SpellSlotComponent;
+import zcylas.totality.api.magic.spell.SpellSlotComponents;
 import zcylas.totality.api.rpg.combat.CastingRestrictionRegistry;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -37,11 +39,21 @@ public class ActivateAbilityHandler {
         Ability ability = AbilityRegistry.get(payload.abilityId());
         if (ability == null) return;
 
-        if (ability instanceof Spell) {
+        if (ability instanceof Spell spell) {
             String restriction = CastingRestrictionRegistry.check(player);
             if (restriction != null) {
                 SendNotificationPayload.send(player, restriction, 0xFFFF4444);
                 return;
+            }
+            // Cantrips are free; leveled spells need an unspent slot at their own level. No
+            // upcast tier picker yet — always consumes at the spell's own minimum level.
+            if (!spell.isCantrip()) {
+                SpellSlotComponent slots = SpellSlotComponents.get(player);
+                if (!slots.hasSlot(spell.getSpellLevel())) {
+                    SendNotificationPayload.send(player,
+                            "No " + spell.getLevelDisplay() + " spell slots remaining.", 0xFFFF4444);
+                    return;
+                }
             }
         }
 
@@ -61,10 +73,15 @@ public class ActivateAbilityHandler {
             return;
         }
 
+        if (ability instanceof Spell) Spell.resetCastResult();
         ability.onActivate(player, context);
+        boolean castSucceeded = !(ability instanceof Spell) || Spell.didCastSucceed();
 
-        if (ability.getCooldownTicks() > 0) {
+        if (castSucceeded && ability.getCooldownTicks() > 0) {
             comp.startCooldown(payload.abilityId());
+        }
+        if (castSucceeded && ability instanceof Spell spell && !spell.isCantrip()) {
+            SpellSlotComponents.get(player).useSlot(spell.getSpellLevel());
         }
     }
 

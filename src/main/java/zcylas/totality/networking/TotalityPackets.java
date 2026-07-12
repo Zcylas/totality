@@ -5,6 +5,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import zcylas.totality.api.core.component.ComponentSync;
 import zcylas.totality.networking.ability.ActivateAbilityPayload;
 import zcylas.totality.networking.ability.EquipAbilityPayload;
+import zcylas.totality.networking.ability.SelectSpellPayload;
 import zcylas.totality.networking.ability.FavoriteAbilityPayload;
 import zcylas.totality.networking.ability.ToggleAbilityPayload;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyPayload;
@@ -80,6 +81,7 @@ public class TotalityPackets {
         registry.register(InventoryDropPayload.TYPE, InventoryDropPayload.CODEC);
         registry.register(ActivateAbilityPayload.TYPE, ActivateAbilityPayload.CODEC);
         registry.register(EquipAbilityPayload.TYPE, EquipAbilityPayload.CODEC);
+        registry.register(SelectSpellPayload.TYPE, SelectSpellPayload.CODEC);
         registry.register(FavoriteAbilityPayload.TYPE, FavoriteAbilityPayload.CODEC);
         registry.register(VeinminerKeyPayload.TYPE, VeinminerKeyPayload.CODEC);
         registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
@@ -118,6 +120,8 @@ public class TotalityPackets {
                 zcylas.totality.networking.rest.RequestRestPayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.rest.CancelRestPayload.TYPE,
                 zcylas.totality.networking.rest.CancelRestPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.rest.ResumeRestPayload.TYPE,
+                zcylas.totality.networking.rest.ResumeRestPayload.STREAM_CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {

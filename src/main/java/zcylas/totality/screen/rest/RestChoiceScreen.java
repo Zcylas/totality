@@ -14,6 +14,7 @@ import zcylas.totality.api.rpg.rest.ShortRestLength;
 import zcylas.totality.client.rest.ClientRestManager;
 import zcylas.totality.networking.rest.CancelRestPayload;
 import zcylas.totality.networking.rest.RequestRestPayload;
+import zcylas.totality.networking.rest.ResumeRestPayload;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,7 +70,7 @@ public class RestChoiceScreen extends Screen {
         rows.clear();
         if (ClientRestManager.isActive()) {
             rows.add(new Row("Cancel Rest", this::cancelActiveRest));
-            rows.add(new Row("Keep Resting", this::onClose));
+            rows.add(new Row("Keep Resting", this::resumeActiveRest));
             return;
         }
 
@@ -117,6 +118,11 @@ public class RestChoiceScreen extends Screen {
 
     private void cancelActiveRest() {
         ClientPlayNetworking.send(new CancelRestPayload());
+        onClose();
+    }
+
+    private void resumeActiveRest() {
+        ClientPlayNetworking.send(new ResumeRestPayload());
         onClose();
     }
 

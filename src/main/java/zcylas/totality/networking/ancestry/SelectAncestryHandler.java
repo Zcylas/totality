@@ -68,9 +68,11 @@ public final class SelectAncestryHandler {
             AbilityComponents.ABILITIES.sync((ComponentProvider) player);
         }
 
-        if (!ClassComponents.get(player).hasAnyClass()) {
-            ServerPlayNetworking.send(player, new OpenClassSelectionPayload());
-        }
+        // Auto-open disabled for now (class selection flow is being redesigned) —
+        // re-enable once the new approach is decided.
+        // if (!ClassComponents.get(player).hasAnyClass()) {
+        //     ServerPlayNetworking.send(player, new OpenClassSelectionPayload());
+        // }
     }
 
     /**

@@ -8,8 +8,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.clock.ClockTimeMarkers;
-import net.minecraft.world.entity.Pose;
+import net.minecraft.world.attribute.BedRule;
+import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.phys.Vec3;
@@ -28,32 +28,38 @@ import java.util.UUID;
  * recovery ({@link RestManager}/{@link RestEventBus}) only fires when a
  * session genuinely completes — never on start.
  *
- * Long Rest at a bed also rides real vanilla sleep ({@link EntitySleepEvents})
- * so that a natural night-skip (always instant in singleplayer) completes the
- * rest immediately instead of forcing the full 8-MC-hour wait; the tick timer
- * remains the fallback for when that doesn't happen.
+ * <p>Every lying-down rest (Nap, Long Rest — bed or outdoor, day or night) rides the exact same
+ * real vanilla sleep state as an actual bed: {@link net.minecraft.world.entity.LivingEntity#startSleeping}
+ * is public and unconditional (all the day/night/monster validity gating lives in
+ * {@code Player#tick()}'s {@link BedRule} check instead, confirmed by decompiling 26.1.2 — Mojang's
+ * own {@code Player#startSleepInBed} is now a trivial always-succeeds wrapper around it). Driving
+ * the real thing means the lying-flat render, eye height, and the locked "look up at the bed"
+ * sleep camera all come from vanilla's own code ({@code LivingEntityRenderer}, {@code Camera#setup},
+ * {@code GameRenderer}, all keyed off {@code isSleeping()}) instead of an approximation — this is
+ * what fixes the old fake-mount approach reading as "just sitting."
  *
- * Everything else (Long Rest with no valid bed, Long Rest at a bed during the
- * day/near monsters, Short Rest) is entirely our own system, not vanilla's:
- * the player rides an invisible {@link RestSeatEntity} mount, the same trick
- * the "Sit" mod uses for Read/Meditate's leg-bend. For Nap/Long Rest we also
- * force {@code Pose.SLEEPING} on top for the lying-flat look — the client's
- * lying-flat render is driven purely by that pose (see
- * {@code LivingEntityRenderer}), not by {@code isSleeping()}, so it looks
- * identical to real sleep without ever touching {@code isSleeping()} itself.
- * That distinction matters: measured on 2026-07-09, vanilla runs a continuous
- * "is it currently valid to be asleep" check tied to the same day/night bed
- * rule that blocks {@code startSleepInBed} — it reads {@code isSleeping()}
- * every tick, not just at entry, and silently forces the player awake again
- * within the same tick during the day no matter how genuine the bed backing
- * it is. Riding the mount is also what makes this reliable rather than a bare
- * pose override: it fully owns the player's position (gravity doesn't apply,
- * nothing can accumulate drift), so "did they get up" is a simple, exact
- * check — did they stop riding — rather than a movement-distance heuristic.
- * The client also has to be told to force third-person view whenever we're
- * lying down (see {@link RestTimeSyncPayload#lyingDown()}): vanilla only
- * does that automatically for genuine {@code isSleeping()} sleep, and
- * Pose.SLEEPING's much shorter eye height looks broken in first person.
+ * <p>The one vanilla behavior that has to be deliberately suppressed is {@code Player#tick()}'s
+ * own continuous validity check: it reads {@code isSleeping()} every tick (not just at entry) and
+ * force-wakes the player the instant {@link BedRule#canSleep} goes false, e.g. the moment it's no
+ * longer night — which is correct for a real spontaneous bed sleep but wrong for a Rest session
+ * that's deliberately still in progress (a Nap, an outdoor Long Rest, a Long Rest at a bed during
+ * the day). {@code PlayerRestSleepMixin} redirects only that one call site, so every other path to
+ * {@code stopSleepInBed} — the sneak-to-get-up action, damage, disconnect — is untouched and still
+ * fires {@link EntitySleepEvents#STOP_SLEEPING} normally, which is what actually interrupts the
+ * session (see the listener below).
+ *
+ * <p>{@link RestSession#isRealVanillaSleep()} still matters, just for a narrower reason now: it
+ * gates whether this session is allowed to complete early via vanilla's own automatic night-skip
+ * consensus ({@link EntitySleepEvents#ALLOW_RESETTING_TIME}, always instant in singleplayer) versus
+ * only ever completing via our own timer/{@link #checkLongRestConsensus}. Only a Long Rest at a
+ * real bed while {@link BedRule#canSleep} is currently true qualifies — a Short Rest Nap must
+ * never let a solo/singleplayer night-skip fire just because it happens to share the same real
+ * {@code isSleeping()} state (see {@link zcylas.totality.networking.rest.RequestRestHandler}, which
+ * computes this flag once at session start).
+ *
+ * <p>Seated Short Rest activities (Read/Meditate) are unrelated to any of this: they still ride an
+ * invisible {@link RestSeatEntity} mount, the same trick the "Sit" mod uses for the leg-bend, and
+ * never touch vanilla sleep state at all.
  */
 public final class RestSessionManager {
 
@@ -81,22 +87,17 @@ public final class RestSessionManager {
                 if (session.getSeatEntity() != null) {
                     // Getting up (sneaking off the mount) cancels the rest outright — no grace
                     // window, unlike a damage interrupt. Doesn't burn a Short Rest charge either
-                    // way, since RestManager only counts completions.
+                    // way, since RestManager only counts completions. Seated activities only —
+                    // lying-down sessions ride real vanilla sleep instead (see class doc), where
+                    // "getting up" is vanilla's own sneak action firing STOP_SLEEPING below.
                     if (player.getVehicle() != session.getSeatEntity()) {
                         cancel(player);
                         SendNotificationPayload.send(player, "Rest cancelled — you got up.", SendNotificationPayload.YELLOW);
                         continue;
                     }
-                    if (!isSeatedActivity(session)) {
-                        // Self-heal every tick in case anything else reverts the pose — riding
-                        // itself doesn't touch Pose, so nothing normally fights this, but it's
-                        // free insurance since we're already iterating active sessions.
-                        if (player.getPose() != Pose.SLEEPING) {
-                            player.setPose(Pose.SLEEPING);
-                        }
-                        if (session.getType() == RestType.LONG && checkLongRestConsensus(player)) {
-                            continue; // this session was just completed by the consensus check
-                        }
+                } else if (session.getType() == RestType.LONG && !session.isRealVanillaSleep()) {
+                    if (checkLongRestConsensus(player)) {
+                        continue; // this session was just completed by the consensus check
                     }
                 }
 
@@ -117,27 +118,30 @@ public final class RestSessionManager {
             interrupt(player);
         });
 
-        // Real vanilla sleep resolution for bed-triggered Long Rest: ALLOW_RESETTING_TIME
-        // fires exactly when vanilla has decided enough players are asleep to skip the
-        // night (instant with a single player, i.e. singleplayer) — that IS a genuine
-        // completed Long Rest, so complete immediately instead of waiting on our timer.
+        // Real vanilla sleep resolution for bed-triggered Long Rest: ALLOW_RESETTING_TIME fires
+        // exactly when vanilla has decided enough players are asleep to skip the night (instant
+        // with a single player, i.e. singleplayer) — that IS a genuine completed Long Rest, so
+        // complete immediately instead of waiting on our timer. Every OTHER session type now also
+        // rides real isSleeping() (see class doc), so this has to actively veto them here — a
+        // Short Rest Nap or an outdoor/daytime Long Rest must only ever complete via our own timer/
+        // checkLongRestConsensus, never vanilla's automatic night-skip consensus.
         EntitySleepEvents.ALLOW_RESETTING_TIME.register(player -> {
-            if (player instanceof ServerPlayer serverPlayer) {
-                RestSession session = SESSIONS.get(serverPlayer.getUUID());
-                if (session != null && session.isRealVanillaSleep() && !session.isInGrace()) {
-                    complete(serverPlayer, session);
-                }
-            }
+            if (!(player instanceof ServerPlayer serverPlayer)) return true;
+            RestSession session = SESSIONS.get(serverPlayer.getUUID());
+            if (session == null) return true; // not one of our sessions — a normal vanilla sleeper
+            if (session.isInGrace() || !session.isRealVanillaSleep()) return false;
+            complete(serverPlayer, session);
             return true;
         });
 
-        // Anything else that stops the player sleeping while a real vanilla-sleep session is
-        // still present (manual exit, monster nearby, etc.) — completion above already removes
-        // the session, so seeing one here means it wasn't a real night-skip.
+        // Anything that stops real vanilla sleep outside our own control flow — the sneak-to-get-up
+        // action, vanilla's own damage-triggered wake, etc. Our own complete()/cancel() always remove
+        // the session (or, for interrupt(), mark the grace window) BEFORE calling stopSleepInBed, so
+        // by the time this fires from one of those it's already a no-op below.
         EntitySleepEvents.STOP_SLEEPING.register((entity, pos) -> {
             if (!(entity instanceof ServerPlayer player)) return;
             RestSession session = SESSIONS.get(player.getUUID());
-            if (session == null || !session.isRealVanillaSleep()) return;
+            if (session == null || session.isInGrace()) return;
             interrupt(player);
         });
     }
@@ -146,14 +150,27 @@ public final class RestSessionManager {
                               @Nullable ShortRestActivity activity, boolean realVanillaSleep) {
         RestSession existing = SESSIONS.get(player.getUUID());
         if (existing != null && existing.isInGrace()) {
-            existing.clearGrace();
-            beginVisual(player, existing);
-            sendSync(player, existing);
+            clearGraceAndResume(player, existing);
             return;
         }
 
         RestSession session = new RestSession(type, totalTicks, bedPos, activity, realVanillaSleep);
         SESSIONS.put(player.getUUID(), session);
+        beginVisual(player, session);
+        sendSync(player, session);
+    }
+
+    /** "Keep Resting" — resumes an interrupted rest still within its grace window. Unlike
+     *  {@link #start}, takes no session parameters: the existing {@link RestSession} already
+     *  has everything (type/bedPos/activity), so this just clears the grace flag and re-enters. */
+    public static void resume(ServerPlayer player) {
+        RestSession existing = SESSIONS.get(player.getUUID());
+        if (existing == null || !existing.isInGrace()) return;
+        clearGraceAndResume(player, existing);
+    }
+
+    private static void clearGraceAndResume(ServerPlayer player, RestSession session) {
+        session.clearGrace();
         beginVisual(player, session);
         sendSync(player, session);
     }
@@ -164,12 +181,20 @@ public final class RestSessionManager {
                 && session.getActivity() != ShortRestActivity.NAP;
     }
 
-    /** Used by {@link zcylas.totality.mixin.PlayerRestPoseMixin} to stop vanilla's own per-tick
-     *  pose recalculation from fighting our forced Pose.SLEEPING — see that mixin's comment. */
-    public static boolean isForcingLyingPose(UUID playerId) {
+    /** Used by {@link zcylas.totality.mixin.PlayerRestSleepMixin} to suppress vanilla's own
+     *  per-tick day/night validity check from force-waking a Rest session that's deliberately
+     *  still in progress — see that mixin's comment and this class's doc. */
+    public static boolean isSuppressingAutoWake(UUID playerId) {
         RestSession session = SESSIONS.get(playerId);
-        return session != null && !session.isInGrace() && !session.isRealVanillaSleep()
-                && session.getSeatEntity() != null && !isSeatedActivity(session);
+        return session != null && !session.isInGrace() && !isSeatedActivity(session);
+    }
+
+    /** Mirrors the exact {@link BedRule} check {@code Player#tick()} runs, computed once at
+     *  session start (see {@link zcylas.totality.networking.rest.RequestRestHandler}) to decide
+     *  whether a Long Rest at this bed qualifies for vanilla's own automatic night-skip. */
+    public static boolean isBedRuleSatisfied(ServerPlayer player) {
+        BedRule rule = player.level().environmentAttributes().getValue(EnvironmentAttributes.BED_RULE, player.position());
+        return rule.canSleep(player.level());
     }
 
     /**
@@ -226,12 +251,12 @@ public final class RestSessionManager {
 
     /**
      * Disconnect cleanup. Unlike {@link #cancel}, never sends a sync (the player's gone) — but
-     * critically still has to call {@link #endVisual} first: leaving a session in {@code SESSIONS}
-     * just removed from the map, without ever discarding the {@link RestSeatEntity} mount or
-     * calling stopRiding(), orphans the mount entity in the world. Vanilla's own entity save/load
-     * then reconstructs the passenger relationship from the mount's saved NBT on the next login —
-     * the player rejoins still mounted (and, if it was a lying-down session, missing the Pose
-     * override, since Pose itself isn't persisted — reported as "sitting with no camera problems").
+     * critically still has to call {@link #endVisual} first: for a seated activity, leaving a
+     * session in {@code SESSIONS} just removed from the map, without ever discarding the
+     * {@link RestSeatEntity} mount or calling stopRiding(), orphans the mount entity in the world —
+     * vanilla's own entity save/load then reconstructs the passenger relationship from the mount's
+     * saved NBT on the next login, rejoining the player still mounted. A lying-down session doesn't
+     * have this problem (no mount involved), but still needs its real sleep state cleared here.
      */
     public static void clearPlayer(ServerPlayer player) {
         RestSession session = SESSIONS.remove(player.getUUID());
@@ -279,31 +304,30 @@ public final class RestSessionManager {
     // ── Visuals (sleep pose / seated pose) ──────────────────────────────────────
 
     private static void beginVisual(ServerPlayer player, RestSession session) {
-        if (session.isRealVanillaSleep()) return; // vanilla already placed them via startSleepInBed
-
-        boolean seated = isSeatedActivity(session);
-        Vec3 seatPos = session.getBedPos() != null
-                ? Vec3.atBottomCenterOf(session.getBedPos()).add(0, seated ? 0.5 : 0.6875, 0) // mattress vs lying height
-                // Bedless lying-down still needs some clearance off exact ground level — at Y+0,
-                // Pose.SLEEPING's tiny eye height sits right at/inside the terrain, and the forced
-                // third-person camera's clip-avoidance collapses to near-zero distance trying to
-                // avoid it, producing a broken almost-first-person view from underground.
-                : (seated ? player.position() : player.position().add(0, 0.6875, 0));
-        RestSeatEntity seat = new RestSeatEntity(player.level(), seatPos);
-        player.level().addFreshEntity(seat);
-        player.startRiding(seat);
-        session.setSeatEntity(seat);
-
-        if (!seated) {
-            if (session.getBedPos() != null) {
-                Direction facing = BedBlock.getBedOrientation(player.level(), session.getBedPos());
-                if (facing != null) {
-                    player.setYRot(facing.toYRot());
-                    player.setXRot(0);
-                }
-            }
-            player.setPose(Pose.SLEEPING);
+        if (isSeatedActivity(session)) {
+            Vec3 seatPos = session.getBedPos() != null
+                    ? Vec3.atBottomCenterOf(session.getBedPos()).add(0, 0.5, 0) // mattress height
+                    : player.position();
+            RestSeatEntity seat = new RestSeatEntity(player.level(), seatPos);
+            player.level().addFreshEntity(seat);
+            player.startRiding(seat);
+            session.setSeatEntity(seat);
+            return;
         }
+
+        // Lying down (Nap, Long Rest — bed or outdoor, day or night): real vanilla sleep. No
+        // manual position/pose math needed — LivingEntity#startSleeping snaps position (via its
+        // own setPosToBed) and sets Pose.SLEEPING itself; a synthetic anchor at the player's own
+        // feet stands in for a bed when resting outdoors.
+        BlockPos anchor = session.getBedPos() != null ? session.getBedPos() : BlockPos.containing(player.position());
+        if (session.getBedPos() != null) {
+            Direction facing = BedBlock.getBedOrientation(player.level(), session.getBedPos());
+            if (facing != null) {
+                player.setYRot(facing.toYRot());
+                player.setXRot(0);
+            }
+        }
+        player.startSleeping(anchor);
     }
 
     private static void endVisual(ServerPlayer player, RestSession session, boolean wakeImmediately) {
@@ -311,12 +335,9 @@ public final class RestSessionManager {
             player.stopRiding();
             session.getSeatEntity().discard();
             session.setSeatEntity(null);
-            if (player.getPose() == Pose.SLEEPING) {
-                player.setPose(Pose.STANDING);
-            }
             return;
         }
-        if (session.isRealVanillaSleep() && player.isSleeping()) {
+        if (player.isSleeping()) {
             player.stopSleepInBed(wakeImmediately, true);
         }
     }
@@ -328,14 +349,11 @@ public final class RestSessionManager {
         if (session == null) {
             payload = RestTimeSyncPayload.cleared();
         } else if (session.isInGrace()) {
-            // The visual (including the forced pose) is already torn down by the time grace
-            // starts (see interrupt()), so the client should already have its camera back.
             int currentTick = player.level().getServer().getTickCount();
             int graceRemaining = Math.max(0, session.getGraceDeadlineTick() - currentTick);
-            payload = new RestTimeSyncPayload(true, true, session.getType(), session.getRemainingTicks(), graceRemaining, false);
+            payload = new RestTimeSyncPayload(true, true, session.getType(), session.getRemainingTicks(), graceRemaining);
         } else {
-            boolean lyingDown = !session.isRealVanillaSleep() && !isSeatedActivity(session);
-            payload = new RestTimeSyncPayload(true, false, session.getType(), session.getRemainingTicks(), 0, lyingDown);
+            payload = new RestTimeSyncPayload(true, false, session.getType(), session.getRemainingTicks(), 0);
         }
         ServerPlayNetworking.send(player, payload);
     }
