@@ -12,6 +12,7 @@ import zcylas.totality.api.rpg.classes.ChargeComponents;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.combat.CombatComponents;
 import zcylas.totality.api.rpg.resources.ResourceComponents;
+import zcylas.totality.api.rpg.rest.RestComponents;
 import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
 import zcylas.totality.api.rpg.skills.core.SkillsComponents;
 import zcylas.totality.api.rpg.stats.StatsComponents;
@@ -42,6 +43,7 @@ public class ModComponents {
         MovementComponents.register();
         ClassComponents.register();
         ChargeComponents.register();
+        RestComponents.register();
         SpellSlotComponents.register();
         ConcentrationComponents.register();
         zcylas.totality.api.equipment.EquipmentComponents.register();

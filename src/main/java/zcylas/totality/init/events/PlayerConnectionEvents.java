@@ -151,7 +151,6 @@ public class PlayerConnectionEvents {
             DamageBonusRegistry.clearPlayer(handler.player.getUUID());
             RestEventBus.clearPlayer(handler.player.getUUID());
             zcylas.totality.api.rpg.rest.RestSessionManager.clearPlayer(handler.player);
-            zcylas.totality.api.rpg.rest.RestManager.clearPlayer(handler.player.getUUID());
             CastingRestrictionRegistry.clearPlayer(handler.player.getUUID()); // ← add
             ExhaustionManager.onPlayerLeave(handler.player);
             BowStaminaHandler.onPlayerLeave(handler.player);
