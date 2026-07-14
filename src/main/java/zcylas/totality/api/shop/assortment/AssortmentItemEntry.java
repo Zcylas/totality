@@ -22,6 +22,25 @@ import net.minecraft.world.item.ItemStack;
  */
 public record AssortmentItemEntry(ItemStack item, int stock) {
 
+    /** Immutable and defensive (Phase 3 hardening pass, Section 5): stores its OWN copy of
+     *  {@code item}, never the caller's reference, so mutating the original after construction
+     *  (or a pool sharing one {@code ItemStack} instance across several entries) can never affect
+     *  this entry or any future roll built from it. Deliberately does NOT normalize the authored
+     *  count here — {@link ProvisionerAssortmentPool#validate()} needs to see the AUTHORED count
+     *  as-is to reject a malformed entry (count != 1) as an authoring error, rather than having it
+     *  silently coerced to 1 before validation ever sees the mistake. */
+    public AssortmentItemEntry {
+        if (item == null) throw new IllegalArgumentException("item must not be null");
+        item = item.copy();
+    }
+
+    /** Defensive copy on every read (Phase 3 hardening pass, Section 5) — no caller can mutate
+     *  this entry's internal item template through the returned stack. */
+    @Override
+    public ItemStack item() {
+        return item.copy();
+    }
+
     public static final Codec<AssortmentItemEntry> CODEC = RecordCodecBuilder.create(i -> i.group(
             ItemStack.CODEC.fieldOf("item").forGetter(AssortmentItemEntry::item),
             Codec.INT.fieldOf("stock").forGetter(AssortmentItemEntry::stock)

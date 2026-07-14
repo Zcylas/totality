@@ -168,7 +168,11 @@ public final class TradeSessionManager {
         List<ShopEntry> sells = trade.template().sells();
         if (index < 0 || index >= sells.size()) return BuyResult.rejected(BuyResult.Reason.INVALID_INDEX);
 
-        quantity = Math.max(1, Math.min(100, quantity));
+        // Explicit range check, not a silent clamp (Phase 3 hardening pass, Section 6) — 0,
+        // negative, and >100 are all rejected outright rather than being coerced into 1 or 100,
+        // and this happens before any price calculation, affordability check, payment, item
+        // delivery, or merchant/stock mutation.
+        if (quantity < 1 || quantity > 100) return BuyResult.rejected(BuyResult.Reason.INVALID_QUANTITY);
 
         ShopEntry entry = sells.get(index);
         if (entry.price() < 0) return BuyResult.rejected(BuyResult.Reason.INVALID_PRICE);
@@ -184,6 +188,11 @@ public final class TradeSessionManager {
         // a failed BUY must never charge the player, and merchant Credits must never change on
         // a failed attempt (Section 11 step 4 / Part F).
         MerchantRuntime merchant = currentMerchant(trade, liveNpc);
+        // A corrupt (negative) merchant balance must refuse to transact rather than silently
+        // charging the player against nonsense state (Phase 3 hardening pass, Section 2) — should
+        // never actually occur post-hardening (negative persisted Credits are sanitized on load,
+        // and setCurrentCredits itself rejects negative), kept as defense-in-depth.
+        if (merchant.currentCredits() < 0) return BuyResult.rejected(BuyResult.Reason.INVALID_MERCHANT_STATE);
         long newMerchantCredits;
         try {
             newMerchantCredits = Math.addExact(merchant.currentCredits(), total);
@@ -220,10 +229,17 @@ public final class TradeSessionManager {
      */
     private static BuyResult handleStockBuy(
             ServerPlayer player, MerchantRuntime merchant, MerchantStockProvider stockProvider, int index, int quantity) {
+        // See the identical check in the template-backed path above (Phase 3 hardening pass,
+        // Section 2) — refuses to transact against a corrupt (negative) merchant balance rather
+        // than silently charging the player.
+        if (merchant.currentCredits() < 0) return BuyResult.rejected(BuyResult.Reason.INVALID_MERCHANT_STATE);
+
         List<MerchantStockEntry> entries = stockProvider.stockEntries();
         if (index < 0 || index >= entries.size()) return BuyResult.rejected(BuyResult.Reason.INVALID_INDEX);
 
-        quantity = Math.max(1, Math.min(100, quantity));
+        // Explicit range check, not a silent clamp (Phase 3 hardening pass, Section 6) — see the
+        // identical rationale in the template-backed path above.
+        if (quantity < 1 || quantity > 100) return BuyResult.rejected(BuyResult.Reason.INVALID_QUANTITY);
 
         // The entry at `index` never changes identity except by its stock count decreasing —
         // MerchantStockProvider implementations never remove/reorder entries — so re-reading it

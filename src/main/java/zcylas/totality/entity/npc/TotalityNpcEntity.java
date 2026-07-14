@@ -96,6 +96,20 @@ public class TotalityNpcEntity extends PathfinderMob {
      */
     protected boolean usesRandomIdentity() { return true; }
 
+    /**
+     * The dialogue this archetype should fall back to when {@code DialogueId} is genuinely
+     * absent from persisted/authored NBT (Phase 3 hardening pass, Section 1) — {@code null} for
+     * a plain {@code totality:totality_npc} (the existing "blank test NPC" behavior, unchanged:
+     * dialogue/shop still require manual command configuration). A dedicated merchant archetype
+     * ({@link zcylas.totality.entity.npc.ProvisionerNpcEntity}) overrides this so it works
+     * immediately from {@code /summon} with no follow-up command — see
+     * {@link #readAdditionalSaveData}, which is where this is actually applied. Only consulted
+     * when the NBT key is missing entirely; an explicitly authored value (including one written
+     * by a previous save of this exact default) always wins.
+     */
+    @Nullable
+    protected Identifier defaultDialogueId() { return null; }
+
     @Override
     @Nullable
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty,
@@ -225,8 +239,13 @@ public class TotalityNpcEntity extends PathfinderMob {
     @Override
     protected void readAdditionalSaveData(ValueInput input) {
         super.readAdditionalSaveData(input);
+        // Command/structure spawning (e.g. /summon with no explicit NBT) still calls this method
+        // via Entity#load's compound tag, which has no "DialogueId" key at all in that case — a
+        // genuinely absent key falls back to this archetype's default (null for a plain generic
+        // NPC, unchanged) rather than always resolving to null; an explicitly authored non-empty
+        // value (including one this same default already wrote on a previous save) always wins.
         String id = input.getStringOr("DialogueId", "");
-        dialogueId = id.isEmpty() ? null : Identifier.tryParse(id);
+        dialogueId = id.isEmpty() ? defaultDialogueId() : Identifier.tryParse(id);
         String shop = input.getStringOr("ShopId", "");
         shopId = shop.isEmpty() ? null : Identifier.tryParse(shop);
         String genderName = input.getStringOr("Gender", NpcGender.MALE.name());

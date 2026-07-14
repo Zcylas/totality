@@ -9,6 +9,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.storage.ValueInput;
@@ -67,16 +68,41 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
 
     private static final Set<TagKey<Item>> ACCEPTED_TAGS = Set.of(ModTags.PROVISIONER_BUYS);
 
+    /** Datapack safety bound (Phase 3 hardening pass, Section 3) on how often a missing/invalid
+     *  assortment pool is retried from {@link #customServerAiStep} — protects against per-tick
+     *  log spam and repeated pool lookups while a pool is genuinely absent, not a gameplay value. */
+    private static final int STOCK_INIT_RETRY_INTERVAL_TICKS = 200;
+
     private long currentCredits = 0L;
     private boolean creditsInitialized = false;
     private boolean stockInitialized = false;
     private Identifier assortmentPoolId = DEFAULT_ASSORTMENT_POOL_ID;
     private final List<MerchantStockEntry> stock = new ArrayList<>();
 
+    // Transient (never persisted — Phase 3 hardening pass, Section 3): throttles the
+    // missing/invalid-pool retry path so it logs once and retries at most every
+    // STOCK_INIT_RETRY_INTERVAL_TICKS ticks instead of every tick via customServerAiStep.
+    private boolean stockInitFailureLogged = false;
+    private int ticksUntilNextStockInitAttempt = 0;
+
     public ProvisionerNpcEntity(EntityType<? extends ProvisionerNpcEntity> type, Level level) {
         super(type, level);
         setDialogueId(GREETING_DIALOGUE);
     }
+
+    /**
+     * Phase 3 hardening pass, Section 1: a fresh {@code /summon totality:provisioner} (or any
+     * other command/structure spawn with no explicit {@code DialogueId}) still routes through
+     * {@link #readAdditionalSaveData} via {@code Entity#load}, which previously reset
+     * {@code dialogueId} to {@code null} whenever the NBT key was absent — silently overwriting
+     * this constructor's own default and leaving right-click doing nothing. Overriding this
+     * default instead of relying on the constructor alone means the SAME fallback applies
+     * whichever path constructed this instance (natural spawn — never calls {@code load} at all —
+     * or command/structure spawn, which always does).
+     */
+    @Override
+    @Nullable
+    protected Identifier defaultDialogueId() { return GREETING_DIALOGUE; }
 
     public static AttributeSupplier.Builder createAttributes() {
         return TotalityNpcEntity.createAttributes();
@@ -111,6 +137,35 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
         stockInitialized = true;
     }
 
+    /** Test-only hook ({@code ProvisionerVerification}): drives one {@link #customServerAiStep}
+     *  call on an isolated (never-added-to-a-level) instance, so the missing-pool retry-throttle
+     *  behavior (Phase 3 hardening pass, Section 3) can be exercised tick-by-tick without a real
+     *  ticking server. Safe to call on an entity with no interaction partner — the inherited
+     *  per-tick safety net in {@code TotalityNpcEntity#customServerAiStep} returns immediately in
+     *  that case, before any navigation/AI work runs. */
+    public void runAiStepForTest(ServerLevel level) {
+        customServerAiStep(level);
+    }
+
+    /** Test-only hook ({@code ProvisionerVerification}): drives the REAL, full
+     *  {@code readAdditionalSaveData} chain (base {@code TotalityNpcEntity} identity/dialogue
+     *  fields, THEN this class's own {@link #readPhase3State}) against an arbitrary {@link
+     *  ValueInput} — including a genuinely empty one with no keys at all, exactly what {@code
+     *  Entity#load} sees for a plain {@code /summon} with no explicit NBT. This is what actually
+     *  exercises the {@code defaultDialogueId()} fallback fix (Phase 3 hardening pass, Section 1);
+     *  {@link #readPhase3State} alone does not touch {@code dialogueId} at all. */
+    public void simulateFullLoadForTest(ValueInput input) {
+        readAdditionalSaveData(input);
+    }
+
+    /** Test-only hook, symmetric to {@link #simulateFullLoadForTest} — drives the REAL, full
+     *  {@code addAdditionalSaveData} chain so a round-trip test can prove a value this class
+     *  DIDN'T explicitly author (e.g. a defaulted {@code dialogueId}) still gets WRITTEN once
+     *  established, and therefore survives a second load without needing the default again. */
+    public void simulateFullSaveForTest(ValueOutput output) {
+        addAdditionalSaveData(output);
+    }
+
     @Override
     @Nullable
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty,
@@ -123,15 +178,32 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
     @Override
     protected void customServerAiStep(ServerLevel level) {
         super.customServerAiStep(level);
+        // Cheap short-circuit once both markers are true (the overwhelmingly common steady
+        // state) — avoids even touching the retry-throttle counter below on every tick of every
+        // Provisioner's life (Phase 3 hardening pass, Section 3).
+        if (creditsInitialized && stockInitialized) return;
+        if (ticksUntilNextStockInitAttempt > 0) {
+            ticksUntilNextStockInitAttempt--;
+            return;
+        }
+        ticksUntilNextStockInitAttempt = STOCK_INIT_RETRY_INTERVAL_TICKS;
         ensureCreditsAndStockInitialized();
     }
 
     /**
      * Rolls Credits/stock exactly once each, guarded independently by their own persisted
      * markers. If {@link #assortmentPoolId} does not resolve to a valid loaded pool, logs a
-     * clear real-content error and leaves {@link #stockInitialized} false — no partial stock is
-     * ever created, and this method safely retries on the next call (fresh spawn, then every
-     * subsequent tick via {@link #customServerAiStep}) once the pool becomes valid.
+     * clear real-content error EXACTLY ONCE per entity per logical-server lifetime (Phase 3
+     * hardening pass, Section 3 — {@link #stockInitFailureLogged}, a transient marker that does
+     * NOT need NBT persistence) and leaves {@link #stockInitialized} false — no partial stock is
+     * ever created. This method itself may still be called repeatedly (fresh spawn, then a
+     * throttled retry from {@link #customServerAiStep}, at most once every
+     * {@value #STOCK_INIT_RETRY_INTERVAL_TICKS} ticks) so that a later datapack fix can still take
+     * effect without a restart; only the LOGGING of an unchanged failure is silenced after the
+     * first time. The registries this depends on do not currently promise a live {@code /reload}
+     * — this retry exists primarily as protection against initialization ordering and future
+     * compatibility, not as a substitute for one. A successful initialization clears the
+     * transient failure/retry state.
      */
     private void ensureCreditsAndStockInitialized() {
         if (!creditsInitialized) {
@@ -141,15 +213,20 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
         if (!stockInitialized) {
             Optional<ProvisionerAssortmentPool> pool = ProvisionerAssortmentRegistry.INSTANCE.get(assortmentPoolId);
             if (pool.isEmpty()) {
-                Totality.LOGGER.error(
-                        "Provisioner {} could not initialize stock: assortment pool {} not found or failed validation",
-                        getUUID(), assortmentPoolId);
+                if (!stockInitFailureLogged) {
+                    Totality.LOGGER.error(
+                            "Provisioner {} could not initialize stock: assortment pool {} not found or failed validation"
+                                    + " (will retry silently every {} ticks until a valid pool is available)",
+                            getUUID(), assortmentPoolId, STOCK_INIT_RETRY_INTERVAL_TICKS);
+                    stockInitFailureLogged = true;
+                }
                 return;
             }
             List<MerchantStockEntry> rolled = pool.get().roll(this.random);
             stock.clear();
             stock.addAll(rolled);
             stockInitialized = true;
+            stockInitFailureLogged = false;
         }
     }
 
@@ -173,6 +250,11 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
             throw new IllegalArgumentException("currentCredits must not be negative, was " + value);
         }
         this.currentCredits = value;
+        // A successful, explicit set (including 0) always marks Credits initialized (Phase 3
+        // hardening pass, Section 2) — otherwise setCurrentCredits(0) right after construction
+        // would leave creditsInitialized false, and the next ensureCreditsAndStockInitialized()
+        // call would silently replace the caller's explicit 0 with the 300-Credit baseline.
+        this.creditsInitialized = true;
     }
 
     @Override
@@ -240,7 +322,17 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
      * Provisioner presents as fully sold out" rather than ever rerolling or duplicating.
      */
     public void readPhase3State(ValueInput input) {
-        currentCredits = input.getLongOr("CurrentCredits", 0L);
+        long persistedCredits = input.getLongOr("CurrentCredits", 0L);
+        if (persistedCredits < 0) {
+            // Sanitize only — never reroll the baseline here (Phase 3 hardening pass, Section 2):
+            // creditsInitialized is read independently, below, exactly as persisted, so a
+            // genuinely-initialized-but-corrupted balance degrades to 0, not back to 300.
+            Totality.LOGGER.error(
+                    "Provisioner {} loaded a corrupt negative CurrentCredits ({}); sanitizing to 0",
+                    getUUID(), persistedCredits);
+            persistedCredits = 0L;
+        }
+        currentCredits = persistedCredits;
         creditsInitialized = input.getBooleanOr("CreditsInitialized", false);
         stockInitialized = input.getBooleanOr("StockInitialized", false);
 
@@ -248,7 +340,43 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
         Identifier parsedPoolId = Identifier.tryParse(poolId);
         assortmentPoolId = parsedPoolId != null ? parsedPoolId : DEFAULT_ASSORTMENT_POOL_ID;
 
+        // All-or-nothing recovery (Phase 3 hardening pass, Section 7): the CODEC's own list
+        // decode already fails as a whole for a structurally malformed entry (e.g. negative
+        // current_stock — out of Codec.intRange(0, MAX_VALUE)). This additionally rejects a
+        // structurally VALID list that is still semantically corrupt (an empty item template, or
+        // duplicate entries for the same item+components) — the entire list is discarded, never
+        // just the offending entries, and StockInitialized is kept exactly as persisted either
+        // way, so corruption degrades to "this Provisioner presents as fully sold out" rather than
+        // ever rerolling or duplicating stock.
+        List<MerchantStockEntry> decodedStock = input.read("Stock", MerchantStockEntry.CODEC.listOf()).orElse(List.of());
+        if (!isValidPersistedStock(decodedStock)) {
+            Totality.LOGGER.error(
+                    "Provisioner {} loaded corrupt persisted stock (empty item template or duplicate entries); "
+                            + "discarding entire list rather than partially recovering it", getUUID());
+            decodedStock = List.of();
+        }
         stock.clear();
-        stock.addAll(input.read("Stock", MerchantStockEntry.CODEC.listOf()).orElse(List.of()));
+        stock.addAll(decodedStock);
+    }
+
+    /** Rejects the whole persisted stock list if ANY entry is structurally invalid (Phase 3
+     *  hardening pass, Section 7) — an empty item template, a negative stock (unreachable via the
+     *  CODEC's own range validation, checked here anyway as defense-in-depth), or a duplicate
+     *  item+components entry. All-or-nothing: never keeps a valid subset. Pure (no logging, no
+     *  I/O) and public specifically so {@code ProvisionerVerification} can drive it directly
+     *  against hand-built lists — including entries a real codec round-trip could never produce
+     *  in the first place (e.g. an empty item template) — mirroring the same directly-testable
+     *  {@code validate()} pattern {@link zcylas.totality.api.shop.assortment.ProvisionerAssortmentPool}
+     *  already uses. */
+    public static boolean isValidPersistedStock(List<MerchantStockEntry> entries) {
+        for (MerchantStockEntry entry : entries) {
+            if (entry.item().isEmpty() || entry.currentStock() < 0) return false;
+        }
+        for (int a = 0; a < entries.size(); a++) {
+            for (int b = a + 1; b < entries.size(); b++) {
+                if (ItemStack.isSameItemSameComponents(entries.get(a).item(), entries.get(b).item())) return false;
+            }
+        }
+        return true;
     }
 }

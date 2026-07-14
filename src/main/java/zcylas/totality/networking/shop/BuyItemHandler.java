@@ -18,11 +18,14 @@ public final class BuyItemHandler {
                 (payload, context) -> context.server().execute(() -> {
                     BuyResult result = TradeSessionManager.handleBuy(context.player(), payload.index(), payload.quantity());
                     // Ordinary rejections (can't afford it, stale session, an NPC that wandered
-                    // out of range) are normal gameplay outcomes, not worth logging. An
-                    // out-of-range catalog index or an overflow attempt is something the real BUY
-                    // UI can never produce on its own.
+                    // out of range, a corrupt merchant balance) are normal gameplay/data outcomes,
+                    // not worth logging. An out-of-range catalog index, an out-of-range quantity,
+                    // or an overflow attempt is something the real BUY UI (which already clamps
+                    // quantity client-side) can never produce on its own.
                     if (!result.success()
-                            && (result.reason() == BuyResult.Reason.INVALID_INDEX || result.reason() == BuyResult.Reason.OVERFLOW)) {
+                            && (result.reason() == BuyResult.Reason.INVALID_INDEX
+                                    || result.reason() == BuyResult.Reason.INVALID_QUANTITY
+                                    || result.reason() == BuyResult.Reason.OVERFLOW)) {
                         LOGGER.warn("Malformed BUY packet from {}: index={}, quantity={}, reason={}",
                                 context.player().getName().getString(), payload.index(), payload.quantity(), result.reason());
                     }

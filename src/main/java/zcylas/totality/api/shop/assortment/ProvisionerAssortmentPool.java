@@ -33,6 +33,25 @@ public record ProvisionerAssortmentPool(
         List<ChanceAssortmentEntry> chanceEntries
 ) {
 
+    /** Datapack safety bound (Phase 3 hardening pass, Section 4) on a single group's roll count —
+     *  NOT a gameplay-balance value. Protects against a malformed/authored-by-mistake group
+     *  (especially {@code distinct = false}, which never exhausts its pool) generating an
+     *  enormous stock list. Generous enough that no legitimate design needs to approach it. */
+    private static final int MAX_GROUP_ROLLS = 1000;
+
+    public ProvisionerAssortmentPool {
+        if (guaranteed == null) throw new IllegalArgumentException("guaranteed must not be null");
+        if (selectionGroups == null) throw new IllegalArgumentException("selectionGroups must not be null");
+        if (chanceEntries == null) throw new IllegalArgumentException("chanceEntries must not be null");
+        // Immutable, defensive copies (Phase 3 hardening pass, Section 5) — a caller's original
+        // mutable list reference (or one shared across multiple pool definitions) can never
+        // change what a Provisioner rolls after construction. List.copyOf also rejects null
+        // elements outright, satisfying "non-null nested entries" for free.
+        guaranteed = List.copyOf(guaranteed);
+        selectionGroups = List.copyOf(selectionGroups);
+        chanceEntries = List.copyOf(chanceEntries);
+    }
+
     public static final Codec<ProvisionerAssortmentPool> CODEC = RecordCodecBuilder.create(i -> i.group(
             AssortmentItemEntry.CODEC.listOf().optionalFieldOf("guaranteed", List.of())
                     .forGetter(ProvisionerAssortmentPool::guaranteed),
@@ -72,6 +91,12 @@ public record ProvisionerAssortmentPool(
             String groupLabel = "selection_groups[" + g + "]";
             if (group.rolls() <= 0) {
                 errors.add(groupLabel + ": rolls must be positive, was " + group.rolls());
+            } else if (group.rolls() > MAX_GROUP_ROLLS) {
+                // Datapack safety bound, not gameplay balance (Section 4) — guards especially
+                // against a malformed distinct=false group (which never exhausts its pool)
+                // generating an enormous list.
+                errors.add(groupLabel + ": rolls " + group.rolls() + " exceeds the datapack safety bound of "
+                        + MAX_GROUP_ROLLS);
             }
             if (group.entries().isEmpty()) {
                 errors.add(groupLabel + ": must contain at least one entry");
@@ -92,8 +117,19 @@ public record ProvisionerAssortmentPool(
                 }
                 allTemplates.add(weighted.entry().item());
             }
-            if (!group.entries().isEmpty() && totalWeight <= 0) {
-                errors.add(groupLabel + ": total weight must be positive, was " + totalWeight);
+            // Accumulated via checked `long` arithmetic above specifically so this comparison can
+            // catch a total that overflows `int` BEFORE anything casts it back down (Phase 3
+            // hardening pass, Section 4) — AssortmentSelectionGroup.pick's own weighted-selection
+            // math uses `int` (bounded by Integer.MAX_VALUE for random.nextInt), so a positive set
+            // of individually-valid weights that sums past that ceiling must be rejected at
+            // validation time, not allowed to silently wrap during generation.
+            if (!group.entries().isEmpty()) {
+                if (totalWeight <= 0) {
+                    errors.add(groupLabel + ": total weight must be positive, was " + totalWeight);
+                } else if (totalWeight > Integer.MAX_VALUE) {
+                    errors.add(groupLabel + ": total weight " + totalWeight
+                            + " exceeds Integer.MAX_VALUE (datapack safety bound)");
+                }
             }
         }
 

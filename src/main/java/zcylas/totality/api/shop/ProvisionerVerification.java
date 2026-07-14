@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.DifficultyInstance;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -20,7 +21,11 @@ import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import zcylas.totality.Totality;
+import zcylas.totality.api.core.util.ServerScheduler;
 import zcylas.totality.api.core.util.VerificationReporter;
+import zcylas.totality.api.dialogue.DialogueRegistry;
+import zcylas.totality.api.dialogue.DialogueState;
+import zcylas.totality.api.dialogue.DialogueTemplate;
 import zcylas.totality.api.shop.assortment.AssortmentItemEntry;
 import zcylas.totality.api.shop.assortment.AssortmentSelectionGroup;
 import zcylas.totality.api.shop.assortment.ChanceAssortmentEntry;
@@ -60,8 +65,16 @@ public final class ProvisionerVerification {
 
     private ProvisionerVerification() {}
 
+    /** Ticks to wait before the delayed smoke test resolves its spawned Provisioner (Phase 3
+     *  hardening pass, Section 9) — long enough that {@code Level#getEntity(int)} has genuinely
+     *  processed the entity through normal tick-driven bookkeeping, unlike the rest of this suite
+     *  which runs at {@code SERVER_STARTED}, before a single tick has occurred. ~2 seconds is far
+     *  more than needed in practice; picked generously rather than tightly. */
+    private static final int SMOKE_TEST_DELAY_TICKS = 40;
+
     public static void register() {
         ServerLifecycleEvents.SERVER_STARTED.register(ProvisionerVerification::runSelfTestIfDev);
+        ServerLifecycleEvents.SERVER_STARTED.register(ProvisionerVerification::scheduleDelayedEntityBackedSmokeTest);
     }
 
     static void runSelfTestIfDev(MinecraftServer server) {
@@ -69,6 +82,42 @@ public final class ProvisionerVerification {
 
         VerificationReporter r = new VerificationReporter(Totality.LOGGER, "ProvisionerVerification");
         ServerPlayer player = TotalityFakePlayer.create(server.overworld(), "[ProvisionerVerification]");
+
+        // ── Phase 3 hardening pass: default configuration ───────────────────
+        checkNewProvisionerDefaultsDialogueIdWhenAbsent(r, server);
+        checkNewProvisionerHasNonNullMerchantProfileId(r, server);
+        checkNewProvisionerDefaultsAssortmentIdWhenAbsent(r, server);
+        checkExplicitCustomIdsNotOverwritten(r, server);
+        checkDefaultDialogueIdSurvivesPersistenceRoundTrip(r, server);
+        checkProvisionerDialogueHasValidTradeOption(r);
+
+        // ── Phase 3 hardening pass: merchant Credits hardening ──────────────
+        checkNegativePersistedCreditsSanitizedToZero(r, server);
+        checkSetCurrentCreditsZeroMarksInitialized(r, server);
+        checkInvalidNegativeMerchantStateCannotBuy(r, player, server);
+        checkTemplateBackedBuyAlsoRejectsInvalidMerchantState(r, player);
+
+        // ── Phase 3 hardening pass: assortment weight overflow / roll bound ─
+        checkWeightSumExceedingIntMaxRejected(r);
+        checkExcessiveGroupRollCountRejected(r);
+
+        // ── Phase 3 hardening pass: assortment immutability ─────────────────
+        checkMutatingReturnedItemStackDoesNotAffectFutureRolls(r);
+        checkMutatingOriginalConstructorListDoesNotAffectPool(r);
+        checkPoolInternalListsCannotBeMutatedByConsumers(r);
+
+        // ── Phase 3 hardening pass: explicit BUY quantity validation ────────
+        checkInvalidStockBuyQuantitiesRejectedWithoutMutation(r, player, server);
+        checkInvalidTemplateBuyQuantitiesRejectedWithoutMutation(r, player, server);
+
+        // ── Phase 3 hardening pass: all-or-nothing persisted stock recovery ─
+        checkPersistedStockEmptyItemEntryInvalid(r);
+        checkPersistedStockDuplicateEntryInvalid(r);
+        checkPersistedStockMixedValidInvalidRejectedEntirely(r);
+        checkCorruptDuplicateStockDiscardedButStaysInitialized(r, server);
+
+        // ── Phase 3 hardening pass: missing-pool retry throttling ───────────
+        checkMissingPoolRetryThrottledThenEventuallySucceeds(r, server);
 
         // ── Assortment validation and generation ────────────────────────────
         checkRealPoolLoadsAndValidates(r);
@@ -125,6 +174,502 @@ public final class ProvisionerVerification {
         checkShopEntryDisplayDataSoldOutRepresentation(r);
         checkExistingNonEntitySessionStillWorks(r, player);
 
+        r.summarize();
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Phase 3 hardening pass — default configuration (Section 1)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkNewProvisionerDefaultsDialogueIdWhenAbsent(VerificationReporter r, MinecraftServer server) {
+        safe(r, "A fresh Provisioner defaults dialogueId when NBT genuinely has no DialogueId key "
+                + "(the real /summon-with-no-NBT bug: readAdditionalSaveData previously nulled the constructor's default)", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            npc.simulateFullLoadForTest(emptyInput(server));
+            Identifier expected = Identifier.fromNamespaceAndPath("totality", "provisioner_greeting");
+            boolean pass = expected.equals(npc.getDialogueId());
+            return result(pass, "dialogueId=" + npc.getDialogueId());
+        });
+    }
+
+    private static void checkNewProvisionerHasNonNullMerchantProfileId(VerificationReporter r, MinecraftServer server) {
+        safe(r, "A fresh Provisioner always has a well-formed merchant/profile id (merchantId(), UUID-derived, never absent — "
+                + "Provisioner's entity-backed trade never needs a separate ShopRegistry shop_id at all)", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            boolean pass = npc.merchantId() != null && npc.merchantId().toString().contains(npc.getUUID().toString());
+            return result(pass, "merchantId=" + npc.merchantId() + ", uuid=" + npc.getUUID());
+        });
+    }
+
+    private static void checkNewProvisionerDefaultsAssortmentIdWhenAbsent(VerificationReporter r, MinecraftServer server) {
+        safe(r, "A fresh Provisioner defaults AssortmentPoolId to generic_provisioner when NBT has no such key", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            npc.simulateFullLoadForTest(emptyInput(server));
+            boolean pass = ProvisionerNpcEntity.DEFAULT_ASSORTMENT_POOL_ID.equals(npc.getAssortmentPoolId());
+            return result(pass, "assortmentPoolId=" + npc.getAssortmentPoolId());
+        });
+    }
+
+    private static void checkExplicitCustomIdsNotOverwritten(VerificationReporter r, MinecraftServer server) {
+        safe(r, "Explicitly authored dialogueId/AssortmentPoolId are never overwritten by defaults", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            Identifier customDialogue = Identifier.fromNamespaceAndPath("totality", "example_trader");
+            Identifier customPool = Identifier.fromNamespaceAndPath("totality", "selftest/custom_pool");
+
+            TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, server.registryAccess());
+            output.putString("DialogueId", customDialogue.toString());
+            output.putString("AssortmentPoolId", customPool.toString());
+            ValueInput input = TagValueInput.create(ProblemReporter.DISCARDING, server.registryAccess(), output.buildResult());
+            npc.simulateFullLoadForTest(input);
+
+            boolean pass = customDialogue.equals(npc.getDialogueId()) && customPool.equals(npc.getAssortmentPoolId());
+            return result(pass, "dialogueId=" + npc.getDialogueId() + ", assortmentPoolId=" + npc.getAssortmentPoolId());
+        });
+    }
+
+    private static void checkDefaultDialogueIdSurvivesPersistenceRoundTrip(VerificationReporter r, MinecraftServer server) {
+        safe(r, "A defaulted dialogueId, once established, survives a real save/load round-trip", () -> {
+            ProvisionerNpcEntity original = isolatedProvisioner(server);
+            original.simulateFullLoadForTest(emptyInput(server)); // establishes the default
+            Identifier expected = Identifier.fromNamespaceAndPath("totality", "provisioner_greeting");
+
+            TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, server.registryAccess());
+            original.simulateFullSaveForTest(output);
+            CompoundTag tag = output.buildResult();
+
+            ProvisionerNpcEntity reloaded = isolatedProvisioner(server);
+            reloaded.simulateFullLoadForTest(TagValueInput.create(ProblemReporter.DISCARDING, server.registryAccess(), tag));
+
+            boolean pass = expected.equals(reloaded.getDialogueId());
+            return result(pass, "reloadedDialogueId=" + reloaded.getDialogueId());
+        });
+    }
+
+    private static void checkProvisionerDialogueHasValidTradeOption(VerificationReporter r) {
+        safe(r, "provisioner_greeting dialogue's start state has a Trade choice using open_provisioner_shop", () -> {
+            Identifier dialogueId = Identifier.fromNamespaceAndPath("totality", "provisioner_greeting");
+            DialogueTemplate template = DialogueRegistry.INSTANCE.get(dialogueId);
+            if (template == null) return result(false, "dialogue not found: " + dialogueId);
+            DialogueState start = template.startState();
+            if (start == null) return result(false, "no start state for " + dialogueId);
+            boolean hasTradeOption = start.choices().stream()
+                    .anyMatch(c -> c.action().isPresent() && "open_provisioner_shop".equals(c.action().get().type()));
+            return result(hasTradeOption, "choices=" + start.choices().size());
+        });
+    }
+
+    /** A genuinely empty {@link ValueInput} — no keys at all — exactly what {@code Entity#load}
+     *  sees for a plain {@code /summon} with no explicit NBT. */
+    private static ValueInput emptyInput(MinecraftServer server) {
+        return TagValueInput.create(ProblemReporter.DISCARDING, server.registryAccess(), new CompoundTag());
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Phase 3 hardening pass — merchant Credits hardening (Section 2)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkNegativePersistedCreditsSanitizedToZero(VerificationReporter r, MinecraftServer server) {
+        safe(r, "Negative persisted CurrentCredits sanitizes to 0 without restoring the 300 baseline", () -> {
+            TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, server.registryAccess());
+            output.putLong("CurrentCredits", -50L);
+            output.putBoolean("CreditsInitialized", true);
+            output.putBoolean("StockInitialized", true);
+            output.store("Stock", MerchantStockEntry.CODEC.listOf(), List.of());
+
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            npc.readPhase3State(TagValueInput.create(ProblemReporter.DISCARDING, server.registryAccess(), output.buildResult()));
+
+            boolean pass = npc.currentCredits() == 0L && npc.isCreditsInitialized();
+            return result(pass, "credits=" + npc.currentCredits() + ", initialized=" + npc.isCreditsInitialized());
+        });
+    }
+
+    private static void checkSetCurrentCreditsZeroMarksInitialized(VerificationReporter r, MinecraftServer server) {
+        safe(r, "setCurrentCredits(0) marks Credits initialized and blocks the later 300 baseline", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            npc.setCurrentCredits(0L);
+            boolean initializedImmediately = npc.isCreditsInitialized();
+
+            npc.finalizeSpawn(server.overworld(), server.overworld().getCurrentDifficultyAt(npc.blockPosition()),
+                    EntitySpawnReason.COMMAND, null);
+            boolean pass = initializedImmediately && npc.currentCredits() == 0L;
+            return result(pass, "initializedImmediately=" + initializedImmediately + ", creditsAfterFinalizeSpawn=" + npc.currentCredits());
+        });
+    }
+
+    private static void checkInvalidNegativeMerchantStateCannotBuy(VerificationReporter r, ServerPlayer player, MinecraftServer server) {
+        safe(r, "A stock-backed BUY against a merchant with corrupt negative Credits is rejected with "
+                + "INVALID_MERCHANT_STATE, changing nothing", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            npc.setCreditsForTest(-10L); // simulates corrupt state directly — test-only, bypasses normal validation
+            npc.setStockForTest(List.of(new MerchantStockEntry(new ItemStack(Items.TORCH), 16)));
+            long walletBefore = wallet(player);
+            try {
+                giveWallet(player, 10_000);
+                long afterGive = wallet(player);
+                TradeSessionManager.startStockBackedTradeForVerification(player, npc, npc);
+
+                BuyResult buyResult = TradeSessionManager.handleBuy(player, 0, 1);
+
+                boolean pass = !buyResult.success() && buyResult.reason() == BuyResult.Reason.INVALID_MERCHANT_STATE
+                        && wallet(player) == afterGive && npc.currentCredits() == -10L
+                        && npc.stockEntries().get(0).currentStock() == 16;
+                return result(pass, "buyResult=" + buyResult + ", credits=" + npc.currentCredits() + ", stock=" + npc.stockEntries());
+            } finally {
+                TradeSessionManager.endTrade(player);
+                setWallet(player, walletBefore);
+            }
+        });
+    }
+
+    private static void checkTemplateBackedBuyAlsoRejectsInvalidMerchantState(VerificationReporter r, ServerPlayer player) {
+        safe(r, "A template-backed BUY against a merchant with corrupt negative Credits is also rejected with "
+                + "INVALID_MERCHANT_STATE, changing nothing", () -> {
+            MerchantRuntime corrupt = new MerchantRuntime() {
+                @Override public Identifier merchantId() {
+                    return Identifier.fromNamespaceAndPath("totality", "selftest/corrupt_merchant");
+                }
+                @Override public long currentCredits() { return -5L; }
+                @Override public void setCurrentCredits(long value) { throw new UnsupportedOperationException("not used by this check"); }
+                @Override public Set<net.minecraft.tags.TagKey<Item>> acceptedTags() { return Set.of(); }
+            };
+            ShopTemplate shop = new ShopTemplate("Verification Corrupt Shop",
+                    List.of(new ShopEntry(new ItemStack(Items.IRON_SWORD), 100)));
+            long walletBefore = wallet(player);
+            try {
+                TradeSessionManager.startTradeForVerification(
+                        player, Identifier.fromNamespaceAndPath("totality", "selftest/corrupt_merchant_shop"), shop, corrupt);
+                giveWallet(player, 10_000);
+                long afterGive = wallet(player);
+
+                BuyResult buyResult = TradeSessionManager.handleBuy(player, 0, 1);
+
+                boolean pass = !buyResult.success() && buyResult.reason() == BuyResult.Reason.INVALID_MERCHANT_STATE
+                        && wallet(player) == afterGive && corrupt.currentCredits() == -5L;
+                return result(pass, "buyResult=" + buyResult);
+            } finally {
+                TradeSessionManager.endTrade(player);
+                setWallet(player, walletBefore);
+            }
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Phase 3 hardening pass — assortment weight overflow / roll bound (Section 4)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkWeightSumExceedingIntMaxRejected(VerificationReporter r) {
+        safe(r, "A selection group whose total weight exceeds Integer.MAX_VALUE is rejected by validate()", () -> {
+            ProvisionerAssortmentPool pool = new ProvisionerAssortmentPool(List.of(), List.of(
+                    new AssortmentSelectionGroup(1, true, List.of(
+                            new WeightedAssortmentEntry(new AssortmentItemEntry(new ItemStack(Items.TORCH), 1), Integer.MAX_VALUE),
+                            new WeightedAssortmentEntry(new AssortmentItemEntry(new ItemStack(Items.BREAD), 1), Integer.MAX_VALUE)
+                    ))
+            ), List.of());
+            boolean pass = !pool.validate().valid();
+            return result(pass, "errors=" + pool.validate().errors());
+        });
+    }
+
+    private static void checkExcessiveGroupRollCountRejected(VerificationReporter r) {
+        safe(r, "An excessive group roll count is rejected as a datapack safety bound, not gameplay balance", () -> {
+            // distinct=false so a huge rolls count could otherwise loop unboundedly generating an
+            // enormous list — the exact malformed-data shape the bound guards against.
+            ProvisionerAssortmentPool pool = new ProvisionerAssortmentPool(List.of(), List.of(
+                    new AssortmentSelectionGroup(1_000_000, false, List.of(
+                            new WeightedAssortmentEntry(new AssortmentItemEntry(new ItemStack(Items.TORCH), 1), 1)
+                    ))
+            ), List.of());
+            boolean pass = !pool.validate().valid();
+            return result(pass, "errors=" + pool.validate().errors());
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Phase 3 hardening pass — assortment immutability (Section 5)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkMutatingReturnedItemStackDoesNotAffectFutureRolls(VerificationReporter r) {
+        safe(r, "Mutating an ItemStack returned from AssortmentItemEntry.item() does not affect later rolls", () -> {
+            AssortmentItemEntry entry = new AssortmentItemEntry(new ItemStack(Items.TORCH), 16);
+            ItemStack exposed = entry.item();
+            exposed.setCount(99);
+            ItemStack again = entry.item();
+            boolean pass = again.getCount() == 1 && again.getItem() == Items.TORCH;
+            return result(pass, "exposedCount=" + exposed.getCount() + ", againCount=" + again.getCount());
+        });
+    }
+
+    private static void checkMutatingOriginalConstructorListDoesNotAffectPool(VerificationReporter r) {
+        safe(r, "Clearing/changing the original constructor list does not affect an already-built pool", () -> {
+            List<AssortmentItemEntry> mutableGuaranteed = new ArrayList<>();
+            mutableGuaranteed.add(new AssortmentItemEntry(new ItemStack(Items.TORCH), 16));
+            ProvisionerAssortmentPool pool = new ProvisionerAssortmentPool(mutableGuaranteed, List.of(), List.of());
+
+            mutableGuaranteed.clear();
+            mutableGuaranteed.add(new AssortmentItemEntry(new ItemStack(Items.BREAD), 6));
+
+            boolean pass = pool.guaranteed().size() == 1 && pool.guaranteed().get(0).item().is(Items.TORCH);
+            return result(pass, "poolGuaranteed=" + pool.guaranteed());
+        });
+    }
+
+    private static void checkPoolInternalListsCannotBeMutatedByConsumers(VerificationReporter r) {
+        safe(r, "A pool's exposed lists (guaranteed/selection_groups/entries) reject consumer mutation", () -> {
+            AssortmentSelectionGroup group = new AssortmentSelectionGroup(1, true, List.of(
+                    new WeightedAssortmentEntry(new AssortmentItemEntry(new ItemStack(Items.TORCH), 1), 1)));
+            ProvisionerAssortmentPool pool = new ProvisionerAssortmentPool(
+                    List.of(new AssortmentItemEntry(new ItemStack(Items.TORCH), 16)), List.of(group), List.of());
+
+            boolean guaranteedRejects = throwsUnsupported(() -> pool.guaranteed().add(new AssortmentItemEntry(new ItemStack(Items.BREAD), 1)));
+            boolean groupsRejects = throwsUnsupported(() -> pool.selectionGroups().add(group));
+            boolean entriesRejects = throwsUnsupported(() -> group.entries().add(group.entries().get(0)));
+
+            boolean pass = guaranteedRejects && groupsRejects && entriesRejects;
+            return result(pass, "guaranteedRejects=" + guaranteedRejects + ", groupsRejects=" + groupsRejects + ", entriesRejects=" + entriesRejects);
+        });
+    }
+
+    private static boolean throwsUnsupported(Runnable action) {
+        try {
+            action.run();
+            return false;
+        } catch (UnsupportedOperationException e) {
+            return true;
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Phase 3 hardening pass — explicit BUY quantity validation (Section 6)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkInvalidStockBuyQuantitiesRejectedWithoutMutation(
+            VerificationReporter r, ServerPlayer player, MinecraftServer server) {
+        safe(r, "Stock-backed BUY rejects quantity 0, negative, 101, and Integer.MAX_VALUE with INVALID_QUANTITY, changing nothing", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            npc.setCreditsForTest(300);
+            npc.setStockForTest(List.of(new MerchantStockEntry(new ItemStack(Items.TORCH), 16)));
+            long walletBefore = wallet(player);
+            try {
+                giveWallet(player, 10_000);
+                long afterGive = wallet(player);
+                TradeSessionManager.startStockBackedTradeForVerification(player, npc, npc);
+
+                int[] invalidQuantities = { 0, -1, 101, Integer.MAX_VALUE };
+                StringBuilder detail = new StringBuilder();
+                boolean allRejected = true;
+                for (int q : invalidQuantities) {
+                    BuyResult result = TradeSessionManager.handleBuy(player, 0, q);
+                    boolean rejected = !result.success() && result.reason() == BuyResult.Reason.INVALID_QUANTITY;
+                    allRejected &= rejected;
+                    detail.append("q=").append(q).append(" -> ").append(result).append("; ");
+                }
+                boolean noMutation = wallet(player) == afterGive && npc.currentCredits() == 300
+                        && npc.stockEntries().get(0).currentStock() == 16;
+                boolean pass = allRejected && noMutation;
+                return result(pass, detail + "noMutation=" + noMutation);
+            } finally {
+                TradeSessionManager.endTrade(player);
+                setWallet(player, walletBefore);
+            }
+        });
+    }
+
+    private static void checkInvalidTemplateBuyQuantitiesRejectedWithoutMutation(
+            VerificationReporter r, ServerPlayer player, MinecraftServer server) {
+        safe(r, "Template-backed BUY rejects quantity 0, negative, 101, and Integer.MAX_VALUE with INVALID_QUANTITY, changing nothing", () -> {
+            ShopTemplate shop = new ShopTemplate("Verification Quantity Shop",
+                    List.of(new ShopEntry(new ItemStack(Items.IRON_SWORD), 450)));
+            MerchantRuntime merchant = new InMemoryMerchantRuntime(
+                    Identifier.fromNamespaceAndPath("totality", "selftest/quantity_merchant"),
+                    300, Set.of(zcylas.totality.init.ModTags.PROVISIONER_BUYS));
+            long walletBefore = wallet(player);
+            try {
+                TradeSessionManager.startTradeForVerification(
+                        player, Identifier.fromNamespaceAndPath("totality", "selftest/quantity_shop"), shop, merchant);
+                giveWallet(player, 100_000);
+                long afterGive = wallet(player);
+
+                int[] invalidQuantities = { 0, -1, 101, Integer.MAX_VALUE };
+                StringBuilder detail = new StringBuilder();
+                boolean allRejected = true;
+                for (int q : invalidQuantities) {
+                    BuyResult result = TradeSessionManager.handleBuy(player, 0, q);
+                    boolean rejected = !result.success() && result.reason() == BuyResult.Reason.INVALID_QUANTITY;
+                    allRejected &= rejected;
+                    detail.append("q=").append(q).append(" -> ").append(result).append("; ");
+                }
+                boolean noMutation = wallet(player) == afterGive && merchant.currentCredits() == 300;
+                boolean pass = allRejected && noMutation;
+                return result(pass, detail + "noMutation=" + noMutation);
+            } finally {
+                TradeSessionManager.endTrade(player);
+                setWallet(player, walletBefore);
+            }
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Phase 3 hardening pass — all-or-nothing persisted stock recovery (Section 7)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkPersistedStockEmptyItemEntryInvalid(VerificationReporter r) {
+        safe(r, "isValidPersistedStock rejects a list containing an empty item template", () -> {
+            List<MerchantStockEntry> withEmpty = List.of(new MerchantStockEntry(ItemStack.EMPTY, 5));
+            boolean pass = !ProvisionerNpcEntity.isValidPersistedStock(withEmpty);
+            return result(pass, "list=" + withEmpty);
+        });
+    }
+
+    private static void checkPersistedStockDuplicateEntryInvalid(VerificationReporter r) {
+        safe(r, "isValidPersistedStock rejects duplicate item+component entries, but accepts distinct ones", () -> {
+            List<MerchantStockEntry> duplicated = List.of(
+                    new MerchantStockEntry(new ItemStack(Items.TORCH), 16),
+                    new MerchantStockEntry(new ItemStack(Items.TORCH), 4));
+            List<MerchantStockEntry> distinct = List.of(
+                    new MerchantStockEntry(new ItemStack(Items.TORCH), 16),
+                    new MerchantStockEntry(new ItemStack(Items.BREAD), 6));
+            boolean pass = !ProvisionerNpcEntity.isValidPersistedStock(duplicated)
+                    && ProvisionerNpcEntity.isValidPersistedStock(distinct);
+            return result(pass, "duplicated=" + duplicated + ", distinct=" + distinct);
+        });
+    }
+
+    private static void checkPersistedStockMixedValidInvalidRejectedEntirely(VerificationReporter r) {
+        safe(r, "A list mixing valid and invalid entries is rejected in its entirety, not partially recovered", () -> {
+            List<MerchantStockEntry> mixed = List.of(
+                    new MerchantStockEntry(new ItemStack(Items.BREAD), 6),
+                    new MerchantStockEntry(ItemStack.EMPTY, 5));
+            boolean pass = !ProvisionerNpcEntity.isValidPersistedStock(mixed);
+            return result(pass, "mixed=" + mixed);
+        });
+    }
+
+    private static void checkCorruptDuplicateStockDiscardedButStaysInitialized(VerificationReporter r, MinecraftServer server) {
+        safe(r, "Corrupt (duplicate) persisted stock is discarded entirely on load, but an initialized "
+                + "merchant stays initialized (degrades to sold-out, never rerolls)", () -> {
+            ProvisionerNpcEntity original = isolatedProvisioner(server);
+            original.setCreditsForTest(300);
+            // setStockForTest bypasses normal roll-time duplicate validation (test-only), letting
+            // us fabricate a corrupt-but-codec-encodable persisted state — two ordinary, distinct
+            // ItemStack.CODEC-safe items with an accidental duplicate, unlike an empty item stack,
+            // which a real codec round-trip could never produce in the first place.
+            original.setStockForTest(List.of(
+                    new MerchantStockEntry(new ItemStack(Items.TORCH), 16),
+                    new MerchantStockEntry(new ItemStack(Items.TORCH), 4)
+            ));
+            ProvisionerNpcEntity reloaded = roundTrip(server, original);
+            boolean pass = reloaded.isStockInitialized() && reloaded.stockEntries().isEmpty();
+            return result(pass, "stockInitialized=" + reloaded.isStockInitialized() + ", stock=" + reloaded.stockEntries());
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Phase 3 hardening pass — missing-pool retry throttling (Section 3)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkMissingPoolRetryThrottledThenEventuallySucceeds(VerificationReporter r, MinecraftServer server) {
+        safe(r, "Missing-pool retry is throttled (does not retry every tick) and a later valid pool initializes exactly once", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            Identifier badId = Identifier.fromNamespaceAndPath("totality", "selftest/no_such_pool_throttle_check");
+            npc.setAssortmentPoolId(badId);
+            npc.finalizeSpawn(server.overworld(), server.overworld().getCurrentDifficultyAt(npc.blockPosition()),
+                    EntitySpawnReason.COMMAND, null);
+            boolean uninitializedAfterFirstAttempt = !npc.isStockInitialized() && npc.stockEntries().isEmpty();
+
+            // Simulate several ticks while still throttled (far from the 200-tick retry interval)
+            // — must NOT have re-attempted and succeeded yet, proving the retry isn't per-tick.
+            for (int i = 0; i < 5; i++) npc.runAiStepForTest(server.overworld());
+            boolean stillUninitializedWhileThrottled = !npc.isStockInitialized();
+
+            // Now make the pool valid and advance through the remaining throttle window.
+            npc.setAssortmentPoolId(ProvisionerNpcEntity.DEFAULT_ASSORTMENT_POOL_ID);
+            for (int i = 0; i < 200; i++) npc.runAiStepForTest(server.overworld());
+            boolean nowInitializedExactlyOnce = npc.isStockInitialized() && !npc.stockEntries().isEmpty();
+
+            boolean pass = uninitializedAfterFirstAttempt && stillUninitializedWhileThrottled && nowInitializedExactlyOnce;
+            return result(pass, "uninitializedAfterFirstAttempt=" + uninitializedAfterFirstAttempt
+                    + ", stillUninitializedWhileThrottled=" + stillUninitializedWhileThrottled
+                    + ", nowInitialized=" + nowInitializedExactlyOnce + ", stock=" + npc.stockEntries());
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Delayed real entity-backed transaction smoke test (Phase 3 hardening pass, Section 9)
+    // ═════════════════════════════════════════════════════════════════════
+
+    /**
+     * Every other check in this suite runs at {@code SERVER_STARTED}, before the server has
+     * processed a single tick — at which point a freshly {@code addFreshEntity}'d entity is
+     * provably NOT yet visible to {@code Level#getEntity(int)} (documented at length elsewhere in
+     * this class and in {@code MerchantSellVerification}). That is fine for pure transaction logic
+     * (exercised instead via {@link TradeSessionManager#startStockBackedTradeForVerification}), but
+     * it means nothing in the suite above actually proves the full, real, production path:
+     * right-click -> Dialogue -> {@code open_provisioner_shop} -> {@link
+     * TradeSessionManager#startEntityBackedTrade} -> resolve the LIVE NPC -> use THAT entity's
+     * runtime/stock -> BUY/SELL. This schedules a genuine one-shot check, via the existing {@link
+     * ServerScheduler}, {@value #SMOKE_TEST_DELAY_TICKS} ticks after server start — long enough
+     * that a spawned entity is resolvable the normal way — which spawns a real Provisioner,
+     * confirms it resolves through the same {@code Level#getEntity(int)} call {@code
+     * DialogueSessionManager#getActiveNpc} uses in real play, and drives one real BUY and one real
+     * SELL against it via the actual production {@link TradeSessionManager} entry points (not the
+     * verification-only stock-backed shortcut). This does NOT simulate an actual mouse click or
+     * dialogue UI — it starts the session the same way {@code OpenProvisionerShopAction} does,
+     * which is the full extent of what can be verified without a real client input-injection tool
+     * (this environment has none). The still-manual step is Stefan physically right-clicking the
+     * NPC and watching Dialogue/Trading open on screen.
+     */
+    private static void scheduleDelayedEntityBackedSmokeTest(MinecraftServer server) {
+        if (!VerificationReporter.isDevEnvironment()) return;
+        ServerScheduler.getInstance().queue(
+                ProvisionerVerification::runDelayedEntityBackedSmokeTest, SMOKE_TEST_DELAY_TICKS);
+    }
+
+    private static void runDelayedEntityBackedSmokeTest(MinecraftServer server) {
+        VerificationReporter r = new VerificationReporter(Totality.LOGGER, "ProvisionerEntityBackedSmokeTest");
+        ServerPlayer player = TotalityFakePlayer.create(server.overworld(), "[ProvisionerEntityBackedSmokeTest]");
+        ProvisionerNpcEntity npc = null;
+        int slot = 8;
+        ItemStack slotBefore = player.getInventory().getItem(slot).copy();
+        long walletBefore = wallet(player);
+        try {
+            npc = new ProvisionerNpcEntity(ModEntities.PROVISIONER, server.overworld());
+            npc.setPos(player.getX(), player.getY(), player.getZ());
+            server.overworld().addFreshEntity(npc);
+            npc.setCreditsForTest(300);
+            npc.setStockForTest(List.of(new MerchantStockEntry(new ItemStack(Items.TORCH), 16)));
+
+            Entity resolved = server.overworld().getEntity(npc.getId());
+            r.check("Freshly spawned Provisioner resolves via the real production entity lookup after real ticks",
+                    resolved == npc, "resolved=" + resolved);
+
+            TradeSessionManager.startEntityBackedTrade(player, npc);
+            r.check("startEntityBackedTrade opens a real session against the live entity",
+                    TradeSessionManager.isTrading(player), "isTrading=" + TradeSessionManager.isTrading(player));
+
+            giveWallet(player, 10_000);
+            BuyResult buyResult = TradeSessionManager.handleBuy(player, 0, 3);
+            boolean buyOk = buyResult.success() && npc.currentCredits() == 300 + 12
+                    && npc.stockEntries().get(0).currentStock() == 13;
+            r.check("One real BUY against the live entity changes its Credits and stock", buyOk,
+                    "buyResult=" + buyResult + ", credits=" + npc.currentCredits() + ", stock=" + npc.stockEntries());
+
+            player.getInventory().setItem(slot, new ItemStack(Items.BREAD, 4));
+            long creditsBeforeSell = npc.currentCredits();
+            SellResult sellResult = TradeSessionManager.handleSell(player, slot, 4);
+            boolean sellOk = sellResult.success() && npc.currentCredits() == creditsBeforeSell - 24
+                    && npc.stockEntries().stream().noneMatch(e -> e.item().is(Items.BREAD));
+            r.check("One real SELL against the live entity changes its Credits and never adds to ordinary stock",
+                    sellOk, "sellResult=" + sellResult + ", credits=" + npc.currentCredits() + ", stock=" + npc.stockEntries());
+        } catch (RuntimeException e) {
+            r.check("Delayed entity-backed smoke test completed without throwing", false,
+                    "threw " + e.getClass().getSimpleName() + ": " + e.getMessage());
+        } finally {
+            TradeSessionManager.endTrade(player);
+            player.getInventory().setItem(slot, slotBefore);
+            setWallet(player, walletBefore);
+            if (npc != null && !npc.isRemoved()) npc.discard();
+        }
         r.summarize();
     }
 

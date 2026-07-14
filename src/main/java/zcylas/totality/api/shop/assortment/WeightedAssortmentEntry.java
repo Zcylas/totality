@@ -17,6 +17,10 @@ import net.minecraft.world.item.ItemStack;
  */
 public record WeightedAssortmentEntry(AssortmentItemEntry entry, int weight) {
 
+    public WeightedAssortmentEntry {
+        if (entry == null) throw new IllegalArgumentException("entry must not be null");
+    }
+
     public static final Codec<WeightedAssortmentEntry> CODEC = RecordCodecBuilder.create(i -> i.group(
             ItemStack.CODEC.fieldOf("item").forGetter(w -> w.entry().item()),
             Codec.INT.fieldOf("stock").forGetter(w -> w.entry().stock()),

@@ -37,7 +37,15 @@ public record MerchantStockEntry(ItemStack item, int currentStock) {
             throw new IllegalArgumentException("currentStock must not be negative, was " + currentStock);
         }
         item = item.copy();
-        if (item.getCount() != 1) {
+        // Guarded by !isEmpty() (Phase 3 hardening pass, Section 7 — found while adding a direct
+        // test for the "empty item template" persisted-stock rejection): ItemStack#copy()'s own
+        // fast path for an empty stack returns the SHARED ItemStack.EMPTY singleton, not a fresh
+        // instance — calling setCount(1) on it without this guard would mutate that singleton's
+        // count in place for the remainder of the JVM session, corrupting completely unrelated
+        // code that assumes ItemStack.EMPTY.getCount() == 0. An empty item template is already
+        // rejected as invalid data by callers (Provisioner persistence, assortment validation)
+        // that check isEmpty() themselves; this constructor must simply never touch the singleton.
+        if (!item.isEmpty() && item.getCount() != 1) {
             item.setCount(1);
         }
     }

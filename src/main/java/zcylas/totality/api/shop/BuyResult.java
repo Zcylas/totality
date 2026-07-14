@@ -17,8 +17,16 @@ public record BuyResult(boolean success, @Nullable Reason reason, long totalCost
         NPC_INVALID,
         /** {@code index} does not address a real entry in the shop's catalog. */
         INVALID_INDEX,
+        /** {@code quantity} is outside the valid 1-100 (inclusive) range (Phase 3 hardening pass,
+         *  Section 6) — never produced by the real BUY UI, which already clamps client-side. */
+        INVALID_QUANTITY,
         /** The catalog entry itself is malformed (negative authored price) — an authoring error. */
         INVALID_PRICE,
+        /** The merchant's own Credits balance is corrupt (negative) — Phase 3 hardening pass,
+         *  Section 2. Should never occur in practice post-hardening (persisted negative Credits
+         *  are sanitized to 0 on load, and {@code setCurrentCredits} rejects negative outright),
+         *  but a BUY must still refuse to charge the player if it somehow does. */
+        INVALID_MERCHANT_STATE,
         /** {@code price * quantity}, or the merchant's resulting balance, would overflow a long. */
         OVERFLOW,
         /** The player cannot afford {@code total} right now. */

@@ -23,6 +23,15 @@ import java.util.List;
  */
 public record AssortmentSelectionGroup(int rolls, boolean distinct, List<WeightedAssortmentEntry> entries) {
 
+    /** Immutable and defensive (Phase 3 hardening pass, Section 5): {@code List.copyOf} both
+     *  rejects a null list outright and produces a snapshot a caller's original mutable list
+     *  reference can never change afterward — it also rejects null elements for free, satisfying
+     *  "non-null nested entries." */
+    public AssortmentSelectionGroup {
+        if (entries == null) throw new IllegalArgumentException("entries must not be null");
+        entries = List.copyOf(entries);
+    }
+
     public static final Codec<AssortmentSelectionGroup> CODEC = RecordCodecBuilder.create(i -> i.group(
             Codec.INT.fieldOf("rolls").forGetter(AssortmentSelectionGroup::rolls),
             Codec.BOOL.optionalFieldOf("distinct", true).forGetter(AssortmentSelectionGroup::distinct),

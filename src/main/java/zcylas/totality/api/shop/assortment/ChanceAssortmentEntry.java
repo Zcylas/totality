@@ -12,6 +12,10 @@ import net.minecraft.world.item.ItemStack;
  */
 public record ChanceAssortmentEntry(AssortmentItemEntry entry, double chance) {
 
+    public ChanceAssortmentEntry {
+        if (entry == null) throw new IllegalArgumentException("entry must not be null");
+    }
+
     public static final Codec<ChanceAssortmentEntry> CODEC = RecordCodecBuilder.create(i -> i.group(
             ItemStack.CODEC.fieldOf("item").forGetter(c -> c.entry().item()),
             Codec.INT.fieldOf("stock").forGetter(c -> c.entry().stock()),
