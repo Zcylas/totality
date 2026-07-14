@@ -41,4 +41,13 @@ public interface MerchantRuntime {
         }
         return false;
     }
+
+    /** Translation key for this merchant's archetype label (Phase 4, Part B header — "Provisioner",
+     *  etc.), resolved client-side via a normal translatable {@code Component} rather than a
+     *  hardcoded server-authored string (Part H). Defaults to a generic "Merchant" label for the
+     *  shared/registry-backed path ({@link InMemoryMerchantRuntime}, the {@code test_trader} shop);
+     *  {@code ProvisionerNpcEntity} overrides this with its own archetype key. */
+    default String archetypeTranslationKey() {
+        return "totality.trading.archetype.merchant";
+    }
 }

@@ -94,6 +94,7 @@ public class TotalityServerPacketHandlers {
         BuyItemHandler.register();
         zcylas.totality.networking.shop.SellItemHandler.register();
         zcylas.totality.networking.shop.CloseTradeHandler.register();
+        zcylas.totality.networking.shop.RequestSellQuoteHandler.register();
         OpenQuestAppHandler.register();
         TrackQuestHandler.register();
         zcylas.totality.networking.quest.FinishQuestHandler.register();

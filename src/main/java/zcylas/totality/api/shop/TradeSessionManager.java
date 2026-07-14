@@ -15,10 +15,12 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CreditPaymentHelper;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.value.ItemPricingService;
+import zcylas.totality.api.economy.value.ItemValueRegistry;
 import zcylas.totality.api.economy.value.PriceQuote;
 import zcylas.totality.api.economy.value.PricingContext;
 import zcylas.totality.api.economy.value.PricingDirection;
 import zcylas.totality.entity.npc.TotalityNpcEntity;
+import zcylas.totality.networking.shop.SellQuoteResultPayload;
 import zcylas.totality.networking.shop.ShopEntryDisplayData;
 import zcylas.totality.networking.shop.ShowShopStatePayload;
 
@@ -352,8 +354,65 @@ public final class TradeSessionManager {
         ActiveTrade removed = SESSIONS.remove(player.getUUID());
         releaseTradePartner(player, removed);
         ServerPlayNetworking.send(player, new ShowShopStatePayload(
-                -1, Component.empty(), List.of(), 0, 0, 0, true
+                -1, Component.empty(), Component.empty(), List.of(), 0, 0, 0, List.of(), true
         ));
+    }
+
+    /**
+     * Phase 4: computes a live, server-authoritative SELL quote for {@code slotIndex} WITHOUT
+     * committing anything — the SELL detail panel's unit payout / stock count / max-quantity
+     * fields (design document Part D) need real server data ({@code ItemValueRegistry} has no
+     * client-side equivalent), but requesting a quote must never mutate any state itself. Reuses
+     * the exact same {@link #revalidateNpc}/{@link MerchantSellQuoteView#compute} machinery
+     * {@link #handleSell} commits against, so the live preview and the eventual commit can never
+     * silently disagree about how sellability/payout is computed. Also piggybacks a full {@link
+     * #sendState} refresh (Credits, valued-inventory-slot snapshot) so browsing SELL mode keeps
+     * the whole screen reasonably current without a dedicated inventory-change watcher.
+     */
+    public static void requestSellQuote(ServerPlayer player, int slotIndex) {
+        ActiveTrade trade = SESSIONS.get(player.getUUID());
+        if (trade == null) return;
+        if (!revalidateNpc(player, trade)) return;
+
+        Inventory inventory = player.getInventory();
+        SellQuoteResultPayload result;
+        if (slotIndex < 0 || slotIndex >= inventory.getContainerSize()) {
+            result = SellQuoteResultPayload.empty(slotIndex);
+        } else {
+            ItemStack real = inventory.getItem(slotIndex);
+            if (real.isEmpty()) {
+                result = SellQuoteResultPayload.empty(slotIndex);
+            } else {
+                MerchantRuntime merchant = currentMerchant(trade, currentNpc(player, trade));
+                // requestedQuantity=1 only to obtain the quantity-INDEPENDENT fields (unitPayout,
+                // maxQuantityByStack, maxQuantityByMerchant, effectiveMaxQuantity) — the client
+                // computes its own DISPLAY total as unitPayout * selectedQuantity, still fully
+                // revalidated server-side at actual SELL commit time regardless.
+                MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, real, real.getCount(), 1);
+                result = new SellQuoteResultPayload(slotIndex, quote.accepted(), quote.hasValue(), quote.unitPayout(),
+                        real.getCount(), quote.maxQuantityByStack(), quote.maxQuantityByMerchant(), quote.effectiveMaxQuantity());
+            }
+        }
+        ServerPlayNetworking.send(player, result);
+        sendState(player, false);
+    }
+
+    /** The player's own inventory slot indices whose current stack has a resolvable central
+     *  {@code ItemValueRegistry} value (Phase 4) — {@code ItemValueRegistry} is server-only data
+     *  with no client-side equivalent, so the SELL inventory grid's "no known value" state cannot
+     *  be determined any other way. Recomputed on every {@link #sendState} call, so it degrades
+     *  gracefully (never stale-authoritative) as the player's inventory changes between refreshes —
+     *  the actual SELL commit always re-reads and revalidates the real stack regardless. */
+    private static List<Integer> computeValuedInventorySlots(ServerPlayer player) {
+        List<Integer> slots = new ArrayList<>();
+        Inventory inventory = player.getInventory();
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack stack = inventory.getItem(i);
+            if (!stack.isEmpty() && ItemValueRegistry.INSTANCE.resolveBaseValue(stack).isPresent()) {
+                slots.add(i);
+            }
+        }
+        return slots;
     }
 
     public static boolean isTrading(ServerPlayer player) {
@@ -509,10 +568,12 @@ public final class TradeSessionManager {
         ServerPlayNetworking.send(player, new ShowShopStatePayload(
                 trade.npcEntityId(),
                 shopName,
+                Component.translatable(merchant.archetypeTranslationKey()),
                 display,
                 walletBalance,
                 physicalCredits,
                 merchant.currentCredits(),
+                computeValuedInventorySlots(player),
                 ended
         ));
     }

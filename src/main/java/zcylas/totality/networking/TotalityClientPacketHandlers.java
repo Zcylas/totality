@@ -131,6 +131,14 @@ public class TotalityClientPacketHandlers {
                 (payload, ctx) -> zcylas.totality.client.shop.ClientTradeManager.handle(payload)
         );
         ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.shop.SellQuoteResultPayload.TYPE,
+                (payload, ctx) -> zcylas.totality.client.shop.ClientTradeManager.handleSellQuote(payload)
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.shop.TradeRejectionPayload.TYPE,
+                (payload, ctx) -> zcylas.totality.client.shop.ClientTradeManager.handleRejection(payload)
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
                 zcylas.totality.networking.quest.ShowQuestStatePayload.TYPE,
                 (payload, ctx) -> zcylas.totality.client.quest.ClientQuestManager.handle(payload)
         );

@@ -262,6 +262,11 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
         return ACCEPTED_TAGS;
     }
 
+    @Override
+    public String archetypeTranslationKey() {
+        return "totality.trading.archetype.provisioner";
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // MerchantStockProvider
     // ─────────────────────────────────────────────────────────────────────

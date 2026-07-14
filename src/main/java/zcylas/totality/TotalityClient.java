@@ -28,6 +28,7 @@ import zcylas.totality.client.renderer.ability.HeatVisionBeamRenderer;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
 import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.entity.npc.BankerNpcRenderer;
+import zcylas.totality.client.renderer.entity.npc.ProvisionerNpcRenderer;
 import zcylas.totality.client.renderer.entity.npc.TotalityNpcRenderer;
 import zcylas.totality.client.renderer.entity.magic.SpellBoltRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
@@ -62,6 +63,7 @@ public class TotalityClient implements ClientModInitializer {
         registerRenderers();
         registerEntityRenderers();
         registerSpecialRenderers();
+        zcylas.totality.client.renderer.entity.npc.ProvisionerRendererVerification.runIfDev();
         SidedOverlayRenderer.register();
 
         // ── Screens ───────────────────────────────────────────────────────────
@@ -167,9 +169,10 @@ public class TotalityClient implements ClientModInitializer {
 
         EntityRenderers.register(ModEntities.TOTALITY_NPC, TotalityNpcRenderer::new);
         EntityRenderers.register(ModEntities.BANKER, BankerNpcRenderer::new);
-        // Reuses the generic NPC humanoid-skin renderer (design document Section 8: no separate
-        // skin-category axis exists — the Provisioner's generic identity is gender+name only).
-        EntityRenderers.register(ModEntities.PROVISIONER, TotalityNpcRenderer::new);
+        // Phase 4, Part A: dedicated male/female textures, following the same pattern as the
+        // Banker (design document Section 8 still holds — gender+name identity only, no new
+        // skin-category axis; this is simply the Provisioner's own texture pair, not a second axis).
+        EntityRenderers.register(ModEntities.PROVISIONER, ProvisionerNpcRenderer::new);
         EntityRenderers.register(ModEntities.REST_SEAT, NoopRenderer::new);
 
         //Basic Weapons

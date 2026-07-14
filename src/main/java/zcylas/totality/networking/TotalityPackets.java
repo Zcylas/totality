@@ -114,6 +114,8 @@ public class TotalityPackets {
                 zcylas.totality.networking.shop.SellItemPayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.shop.CloseTradePayload.TYPE,
                 zcylas.totality.networking.shop.CloseTradePayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.shop.RequestSellQuotePayload.TYPE,
+                zcylas.totality.networking.shop.RequestSellQuotePayload.STREAM_CODEC);
         registry.register(OpenQuestAppPayload.TYPE, OpenQuestAppPayload.STREAM_CODEC);
         registry.register(TrackQuestPayload.TYPE, TrackQuestPayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.quest.FinishQuestPayload.TYPE,
@@ -148,6 +150,10 @@ public class TotalityPackets {
         registry.register(MobStatsSyncPayload.TYPE, MobStatsSyncPayload.CODEC);
         registry.register(ShowDialogueStatePayload.TYPE, ShowDialogueStatePayload.STREAM_CODEC);
         registry.register(ShowShopStatePayload.TYPE, ShowShopStatePayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.shop.SellQuoteResultPayload.TYPE,
+                zcylas.totality.networking.shop.SellQuoteResultPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.shop.TradeRejectionPayload.TYPE,
+                zcylas.totality.networking.shop.TradeRejectionPayload.STREAM_CODEC);
         registry.register(ShowQuestStatePayload.TYPE, ShowQuestStatePayload.STREAM_CODEC);
         registry.register(ShowBankTellerPayload.TYPE, ShowBankTellerPayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.rest.OpenRestChoicePayload.TYPE,

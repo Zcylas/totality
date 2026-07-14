@@ -193,5 +193,39 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         //Entities
         translationBuilder.add("entity.totality.totality_npc", "NPC");
         translationBuilder.add("entity.totality.banker", "Banker");
+        translationBuilder.add("entity.totality.provisioner", "Provisioner");
+
+        //Trading Screen (Phase 4)
+        translationBuilder.add("totality.trading.title", "Trading");
+        translationBuilder.add("totality.trading.archetype.merchant", "Merchant");
+        translationBuilder.add("totality.trading.archetype.provisioner", "Provisioner");
+        translationBuilder.add("totality.trading.merchant_credits", "Merchant Credits");
+        translationBuilder.add("totality.trading.your_credits", "Your Credits");
+        translationBuilder.add("totality.trading.buy", "Buy");
+        translationBuilder.add("totality.trading.sell", "Sell");
+        translationBuilder.add("totality.trading.buyback", "Buyback");
+        translationBuilder.add("totality.trading.coming_later", "Coming Later");
+        translationBuilder.add("totality.trading.price_each", "Price Each");
+        translationBuilder.add("totality.trading.payout_each", "Payout Each");
+        translationBuilder.add("totality.trading.stock", "Stock");
+        translationBuilder.add("totality.trading.quantity", "Quantity");
+        translationBuilder.add("totality.trading.total_cost", "Total Cost");
+        translationBuilder.add("totality.trading.total_payout", "Total Payout");
+        translationBuilder.add("totality.trading.sold_out", "Sold Out");
+        translationBuilder.add("totality.trading.select_an_item", "Select an Item");
+        translationBuilder.add("totality.trading.quote_loading", "Checking with the merchant...");
+        translationBuilder.add("totality.trading.not_accepted", "Item not accepted");
+        translationBuilder.add("totality.trading.no_value", "No known value");
+        translationBuilder.add("totality.trading.merchant_cannot_afford", "Merchant cannot afford this quantity");
+        //Trading Screen — rejection messages (Part D/H)
+        translationBuilder.add("totality.trading.reject.trade_ended", "Trade ended");
+        translationBuilder.add("totality.trading.reject.invalid_quantity", "Invalid quantity");
+        translationBuilder.add("totality.trading.reject.cannot_afford", "You cannot afford this purchase");
+        translationBuilder.add("totality.trading.reject.stock_changed", "Stock changed");
+        translationBuilder.add("totality.trading.reject.item_gone", "Item is no longer present");
+        translationBuilder.add("totality.trading.reject.not_accepted", "Merchant does not buy this type of item");
+        translationBuilder.add("totality.trading.reject.no_value", "This item has no known value");
+        translationBuilder.add("totality.trading.reject.merchant_cannot_afford", "Merchant cannot afford that quantity");
+        translationBuilder.add("totality.trading.reject.generic", "That didn't work");
     }
 }
