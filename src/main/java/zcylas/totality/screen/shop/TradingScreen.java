@@ -19,6 +19,7 @@ import net.minecraft.world.item.enchantment.ItemEnchantments;
 import org.lwjgl.glfw.GLFW;
 import zcylas.totality.client.tooltip.TooltipExtension;
 import zcylas.totality.networking.shop.BuyItemPayload;
+import zcylas.totality.networking.shop.CloseTradePayload;
 import zcylas.totality.networking.shop.ShopEntryDisplayData;
 import zcylas.totality.networking.shop.ShowShopStatePayload;
 
@@ -412,7 +413,7 @@ public class TradingScreen extends Screen {
         int btnW2 = 28, btnH2 = TAB_ROW_H - 6;
         int cancelX = px + pw - PAD - btnW2, confirmX = cancelX - 4 - btnW2;
         if (inB(mx, my, confirmX, tabY + 3, btnW2, btnH2)) { confirmPurchase(); return true; }
-        if (inB(mx, my, cancelX, tabY + 3, btnW2, btnH2)) { click(); Minecraft.getInstance().setScreen(null); return true; }
+        if (inB(mx, my, cancelX, tabY + 3, btnW2, btnH2)) { click(); onClose(); return true; }
 
         return super.mouseClicked(mouse, doubleClick);
     }
@@ -546,4 +547,14 @@ public class TradingScreen extends Screen {
     @Override public boolean shouldCloseOnEsc() { return true; }
     @Override public boolean isInGameUi()        { return false; }
     @Override public boolean isPauseScreen()     { return false; }
+
+    /** Notifies the server the moment this screen closes (Esc or the Cancel button, both of
+     *  which route through here) so {@link zcylas.totality.api.shop.TradeSessionManager} can
+     *  release the NPC's interaction lock immediately instead of relying solely on the
+     *  distance-based safety net. */
+    @Override
+    public void onClose() {
+        ClientPlayNetworking.send(new CloseTradePayload());
+        super.onClose();
+    }
 }

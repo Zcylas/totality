@@ -92,6 +92,8 @@ public class TotalityServerPacketHandlers {
         DiceRollClickHandler.register();
         DialogueChoiceHandler.register();
         BuyItemHandler.register();
+        zcylas.totality.networking.shop.SellItemHandler.register();
+        zcylas.totality.networking.shop.CloseTradeHandler.register();
         OpenQuestAppHandler.register();
         TrackQuestHandler.register();
         zcylas.totality.networking.quest.FinishQuestHandler.register();

@@ -112,6 +112,12 @@ public class Totality implements ModInitializer {
 		ResourceManagerHelper.get(PackType.SERVER_DATA)
 				.registerReloadListener(zcylas.totality.api.quest.QuestRegistry.INSTANCE);
 		zcylas.totality.api.shop.ShopRegistry.register();
+		zcylas.totality.api.shop.MerchantRuntimeRegistry.register();
+		zcylas.totality.api.shop.TradeSessionManager.register();
+		zcylas.totality.api.economy.value.ItemValueRegistry.register();
+		zcylas.totality.api.shop.MerchantSellVerification.register();
+		zcylas.totality.api.shop.assortment.ProvisionerAssortmentRegistry.register();
+		zcylas.totality.api.shop.ProvisionerVerification.register();
 		ModEvents.register();
 	}
 
@@ -249,6 +255,8 @@ public class Totality implements ModInitializer {
 		FabricDefaultAttributeRegistry.register(ModEntities.SUMMON_SKELETON, Skeleton.createAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.TOTALITY_NPC, TotalityNpcEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.BANKER, BankerNpcEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(ModEntities.PROVISIONER,
+				zcylas.totality.entity.npc.ProvisionerNpcEntity.createAttributes());
 	}
 	private void registerSkillEvents(){
 		MiningSkillEvents.register();

@@ -18,6 +18,10 @@ public class ModTags {
     public static final TagKey<Item> CROSSBOWS  = item("crossbows");
     public static final TagKey<Item> POTIONS  = item("potions");
     public static final TagKey<Item> SPECIAL  = item("special");
+    /** Ordinary general goods the first Provisioner-style merchant will buy from a player
+     *  (Economy Pricing and Provisioner doc, Section 5) — deliberately excludes tools, weapons,
+     *  armor, potions, enchanted equipment, and anything meant for a future Blacksmith. */
+    public static final TagKey<Item> PROVISIONER_BUYS = item("provisioner_buys");
     //Block Tags
     public static final TagKey<Block> HARVESTABLE = block("harvestable");
     public static final TagKey<Block> VEINMINABLE = block("veinminable");

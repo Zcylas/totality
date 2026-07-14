@@ -1,0 +1,9 @@
+{
+  "item": {
+    "id": "minecraft:potion",
+    "components": {
+      "minecraft:potion_contents": "minecraft:healing"
+    }
+  },
+  "base_value": 80
+}

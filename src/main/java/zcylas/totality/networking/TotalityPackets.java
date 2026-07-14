@@ -110,6 +110,10 @@ public class TotalityPackets {
         registry.register(DialogueChoicePayload.TYPE, DialogueChoicePayload.STREAM_CODEC);
         registry.register(PhoneSetupPayload.TYPE, PhoneSetupPayload.CODEC);
         registry.register(BuyItemPayload.TYPE, BuyItemPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.shop.SellItemPayload.TYPE,
+                zcylas.totality.networking.shop.SellItemPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.shop.CloseTradePayload.TYPE,
+                zcylas.totality.networking.shop.CloseTradePayload.STREAM_CODEC);
         registry.register(OpenQuestAppPayload.TYPE, OpenQuestAppPayload.STREAM_CODEC);
         registry.register(TrackQuestPayload.TYPE, TrackQuestPayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.quest.FinishQuestPayload.TYPE,

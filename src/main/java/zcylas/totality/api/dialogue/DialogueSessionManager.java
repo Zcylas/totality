@@ -60,7 +60,7 @@ public final class DialogueSessionManager {
         ActiveDialogue dialogue = new ActiveDialogue(dialogueId, template, template.start(), npcId, npcName);
         SESSIONS.put(player.getUUID(), dialogue);
         if (npc instanceof zcylas.totality.entity.npc.TotalityNpcEntity totNpc) {
-            totNpc.setDialoguePartner(player);
+            totNpc.acquireInteractionLock(player);
         }
         sendState(player, dialogue, false);
     }
@@ -135,6 +135,16 @@ public final class DialogueSessionManager {
         return SESSIONS.containsKey(player.getUUID());
     }
 
+    /** The NPC entity the player's active dialogue session is with, if any — used by actions
+     *  (e.g. {@link zcylas.totality.api.dialogue.actions.OpenShopAction}) that need to hand
+     *  the same NPC context off to another session manager rather than trusting client input. */
+    @Nullable
+    public static Entity getActiveNpc(ServerPlayer player) {
+        ActiveDialogue dialogue = SESSIONS.get(player.getUUID());
+        if (dialogue == null || dialogue.npcEntityId() == -1) return null;
+        return player.level().getEntity(dialogue.npcEntityId());
+    }
+
     private static void advanceDialogue(ServerPlayer player, ActiveDialogue dialogue, String nextKey) {
         DialogueState nextState = dialogue.template().getState(nextKey);
         if (nextState == null) {
@@ -158,7 +168,7 @@ public final class DialogueSessionManager {
         if (dialogue == null || dialogue.npcEntityId() == -1) return;
         if (player.level().getEntity(dialogue.npcEntityId())
                 instanceof zcylas.totality.entity.npc.TotalityNpcEntity totNpc) {
-            totNpc.setDialoguePartner(null);
+            totNpc.releaseInteractionLock();
         }
     }
 

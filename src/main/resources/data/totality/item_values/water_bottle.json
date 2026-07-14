@@ -1,0 +1,9 @@
+{
+  "item": {
+    "id": "minecraft:potion",
+    "components": {
+      "minecraft:potion_contents": "minecraft:water"
+    }
+  },
+  "base_value": 8
+}

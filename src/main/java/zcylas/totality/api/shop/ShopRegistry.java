@@ -14,7 +14,9 @@ import zcylas.totality.Totality;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -63,7 +65,8 @@ public final class ShopRegistry {
                         .ifPresent(template -> {
                             String path = resourceId.getPath();
                             String key = path.substring(FOLDER.length() + 1, path.length() - ".json".length());
-                            result.put(Identifier.fromNamespaceAndPath(resourceId.getNamespace(), key), template);
+                            Identifier id = Identifier.fromNamespaceAndPath(resourceId.getNamespace(), key);
+                            result.put(id, rejectNegativePrices(id, template));
                         });
             } catch (Exception e) {
                 Totality.LOGGER.error("Failed to load shop {}", resourceId, e);
@@ -72,5 +75,27 @@ public final class ShopRegistry {
 
         this.shops = result;
         Totality.LOGGER.info("Loaded {} shops", result.size());
+    }
+
+    /**
+     * Drops any catalog entry with a negative authored price as a datapack authoring error —
+     * defense-in-depth alongside (not instead of) {@link TradeSessionManager#handleBuy}'s own
+     * transaction-time rejection, since a datapack is not the only way a malformed price could
+     * theoretically reach a shop (economy hardening pass, Part 1).
+     */
+    private static ShopTemplate rejectNegativePrices(Identifier shopId, ShopTemplate template) {
+        List<ShopEntry> valid = new ArrayList<>(template.sells().size());
+        int rejected = 0;
+        for (ShopEntry entry : template.sells()) {
+            if (entry.price() < 0) {
+                rejected++;
+                Totality.LOGGER.error("Shop {} has a catalog entry with a negative price ({}) for {} — dropping it",
+                        shopId, entry.price(), entry.stack());
+            } else {
+                valid.add(entry);
+            }
+        }
+        if (rejected == 0) return template;
+        return new ShopTemplate(template.name(), valid);
     }
 }

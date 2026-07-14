@@ -167,6 +167,9 @@ public class TotalityClient implements ClientModInitializer {
 
         EntityRenderers.register(ModEntities.TOTALITY_NPC, TotalityNpcRenderer::new);
         EntityRenderers.register(ModEntities.BANKER, BankerNpcRenderer::new);
+        // Reuses the generic NPC humanoid-skin renderer (design document Section 8: no separate
+        // skin-category axis exists — the Provisioner's generic identity is gender+name only).
+        EntityRenderers.register(ModEntities.PROVISIONER, TotalityNpcRenderer::new);
         EntityRenderers.register(ModEntities.REST_SEAT, NoopRenderer::new);
 
         //Basic Weapons

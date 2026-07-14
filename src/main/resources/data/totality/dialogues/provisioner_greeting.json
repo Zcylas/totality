@@ -1,0 +1,28 @@
+{
+  "start_at": "greeting",
+  "unskippable": false,
+  "states": {
+    "greeting": {
+      "text": "Welcome, traveler. Looking to buy or sell something?",
+      "choices": [
+        {
+          "text": "I'd like to trade.",
+          "next": "shop_opened",
+          "action": { "type": "open_provisioner_shop" }
+        },
+        {
+          "text": "Just browsing.",
+          "next": "farewell"
+        }
+      ]
+    },
+    "shop_opened": {
+      "text": "",
+      "type": "end"
+    },
+    "farewell": {
+      "text": "Come back anytime — I'm always stocked with something useful.",
+      "type": "end"
+    }
+  }
+}

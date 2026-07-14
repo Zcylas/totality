@@ -15,6 +15,7 @@ import zcylas.totality.entity.magic.OrbitProjectileEntity;
 import zcylas.totality.entity.magic.SpellBoltEntity;
 import zcylas.totality.entity.magic.SummonSkeletonEntity;
 import zcylas.totality.entity.npc.BankerNpcEntity;
+import zcylas.totality.entity.npc.ProvisionerNpcEntity;
 import zcylas.totality.entity.npc.TotalityNpcEntity;
 import zcylas.totality.entity.rest.RestSeatEntity;
 
@@ -167,6 +168,23 @@ public class ModEntities {
                             .sized(0.6f, 1.8f)
                             .clientTrackingRange(64)
                             .build(BANKER_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> PROVISIONER_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "provisioner"));
+
+    public static final EntityType<ProvisionerNpcEntity> PROVISIONER =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "provisioner"),
+                    EntityType.Builder.<ProvisionerNpcEntity>of(
+                                    ProvisionerNpcEntity::new,
+                                    MobCategory.MISC)
+                            .sized(0.6f, 1.8f)
+                            .clientTrackingRange(64)
+                            .build(PROVISIONER_KEY)
             );
 
     private static final ResourceKey<EntityType<?>> REST_SEAT_KEY =

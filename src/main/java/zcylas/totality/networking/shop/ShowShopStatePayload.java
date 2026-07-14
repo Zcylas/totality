@@ -10,13 +10,17 @@ import zcylas.totality.Totality;
 
 import java.util.List;
 
-/** S2C — opens or updates the Trading screen. Also used to close it (ended = true). */
+/** S2C — opens or updates the Trading screen. Also used to close it (ended = true).
+ *  {@code merchantCredits} (design document Phase 3 Part J) is the merchant's live business
+ *  Credits balance — always available via {@code MerchantRuntime.currentCredits()}, 0 for a
+ *  non-entity-backed session with no real merchant balance to show. */
 public record ShowShopStatePayload(
         int npcEntityId,
         Component shopName,
         List<ShopEntryDisplayData> sells,
         long walletBalance,
         long physicalCredits,
+        long merchantCredits,
         boolean ended
 ) implements CustomPacketPayload {
 
@@ -31,12 +35,14 @@ public record ShowShopStatePayload(
                         ShopEntryDisplayData.LIST_STREAM_CODEC.encode(buf, p.sells());
                         buf.writeVarLong(p.walletBalance());
                         buf.writeVarLong(p.physicalCredits());
+                        buf.writeVarLong(p.merchantCredits());
                         buf.writeBoolean(p.ended());
                     },
                     buf -> new ShowShopStatePayload(
                             buf.readInt(),
                             ComponentSerialization.TRUSTED_CONTEXT_FREE_STREAM_CODEC.decode(buf),
                             ShopEntryDisplayData.LIST_STREAM_CODEC.decode(buf),
+                            buf.readVarLong(),
                             buf.readVarLong(),
                             buf.readVarLong(),
                             buf.readBoolean()

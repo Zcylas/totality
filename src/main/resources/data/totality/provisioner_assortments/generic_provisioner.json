@@ -1,0 +1,59 @@
+{
+  "guaranteed": [
+    { "item": { "id": "minecraft:torch" }, "stock": 16 },
+    { "item": { "id": "minecraft:bread" }, "stock": 6 },
+    {
+      "item": {
+        "id": "minecraft:potion",
+        "components": { "minecraft:potion_contents": "minecraft:water" }
+      },
+      "stock": 4
+    }
+  ],
+  "selection_groups": [
+    {
+      "rolls": 4,
+      "distinct": true,
+      "entries": [
+        { "item": { "id": "minecraft:oak_planks" }, "stock": 32, "weight": 1 },
+        { "item": { "id": "minecraft:coal" }, "stock": 16, "weight": 1 },
+        { "item": { "id": "minecraft:string" }, "stock": 8, "weight": 1 },
+        { "item": { "id": "minecraft:leather" }, "stock": 6, "weight": 1 },
+        { "item": { "id": "minecraft:glass_bottle" }, "stock": 8, "weight": 1 },
+        { "item": { "id": "minecraft:apple" }, "stock": 8, "weight": 1 }
+      ]
+    },
+    {
+      "rolls": 1,
+      "distinct": true,
+      "entries": [
+        { "item": { "id": "minecraft:cooked_beef" }, "stock": 6, "weight": 1 },
+        { "item": { "id": "minecraft:cooked_porkchop" }, "stock": 6, "weight": 1 }
+      ]
+    },
+    {
+      "rolls": 1,
+      "distinct": true,
+      "entries": [
+        { "item": { "id": "minecraft:stone_shovel" }, "stock": 2, "weight": 9 },
+        { "item": { "id": "minecraft:stone_sword" }, "stock": 2, "weight": 9 },
+        { "item": { "id": "minecraft:stone_pickaxe" }, "stock": 2, "weight": 9 },
+        { "item": { "id": "minecraft:stone_axe" }, "stock": 2, "weight": 9 },
+        { "item": { "id": "minecraft:iron_shovel" }, "stock": 1, "weight": 1 },
+        { "item": { "id": "minecraft:iron_sword" }, "stock": 1, "weight": 1 },
+        { "item": { "id": "minecraft:iron_pickaxe" }, "stock": 1, "weight": 1 },
+        { "item": { "id": "minecraft:iron_axe" }, "stock": 1, "weight": 1 }
+      ]
+    }
+  ],
+  "chance_entries": [
+    {
+      "chance": 0.125,
+      "item": {
+        "id": "minecraft:potion",
+        "components": { "minecraft:potion_contents": "minecraft:healing" }
+      },
+      "stock": 1
+    }
+  ]
+}

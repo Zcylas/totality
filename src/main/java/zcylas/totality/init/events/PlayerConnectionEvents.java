@@ -156,6 +156,14 @@ public class PlayerConnectionEvents {
             BowStaminaHandler.onPlayerLeave(handler.player);
             VeinminerKeyHandler.onPlayerLeave(handler.player);
             PowerAttackManager.onPlayerLeave(handler.player);
+            // Release any Dialogue/Trading interaction lock so the NPC doesn't stay frozen
+            // staring at empty air after the player is gone.
+            if (zcylas.totality.api.dialogue.DialogueSessionManager.isInDialogue(handler.player)) {
+                zcylas.totality.api.dialogue.DialogueSessionManager.endDialogue(handler.player);
+            }
+            if (zcylas.totality.api.shop.TradeSessionManager.isTrading(handler.player)) {
+                zcylas.totality.api.shop.TradeSessionManager.endTrade(handler.player);
+            }
         });
     }
 

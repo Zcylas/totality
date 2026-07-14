@@ -23,8 +23,14 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.dialogue.DialogueSessionManager;
+import zcylas.totality.api.shop.TradeSessionManager;
 
 public class TotalityNpcEntity extends PathfinderMob {
+
+    /** Shared interaction-distance rule (8 blocks) — used both by the per-tick safety net below
+     *  and by {@link zcylas.totality.api.shop.TradeSessionManager}'s entity-backed session
+     *  revalidation, so there is exactly one distance constant, not two that could drift apart. */
+    public static final double INTERACTION_RANGE_SQR = 64.0;
 
     // Synced (not just persisted) so the client — which never runs finalizeSpawn — actually
     // sees the gender the server picked. NBT-only fields don't propagate to freshly spawned
@@ -35,7 +41,16 @@ public class TotalityNpcEntity extends PathfinderMob {
 
     @Nullable private Identifier dialogueId = null;
     @Nullable private Identifier shopId = null;
-    @Nullable private Player dialoguePartner = null;
+
+    // Reference-counted rather than a plain nullable partner: Dialogue's open_shop handoff
+    // acquires the lock for Trading BEFORE Dialogue's own end-state releases its hold (see
+    // DialogueSessionManager.handleChoice — the action executes, then the state machine
+    // advances to the "end" node), so the count goes 1->2->1->0 across the handoff instead of
+    // ever touching 0 while Trading is still active. A plain boolean/nullable field can't
+    // tell those two holds apart and was the root cause of the NPC resuming wandering the
+    // instant Trading opened.
+    @Nullable private Player interactionPartner = null;
+    private int interactionLockCount = 0;
 
     public TotalityNpcEntity(EntityType<? extends TotalityNpcEntity> type, Level level) {
         super(type, level);
@@ -54,7 +69,7 @@ public class TotalityNpcEntity extends PathfinderMob {
         builder.define(DATA_GENDER, NpcGender.MALE.ordinal());
     }
 
-    // Kept as fields (not local to registerGoals) so setDialoguePartner can remove/re-add them —
+    // Kept as fields (not local to registerGoals) so acquireInteractionLock can remove/re-add them —
     // removing outright, rather than just cancelling navigation each tick, is the only way to
     // be sure the wander/look goals can never re-issue a path or fight our forced look target.
     // Assigned INSIDE registerGoals(), not via field initializer — registerGoals() is called
@@ -95,45 +110,102 @@ public class TotalityNpcEntity extends PathfinderMob {
         return data;
     }
 
-    /** Called by DialogueSessionManager on start/end of a dialogue session with this NPC —
-     *  freezes wandering and forces a look-at-partner for the duration. */
-    public void setDialoguePartner(@Nullable Player player) {
-        this.dialoguePartner = player;
-        if (player != null) {
+    /** Called by DialogueSessionManager/TradeSessionManager when a session with this NPC
+     *  starts — freezes wandering and forces a look-at-partner for the duration. Safe to call
+     *  more than once for the same player (e.g. Dialogue handing off into Trading): each call
+     *  must be matched by a {@link #releaseInteractionLock()}, and wandering only resumes once
+     *  every holder has released. */
+    public void acquireInteractionLock(Player player) {
+        this.interactionPartner = player;
+        if (interactionLockCount == 0) {
             getNavigation().stop();
             // Remove outright rather than just cancelling navigation each tick — cancelling
             // alone raced with these goals re-issuing a path/look target and lost, which is why
             // the NPC kept wandering/not facing the player despite the per-tick stop() call.
             if (wanderGoal != null) goalSelector.removeGoal(wanderGoal);
             if (lookAtPlayerGoal != null) goalSelector.removeGoal(lookAtPlayerGoal);
-        } else {
-            if (wanderGoal != null) goalSelector.addGoal(1, wanderGoal);
-            if (lookAtPlayerGoal != null) goalSelector.addGoal(2, lookAtPlayerGoal);
+        }
+        interactionLockCount++;
+    }
+
+    /** Releases one hold on the interaction lock. Wandering/look-around only resume once the
+     *  count drops back to zero (i.e. every session holding it has ended). */
+    public void releaseInteractionLock() {
+        if (interactionLockCount == 0) return;
+        interactionLockCount--;
+        if (interactionLockCount == 0) restoreWandering();
+    }
+
+    /** True if {@code player} currently holds this NPC's interaction lock — used by
+     *  {@link zcylas.totality.api.shop.TradeSessionManager} to confirm an entity-backed trade
+     *  session's ownership hasn't been superseded before committing a BUY/SELL. */
+    public boolean isInteractionLockOwnedBy(Player player) {
+        return interactionLockCount > 0 && interactionPartner == player;
+    }
+
+    private void restoreWandering() {
+        interactionPartner = null;
+        if (wanderGoal != null) goalSelector.addGoal(1, wanderGoal);
+        if (lookAtPlayerGoal != null) goalSelector.addGoal(2, lookAtPlayerGoal);
+    }
+
+    /** Forces the lock closed regardless of how many holds are outstanding, and tells whichever
+     *  session manager(s) currently hold a session against {@code interactionPartner} to end
+     *  cleanly (removes their session-map entry and pushes a closed state to the client) rather
+     *  than just silently freeing this NPC's own goals. Used when this NPC itself stops being a
+     *  valid interaction target — normal per-session end always goes through
+     *  {@link #releaseInteractionLock()} instead. */
+    private void endActiveSessions() {
+        if (interactionPartner == null) return;
+        Player partner = interactionPartner;
+        interactionLockCount = 0;
+        restoreWandering();
+        if (!level().isClientSide() && partner instanceof ServerPlayer sp) {
+            DialogueSessionManager.endDialogue(sp);
+            TradeSessionManager.endTrade(sp);
         }
     }
 
     @Override
     protected void customServerAiStep(net.minecraft.server.level.ServerLevel level) {
         super.customServerAiStep(level);
-        if (dialoguePartner == null) return;
-        // Safety net: if the dialogue-end hook is ever missed (e.g. the player disconnects
-        // mid-conversation), don't leave the NPC frozen/staring forever.
-        if (!dialoguePartner.isAlive() || dialoguePartner.distanceToSqr(this) > 64.0) {
-            setDialoguePartner(null);
+        if (interactionPartner == null) return;
+        // Safety net: if the session-end hook is ever missed (player disconnects mid-session,
+        // walks far enough away, changes dimension, etc.), don't leave the NPC frozen/staring
+        // forever. Also ends the Dialogue/Trade session itself (not just this NPC's own lock)
+        // so the player's client screen closes and no stale session lingers server-side.
+        boolean stillValid = interactionPartner.isAlive()
+                && interactionPartner.level() == this.level()
+                && interactionPartner.distanceToSqr(this) <= INTERACTION_RANGE_SQR;
+        if (!stillValid) {
+            endActiveSessions();
             return;
         }
         getNavigation().stop();
-        getLookControl().setLookAt(dialoguePartner.getX(), dialoguePartner.getEyeY(), dialoguePartner.getZ());
+        getLookControl().setLookAt(interactionPartner.getX(), interactionPartner.getEyeY(), interactionPartner.getZ());
     }
 
+    @Override
+    public void die(net.minecraft.world.damagesource.DamageSource source) {
+        endActiveSessions();
+        super.die(source);
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        endActiveSessions();
+        super.remove(reason);
+    }
+
+    /**
+     * Ordinary interaction always enters Dialogue first (audit ECON-13 / Post-Audit Decisions
+     * Section 5) — {@code shopId} is retained as authored data a dialogue's {@code open_shop}
+     * action can reference, but it must never open the Trading screen directly on right-click.
+     */
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (!level().isClientSide() && hand == InteractionHand.MAIN_HAND
                 && player instanceof ServerPlayer sp) {
-            if (shopId != null) {
-                zcylas.totality.api.shop.TradeSessionManager.startTrade(sp, shopId, this);
-                return InteractionResult.SUCCESS;
-            }
             if (dialogueId != null) {
                 DialogueSessionManager.startDialogue(sp, dialogueId, this);
                 return InteractionResult.SUCCESS;
