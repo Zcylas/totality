@@ -1,0 +1,359 @@
+TOTALITY — REST AND FATIGUE/REST NEED
+(New document, built from recovered design material after an earlier
+ review conversation crashed. RECOVERED content for Rest — verify
+ heavily against actual code, since Rest is already substantially
+ implemented. Fatigue/Rest Need is a confirmed DIRECTION with
+ unresolved formulas — treat as PARTIAL, not implementable as-is.)
+
+STATUS: Rest sections below are RECOVERED — VERIFY AGAINST CODE
+throughout (Claude/chat cannot audit the actual codebase — this
+verification must happen when Claude Code or whoever has repo access
+reconciles this document against real implementation). Fatigue/Rest
+Need is RECOVERED — PARTIAL: the intent and required conceptual
+separation survived, but formulas/thresholds/data model did not, and
+must not be invented here.
+
+Note on document placement: this is presented as its own standalone
+document rather than folded into a full RPG document, since Totality's
+RPG system substantially already exists in code and should be
+documented FROM that implementation (see the Recovery Supplement's own
+instruction: "Document RPG from implementation, not memory") rather
+than reconstructed from planning notes. Once a proper RPG document
+exists (built from code audit), this Rest/Fatigue content should
+likely be folded into it rather than staying permanently separate —
+noted as an open item.
+
+================================================================================
+1. REST — ENTRY POINTS
+================================================================================
+RECOVERED — VERIFY AGAINST CODE.
+
+  Two supported entry points: (1) equip and activate the Rest ability
+  from the ability system — can start a rest anywhere; (2) right-click
+  a bed to open Short Rest / Long Rest / Cancel.
+
+  Long Rest hooks vanilla sleep where appropriate. A player may
+  manually cancel a rest session.
+
+================================================================================
+2. REST DURATIONS AND ACTIVITIES
+================================================================================
+RECOVERED — ADOPTED. Rest uses Minecraft/in-world time.
+
+  Current Short Rest duration options: 30 minutes, 1 hour, 2 hours.
+
+  Current Short Rest activities: Nap, Meditating, Reading.
+
+  Animation direction: Nap uses a lying-down/bed-sleep animation where
+  possible; Meditating and Reading use the sitting animation for now;
+  more specialized animations are later polish.
+
+  The OLD suggestion of a 3-5 real-minute Short Rest is SUPERSEDED and
+  considered too long.
+
+  A useful but NOT fully adopted proposal from later design: 30-minute
+  "Brief Rest," 1-hour normal-qualifying "Short Rest," 2-hour "Extended
+  Short Rest." Do NOT lock these labels or class-recovery rules
+  without checking current code and Stefan's latest decision.
+
+  TBD: exact real-time conversion in every context; which duration
+  qualifies for each class feature; whether all activities are
+  available everywhere; exact activity-specific bonuses.
+
+================================================================================
+3. SESSION CONTINUATION
+================================================================================
+RECOVERED — ADOPTED.
+
+  When a player wakes or is interrupted and resumes sleeping within
+  ONE MINECRAFT HOUR, the same rest session can continue and preserve
+  eligible progress/benefits — avoids resetting an eight-hour rest
+  because of a brief interruption. A deliberate manual cancellation
+  ends the session.
+
+  Dream-specific behavior is SEPARATE from core Rest: a future Dream
+  can use a Wisdom check to wake; successfully waking from a Dream and
+  going back to sleep LOSES that Dream encounter rather than resuming
+  it; Dream is not part of the core Rest API and should hook into
+  actual sleep sessions later (Dream isn't designed in this document —
+  Stefan mentioned separately having designed most of a Dream/Fatigue/
+  Sanity system in another conversation not yet integrated anywhere;
+  do not fabricate Dream mechanics here).
+
+================================================================================
+4. SHORT REST LIMIT
+================================================================================
+RECOVERED — ADOPTED. A player can complete at most TWO Short Rests per
+valid Long Rest (BG3-style limit already used in Totality). A rest
+that does not qualify as a real restorative Long Rest must NOT reset
+this counter.
+
+IMPLEMENTED 2026-07-13 (see TOTALITY_POST_AUDIT_DESIGN_DECISIONS.md
+Section 4): the persistence requirement resolved there is now in code.
+`shortRestsUsedSinceLongRest` is stored in `RestStateComponent`
+(`api/rpg/rest/`), a real persisted component through Totality's
+existing player-component framework, replacing the old in-memory-only
+counter. Verified by playtest to survive logout/reconnect, server
+restarts, death/respawn, and dimension changes, and to reset only on a
+valid completed Long Rest.
+
+================================================================================
+5. RECOVERY OWNERSHIP
+================================================================================
+RECOVERED — ADOPTED. Core structure (VERIFY AGAINST CODE — this likely
+already exists):
+
+  api/rpg/rest/
+      RestType.java       (SHORT, LONG)
+      RestManager.java    (validates, starts, tracks, resolves a rest)
+      RestEvents.java     (publishes rest completion)
+
+  Classes, subclasses, equipment, and other systems LISTEN to events —
+  RestManager must NOT hardcode every class's recovery individually.
+
+  Recovered recovery table:
+
+  | Resource            | Short Rest                              | Long Rest |
+  |---------------------|------------------------------------------|-----------|
+  | HP                   | Spend Hit Dice: class die + CON modifier | Full      |
+  | Stamina              | No general restoration                   | Full      |
+  | Warlock Pact Magic   | Full                                      | Full      |
+  | Monk Ki              | Full after qualifying meditation          | Full      |
+  | Wizard slots         | Arcane Recovery, once per Long Rest period, up to half class level | Full |
+  | Barbarian Rage       | +1 charge                                 | All       |
+  | Hit Dice pool        | No general restoration                    | All restored (2024 rule) |
+  | Spell slots          | Warlock only                              | All casters |
+  | Class abilities      | Authored per feature                      | All eligible Long Rest features |
+  | Magic-item charges   | Authored per item                         | All eligible Long Rest items |
+
+  The spell-slot consumption and rest hooks MAY already be
+  implemented — document current code rather than replacing it.
+
+================================================================================
+6. MULTIPLAYER LONG REST
+================================================================================
+RECOVERED — ADOPTED.
+
+  - Normal vanilla sleep vote/majority can skip world time.
+  - A player who needs a Long Rest when the server does NOT skip time
+    can occupy/use the bed for the required duration while the world
+    continues for everyone else.
+  - Personal Rest completion must NOT force a global time skip.
+  - Short Rest never skips world time — the player waits through it.
+
+================================================================================
+7. COMFORT
+================================================================================
+RECOVERED — ADOPTED CONCEPT, VALUES TBD.
+
+  A real bed or sufficiently comfortable location grants a positive
+  "well-rested" style benefit. Comfort should make a proper resting
+  location genuinely better than resting on the ground.
+
+  TBD: exact comfort score; bonus type and duration; whether
+  relationship/spouse comfort bonuses exist; interaction with food,
+  shelter, temperature, and safety.
+
+  Comfort is a QUALITY MODIFIER, not a mandatory supply gate — you can
+  always rest, comfort just makes it better.
+
+================================================================================
+8. ANCESTRY AND CONDITION OVERRIDES
+================================================================================
+RECOVERED — ADOPTED. Rest needs an override/profile hook for ancestry,
+species, curse, or condition rules.
+
+  ELF-STYLE TRANCE: 4-hour full Long Rest; semiconscious rather than
+    unconscious; better detection during rest; dream-like mental
+    activity means Nightmare (Section 9) may still be eligible.
+
+  CONSTRUCT-STYLE STANDBY: ~6 hours inactive/motionless; NOT ordinary
+    sleep; NO Dream or Nightmare; still eligible for Ambush, Theft,
+    Perception, and Visitor events (Section 9).
+
+  DEFERRED (do not speculate): vampire/coffin rules; werewolf
+  transformations/hunting; other curse-specific rest behavior.
+
+================================================================================
+9. OUTDOOR REST EVENTS
+================================================================================
+RECOVERED — ADOPTED FRAMEWORK. Outdoor or unsafe rest has a risk
+table. Proper indoor shelter reduces or removes risk (reads from
+`ShelterEnvironmentContext`, same shared view Survival uses — see the
+Food Ecosystem document's Environment API).
+
+  Event families: Ambush, Theft, Nightmare, Perception Check, Visitor.
+
+--------------------------------------------------------------------------------
+9a. Ambush
+--------------------------------------------------------------------------------
+  Encounter tables keyed by location/environment and narrative flags.
+  Examples: a cemetery can produce undead or grave robbers; a hostile
+  political flag can produce assassins. Sapient ambushers can open
+  Dialogue (comply / Persuasion / fight / Stealth escape); non-sapient
+  enemies attack directly.
+
+--------------------------------------------------------------------------------
+9b. Nightmare
+--------------------------------------------------------------------------------
+  Long-Rest/sleep exclusive. NOT available to constructs. Exact
+  debuffs, sanity effects, and plot use remain TBD (ties into the
+  not-yet-integrated Dream/Sanity system Stefan mentioned designing
+  elsewhere — do not fabricate details here).
+
+--------------------------------------------------------------------------------
+9c. Visitor
+--------------------------------------------------------------------------------
+  Friendly or neutral event — may offer dialogue, a small quest,
+  trade, or lore. Exact content authored per event.
+
+--------------------------------------------------------------------------------
+9d. Perception
+--------------------------------------------------------------------------------
+  Use Passive Perception first.
+
+  Awareness decreases in this order: awake Short Rest -> napping Short
+  Rest -> Long Rest sleep.
+
+  Recovered fallback: Long Rest — after failing Passive Perception, an
+  active Perception roll can occur WITH DISADVANTAGE. Awake Short
+  Rest — normal roll. Napping Short Rest — recovered notes proposed
+  ADVANTAGE relative to deeper sleep; VERIFY the exact advantage rule
+  before implementation, since the ordering and dice wording need to
+  stay internally consistent (this specific detail wasn't fully
+  confirmed in recovery).
+
+--------------------------------------------------------------------------------
+9e. Theft
+--------------------------------------------------------------------------------
+  Uses the same detection layers as above. Natural 1 on the fallback
+  roll is a harsher failure tier. Thief target priority starts with
+  money/Credits. The rest of the item-priority list and protection
+  rules were NOT fully recovered.
+
+================================================================================
+10. FATIGUE / REST NEED — ANTI-LONG-REST-SPAM LAYER
+================================================================================
+RECOVERED — PARTIAL. This is a CONFIRMED DIRECTION with UNRESOLVED
+FORMULAS — do not treat anything numeric in this section as final.
+
+--------------------------------------------------------------------------------
+10a. Recovered intent
+--------------------------------------------------------------------------------
+  The intended replacement for a simple BG3-style supplies gate or
+  unlimited Long Rest spam is a persistent Fatigue / Rest Need system.
+
+  Confirmed goals: Long Rest should NOT be an unlimited spell-slot-and-
+  cooldown reset button; fatigue depends on WHAT the player does, not
+  only a fixed clock; combat, mining, sprinting, demanding abilities,
+  harsh environments, and injuries build need FASTER; walking, eating,
+  reading, light crafting, and quiet safe activity build it SLOWLY; a
+  player living quietly may plausibly remain awake for roughly THREE
+  DAYS; rest supplies can influence rest QUALITY but should not be a
+  hard requirement to sleep at all; Stamina and long-term tiredness
+  are DIFFERENT systems (do not conflate them).
+
+--------------------------------------------------------------------------------
+10b. Required conceptual separation
+--------------------------------------------------------------------------------
+  STAMINA: immediate physical exertion resource, spent/regenerated
+    over seconds/minutes, used for sprinting/attacks/movement powers.
+
+  REST NEED: long-term need for meaningful sleep, builds across long
+    play periods, governs whether a Long Rest is genuinely restorative.
+
+  FATIGUE: player-facing condition/tier DERIVED from accumulated Rest
+    Need and circumstances — can cause penalties when the player keeps
+    pushing through it.
+
+  SLEEP DEBT: a POSSIBLE persistent remainder after insufficient or
+    interrupted sleep. Whether a separate stored Sleep Debt value is
+    actually needed was NOT decided.
+
+  Do NOT automatically implement four separate bars/components — the
+  naming and storage model remain unresolved (see 10c for a leaner
+  starting proposal).
+
+--------------------------------------------------------------------------------
+10c. Recommended minimal V1 (RECONSTRUCTION — PROPOSED, needs sign-off)
+--------------------------------------------------------------------------------
+  Use ONE persistent authoritative `restNeed` value and DERIVE fatigue
+  tiers from it. Add a separate Sleep Debt field ONLY if playtesting
+  proves one value can't represent partial recovery.
+
+  Suggested rules: Rest Need rises slowly with awake time; activity
+  emits weighted exertion events; environment/injury/disease/effects
+  add modifiers; Short Rest can reduce immediate exertion penalties
+  but cannot erase the core need for sleep; Nap can reduce some
+  immediate fatigue but does not replace a Long Rest; a full
+  restorative Long Rest CONSUMES accumulated Rest Need and triggers
+  Long Rest recovery events; attempting another Long Rest immediately
+  can still allow waiting/roleplay/comfort, but must NOT repeatedly
+  fire full recovery; food quality, comfort, safety, and shelter
+  modify the RESULT/bonus rather than deciding whether sleep is
+  possible at all; the "quiet life" baseline should target
+  approximately three in-game days before strong sleep pressure, while
+  heavy adventuring reaches it sooner.
+
+  Possible validation result shape:
+
+    public record RestEligibilityResult(
+            boolean canBegin, boolean grantsFullRecovery,
+            Set<Identifier> reasons, float expectedRecoveryQuality
+    ) {}
+
+  This architecture is PROPOSED GLUE, not a recovered final contract.
+
+--------------------------------------------------------------------------------
+10d. Exact unresolved decisions (do NOT choose values, list as TBD)
+--------------------------------------------------------------------------------
+  Value range; baseline awake-time rate; activity weights; thresholds
+  and fatigue-tier penalties; whether early sleep produces a partial
+  recovery event; whether severe fatigue can force sleep; how much a
+  Short Rest reduces fatigue; Sleep Debt representation; how magical
+  sleep interacts with Rest Need; how constructs interact with fatigue
+  versus sleep; exact relation to D&D Exhaustion (if any); HUD
+  presentation.
+
+================================================================================
+11. ACCEPTANCE CHECKS
+================================================================================
+  - Two Short Rests are allowed per valid Long Rest.
+  - An immediately repeated Long Rest cannot repeatedly restore all
+    spell slots once Rest Need is added.
+  - Interrupting and resuming within one Minecraft hour preserves the
+    same rest session.
+  - Manual cancel ends it.
+  - Multiplayer personal rest does not force a world time skip.
+  - Elf and construct profiles alter duration/awareness without
+    hardcoded ancestry checks scattered through RestManager.
+  - Nightmare never triggers for a construct.
+
+================================================================================
+12. OPEN ITEMS
+================================================================================
+  - ALL of Section 10 (Fatigue/Rest Need) — formulas, thresholds, data
+    model, Sleep Debt necessity, all genuinely undecided.
+  - Rest duration/activity TBDs (Section 2).
+  - Comfort exact values (Section 7).
+  - Napping Short Rest's exact advantage rule (Section 9d) — flagged
+    as needing verification even within the "recovered" material.
+  - Theft's full item-priority/protection list (Section 9e) — not
+    fully recovered.
+  - Whether this document eventually folds into a proper RPG document
+    once that's built from code audit, rather than staying separate
+    permanently.
+  - The Dream/Sanity system Stefan mentioned designing in another
+    conversation is NOT integrated here — Nightmare (9b) and Dream
+    session-interruption behavior (Section 3) reference it but do not
+    define it. Recover and integrate that material separately when
+    available, same discipline as everywhere else in this design
+    corpus — do not fabricate it.
+  - Reconciliation against actual Rest implementation (RestManager,
+    RestType, RestEvents, spell-slot hooks) once Claude Code or
+    whoever has repo access audits current code — this document is
+    NOT verified against real code by Claude (chat).
+
+================================================================================
+END OF DOCUMENT
+================================================================================

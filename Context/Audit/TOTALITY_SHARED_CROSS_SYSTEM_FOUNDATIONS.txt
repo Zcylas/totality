@@ -1,0 +1,487 @@
+TOTALITY — SHARED CROSS-SYSTEM FOUNDATIONS
+(Material/Substance/Form, Chemistry integration boundary, generic
+ Process Job lifecycle, Exposure/Hazard, container compatibility,
+ phase transitions, pollution hooks, machine condition hooks,
+ knowledge/unlock separation)
+
+STATUS: current working specification. This is the BRIDGE document
+between Food Ecosystem, Disease/Spell, RPG, Industrial, Chemistry,
+Construction, Smithing, and any future system — it exists specifically
+so those systems don't each reinvent the same handful of cross-cutting
+concepts independently. Sections here are deliberately CONCISE
+ownership boundaries and future extension points, NOT full
+implementations — the full designs for Chemistry, Industrial
+machinery, exposure/RPG resistance mechanics, etc. remain separate,
+future work. Do not read this document as a substitute for those.
+
+Material in this document is ADOPTED (as a boundary/contract) unless
+marked STUB, TBD, PLACEHOLDER, SUGGESTED, or PLANNED — same convention
+as every other Totality design document.
+
+Companion documents this bridges:
+  TOTALITY_FOOD_ECOSYSTEM_CURRENT.txt
+  TOTALITY_DISEASE_SPELL_INTERVENTION_DESIGN.txt
+  TOTALITY_CHEMISTRY_DESIGN.txt        (future — full Chemistry design)
+  TOTALITY_INDUSTRIAL_DESIGN.txt       (existing/future)
+  TOTALITY_RPG_DESIGN.txt              (existing/future)
+
+================================================================================
+1. MATERIAL, SUBSTANCE, AND FORM
+================================================================================
+Three distinct concepts, deliberately kept separate rather than
+collapsed into one "material" idea:
+
+  SUBSTANCE — chemical identity. Iron, Water, Sodium Chloride, Ethanol.
+    This is WHAT something fundamentally is at the chemistry level.
+
+  MATERIAL — an authored PRACTICAL material built from one or more
+    substances for gameplay purposes. Steel, Concrete, Leather, Glass,
+    Wood. A material is a game-design-facing concept; it may be
+    chemically simple (mostly one substance) or a genuine mixture
+    (Steel = Iron + Carbon + other alloying substances), but either
+    way it's authored as a coherent, usable THING, not derived
+    on-the-fly from raw chemistry every time it's referenced.
+
+  FORM — how a material/substance currently EXISTS in gameplay. Ingot,
+    Dust, Plate, Block, Liquid, Gas, Molten, Slurry, Crystal, Solution.
+    The SAME material can exist in multiple forms (Iron as Ingot, Dust,
+    Molten, or a Block), and the same FORM concept is shared across
+    domains (Fluid Material's FluidPhase, Section 9 of the Food
+    Ecosystem doc, IS a form-level concept — Liquid/Gas/Molten/Slurry
+    map directly onto this shared vocabulary rather than being a
+    Food-specific invention).
+
+  public record MaterialDefinition(
+          Identifier id, Identifier substanceId,   -- primary
+                                                        chemical
+                                                        identity, if
+                                                        singular/
+                                                        simple
+          Map<Identifier, Float> substanceComposition,  -- for
+                                                             genuine
+                                                             mixtures/
+                                                             alloys
+          Set<Identifier> availableForms
+  ) {}
+
+  Items, blocks, fluids, and other in-game objects map to
+  material/substance/form through STATIC REGISTRIES — an Iron Ingot
+  item is registered as (material=totality:iron, form=INGOT); Molten
+  Iron fluid content is registered as (material=totality:iron,
+  form=MOLTEN). This mapping is DATA, resolved once at registration,
+  not computed per-instance.
+
+  RULE: ordinary game objects do NOT carry a dynamic composition
+  component. An Iron Ingot doesn't need per-stack chemistry data — its
+  composition is exactly whatever `totality:iron`'s
+  MaterialDefinition says, looked up generically. DYNAMIC per-stack
+  composition (Section 3 below) is reserved specifically for
+  laboratory-created samples, mixtures, impure/unknown substances, and
+  similar cases where the actual composition genuinely varies
+  instance-to-instance — see Section 3 for exactly where that line
+  sits.
+
+  This foundation is explicitly SHARED by: Chemistry, Fluid Material
+  (Food Ecosystem doc Section 9), Smithing, Construction, Processing
+  (Food Ecosystem doc Section 7), Industrial manufacturing, Equipment,
+  Economy, and Codex. None of those systems should invent their own
+  competing material/substance/form vocabulary.
+
+================================================================================
+2. CHEMISTRY INTEGRATION BOUNDARY
+================================================================================
+Chemistry itself is NOT designed in this document (that's
+TOTALITY_CHEMISTRY_DESIGN.txt, future work) — only its ownership
+boundary against everything else is established here, so other
+systems know what to expect from it without needing its full design
+yet.
+
+--------------------------------------------------------------------------------
+2a. Ownership split
+--------------------------------------------------------------------------------
+  CHEMISTRY owns: substances, composition, analysis, reactions,
+    concentration, catalysts, and chemical research.
+  PROCESSING owns: generic transactional transformation EXECUTION
+    (the actual "consume inputs, produce outputs, over time, with a
+    station capability" engine — Food Ecosystem doc Section 7).
+    Chemistry reactions likely RUN THROUGH Processing's execution
+    engine rather than reimplementing their own.
+  FLUID MATERIAL owns: storage and movement of Liquid/Gas/Molten/
+    Slurry forms (Food Ecosystem doc Section 9). A chemical solution
+    IS a fluid, storage-wise — Chemistry doesn't reinvent tanks/pipes.
+  MACHINE/ENERGY owns: containment, throughput, efficiency, pressure,
+    temperature control, and supplied power for whatever apparatus a
+    reaction happens in.
+  PRODUCT SAFETY owns: hazards (Food Ecosystem doc Section 6b/6b-2's
+    SafetyProfile/hazards model) — a dangerous chemical result is
+    expressed through the SAME hazard system everything else uses, not
+    a Chemistry-specific danger flag.
+  EXPOSURE (Section 4 below) owns: how a hazard actually REACHES a
+    creature (route, dose, duration) — Chemistry produces hazardous
+    substances, Exposure resolves what happens when something is
+    actually exposed to them.
+  ENVIRONMENT receives: spills, emissions, and pollution as inputs to
+    its existing EnvironmentContext (Food Ecosystem doc Section 5) —
+    Chemistry doesn't maintain a parallel environmental-state system.
+  CODEX records: chemical discoveries, through the same typed
+    DiscoveryEvent/DiscoveryFact pattern (Food Ecosystem doc Section
+    4c) every other domain already uses.
+
+--------------------------------------------------------------------------------
+2b. Chemistry vs. Alchemy — kept SEPARATE, not merged
+--------------------------------------------------------------------------------
+  CHEMISTRY is repeatable/measurable — same inputs, same conditions,
+    same result, every time, governed by consistent in-world rules.
+  ALCHEMY uses magical reagent properties and supernatural rules —
+    results can depend on things Chemistry doesn't (reagent "quality"
+    in a magical sense, caster skill/attunement, lunar/dimensional
+    conditions, etc.) and aren't necessarily reproducible the same way.
+
+  These stay TWO SEPARATE APIs. Do not merge them, even though they
+  might share some underlying infrastructure (both could reasonably
+  use the Fluid Material API for liquid reagents, for instance).
+  EXPLICITLY LEAVE ROOM for a future "Arcane Chemistry" hybrid concept
+  WITHOUT requiring Chemistry and Alchemy themselves to merge — Arcane
+  Chemistry, if it ever exists, would be its own bridge/hybrid system
+  reading from both, not a fusion of the two base APIs.
+
+--------------------------------------------------------------------------------
+2c. Decomposition is not automatically reversible
+--------------------------------------------------------------------------------
+  RULE: Chemistry's decomposition/breakdown mechanics must NOT imply
+  perfect reversibility (breaking something down and reassembling it
+  doesn't guarantee getting the exact original back) or automatic
+  synthesis of ARBITRARY items from raw components (Chemistry isn't a
+  universal matter-replicator — what can be synthesized is whatever's
+  been explicitly authored as a valid reaction/recipe, not "anything
+  the player can imagine from the right raw substances").
+
+================================================================================
+3. STATIC AND DYNAMIC CHEMICAL COMPOSITION
+================================================================================
+Directly extends Section 1's material/substance/form split into the
+specific static-vs-dynamic data question.
+
+  STATIC — `MaterialCompositionDefinition`, for ORDINARY items/
+    materials (Section 1's MaterialDefinition.substanceComposition IS
+    this — every Iron Ingot has IDENTICAL composition, looked up from
+    one shared definition, never stored per-stack).
+
+  DYNAMIC — `ChemicalSampleComponent`, ONLY for:
+    - mixtures (a player-combined blend of several substances)
+    - custom solutions (a specific concentration a player mixed,
+      distinct from an "official" pre-defined solution)
+    - impure samples (something that started pure but picked up
+      contamination — ties into the Contaminants axis already
+      established for fluids, Food Ecosystem doc Section 9a's
+      composition-vs-contaminants split)
+    - unknown substances (something the player hasn't identified yet
+      — ties into Codex discovery, Section 8 below)
+    - experimental products (a novel combination without an
+      established MaterialDefinition yet)
+
+  public record ChemicalSampleComponent(
+          Map<Identifier, Float> composition,   -- same normalized-
+                                                    fraction
+                                                    convention as
+                                                    Fluid Material's
+                                                    composition/
+                                                    contaminants axes
+          SafetyProfile safety, Optional<Identifier> knownIdentityId
+                                    -- populated once/if the sample
+                                       has been identified as a known
+                                       substance; absent while unknown
+  ) {}
+
+  RULE: dynamic composition must be QUANTIZED sufficiently to preserve
+  practical stacking — same principle already established for fluid
+  contaminants (Food Ecosystem doc Section 9b-2's quantization fix):
+  two samples with near-identical but not bit-for-bit-equal
+  composition should still be able to stack, via the same
+  StackMergePolicyRegistry/StackMergeService mechanism (Food Ecosystem
+  doc Section 6d) rather than a Chemistry-specific reinvention of that
+  problem.
+
+================================================================================
+4. GENERIC PROCESS JOB LIFECYCLE
+================================================================================
+Multiple systems (Processing, Cooking, Chemistry, Industrial machines)
+each need a "thing is being worked on over time, with inputs
+committed, that can be cancelled/interrupted/automated" lifecycle. This
+should be ONE shared infrastructure, not four separate reinventions.
+
+  public record ProcessJobComponent(
+          UUID jobId, Identifier jobType,   -- e.g. totality:cooking,
+                                                totality:chemistry_reaction,
+                                                totality:smithing,
+                                                totality:industrial_craft
+          UUID ownerId, List<ReservedInput> reservedInputs,
+          int currentStage, List<StageResult> completedStages,
+          JobLifecycle lifecycle, long readyAtTick,
+          Optional<Identifier> automationSourceId
+                             -- present if an automated system (not a
+                                player) initiated this job; absent for
+                                player-initiated jobs. Ties into the
+                                existing "automation generally doesn't
+                                grant XP/discoveries" default
+                                (Food Ecosystem doc Section 0)
+  ) {}
+
+  public enum JobLifecycle { ACTIVE, PROCESSING, WAITING, READY,
+      COMPLETED, CANCELLED }
+
+  This is deliberately the SAME SHAPE as Cooking's `CookingBatchComponent
+  `/`BatchLifecycle` (Food Ecosystem doc Section 17k) — that Cooking-
+  specific type should be understood as one CONCRETE APPLICATION of
+  this generic Process Job pattern, not a coincidentally-similar
+  parallel invention. Processing, Chemistry, and Industrial machines
+  should all build on this SAME shared lifecycle infrastructure:
+
+  Shared behaviors every domain reuses rather than reimplementing:
+    - input RESERVATION at job start (transactional, per the Food doc's
+      global conventions)
+    - STAGE progression tracking
+    - PERSISTENCE (the job survives as data independent of any
+      specific station/machine, same "batch is source of truth"
+      principle as Cooking's, Food Ecosystem doc Section 17d/17a-2)
+    - CANCELLATION with a defined input-return policy
+    - MACHINE DESTRUCTION handling (breaking the station/machine
+      running a job must not corrupt or duplicate the job's data —
+      same requirement as Cooking's Section 17l)
+    - OWNERSHIP (owner-locked by default, same proposed-not-permanent
+      default as Cooking's, Food Ecosystem doc Section 17l)
+    - AUTOMATION SOURCE tracking (Section above)
+    - FAILURE handling
+    - TRANSACTIONAL output creation (never partial)
+
+  Each domain (Cooking, Chemistry, Industrial) still owns its OWN
+  stage definitions, roll/check mechanics (if any), and domain-
+  specific completion rules — this shared lifecycle is purely the
+  bookkeeping scaffold underneath, not a constraint on what happens
+  inside each stage.
+
+================================================================================
+5. EXPOSURE AND HAZARD BOUNDARY
+================================================================================
+--------------------------------------------------------------------------------
+5a. Ownership split
+--------------------------------------------------------------------------------
+  SAFETY (Food Ecosystem doc Section 6b) identifies WHAT hazards exist
+    on a material/substance/sample — `SafetyProfile(hazards)`, derived
+    `SafetyLevel`. This is already fully designed; Exposure builds on
+    top of it, doesn't replace it.
+
+  EXPOSURE (new, this document) resolves HOW a hazard actually reaches
+    a target — route, dose, duration.
+
+  public record ExposureEvent(
+          UUID targetId, Identifier hazardId, Identifier route,
+          float dose, int durationTicks
+  ) {}
+
+  Routes (identifiers, extensible): totality:ingestion,
+  totality:inhalation, totality:skin_contact, totality:injection,
+  totality:radiation, totality:magical_exposure — and further routes
+  can be added later without an API change, same extensible-identifier
+  pattern used everywhere else in Totality's design.
+
+--------------------------------------------------------------------------------
+5b. RPG systems own the CONSEQUENCE, not Exposure itself
+--------------------------------------------------------------------------------
+  Exposure only determines THAT a target was exposed, via what route,
+  at what dose, for how long. What actually HAPPENS as a result —
+  resistances, immunities, species traits, protective equipment,
+  saving throws, status effect consequences — is owned by the RPG
+  systems (attributes, saving throws, equipment, species traits),
+  reading the ExposureEvent as their INPUT. Exposure doesn't itself
+  decide "and now you take damage" — it hands off a fully-described
+  exposure to whatever system resolves consequences.
+
+--------------------------------------------------------------------------------
+5c. Disease owns what happens AFTER pathogen exposure specifically
+--------------------------------------------------------------------------------
+  Once an ExposureEvent with a pathogen-type hazard resolves (per 5b's
+  RPG-owned consequence check — e.g. a failed saving throw), DISEASE
+  (TOTALITY_DISEASE_SPELL_INTERVENTION_DESIGN.txt) takes over for
+  everything about infection and progression from that point forward.
+  Exposure's job ends at "you were exposed and the RPG check
+  determined this took hold" — Disease owns the ENTIRE lifecycle after
+  that (stages, progression, treatment interactions, per that
+  document's existing DiseaseDefinition/RestorationInteraction-now-
+  InterventionResponseDefinition contracts).
+
+================================================================================
+6. CONTAINER AND TRANSFER COMPATIBILITY
+================================================================================
+Generalizes Fluid Material's `FluidPortDefinition` (Food Ecosystem doc
+Section 9g) to cover more than just the phase/trait/temperature/
+pressure fields already defined there — containers, tanks, pipes, and
+machine ports may ADDITIONALLY declare:
+
+  public record ContainerCompatibilityProfile(
+          Set<FluidPhase> acceptedPhases,   -- reuses Food Ecosystem
+                                                doc Section 9a's
+                                                FluidPhase enum
+          float capacity, float maxPressure, float maxTemperature,
+          float corrosionResistance,
+          Set<Identifier> reactivityCompatibility,
+                                    -- which substances/materials this
+                                       container is safe to hold
+                                       without a reaction occurring
+          boolean handlesSlurry, boolean sterile,
+          boolean magicalContainment, boolean radiationShielding
+  ) {}
+
+  This EXTENDS (doesn't replace) `FluidPortDefinition` — think of
+  `ContainerCompatibilityProfile` as the fuller-featured version for
+  contexts (Chemistry apparatus, Industrial machinery) that need more
+  than Fluid Material's base port fields, while ordinary Fluid
+  Material pipes/pumps can keep using the simpler existing type.
+
+  EXPLICITLY OUT OF SCOPE for this document: the full LOGISTICS system
+  (automated item/fluid routing, sorting, network-wide throughput
+  planning) is NOT designed here — this section only establishes what
+  a container/port CAN declare about its own compatibility, not how a
+  broader logistics network moves things between them.
+
+================================================================================
+7. PHASE TRANSITIONS
+================================================================================
+Data-driven, shared definition for state changes: melting, freezing,
+boiling, condensation, sublimation, crystallization, dissolving,
+precipitation, casting, and solidification.
+
+  public record PhaseTransitionDefinition(
+          Identifier id, Identifier fromMaterialId, Identifier toMaterialId,
+          Identifier transitionType,   -- totality:melting,
+                                           totality:freezing,
+                                           totality:boiling,
+                                           totality:condensation,
+                                           totality:sublimation,
+                                           totality:crystallization,
+                                           totality:dissolving,
+                                           totality:precipitation,
+                                           totality:casting,
+                                           totality:solidification
+          float triggerTemperature, Optional<Float> triggerPressure,
+          Optional<Identifier> requiredCapability
+  ) {}
+
+  OWNERSHIP: MaterialDefinition/FluidMaterialDefinition (Section 1 /
+  Food Ecosystem doc Section 9a) DESCRIBE which states a material CAN
+  validly be in and roughly under what conditions — they don't
+  themselves EXECUTE a transition. PROCESSING (Food Ecosystem doc
+  Section 7) or a specific MACHINE executes the actual transition when
+  triggered (e.g. a Boiler executing a boiling PhaseTransitionDefinition
+  for Water->Steam — this is the SAME transition already described
+  narratively in Food Ecosystem doc Section 9c, now given a real data
+  shape here rather than being Gas-module-specific prose).
+
+================================================================================
+8. POLLUTION, WASTE, AND EMISSIONS
+================================================================================
+  Standardized hooks — NOT a full Pollution system design (that's
+  future work, "a future Pollution service") — for: spills, waste
+  fluids, smoke, toxic gases, water contamination, soil contamination,
+  radiation, and magical corruption.
+
+  public record PollutionEmissionEvent(
+          Identifier sourceId, Identifier pollutionType,
+          BlockPos origin, float intensity
+  ) {}
+
+  A FUTURE Pollution service owns REGIONAL APPLICATION and cleanup —
+  not designed here, just flagged as the eventual owner of what happens
+  after an emission event fires. ENVIRONMENT (Food Ecosystem doc
+  Section 5) exposes the RESULTING state (e.g. `EnvironmentContext.
+  tags` picking up `totality:polluted`, already anticipated as an
+  example tag in that document) — Pollution writes into Environment's
+  existing model rather than maintaining a parallel environmental-
+  state system.
+
+  PREFERENCE (not yet mandatory since the full system isn't designed):
+  prefer CHUNK/REGION-level simulation over per-block simulation for
+  pollution spread, same performance-conscious philosophy already
+  established for Gas's world-simulation approach (Food Ecosystem doc
+  Section 9c — avoid a full per-block simulation unless genuinely
+  needed).
+
+================================================================================
+9. MACHINE CONDITION HOOKS
+================================================================================
+  FUTURE machine condition may eventually include: integrity, wear,
+  corrosion, fouling, clogging, lubrication, calibration, overheating,
+  and overpressure. NONE of this is designed here — full design
+  explicitly WAITS for the Industrial document review (per Stefan's
+  stated plan to show the RPG and Industrial specs next).
+
+  The ONE thing locked in now, since it affects how OTHER systems
+  should already emit events: FLUID MATERIAL and CHEMISTRY EMIT
+  machine-impact events (e.g. "this contaminated Diesel just ran
+  through you, here's the residue/wear implication") — they do NOT
+  directly own or mutate machine durability themselves. Whatever the
+  eventual Machine Condition system looks like, it listens for these
+  events the same way Codex listens for DiscoveryEvents (Food
+  Ecosystem doc Section 4c) — emit now, consume later, rather than
+  Fluid Material/Chemistry needing to wait for Machine Condition to
+  exist before they can describe their own effects.
+
+================================================================================
+10. KNOWLEDGE AND UNLOCK SEPARATION
+================================================================================
+  CODEX (Food Ecosystem doc Section 4) stores DISCOVERED INFORMATION —
+  what the player has observed/learned ABOUT something. This is
+  already fully designed and unchanged by this document.
+
+  KNOWLEDGE/UNLOCK (this section, generalizing a pattern already used
+  for Cooking's RecipeKnowledgeComponent, Food Ecosystem doc Section
+  17a-2, and Disease/Spell's SpellUnlockDefinition/UnlockRequirement)
+  stores PERMISSIONS — whether the player can actually USE/CRAFT/
+  PERFORM something: recipes, chemical reactions, schematics,
+  techniques, research results.
+
+  RULE (important, prevents a common design trap): CODEX IS NOT THE
+  UNIVERSAL PERMISSION GATE. Knowing ABOUT something (Codex) and being
+  ALLOWED to make/use it (Knowledge/Unlock) are different questions
+  with different answers — a player can be fully aware a recipe/
+  reaction/schematic exists (high Codex discovery level) while still
+  being completely unable to perform it (no Knowledge/Unlock grant),
+  and vice versa in unusual cases (a hidden technique the player can
+  already perform via some other unlock path without ever having
+  formally "discovered" it in the Codex sense).
+
+  Quests, NPCs, books, experimentation, and research may all GRANT
+  knowledge/unlock — same multi-path philosophy as Disease/Spell's
+  `UnlockRequirement` AllOf/AnyOf/Condition expression tree (see that
+  document's corrections) — reused here as the general-purpose
+  mechanism for ANY domain's unlock requirements (Chemistry reactions,
+  Smithing schematics, Cooking recipes, Spell acquisition, species
+  unlocks, dimensional gates, artifact attunement all share this ONE
+  requirement-expression type rather than each domain inventing its
+  own).
+
+================================================================================
+11. OPEN ITEMS
+================================================================================
+  - Full Chemistry API design — deferred to TOTALITY_CHEMISTRY_DESIGN
+    .txt, not started.
+  - Full Industrial/Machine Condition design — deferred, waiting on
+    review of existing Industrial document per Stefan's stated plan.
+  - Full RPG-side Exposure consequence mechanics (resistances,
+    saving throws, species traits as they apply to Exposure
+    specifically) — deferred to RPG document review.
+  - Full Pollution service (regional application, cleanup mechanics) —
+    only the emission-hook contract exists here, not the service
+    itself.
+  - Exact PhaseTransitionDefinition trigger semantics (e.g. does
+    crossing triggerTemperature transition INSTANTLY, or does it need
+    sustained exposure like the Fluid Material accumulated-age
+    pattern) — not yet decided.
+  - Whether ProcessJobComponent fully REPLACES Cooking's
+    CookingBatchComponent (a real refactor) or the two simply stay
+    structurally parallel without literal code sharing — an
+    implementation-time decision, not resolved here.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

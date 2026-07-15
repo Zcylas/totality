@@ -1,0 +1,286 @@
+TOTALITY — SMARTPHONE PLATFORM
+(New document, built from recovered design material after an earlier
+ review conversation crashed. RECOVERED content — verify flagged parts
+ against actual code before treating as final.)
+
+STATUS: mostly RECOVERED — ADOPTED. Claude (chat) cannot audit the
+actual codebase — anything implying existing implementation should be
+checked against real code by whoever has repo access before being
+treated as ground truth.
+
+================================================================================
+1. ONE PHONE ITEM, INITIALIZED STATE
+================================================================================
+RECOVERED — ADOPTED, REWORDED (post-audit — see TOTALITY_POST_AUDIT_
+DESIGN_DECISIONS.md Section 6): the original wording ("use ONE Basic
+Phone item") risked implying "Basic" is the only model that will ever
+exist, which contradicts Section 3's later confirmation that future
+Phone MODELS beyond Basic are planned. Corrected:
+
+  There must NOT be separate inactive and active versions of the same
+  Phone. The player owns a STATEFUL PHONE INSTANCE whose setup state
+  changes IN PLACE. The starter model is the Basic Phone, but future
+  Phone models may exist. Model and hardware tier are SEPARATE state
+  axes (Section 3).
+
+  CLARIFICATION (second small correction): this rule means SETUP AND
+  UPGRADES MODIFY THE SAME PHONE INSTANCE IN PLACE — it does NOT
+  impose a global one-Phone-per-player OWNERSHIP LIMIT. The important
+  rule is NO inactive-to-active ITEM REPLACEMENT (setup never swaps
+  the item for a different one), not necessarily that a player can
+  physically possess only one Phone ever (a spare, a replacement, or
+  multiple owned Phones may be perfectly fine — that's a separate
+  question from whether setup/upgrade mutates state in place).
+
+  Example conceptual state: model, setupComplete, hardware tier,
+  unlocked apps or unlock references, favorites/layout preferences,
+  optional owner/binding data if later needed.
+
+  The starter quest grants this ONE item (as the Basic model). The
+  boot/setup process CHANGES its state — it does not replace it with a
+  different item.
+
+================================================================================
+2. EQUIPMENT AND MENU GATING
+================================================================================
+RECOVERED — ADOPTED.
+
+  - The Phone uses a DEDICATED equipment slot — should not consume
+    ordinary inventory space.
+  - The Phone is REQUIRED to open the main character/menu shell
+    through TAB.
+  - Losing/unequipping it prevents opening Phone-dependent interfaces
+    (subject to whatever current implementation safeguards exist).
+  - Backend player data stays on the PLAYER — the Phone is the ACCESS
+    DEVICE, not the sole storage location for character data (losing
+    the phone should never mean losing character data, just losing
+    the ability to view/interact with it through this device).
+
+  OPEN ITEM (audit PHONE-03, listed in Post-Audit Decisions Section 9a
+  Phase 1): the audit found the Shift+C `CharacterScreen` shortcut
+  currently does NOT require an equipped phone, unlike the TAB path —
+  an inconsistent gate if the Phone is meant to be mandatory for ALL
+  normal access paths. Whether to close this gap (require the phone
+  for Shift+C too) or leave it as an intentional alternate access path
+  is not yet decided.
+
+================================================================================
+3. PHONE MODEL AND HARDWARE TIER (TWO SEPARATE AXES)
+================================================================================
+POST-AUDIT DECISION (locked — supersedes the earlier framing below,
+which anticipated but hadn't yet confirmed this exact conflict. See
+TOTALITY_POST_AUDIT_DESIGN_DECISIONS.md Section 6 for the canonical
+record.)
+
+AUDIT CONFIRMED (TOTALITY_IMPLEMENTATION_AUDIT_REPORT.md, PHONE-04):
+the shipped item is literally named "Basic Copper Phone," with tier as
+a compile-time-fixed field — exactly the mistake this document had
+already warned against by name, now confirmed as a real, current
+conflict rather than a hypothetical risk.
+
+DECISION: Phone MODEL and HARDWARE TIER/FRAME are SEPARATE CONCEPTS.
+
+  Example of the corrected model:
+    Model: Basic Phone
+    Hardware tier: Copper
+    Setup state: Complete
+
+  Hardware tier progression (unchanged): Copper -> Iron -> Gold ->
+  Diamond -> Netherite.
+
+  NEW AXIS (not previously scoped): there will EVENTUALLY be phone
+  MODELS beyond Basic. A high-end model may be something like a
+  "Dimensional Phone," though exact model names/progression are NOT
+  YET LOCKED. This means the eventual data shape needs BOTH a model
+  identifier AND a tier identifier — not just tier alone.
+
+  Phone state should conceptually preserve: model, hardware tier,
+  setup completion, unlocked apps, favorites and user configuration.
+
+  Tier AND model upgrades should preserve compatible state. Do NOT
+  permanently hardcode "Basic Copper Phone" as the only item identity,
+  and do not assume every future Phone remains "Basic" — the model
+  axis is meant to actually vary later, unlike tier alone which was
+  the only axis previously documented here.
+
+  Higher tiers can provide: more app slots/pages, more features,
+  better remote-service access, additional favorites/customization.
+
+  Lower tiers may display LOCKED apps so the player can see future
+  progression (visible-but-locked, not hidden entirely).
+
+  REFACTOR NEEDED (audit PHONE-04): move `PhoneFrame`/tier from a
+  `final` constructor field into a data component now that tier-as-
+  state (plus the new model field) is the confirmed direction — this
+  was flagged in the audit as a design-decision-dependent refactor,
+  and the decision is now made.
+
+  TBD: exact tier recipes; exact app limits per tier; whether
+  upgrading REPLACES the item or upgrades its component while
+  retaining state; whether battery is a real gameplay resource.
+
+  DO NOT implement a draining battery merely because the status bar
+  displays one — the battery display can stay purely cosmetic until a
+  real battery mechanic is separately designed and confirmed.
+
+================================================================================
+4. PHONE GUI
+================================================================================
+RECOVERED — ADOPTED.
+
+  Visual structure: dark background, cyan accents/borders, gold/copper
+  dividers and tier framing, status bar with time and battery
+  presentation, main 3x3 app grid, page system for additional apps,
+  bottom favorites bar with four fixed or configurable slots, locked
+  app presentation.
+
+  Recovered app set: Character, Skills, Quests, Codex (previously
+  shown as "Bestiary" — Codex is the correct current name, Bestiary is
+  one Codex category per the Food Ecosystem doc's Codex design),
+  Spells, Abilities, Wallet/Credits, Map, Classes, Inventory, Mail,
+  Settings.
+
+  The exact grid/favorites placement VARIED between mockups — app
+  IDENTITY and unlock logic are canonical; exact slot placement should
+  be data-driven/UI-configurable rather than hardcoded as design truth.
+
+================================================================================
+5. PHONE AS PRESENTATION SHELL (important architectural rule)
+================================================================================
+RECOVERED — ADOPTED. The Phone does NOT own the underlying gameplay
+systems — this mirrors the exact same principle already established
+for Codex in the Food Ecosystem document (Section 4: "the Codex is
+backend-first, the phone app is presentation only").
+
+  Examples: Codex backend owns discoveries, the Phone Codex app
+  presents them. Quest component owns quest state, the Phone app
+  presents it. Banking owns accounts, the Banking app SUBMITS banking
+  requests (through the Economy transaction service, see the Economy
+  document). Mail owns messages/deliveries, the Phone app presents
+  them. Character/Skills/Spells/Abilities/Classes read their EXISTING
+  components rather than the Phone maintaining its own copies.
+
+  This prevents losing gameplay data when the Phone is unavailable and
+  avoids duplicate authorities for the same underlying state.
+
+  Bestiary is a Codex CATEGORY, not a competing standalone backend —
+  confirmed consistent with the Food Ecosystem document.
+
+================================================================================
+6. MAIL
+================================================================================
+RECOVERED — ADOPTED DIRECTION.
+
+  Mail supports: player-to-player messages (multiplayer), system
+  notifications, quest/daily-reset notices, bank statements, Phone
+  Store delivery, NPC correspondence, exclusive merchant offers.
+
+  TBD: attachments and attachment limits; offline delivery; spam/rate
+  limits; whether all mail is permanent; read/unread and archive
+  limits; sender validation for system/NPC messages.
+
+================================================================================
+7. PHONE STORE
+================================================================================
+RECOVERED — ADOPTED.
+
+  Lets the player browse/purchase items remotely. Adds a DELIVERY FEE
+  over normal shop price. Premium account tier REMOVES the delivery
+  fee (Economy document, Section 3). Rare/large/heavy items may take
+  longer to arrive. Delivery arrives through Mail.
+
+  The Phone Store MUST call the same Economy transaction service
+  (Economy document, Section 6) — it should not duplicate shop pricing
+  or account mutation logic separately.
+
+  TBD: which merchants contribute listings; whether stock is shared
+  with physical merchants; delivery timers; failed delivery/refund
+  behavior; whether physical Credits can be used remotely.
+
+================================================================================
+8. BANKING APP
+================================================================================
+RECOVERED — ADOPTED.
+
+  - NOT available from the start — unlocks through a quest or account
+    tier.
+  - Supports remote account operations.
+  - Transfers include a convenience fee.
+  - CANNOT exchange physical or dimensional currency remotely —
+    physical exchange still requires the Banker in person.
+
+  An older note said "remote deposit/withdraw" — implementation must
+  define what that means PHYSICALLY: a remote withdrawal could deliver
+  physical Credits by Mail; a remote deposit cannot magically remove
+  arbitrary currency unless the player possesses a compatible phone/
+  card mechanism. This physical interaction was NOT fully designed —
+  preserve the feature GOAL, mark exact item movement TBD.
+
+================================================================================
+9. SUGGESTED PHONE CONTRACTS
+================================================================================
+RECONSTRUCTION — PROPOSED (architectural glue, needs Stefan's sign-off
+before being canonical):
+
+  public record PhoneTierDefinition(
+          Identifier id, int appPages, int favoriteSlots,
+          Set<Identifier> capabilities
+  ) {}
+
+  public record PhoneAppDefinition(
+          Identifier id, Text name, Identifier icon,
+          Identifier screenFactoryId, Identifier visibilityRuleId,
+          Identifier unlockRuleId
+  ) {}
+
+  public record PhoneState(
+          Identifier model,        -- NEW (Post-Audit Decisions
+                                       Section 6) — e.g.
+                                       totality:basic_phone,
+                                       eventually
+                                       totality:dimensional_phone.
+                                       SEPARATE from tier below.
+          Identifier tier, boolean setupComplete,
+          Set<Identifier> explicitlyUnlockedApps,
+          List<Identifier> favorites, int selectedPage
+  ) {}
+
+  Use identifiers and registries for data-driven definitions (same
+  strategy-registry pattern used everywhere else in Totality's
+  design) — do NOT store raw screen instances in serialized data.
+
+================================================================================
+10. ACCEPTANCE CHECKS
+================================================================================
+  - Model and tier are stored as two SEPARATE identifiers on PhoneState
+    — never combined into the item's name/identity (Post-Audit
+    Decisions Section 6, resolves audit PHONE-04).
+  - Setup changes the STATE of the same Phone item (never swaps to a
+    different item).
+  - Removing the Phone blocks the Phone shell without deleting player
+    data.
+  - Locked apps cannot be opened through direct packets (server-side
+    validation, not just client-side hiding).
+  - Phone apps do not maintain duplicate copies of backend state.
+  - Premium delivery checks the account tier THROUGH Economy rather
+    than a separate flag living on the Phone.
+  - A failed Phone Store delivery is refund-safe and duplication-safe.
+
+================================================================================
+11. OPEN ITEMS
+================================================================================
+  - Exact tier recipes/app limits (Section 3).
+  - Battery mechanic — deferred, cosmetic only until separately
+    designed (Section 3).
+  - Exact grid/favorites slot placement — data-driven, not fixed
+    (Section 4).
+  - Mail attachment/rate-limit rules (Section 6).
+  - Phone Store listing/delivery-timer/refund specifics (Section 7).
+  - Banking App's exact physical-currency movement mechanism (Section
+    8) — goal preserved, mechanism TBD.
+  - Reconciliation against actual Phone implementation once Claude
+    Code (or whoever has repo access) audits current code.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

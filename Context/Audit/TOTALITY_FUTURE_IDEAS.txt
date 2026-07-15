@@ -1,0 +1,150 @@
+TOTALITY — FUTURE IDEAS (LIGHTWEIGHT TRACKING, NOT DESIGN DOCS)
+
+STATUS: this is NOT a design specification. It's a short list of ideas
+discussed but deliberately NOT designed yet — just enough context so
+they aren't lost, and so a design-review partner (ChatGPT, or anyone
+else looking at the full Totality document set) has visibility into
+what's planned without needing full contracts/records/ownership
+boundaries written out. When any of these actually gets designed, it
+should get its own proper document (or a section in an existing one),
+built with the same rigor as everything else — this file should
+shrink over time as ideas graduate out of it, not grow into a design
+doc itself.
+
+================================================================================
+1. FOUNDATION / ANOMALY SYSTEM (higher priority — before Arena)
+================================================================================
+A combined, Totality-original system inspired by SCP Foundation and
+NTE (Neverness to Everness)-style anomaly games — NOT a literal crossover
+or reskin. Stefan's own containment organization, with its own
+branding, but deliberately keeping the load-bearing genre conventions
+that make this kind of content work:
+
+  - SCP-style CONTAINMENT CLASS naming conventions (kept, not
+    reinvented from scratch)
+  - NTE-style STAR-BASED anomaly difficulty rating (kept)
+  - Actual, specific SCP-like/anomaly CONTENT — real authored
+    anomalies, not just the mechanical shell
+
+  ANOMALY ZONES are the most interesting part, and are NOT only the
+  "door appears" mechanic. Confirmed via research on NTE's actual
+  design (specifically the "Deep Blue Sorrow" anomaly / Sea Prisoner
+  whale boss): the encounter can build up ENVIRONMENTALLY while the
+  player is already traveling, before any portal even appears — e.g.
+  an underground/underwater road that still has windows, so the
+  player can see a Whale-like anomaly out in the water while still
+  just driving/walking normally. Continuing along that same road is
+  what eventually triggers a portal/gate to open, leading into the
+  anomaly's own realm. So the full pattern has (at least) three
+  distinct beats, not just one:
+    1. ENVIRONMENTAL FORESHADOWING — the player is already in a normal
+       space (a road, tunnel, corridor) that has some sight-line
+       (windows, gaps, whatever fits the specific anomaly) letting
+       them glimpse the anomaly before anything supernatural has
+       technically happened yet.
+    2. THE PORTAL/GATE OPENING — continuing forward is what triggers
+       the transition into the anomaly's realm (this is the part the
+       see-through-portal mod approach, noted above, would handle).
+    3. A CUTSCENE-STYLE TRANSITION into the anomaly's dimension/arena
+       — NTE uses an actual scripted story cutscene between "portal
+       opens" and "you're now in the boss arena," not an instant cut.
+
+  WHAT HAPPENS INSIDE THE ANOMALY ZONE ALSO VARIES — NOT EVERY
+  ENCOUNTER IS COMBAT. Some anomaly zones should resolve through
+  PUZZLES instead of (or alongside) a fight — matches how NTE itself
+  mixes boss-fight anomalies with puzzle/exploration/story-focused
+  ones rather than making every anomaly a combat encounter. This
+  affects the eventual design: an anomaly's resolution TYPE (combat,
+  puzzle, or some hybrid/other) should be an authored property of that
+  specific anomaly, not a fixed assumption baked into the whole system.
+
+  IMPLEMENTATION CAUTION #2 (in addition to the portal-rendering one
+  above): it's not yet established whether CUTSCENE-STYLE ENCOUNTERS
+  (scripted camera movement, timed events, a controlled sequence the
+  player mostly watches rather than directly controls) are practically
+  achievable in Minecraft's engine/modding constraints. This needs its
+  own feasibility check, separate from the portal-rendering question —
+  camera control mods/approaches exist in the broader modding
+  ecosystem, but whether something cutscene-quality is realistic here
+  is unverified. Same caveat as the portal visual: don't assume it's
+  easy, check first, and a simpler transition (fade to black, a
+  vanilla-style teleport with minimal camera scripting) can serve as a
+  placeholder if full cutscenes turn out to be impractical.
+
+  IMPLEMENTATION CAUTION (portal rendering, unchanged): verify the see-
+  through-portal rendering trick is actually FEASIBLE/reasonable to
+  implement in the current engine before committing to it. Minecraft
+  is expected to eventually move to Vulkan, which will likely bring
+  significant rendering-pipeline changes — building a custom portal-
+  rendering system now, only to have it broken or need a full rework
+  once Vulkan lands, would be wasted effort. Worth seriously
+  considering DELAYING this specific visual feature until after the
+  Vulkan transition happens, rather than implementing it twice. This
+  doesn't block designing/building the rest of the Foundation/Anomaly
+  system (containment, Codex entries, anomaly content, etc.) — just
+  the see-through-portal VISUAL specifically; a plain teleport/loading
+  transition could serve as a placeholder in the meantime if the
+  system gets built before Vulkan arrives.
+
+  CODEX INTEGRATION: SCPs/anomalies should be their own Codex category
+  (Food Ecosystem doc Section 4's Codex/Discovery system) — same
+  discovery-level progression (rumored/observed/studied/mastered)
+  already used everywhere else, just applied to anomaly entries
+  instead of fish/crops/ingredients.
+
+  PRIORITY REASONING: this can come BEFORE Arena/Colosseum (below)
+  because it doesn't need the full RPG/Equipment/Economy stack to be
+  meaningful — it leans mostly on systems already built or in progress
+  (Codex, dimensional/portal tech, exploration), not on a mature
+  combat/gear/betting economy.
+
+  NOT YET DESIGNED: containment mechanics, how anomalies are
+  "discovered" vs. actively hunted, what the player's actual
+  relationship to the Foundation-equivalent organization is (member?
+  independent? contractor?), specific anomaly list, how dangerous
+  anomalies are handled if they escape/threaten a settlement, whether
+  there's a faction rivalry angle (per Totality's general faction
+  design philosophy elsewhere).
+
+================================================================================
+2. ARENA / COLOSSEUM (lower priority — after RPG side is more complete)
+================================================================================
+Inspired by Swords and Sandals (Stefan recently replayed the
+Remastered version). Mostly PVE, with PVP also possible.
+
+  Core loop (Swords and Sandals-style, not yet adapted to Totality
+  specifics): build a fighter, climb tournament ranks, face an
+  increasingly wild opponent roster, gear up between fights.
+
+  What made the reference game work, worth remembering when this gets
+  designed: tournament-BRACKET structure giving fights narrative
+  stakes beyond just "another fight"; an opponent roster with real
+  PERSONALITY/gimmicks rather than reskinned stat blocks; escalating
+  ABSURDITY at higher tiers.
+
+  Totality-specific angle: later tournament tiers could pull in
+  genuinely strange DIMENSIONAL entities as opponents, leaning into
+  the multiversal/dimensional flavor already present elsewhere in the
+  design (Wish, Dragon Balls, the Disease/Spell capstone framing) — a
+  gladiator arena that escalates from mundane fighters into something
+  much weirder at the top tiers.
+
+  OWNERSHIP PRINCIPLE (already agreed, worth preserving whenever this
+  gets designed for real): Arena should NOT invent its own combat,
+  equipment, or economy — it should be a CONTEXT that reads from
+  existing RPG combat, Equipment, and Economy systems (betting/
+  wagering items, arena-specific currency or reputation), same
+  ownership-boundary pattern used everywhere else in Totality's design
+  (source system owns the mechanic, the affected/contextual system
+  just uses it).
+
+  PRIORITY REASONING: explicitly waiting on RPG/Equipment/Economy
+  being more mature, since a gladiator-fight loop with nothing to bet,
+  no gear progression, and no combat depth wouldn't be interesting yet.
+
+  NOT YET DESIGNED: literally anything beyond the above — no records,
+  no contracts, no opponent list, no bracket structure specifics.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

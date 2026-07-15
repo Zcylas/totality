@@ -1,0 +1,358 @@
+TOTALITY — ECONOMY, BANKING, ATM, AND TRADING
+(New document, built from recovered design material after an earlier
+ review conversation crashed. See Section 0 for provenance/status
+ rules — this is RECOVERED content, verify the flagged parts against
+ actual code before treating them as final.)
+
+STATUS: mostly RECOVERED — ADOPTED, with explicit VERIFY AGAINST CODE
+and TBD markers preserved exactly as recovered. Claude (chat) cannot
+audit the actual codebase — anything marked VERIFY AGAINST CODE below
+still needs that verification done by whoever has repo access (Claude
+Code) before being treated as ground truth. Do not silently upgrade a
+VERIFY/TBD marker to ADOPTED.
+
+================================================================================
+0. PRECEDENCE (unchanged from the recovery supplement's own rule,
+   repeated here since this document now stands alone)
+================================================================================
+When sources disagree: (1) current implementation, especially for the
+Banker, which is already substantially built — (2) other current
+Totality API documents' own ADOPTED/STUB/TBD/PLACEHOLDER/SUGGESTED/
+PLANNED markers — (3) this document, for systems missing from those —
+(4) older planning notes only as historical context.
+
+================================================================================
+1. OWNERSHIP BOUNDARY — BANKER VS. MERCHANT
+================================================================================
+RECOVERED — ADOPTED. The Banker and an item merchant are different
+roles, not the same NPC type reused.
+
+  BANKER OWNS: opening/upgrading a player account, depositing/
+    withdrawing Credits, exchanging physical/dimensional currencies
+    into universal Credits, account-tier services, transaction
+    history, banking dialogue, bank security responses.
+
+  BANKER DOES NOT OWN: selling Credits to the player (the player does
+    NOT buy Credits, full stop), acting as the first ordinary item
+    trader, replacing the merchant/shop system.
+
+  MERCHANT OWNS: selling items from authored stock, buying accepted
+    items from the player, stock/restocking/credit-pool/buyback/
+    pricing rules, opening the custom trading screen through Dialogue.
+
+The Banker is already substantially implemented (recovered estimate:
+~70% complete, per prior design context). VERIFY AGAINST CODE before
+changing architecture or names — document what exists, don't rebuild
+it from this recovery.
+
+================================================================================
+2. UNIVERSAL CREDITS
+================================================================================
+RECOVERED — ADOPTED. Totality's universal currency is Credits, symbol
+**Ȼ**. The earlier Copper/Silver/Gold auto-deposit model is SUPERSEDED
+by this.
+
+--------------------------------------------------------------------------------
+2a. Two forms of Credits
+--------------------------------------------------------------------------------
+  PHYSICAL CREDITS: exist as inventory items, spendable directly where
+    supported, drop on death like ordinary inventory, useful as quest
+    rewards/loot/tangible world currency, do NOT auto-deposit on
+    pickup or use.
+
+    Recovered physical Credit items: Credit Chip (small value), Credit
+    Pile (medium value), Credit Card (large value), Encrypted Credit
+    Card (special/secured variant, exact redemption/decryption
+    behavior TBD). Exact denominations were NOT recovered — do not
+    invent them silently.
+
+  ACCOUNT CREDITS: stored in the player's bank account, do NOT drop on
+    death, more convenient for trading/transfers/remote services,
+    require an account opened through the Banker.
+
+  A trading screen must NOT be hard-gated behind having an account — a
+  new player can still participate using physical Credits or whatever
+  current implementation permits.
+
+--------------------------------------------------------------------------------
+2b. Dimensional currencies
+--------------------------------------------------------------------------------
+  Future dimensions can drop their own physical currencies (Septims,
+  Ryō, Zeni, Dollars, etc.) — distinct items, environmental
+  storytelling. A Banker or Value Exchanger converts them into Ȼ. The
+  base account stores universal Credits only; the Dimensional account
+  tier (Section 3) can hold multiple currency types directly.
+
+================================================================================
+3. ACCOUNT TIERS
+================================================================================
+RECOVERED — VERIFY AGAINST CODE. These values survived in economy
+planning notes — preserve as the recovered design UNLESS current code
+contains a later confirmed change.
+
+  BASIC: free, capacity Ȼ10,000, basic ATM access.
+  STANDARD: small fee or quest to acquire, capacity Ȼ100,000, player-
+    to-player transfers, extended buyback support.
+  PREMIUM: recurring subscription paid in Credits, unlimited Credit
+    storage, daily interest, free Phone Store delivery, better
+    currency-exchange rates.
+  DIMENSIONAL: unlocked through dimensional progression or a quest,
+    holds multiple currency types, enables dimensional-store access.
+
+  TBD: exact Standard fee; Premium subscription interval/price; daily
+  interest formula and abuse protections; whether a missed
+  subscription downgrades immediately or has a grace period; how
+  items bought while over a downgraded account cap are handled; exact
+  meaning/retention duration of "extended buyback."
+
+================================================================================
+4. ATM
+================================================================================
+RECOVERED — ADOPTED. Non-craftable block entity found in banks and
+settlements.
+
+  Functions: Deposit, Withdraw, Transfer, view transaction history.
+
+  Breaking/attacking an ATM: alerts guards, applies/advances a
+  criminal flag, does NOT simply drop a usable ATM block.
+
+  Interface intentionally simpler than the full Banker dialogue:
+  current balance, four primary actions, transaction feedback, clear
+  failure reasons (account restrictions, caps, insufficient funds).
+
+  The ATM does NOT exchange dimensional currencies — that requires the
+  Banker or another dedicated exchanger.
+
+================================================================================
+5. BANKER AND SECURITY
+================================================================================
+RECOVERED — VERIFY AGAINST CODE. The Banker is a normal NPC — not a
+boss, not a generic vendor.
+
+  Recovered behavior: high INT/CHA, relatively weak direct combat; can
+  summon 2-4 Bank Guards when attacked; can trigger Lockdown
+  (temporarily securing the bank); Bank Guards are hostile only after
+  aggression or a criminal-state trigger. Potential drops from a
+  defeated Banker were Credit Chips, a Bank Ledger, and a Quill Pen —
+  REVIEW before implementing, since killing a core service NPC may
+  conflict with settlement persistence/respawn design.
+
+  Document the current Banker implementation where it's newer/more
+  concrete than what's recovered here.
+
+================================================================================
+6. TRANSACTIONS — ONE SOURCE OF TRUTH
+================================================================================
+RECONSTRUCTION — PROPOSED (architectural glue inferred to make the
+recovered pieces coherent; needs Stefan's sign-off before being
+treated as canonical, same as any other PROPOSED item in Totality's
+design corpus).
+
+Economy should use ONE server-authoritative transaction service rather
+than letting the Banker, ATM, merchant screen, Phone Store, and
+Banking App mutate balances independently.
+
+  public enum TransactionType {
+      DEPOSIT, WITHDRAWAL, PURCHASE, SALE, TRANSFER_SENT,
+      TRANSFER_RECEIVED, EXCHANGE, DELIVERY_FEE, SUBSCRIPTION,
+      INTEREST, REFUND, BUYBACK
+  }
+
+  public record CreditTransaction(
+          UUID transactionId, long timestamp, TransactionType type,
+          long amount, long balanceAfter,
+          Optional<UUID> counterpartyPlayer,
+          Optional<Identifier> counterpartyNpcOrShop,
+          Optional<Identifier> relatedItem, Optional<Text> note
+  ) {}
+
+  REQUIRED BEHAVIOR: all operations validate before mutation; multi-
+  part actions are transactional; a failed purchase cannot remove
+  Credits without delivering the item; a failed deposit cannot
+  consume physical Credits; a transfer completes on both accounts or
+  neither; every accepted transaction gets one immutable ledger entry;
+  replaying the same network request must not duplicate a transaction.
+
+  The exact Java shape above is PROPOSED, not recovered canon — reuse
+  existing classes where possible rather than assuming this exact
+  shape must be built from scratch.
+
+================================================================================
+7. ITEM VALUES AND MERCHANT DEFINITIONS
+================================================================================
+RECOVERED — ADOPTED.
+
+--------------------------------------------------------------------------------
+7a. Base item value
+--------------------------------------------------------------------------------
+  Totality items receive an `ItemValue` at registration or equivalent
+  static data. Vanilla items use a separate data mapping. Value
+  belongs to the item/economy data, not separately authored per shop.
+
+--------------------------------------------------------------------------------
+7b. Default sell pricing
+--------------------------------------------------------------------------------
+  A merchant normally BUYS at 50% of base value. Individual shops,
+  relationships, skills, reputation, item condition, scarcity, and
+  special rules may modify this later. Product Condition (Food
+  Ecosystem doc Section 6a) can affect food/fish/other condition-
+  bearing products' price.
+
+  Fishing already anticipates two distinct markets (Food Ecosystem doc
+  Section 11l): culinary market (freshness, grade, traits, yield) and
+  trophy/collector market (rarity, size percentile, coloration,
+  location, event status) — this Economy document's pricing rules
+  should be consistent with that existing split, not reinvent a
+  separate pricing model for fish specifically.
+
+--------------------------------------------------------------------------------
+7c. Shop definition (immutable data) vs. runtime state
+--------------------------------------------------------------------------------
+  Shop definition fields (recovered): shop_id, explicit sells list,
+  accepts_tags (what the merchant buys), credit-pool limit, restock
+  interval/days, stock limits. Any NPC can reference a shop_id from
+  Dialogue data and open the same trading system.
+
+  Runtime state (separate from the immutable definition): current
+  stock, next restock time, current merchant Credit pool, buyback
+  entries, any investment increase.
+
+--------------------------------------------------------------------------------
+7d. IMPORTANT CORRECTION — merchant Credit pool direction
+--------------------------------------------------------------------------------
+An older note said "selling to a merchant increases their pool" — this
+is mathematically backwards (a merchant paying the player OUT should
+REDUCE what it has available, not increase it). CORRECTED, locked
+accounting:
+
+  - Player BUYS from merchant -> merchant Credit pool INCREASES (the
+    merchant just received the player's payment).
+  - Player SELLS to merchant -> merchant Credit pool DECREASES (the
+    merchant just paid the player out of its pool).
+  - The transaction is REJECTED or quantity-limited when the merchant
+    cannot pay (insufficient pool to buy what the player's selling).
+  - Investment raises the merchant's maximum or replenished pool (a
+    Speech mastery or strong relationship can permanently increase a
+    merchant's available Credit pool — exact progression/amount TBD).
+
+  Do NOT implement the older, backwards sentence literally.
+
+================================================================================
+8. CUSTOM TRADING SCREEN
+================================================================================
+RECOVERED — ADOPTED.
+
+  LAYOUT: left side 3x4 item grid, item name above each entry, price
+  beneath in Ȼ. Right side: large item icon, name, description,
+  statistics, lore. Top right: player Credit balance. Bottom left:
+  BUY / SELL / BUYBACK tabs. Bottom right: confirm/cancel controls.
+
+  BEHAVIOR: SELL only shows inventory items matching the shop's
+  accepted tags/restrictions. Quantity uses a slider plus text input.
+  Price updates live. Quantity capped by stock, inventory, player
+  funds, AND merchant Credit pool. High-value operations get an
+  additional confirmation. The Buyback tab is PERSISTENT rather than
+  clearing at each restock.
+
+  BUYBACK PRICE: recovered wording was "full buy price," which is
+  ambiguous. CLARIFIED as two separate decisions rather than one:
+
+    LOCKED: when an item enters Buyback, calculate and store a fixed
+    `buybackPrice` on the buyback entry. That recorded price NEVER
+    CHANGES afterward — market changes cannot alter an already-created
+    buyback obligation.
+
+    TBD: the FORMULA used to calculate the initial `buybackPrice` —
+    whether it's exactly what the merchant paid the player, the
+    merchant's normal retail price, or another rule — is NOT decided.
+
+  TBD (remaining): global vs. account-tier buyback retention; buyback
+  capacity and pruning.
+
+================================================================================
+9. FIRST ORDINARY TRADER
+================================================================================
+RECOVERED — ADOPTED DIRECTION. The Banker stays separate (Section 1).
+The first ordinary seller should be a **Provisioner** or **Supply
+Trader**.
+
+  ROLE: sells practical starter goods, buys common resources/low-tier
+  loot, demonstrates the custom merchant interface, provides an early
+  quest ("First Sale").
+
+  Recovered candidate stock (proposed examples, not all individually
+  locked): Bread, Torches, Bandages, basic potions, Arrows, a basic
+  dagger, a basic shield, Component Pouch, empty vials, a starter
+  quest contract.
+
+  Recovered candidate purchases: monster junk, animal materials,
+  common resources, reagents, damaged equipment.
+
+  THE LOCKED DESIGN POINT: the first item trader is a practical
+  provisioner, NOT the Banker. Exact stock list is flexible content.
+
+================================================================================
+10. ECONOMY ONBOARDING
+================================================================================
+RECOVERED — ADOPTED. Do NOT redesign phone acquisition — the existing
+starter quest already gives the player the Basic Phone (see the Phone
+Platform document for the phone itself).
+
+  The phone quest should: use one Basic Phone item, initialize it
+  through item/component state, give some physical Credit Chips as a
+  reward where appropriate, avoid a long banking tutorial, let the
+  player encounter banking naturally afterward.
+
+  The Banker's first quest should teach: opening an account, why
+  account Credits are safer than inventory Credits, deposit/
+  withdrawal, ATM use, currency exchange where relevant. Earlier
+  working name: "A Safer Place" — treat as optional unless it already
+  exists in current content.
+
+  The Banker quest and the Provisioner's "First Sale" are SEPARATE
+  tutorials: Banker teaches account/money safety, Provisioner teaches
+  buying/selling items. Don't merge them into one mega-tutorial.
+
+================================================================================
+11. DEFERRED ECONOMY EXTENSIONS (NOT V1)
+================================================================================
+RECOVERED — PLANNED, NOT V1. Do not make these dependencies of the
+base trading API:
+
+  `totality:stolen` item state/tag; normal merchants reject stolen
+  goods; shady dealers buy them at worse rates; criminal flags;
+  reputation/relationship reactions; debt consequences; taxes and
+  recurring bills; property costs; debt collectors; settlement-
+  specific exchange rates and scarcity.
+
+================================================================================
+12. ACCEPTANCE CHECKS
+================================================================================
+  - Physical Credits drop on death; account Credits do not.
+  - Depositing physical Credits cannot duplicate them.
+  - A failed purchase neither removes money nor creates the item.
+  - A merchant cannot pay more than its available pool.
+  - Buying from a merchant increases its pool; selling to it decreases
+    the pool (Section 7d — this is the corrected direction).
+  - Buyback preserves the recorded transaction price, not a
+    recalculated one.
+  - Breaking an ATM does not drop a usable ATM and triggers security.
+  - The Banker never acts as a "buy Credits" vendor.
+
+================================================================================
+13. OPEN ITEMS
+================================================================================
+  - Exact physical Credit denominations (Chip/Pile/Card/Encrypted
+    Card values) — not recovered, needs authoring.
+  - Account tier TBDs (Section 3).
+  - Buyback price TBDs (Section 8).
+  - Investment progression/amount (Section 7d) — TBD.
+  - Deferred extensions (Section 11) remain future work, not V1.
+  - This entire document needs reconciliation against the actual
+    Banker implementation (~70% complete per recovered context) before
+    being treated as final — flagged throughout as VERIFY AGAINST CODE
+    rather than assumed correct.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

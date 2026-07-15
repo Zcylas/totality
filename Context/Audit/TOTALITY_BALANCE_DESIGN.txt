@@ -1,0 +1,318 @@
+TOTALITY — BALANCE DESIGN
+(General-purpose, ongoing balance-decisions document. Expected to grow
+ over time as more balance topics come up — attribute generation is
+ the first topic; combat math, economy, mastery/skill scaling, and
+ anything else balance-related should get added here as new numbered
+ topics rather than spawning a new document each time.)
+
+STATUS: living document. Each numbered TOPIC below is its own
+self-contained balance decision (or set of decisions) — topics don't
+depend on each other's internal structure, though they may reference
+each other where relevant (e.g. Topic 1's Section 0 references the
+same underlying bounded-accuracy problem Topic 2, whenever it's
+added, will need to actually resolve). New topics get appended at the
+end with the next sequential number. Numeric values throughout are
+scaled-from-D&D or otherwise-reasoned STARTING POINTS for playtesting
+unless a topic explicitly says a value is locked.
+
+================================================================================
+TOPIC 1 — CHARACTER CREATION: ATTRIBUTE GENERATION
+================================================================================
+(Part 1 of an ongoing attribute-balance redesign. Part 2, covering
+post-creation/leveling attribute scaling — and the actual bounded-
+accuracy fix this was originally motivated by — is a separate future
+topic, not yet added to this document. See Topic 1's Section 3.)
+
+--------------------------------------------------------------------------------
+1.0 THE PROBLEM THIS IS FIXING
+--------------------------------------------------------------------------------
+Totality's existing character system has ALL 8 ability scores (STR,
+DEX, CON, END, INT, WIS, CHA, FTH) start at 10 (modifier 0). CORRECTION
+(discovered later in this same design pass, see Topic 2 for the full
+follow-up): the actual existing level-up rate is 5 FLAT attribute
+points per player level, not 1 as originally believed when this
+section was first written — and the level cap has since been raised
+to 150 (from the 100 referenced when Topic 1 began). At the old rate,
+that's up to 750 total points if dumped into one stat, which is far
+beyond even the +45-50 modifier problem described below — see Topic 2
+for the corrected math and cadence options actually being considered
+now.
+
+This breaks D&D's bounded-accuracy assumption at high level: a +45 to
++50 modifier on an attack roll makes AC essentially meaningless (d20 +
+45 vs. any realistic AC value almost never misses). This was flagged
+in an earlier design discussion, which explored several fixes (reduce
+points/level, hard-cap attributes, decouple attributes from D&D
+modifiers entirely via sqrt-scaling, replace AC with a Defense-Rating/
+hit-chance formula) without settling on one. THIS TOPIC starts fixing
+the problem from a different angle: how attributes are GENERATED at
+character creation, borrowing directly from D&D 5e's own actual tools
+for this (point buy's progressive cost curve, which is specifically
+designed to prevent runaway single-stat dumping).
+
+A future topic will need to revisit the LEVEL-UP side of this —
+whether attribute points awarded per level continue at 1/level flat,
+get reduced, get their own progressive cost curve matching character
+creation, or something else entirely — since fixing character-
+creation generation alone does NOT fully solve the level-100-reaches-
+110-STR problem if level-up points remain uncapped/flat.
+
+--------------------------------------------------------------------------------
+1.1 CHARACTER CREATION — TWO METHODS ONLY (NOT THREE)
+--------------------------------------------------------------------------------
+Real D&D 5e offers three official ability-score generation methods:
+Point Buy, Standard Array, and Rolling. Totality uses ONLY TWO of
+these — Standard Array is explicitly EXCLUDED (a fixed pre-generated
+set doesn't fit well with 8 attributes instead of 6, and doesn't offer
+anything Point Buy doesn't already cover better).
+
+  Method 1 — Point Buy:
+    Base score: 8 (not 10 — this is a deliberate divergence from
+    Totality's existing base-10 convention, specifically for the
+    character-creation method; see Section 1.4's open item about
+    reconciling this with the rest of the system).
+
+    Cap before origin/species bonus: 15 (same as real D&D 5e).
+
+    Progressive cost table (UNCHANGED from real D&D 5e — the table
+    itself doesn't need to scale with stat COUNT, only the total pool
+    does, see below):
+      Score | Cost
+      8     | 0
+      9     | 1
+      10    | 2
+      11    | 3
+      12    | 4
+      13    | 5
+      14    | 7
+      15    | 9
+
+    Total point pool: 36 (SCALED from D&D 5e's 27 points across 6
+    stats). Reasoning: D&D's 27 points ÷ 6 stats = 4.5 points/stat on
+    average (the Standard Array 15/14/13/12/10/8 costs exactly 27 and
+    averages 4.5/stat too, confirming this is the intended per-stat
+    budget, not an arbitrary total). Scaled to Totality's 8 stats:
+    4.5 × 8 = 36. This preserves the SAME per-stat budget/generosity
+    as real D&D's point buy, just extended across 2 more attributes
+    (END, FTH), rather than arbitrarily picking a bigger number.
+
+    The progressive cost curve is the actual mechanism worth keeping —
+    it's cheap to bring a weak stat up to "not terrible" but
+    increasingly expensive to push any single stat toward the
+    ceiling, which is exactly the kind of restraint the flat-point
+    system lacked.
+
+  Method 2 — Critical Role-style rolling (Matthew Mercer's house
+  rule, confirmed via research, not just standard 4d6-drop-lowest):
+    Mechanic: roll 4d6, drop the lowest die, ONCE PER ATTRIBUTE (8
+    times total for Totality's 8 stats — scaled up from the
+    original's 6 rolls). Sum the total across all 8 results. Assign
+    the 8 numbers to whichever attributes the player wants.
+
+    REROLL FLOOR (the actual homebrew addition, confirmed via
+    Matthew Mercer's own stated rule — not part of standard/vanilla
+    4d6-drop-lowest, which has no safety net at all): if the total of
+    all generated numbers falls below a threshold, the player may
+    reroll the ENTIRE set from scratch.
+
+    Original Critical Role threshold: 70, across 6 stats (≈11.67/stat
+    average floor — notably BELOW true 4d6-drop-lowest's actual
+    average of ~12.24/stat, since the point is to catch genuinely
+    unlucky results, not to guarantee an above-average outcome).
+
+    SCALED for Totality's 8 stats (same proportional-scaling logic as
+    Point Buy's pool above): 11.67/stat × 8 stats ≈ 93. Locked in as
+    the starting reroll threshold: 93.
+
+    This method skews higher on average than Point Buy (true 4d6-
+    drop-lowest averages ~12.24/stat vs. Point Buy's 4.5-points-of-
+    budget baseline) while still preserving randomness/excitement —
+    the floor just prevents a player from being crippled by bad luck
+    the way vanilla rolling can.
+
+--------------------------------------------------------------------------------
+1.2 ORDER OF OPERATIONS — SPECIES/ORIGIN FIRST, THEN ATTRIBUTES, BONUS
+    APPLIED LAST
+--------------------------------------------------------------------------------
+CONFIRMED sequence (matches real D&D 5e's actual official order, not
+just "race first" or "points first" — the two are interleaved):
+
+  1. Choose species/origin FIRST (Totality's existing
+     SpeciesSelectionScreen -> OriginSelectionScreen flow) — the
+     player now KNOWS what bonus is coming (e.g. a species/origin that
+     grants +2 STR).
+  2. Assign base attribute scores SECOND, via EITHER Point Buy OR the
+     Critical-Role-style roll (Section 1.1) — the player can optimize
+     their spending/assignment KNOWING the bonus that's about to
+     apply (e.g. only buying STR up to 13 if they know +2 is coming,
+     saving points for elsewhere, rather than buying all the way to
+     15 themselves and having the bonus push past the intended
+     ceiling).
+  3. Apply the species/origin bonus (Totality's existing
+     `originBonus` layer in PlayerStats) ON TOP of whatever was
+     assigned in step 2, LAST — at the existing ConfirmAncestryScreen
+     step.
+
+  This is why the sequence matters: species-first-but-bonus-applied-
+  last is what makes point buy (or the roll method) actually SYNERGIZE
+  with species/origin choice, instead of the two systems just sitting
+  side by side ignoring each other.
+
+--------------------------------------------------------------------------------
+1.3 WHAT THIS TOPIC DOES NOT YET COVER
+--------------------------------------------------------------------------------
+This topic only covers ATTRIBUTE GENERATION AT CHARACTER CREATION. It
+does NOT yet address:
+  - Whether/how attribute points awarded PER LEVEL (actually 5 flat
+    points/level currently, at a now-150 level cap — see Topic 2,
+    which covers this in full) change as a result of this redesign.
+  - Whether the progressive-cost-curve PHILOSOPHY from Point Buy
+    should also apply to level-up point spending — RESOLVED in Topic
+    2: no, level-up points stay flat/simple by decision, with pool
+    size and an optional Feat-or-stats choice as the actual balance
+    levers instead.
+  - The underlying attack-roll-vs-AC bounded-accuracy problem this
+    whole redesign was originally motivated by (Section 1.0) — this
+    needs its own future topic in this document to actually close the
+    loop.
+
+--------------------------------------------------------------------------------
+1.4 OPEN ITEMS
+--------------------------------------------------------------------------------
+  - Base score DIVERGENCE: Point Buy's base-8 differs from Totality's
+    existing general base-10 convention used elsewhere (e.g. the flat
+    per-level system, Section 1.0). Needs an explicit decision on
+    whether base-10 stays the TRUE baseline (with Point Buy's base-8 +
+    cost table being just an alternate UI/allocation mechanism that
+    still targets the same eventual score range) or whether character
+    creation genuinely starts characters at effectively lower scores
+    than the old model assumed. Not yet resolved.
+  - Exact final values for the 36-point pool and the 93 reroll
+    threshold are scaled-from-D&D starting points for playtesting, not
+    locked balance numbers.
+  - The level-up/bounded-accuracy follow-up (Section 1.3) is still
+    pending — to be added as its own new topic in this document once
+    designed.
+
+================================================================================
+TOPIC 2 — LEVEL-UP ATTRIBUTE POINT CADENCE (Part 2 of the attribute
+   redesign flagged as pending in Topic 1, Section 1.3)
+================================================================================
+STATUS: UNDECIDED — this topic documents the analysis/options, not a
+locked decision. Cadence is explicitly not yet chosen; being handed to
+ChatGPT for further review before finalizing.
+
+--------------------------------------------------------------------------------
+2.0 CONTEXT
+--------------------------------------------------------------------------------
+The existing level-up system grants 5 flat attribute points PER LEVEL.
+With the level cap now at 150 (raised from the 100 referenced in
+Topic 1), that's up to 750 total points if dumped into one stat — far
+beyond even the original +45-50 modifier problem that motivated Topic
+1. This topic works out safer cadences.
+
+DECIDED (this pass): level-up points stay FLAT/SIMPLE — no progressive
+cost curve applied to level-up spending (unlike Point Buy's curve at
+character creation, Topic 1.1). The only lever available to control
+growth is POOL SIZE (how many points total) and/or an opportunity-cost
+mechanic (a Feat-or-stats choice, D&D-style).
+
+Real D&D 5e reference point (confirmed via research): ASIs (Ability
+Score Improvements) arrive at levels 4, 8, 12, 16, 19 for most classes
+(5 total over a 20-level campaign; Fighter gets 2 extra at 6/14 = 7
+total, Rogue gets 1 extra at 10 = 6 total). Each ASI is EITHER +2 to
+one score, OR +1 to two different scores, OR a Feat instead (no stat
+increase, a unique ability/feature instead). Ability scores CANNOT
+exceed 20 via ASI (rare magic-item exceptions aside). The important
+insight: D&D's ASI schedule is only safe BECAUSE it's paired with that
+hard 20 cap — the schedule alone isn't what bounds power.
+
+--------------------------------------------------------------------------------
+2.1 THREE CADENCE OPTIONS COMPARED (level cap 150)
+--------------------------------------------------------------------------------
+Target reference: keep a fully-dumped single stat's LEVEL-UP
+contribution to its modifier somewhere around +20 (rather than the
+old +45-50), so a maxed character is powerful but AC/bounded-accuracy
+still means something.
+
+  Option A — every 5 levels, 1 flat point:
+    150 / 5 = 30 opportunities -> 30 points total if all dumped into
+    one stat. Starting from Point Buy's ~15-19 post-origin-bonus cap
+    (Topic 1), a fully dumped stat lands around 45-49, giving a
+    modifier around +17.5 to +19.5 — LANDS IN THE TARGET RANGE. This
+    option is safe ON ITS OWN, without needing anything else bolted
+    on (no curve, no hard cap, no Feat trade-off required).
+
+  Option B — every 5 levels, 2 flat points:
+    30 opportunities -> 60 points total if all dumped. Stat reaches
+    ~75-79, modifier around +32.5 to +34.5 — BREAKS bounded accuracy
+    again, same category of problem as the original 5/level system,
+    just less severe.
+
+  Option C — D&D-style, every 4 levels, choose Feat OR attribute
+  points (+2/one stat or +1/two stats per instance, matching real
+  ASI's split):
+    150 / 4 ≈ 37 opportunities -> UP TO 74 points if every single
+    opportunity is spent on stats with none going to Feats. Stat
+    reaches ~93, modifier around +41.5 in the WORST CASE — also
+    breaks bounded accuracy, UNLESS players are actually taking Feats
+    a meaningful fraction of the time.
+
+--------------------------------------------------------------------------------
+2.2 THE KEY PROBLEM WITH OPTION C (D&D-style): the Feat safety valve
+    is weaker than it first appears
+--------------------------------------------------------------------------------
+Option C's safety depends entirely on players choosing Feats often
+enough to meaningfully reduce total stat-point accumulation. This is
+an OPPORTUNITY COST, not a hard prevention — a player who ignores
+Feats entirely and dumps every single opportunity into one stat hits
+the same runaway problem the old flat system had (worst case above).
+
+THIS GETS WEAKER STILL once Stefan's follow-up point is factored in:
+SOME FEATS ALSO GRANT ATTRIBUTE BONUSES (matches real D&D's "half-
+feat" pattern — e.g. Resilient gives +1 to a stat PLUS a saving-throw
+proficiency, rather than being a pure non-stat choice). If Totality's
+Feats include similar half-feats, then "choosing a Feat instead of
+stats" doesn't fully divert from stat growth in every case — a player
+who always picks half-feats-that-grant-a-stat-point still accumulates
+significant stat growth while technically "not taking the ASI option."
+This means Option C's actual safety margin is somewhere BETWEEN the
+worst case above (74 points, all-stats) and a fully Feat-diverted
+best case — the exact number depends on how many of Totality's future
+Feats end up being half-feats vs. pure non-stat Feats, which isn't
+decided yet (Feats themselves aren't designed in this document).
+
+--------------------------------------------------------------------------------
+2.3 CURRENT LEAN (not locked) + WHY
+--------------------------------------------------------------------------------
+Option A is the only one of the three that's safe ON ITS OWN, without
+depending on player behavior (Feat-taking frequency) or additional
+mechanisms (a cost curve, a hard cap) that aren't decided yet. Options
+B and C both reopen the original bounded-accuracy problem unless
+paired with something else — a per-stat cap (D&D's 20-equivalent), a
+progressive cost curve (explicitly rejected for level-up spending in
+2.0), or a real constraint on how many Feats can be half-feats.
+
+This is NOT a final decision — flagged for ChatGPT review alongside
+the rest of the balance/RPG documents before anything gets locked in.
+
+--------------------------------------------------------------------------------
+2.4 OPEN ITEMS
+--------------------------------------------------------------------------------
+  - Cadence itself (Option A/B/C or a variant) — UNDECIDED.
+  - Whether Totality's Feats will include half-feats (feats that also
+    grant a small attribute bonus, D&D-style) — not decided, Feats
+    aren't designed yet. This directly affects Option C's real safety
+    margin (Section 2.2) and should be resolved before Option C is
+    seriously considered.
+  - Whether a per-stat hard cap (a Totality-scaled equivalent of D&D's
+    20) should exist regardless of which cadence is picked, as a
+    backstop independent of point-accumulation math.
+  - The +20-ish target modifier range (Section 2.1) is a reasoned
+    starting point, not a locked balance target — revisit once actual
+    combat-math/AC-scaling (referenced in Topic 1, Section 1.0) is
+    designed.
+
+================================================================================
+END OF CURRENT TOPICS — NEXT TOPIC GETS APPENDED HERE AS "TOPIC 3"
+================================================================================

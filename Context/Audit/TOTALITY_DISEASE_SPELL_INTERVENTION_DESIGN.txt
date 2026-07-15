@@ -1,0 +1,641 @@
+TOTALITY — DISEASE / SPELL OWNERSHIP & CAPSTONE INTERVENTION DESIGN
+(Disease API x D&D Spell API ownership split, the general Capstone
+ Intervention pattern, and the Level 10 Spell Access & Acquisition
+ design note)
+
+STATUS: current working specification for this topic, SECOND REVISION
+PASS — a smaller, standalone companion to the Food Ecosystem documents
+(TOTALITY_FOOD_ECOSYSTEM_CURRENT.txt), not part of that system. This
+covers a different domain (Disease, D&D Spells, capstone/reality-
+bending powers) but deliberately REUSES the same ownership-separation
+philosophy already established there — worth noting explicitly since
+that consistency is intentional, not coincidental: "the source system
+owns access/cost/prerequisites, the affected system only resolves the
+effect" is the same pattern as Cooking's special-completion-rules vs
+Safety resolver, and Codex's discovery-events vs progression-rules.
+
+Also see TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS.txt, a newer bridge
+document — this document's `UnlockRequirement` (Section 4b) is now the
+SAME type that document's Knowledge/Unlock section (10) establishes as
+the general-purpose mechanism reused across every domain's unlock
+requirements (Chemistry, Smithing, species unlocks, etc), not
+independently reinvented here.
+
+This revision fixes four things flagged in review: unified Restoration
+into the same generic intervention mechanism instead of a bespoke
+second resolution path (Section 2c), replaced a self-declared
+`bypassPermissions` field with a safer authorized-effect model where
+the affected API still validates (Section 3b), split the single linear
+`SpellAccessState` into five independently-tracked axes (Section 4a),
+and replaced flat unlock-condition fields with a reusable AllOf/AnyOf/
+Condition requirement tree (Section 4b). Also downgraded "70% joke
+spells" from an implied quota to an explicit design target, and
+resolved the exploit-review-authority open item.
+
+Material below is ADOPTED design unless marked STUB, TBD, PLACEHOLDER,
+SUGGESTED, or PLANNED — same convention as the Food Ecosystem
+documents.
+
+================================================================================
+1. CORE PRINCIPLE (restated from the Food Ecosystem docs, applies here
+   identically)
+================================================================================
+  The SOURCE system that grants an effect owns everything about
+  ACCESS to it: eligibility, requirements, costs, cooldowns,
+  prerequisites, consumption of a limited resource (a spell slot, a
+  charge, a quest completion). The AFFECTED system only resolves WHAT
+  HAPPENS to its own state when a validated request arrives — it never
+  independently re-implements or second-guesses the access checks.
+
+  Applied here: the D&D Spell API owns whether a character CAN cast
+  Lesser/Greater Restoration or Wish. The Disease API only owns what
+  happens to a disease WHEN a validated casting of one of those
+  spells targets it. Neither system reaches into the other's
+  responsibilities.
+
+================================================================================
+2. DISEASE API x D&D SPELL API OWNERSHIP SPLIT
+================================================================================
+--------------------------------------------------------------------------------
+2a. D&D Spell API owns (unchanged, pre-existing system — listed here
+    only to make the boundary explicit)
+--------------------------------------------------------------------------------
+  Which classes can learn each spell; class and character-level
+  requirements; preparing or knowing the spell; spell-slot level and
+  consumption; upcasting rules, if any; components and casting
+  requirements; range and target validation; anti-magic restrictions;
+  spellcasting entities and NPCs; the actual casting animation and
+  roll flow.
+
+  A character with high Medicine or Chemistry skill CANNOT cast
+  Restoration merely because they're skilled at treating disease —
+  spell access requires a class, feature, entity ability, item, or
+  other specifically AUTHORED source. The Disease API never grants
+  spellcasting access, and never assumes a caster is validated without
+  the Spell API having actually validated them first.
+
+--------------------------------------------------------------------------------
+2b. Disease API owns
+--------------------------------------------------------------------------------
+  Whether the target has a disease; disease type and current stage;
+  whether Lesser Restoration can remove it; whether Greater
+  Restoration is required; whether neither spell can remove it;
+  whether curing removes the entire disease or only part of it;
+  whether reinfection is possible because the underlying source
+  (e.g. a parasite) remains.
+
+  The disease definition NEVER decides whether the caster is a Cleric
+  or Paladin — by the time the Disease API is asked to resolve a
+  spell's effect, the Spell API has already fully validated the cast.
+
+--------------------------------------------------------------------------------
+2c. Disease contract (REVISED — unified with the generic intervention
+    framework, Section 3, instead of a bespoke second resolution
+    engine)
+--------------------------------------------------------------------------------
+  FIX: the original draft gave Disease TWO potential resolution
+  paths — a bespoke `RestorationInteraction(lesserRestoration,
+  greaterRestoration)` specifically for Restoration, AND the
+  generalized `ConditionIntervention` (Section 3) for everything else.
+  Two systems doing the same conceptual job (an external effect
+  changing a disease's state) risked disagreement and duplicated
+  logic. RESOLVED by folding Restoration into the SAME generic
+  response mechanism every other intervention effect uses:
+
+  public record DiseaseDefinition(
+          Identifier id, List<DiseaseStageDefinition> stages,
+          Set<Identifier> traits, Set<Identifier> validTreatmentTags,
+          Map<Identifier, InterventionResponseDefinition> interventionResponses
+                    -- keyed by effect id, e.g. dnd:lesser_restoration,
+                       dnd:greater_restoration,
+                       totality:advanced_antiviral,
+                       totality:divine_cleanse,
+                       totality:dimensional_stabilization — NOT a
+                       fixed two-field record anymore; a disease
+                       registers a response for WHATEVER intervention
+                       effect ids are relevant to it, open-ended
+  ) {}
+
+  public record InterventionResponseDefinition(
+          Identifier interventionEffectId, InterventionResponseType response,
+          int stageReduction, OptionalInt suppressionDurationTicks,
+          Optional<Identifier> specialResolverId
+  ) {}
+
+  public enum InterventionResponseType {
+      NO_EFFECT, SUPPRESS_SYMPTOMS, REDUCE_STAGE, CURE,
+      SPECIAL_RESOLUTION
+  }
+
+  This is deliberately more flexible than a simple "minimum spell tier
+  required" rule — a disease's response to each intervention effect is
+  authored individually, not derived from a single severity number —
+  and now ALSO more flexible than the old two-spell-only shape, since
+  a disease can register a response for ANY authored intervention
+  effect (a future Chemistry-based antiviral, a divine cleanse ritual,
+  a dimensional-stabilization capstone), not just Lesser/Greater
+  Restoration specifically.
+
+  Examples:
+    Common bacterial disease: dnd:lesser_restoration -> CURE,
+      dnd:greater_restoration -> CURE
+    Advanced dimensional corruption: dnd:lesser_restoration ->
+      NO_EFFECT, dnd:greater_restoration -> REDUCE_STAGE
+    Ordinary poison-induced sickness: dnd:lesser_restoration -> CURE,
+      dnd:greater_restoration -> CURE
+    Parasite: dnd:lesser_restoration -> SUPPRESS_SYMPTOMS,
+      dnd:greater_restoration -> CURE (but the parasite itself remains
+      and can cause reinfection — curing the DISEASE EFFECTS is not
+      the same as removing the SOURCE)
+    Divine curse disguised as a disease: dnd:lesser_restoration ->
+      NO_EFFECT, dnd:greater_restoration -> SPECIAL_RESOLUTION
+      (whatever that special resolution is gets authored per-curse,
+      not assumed generically)
+
+  These interactions NEVER grant spell access — this rule (Section 2g
+  below) is unaffected by the unification; only the DATA SHAPE
+  combining Restoration into the general mechanism changed, not the
+  ownership boundary itself.
+
+--------------------------------------------------------------------------------
+2d. Casting flow (the actual sequence, cross-system)
+--------------------------------------------------------------------------------
+  Player attempts Lesser Restoration
+    -> D&D Spell API validates class access and prepared/known spell
+    -> validates target and spellcasting conditions
+    -> consumes the correct spell slot
+    -> spell emits an AuthorizedIntervention (Section 3b) with
+       effectId=dnd:lesser_restoration
+    -> Disease API checks the target's diseases against their
+       registered interventionResponses (Section 2c)
+    -> valid disease is cured/modified per its authored
+       InterventionResponseType
+    -> Codex/quest/dialogue systems receive the result event (same
+       standardized-event pattern as Codex's DiscoveryEvent, Food
+       Ecosystem doc Section 4c — a cure event is just another typed
+       fact/event other systems can listen for)
+
+  The spell itself is NEVER converted into a generic reusable "medical
+  ability" merely because the Disease API happens to support it — it
+  stays a real, gated D&D spell throughout.
+
+--------------------------------------------------------------------------------
+2e. Entities and NPCs
+--------------------------------------------------------------------------------
+  Other entities access Restoration-equivalent effects through the
+  SAME spellcasting framework, never a Disease-API-specific bypass:
+  Cleric NPC, Paladin NPC, a celestial entity, a powerful priest, a
+  divine boss, a companion with the right class, a magical construct
+  specifically granted the spell, or a creature with an innate
+  Restoration-like ability. Each source must be EXPLICITLY AUTHORED
+  (actual spell slots, innate casts per rest, a limited charge pool, a
+  scripted temple service backed by a valid caster) — the Disease API
+  never automatically lets any healer-flavored NPC remove diseases
+  just because they're thematically a healer.
+
+--------------------------------------------------------------------------------
+2f. Why medicine (Chemistry/Herbalism/Medicine skills) stays valuable
+--------------------------------------------------------------------------------
+  Restoration access is bottlenecked by: specific classes, spell
+  progression, prepared/known spells, available spell slots, access to
+  a qualified NPC, price/faction reputation, anti-magic zones,
+  religious restrictions, and disease severity. A Cleric can instantly
+  cure ONE adventurer by spending a slot; a hospital or Chemistry
+  facility can produce enough medicine for an entire SETTLEMENT — both
+  are powerful, in different scales. This creates real player choices:
+  spend a valuable slot now, find a temple, wait for a caster to rest,
+  create/purchase medicine, gather herbs for a slower treatment, or
+  quarantine and manage symptoms in the meantime.
+
+  Faction hook: an anti-magic faction isn't rejecting an abstract
+  "cure button," it's rejecting access to a real class-based divine
+  spell system — and can invest instead in Chemistry, hospitals,
+  herbalism, surgery, vaccination, sanitation, industrial medicine
+  production. A theocratic faction may restrict Restoration to
+  approved Clerics. A Paladin order might only cure allies or those
+  deemed worthy. Some regions may simply have no qualified caster.
+
+--------------------------------------------------------------------------------
+2g. Locked rule for this section
+--------------------------------------------------------------------------------
+  Diseases may define interactions with Lesser Restoration, Greater
+  Restoration, or other authored magical effects. These interactions
+  NEVER grant spell access. All class eligibility, spell knowledge,
+  preparation, spell-slot consumption, casting requirements, and
+  entity spellcasting remain EXCLUSIVELY owned by the D&D Spell API.
+
+================================================================================
+3. CAPSTONE INTERVENTION SYSTEM (Wish, Dragon Balls, Divine
+   Intervention, and future reality-altering powers)
+================================================================================
+--------------------------------------------------------------------------------
+3a. Why this exists
+--------------------------------------------------------------------------------
+  Totality's late-game explicitly includes capstone powers that can
+  bypass normal systems (Wish, Dragon Balls, Divine Intervention, and
+  whatever else gets added later) — reaching them takes substantial
+  progression, quests, resources, and dimensional exploration, so
+  allowing them to solve large problems IS the reward, not a balance
+  hole. The architectural risk is that without a shared pattern, EVERY
+  affected API (Disease, Chemistry, Farming, and anything else) would
+  eventually need bespoke logic like `if (source == WISH)` scattered
+  through it. This section defines the shared pattern instead.
+
+--------------------------------------------------------------------------------
+3b. Generalized intervention contract (REVISED — safer
+    authorized-effect model)
+--------------------------------------------------------------------------------
+  FIX: the original `ConditionIntervention` record included
+  `Set<Identifier> bypassPermissions` — this is DANGEROUS in
+  principle, because it let the SOURCE system simply DECLARE what
+  rules it bypasses and expect every affected system to trust that
+  declaration blindly. A source shouldn't get to self-certify its own
+  override authority.
+
+  RESOLVED via an authorized, TYPED request instead — the source
+  system still validates access and CREATES the request, but the
+  affected API retains its own validation responsibility for how the
+  effect interacts with ITS OWN state:
+
+  public record AuthorizedIntervention(
+          UUID interventionId, Identifier sourceId, UUID actorId,
+          TargetReference target, Identifier effectId,
+          InterventionPayload payload
+  ) {}
+
+  CORRECT OWNERSHIP RULE (this is the important part): the affected
+  API does NOT revalidate the SOURCE's own access logic (it doesn't
+  re-check spell slots, doesn't re-verify Dragon Ball collection,
+  doesn't re-confirm class eligibility — that's the source system's
+  job, already done before this request exists). But the affected API
+  STILL VALIDATES whether the authorized effect actually APPLIES to
+  THIS PARTICULAR target/condition/world rule — e.g. Disease still
+  checks whether THIS disease has a registered
+  `InterventionResponseDefinition` for `effectId` at all (Section 2c);
+  an intervention with no registered response for this specific
+  disease simply does nothing, regardless of how powerful its source
+  claims to be. The source proves IT'S allowed to act; the affected
+  system decides what that action actually DOES to its own data —
+  neither side blindly trusts the other's half of the validation.
+
+  `powerTier` (Section 3c) is now OPTIONAL AUTHORING METADATA on the
+  EFFECT DEFINITION (attached where the effect itself is registered),
+  not a field carried on every runtime `AuthorizedIntervention`
+  request — power tiers are vocabulary for AUTHORING interactions
+  consistently (3c), they don't have an established runtime purpose
+  that would justify being on every single request object.
+
+  Examples:
+    Lesser Restoration: source=dnd:lesser_restoration,
+      targets=ordinary diseases and selected conditions,
+      resolution=cure or remove
+    Greater Restoration: source=dnd:greater_restoration,
+      targets=advanced magical and debilitating conditions,
+      resolution=cure, cleanse, or restore
+    Wish: source=dnd:wish, targets=depends on the actual wish,
+      resolution=reality alteration
+    Shenron Wish: source=dragon_ball:shenron, targets=allowed by
+      Shenron's capabilities, resolution=authored wish outcome
+
+  The SOURCE system still validates access before ever emitting an
+  AuthorizedIntervention: D&D Spell API validates Wish and consumes
+  the spell slot; the Dragon Ball system validates all seven balls and
+  summons the dragon; a Divine Intervention system validates class
+  features and divine conditions; an artifact system validates charges
+  and ownership. The AFFECTED API (Disease, Chemistry, whatever) still
+  performs ITS OWN validation as described above — it never blindly
+  trusts a self-declared bypass, and it never independently re-checks
+  "is this really Wish" (that's not its job either).
+
+--------------------------------------------------------------------------------
+3c. Power tiers — vocabulary for authoring, NOT a strict override
+     hierarchy
+--------------------------------------------------------------------------------
+  Conventional      -- Medicine, surgery, antidotes, ordinary machines
+  Exceptional       -- Rare alchemy, advanced technology, specialist
+                        rituals
+  Restorative       -- Lesser/Greater Restoration, powerful healing
+                        abilities
+  Miraculous        -- Divine Intervention, legendary artifacts,
+                        resurrection-level effects
+  Reality-altering  -- Wish, Dragon Balls, cosmic entities, timeline
+                        alteration
+
+  IMPORTANT: this is NOT a simple "higher tier always wins" numeric
+  rule. A reality-altering effect may bypass an ordinary disease, but
+  might still be UNABLE to override: a stronger cosmic entity, a
+  protected timeline event, the rules of a particular dimension, a
+  wish beyond the granting entity's own power, a condition anchored to
+  an external object/source, or a narrative consequence that requires
+  its own specially-authored resolution. Tiers exist to help AUTHOR
+  interactions consistently, not to auto-resolve every conflict.
+
+--------------------------------------------------------------------------------
+3d. Convenience vs. significance
+--------------------------------------------------------------------------------
+  Reaching capstone power and being ALLOWED to bypass old limitations
+  is the reward, not a balance failure. Early game: "I need a cure, a
+  doctor, or a Cleric." Late game: "I can rewrite this person's
+  condition, but doing so spends one of the most powerful resources
+  available to me." Wish should NOT become the preferred way to cure
+  common flu (wasteful, and undermines the tier's significance) — but
+  using Wish to cure an otherwise-incurable dimensional plague
+  affecting an important character is exactly the kind of moment the
+  system should support well.
+
+--------------------------------------------------------------------------------
+3e. Story consequences (hook, not mechanically required)
+--------------------------------------------------------------------------------
+  Powerful solutions can create narrative responses WITHOUT
+  arbitrarily preventing their use — the world reacting to the
+  player's power is more interesting than blocking it. Examples: a
+  scientific faction horrified the player rewrote biology with Wish; a
+  temple treating the cure as a divine miracle; an anti-magic society
+  citing it as proof magic is uncontrollable; a corporation wanting
+  Dragon Ball access; a cosmic observer noticing repeated reality
+  alterations; curing a plague destabilizing a faction that gained
+  power by controlling medicine; restoring someone "supposed" to die
+  creating a divergent timeline. None of this is mechanically required
+  by the intervention system itself — it's a design opportunity the
+  system enables.
+
+--------------------------------------------------------------------------------
+3f. Locked rule for this section
+--------------------------------------------------------------------------------
+  Conventional systems govern ordinary progression and scalable
+  solutions. Rare capstone abilities, spells, artifacts, and wish-
+  granting mechanics MAY bypass or override them WHEN EXPLICITLY
+  AUTHORED. Access, costs, cooldowns, prerequisites, and limitations
+  remain owned by the SOURCE system. The affected API only resolves
+  the intervention's effect. Capstone solutions should NOT require
+  every underlying API to contain bespoke checks for Wish, Dragon
+  Balls, Divine Intervention, or future reality-altering powers —
+  Disease, Chemistry, Farming, and other APIs accept standardized,
+  explicitly-authorized interventions instead of each independently
+  special-casing every possible capstone source.
+
+================================================================================
+4. LEVEL 10 SPELL ACCESS AND ACQUISITION (future design note — PLANNED,
+   not required for current implementation work)
+================================================================================
+  Totality's class cap is 30, and custom level 10 spells exist beyond
+  D&D's normal level 9 maximum. Reaching class level 30 only makes a
+  character ELIGIBLE for level 10 spellcasting — it does NOT
+  automatically teach or unlock every level 10 spell. This is a
+  CAPSTONE DISCOVERY SYSTEM, not simply the next automatic spell tier.
+
+--------------------------------------------------------------------------------
+4a. FIVE separate axes (REVISED — was a single linear enum, which
+    assumed eligibility/discovery/unlocking always form one straight
+    line; they don't)
+--------------------------------------------------------------------------------
+  FIX: the original `SpellAccessState` enum (INELIGIBLE ->
+  ELIGIBLE_BUT_UNKNOWN -> DISCOVERED -> UNLOCKED) treated these as one
+  linear progression, but real cases break that ordering: a player
+  might DISCOVER a spell before ever becoming ELIGIBLE for it (heard
+  the lore, doesn't have the class level yet); might UNLOCK its secret
+  through a quest while still lacking the required class level
+  (acquisition doesn't require eligibility to happen first); might
+  become TEMPORARILY INELIGIBLE due to a class change or magical
+  restriction AFTER having already unlocked it (eligibility can be
+  lost, not just gained); or might have UNLOCKED a spell but not
+  currently PREPARE/KNOW it through their class's normal spell rules
+  (unlock and known/prepared are genuinely different D&D-framework
+  concepts). A single linear enum can't represent any of these
+  correctly.
+
+  RESOLVED — five SEPARATE, independently-tracked axes instead of one
+  combined enum:
+
+    ELIGIBILITY   — DERIVED, not stored. Computed live from current
+                     character/class state (class, class level,
+                     subclass, patron, deity, species, or other
+                     spellcasting-source requirements) — same
+                     "derived, not persisted" principle already used
+                     for GUIDED recipe knowledge (Food Ecosystem doc
+                     Section 17a-2's fix) and CulinaryIngredientView's
+                     safety level. Can be gained AND LOST as character
+                     state changes; never a stored flag that could go
+                     stale.
+    DISCOVERY     — STORED, through the existing Codex/discovery
+                     system (same DiscoveryLevel model, Food Ecosystem
+                     doc Section 4b). The player learning a spell
+                     exists, seeing partial Codex info.
+    ACQUISITION/UNLOCK — STORED PERSISTENTLY, granted once and kept
+                     (via SpellUnlockDefinition, 4b below) — completing
+                     the spell's unique prerequisite. Does NOT require
+                     eligibility to have happened first or at the same
+                     time.
+    KNOWN/PREPARED — owned ENTIRELY by the D&D Spell API's existing
+                     framework (Section 2a) — whatever that system's
+                     normal known/prepared rules already are for any
+                     spell, level 10 spells are no exception once
+                     unlocked.
+    CASTABILITY   — DERIVED at the moment of casting, not stored at
+                     all — the live combination of "currently eligible
+                     AND currently known/prepared AND has an available
+                     slot AND target/component/restriction checks
+                     pass." This is just the normal D&D Spell API
+                     casting validation (Section 2a) applied to a
+                     level-10 spell the player has unlocked — nothing
+                     level-10-specific happens at this step.
+
+  `SpellAccessState` MAY still exist as a CALCULATED UI SUMMARY (e.g.
+  for a Cookbook-style display showing "?" vs a name vs a greyed-out
+  known spell) — but it is NEVER the authoritative STORED model. The
+  actual source of truth is always the five axes above, computed/read
+  independently; any UI-facing summary enum is derived FROM them,
+  never the other way around.
+
+  A level 30 Wizard might be eligible for level 10 spells but know
+  none. Another may have completed the quest for one specific spell
+  (acquired) while still below the required class level (ineligible) —
+  a case the old linear model couldn't represent at all. A Cleric
+  could unlock a divine level 10 spell through their deity, while a
+  Warlock receives one through their patron — different eligibility
+  SOURCES, same five-axis model underneath.
+
+--------------------------------------------------------------------------------
+4b. Data-driven unlock definitions (REVISED — reusable requirement
+    expression tree instead of a flat list + singular fields)
+--------------------------------------------------------------------------------
+  FIX: the original shape (`List<Identifier> unlockConditionIds` plus
+  singular `Optional<Identifier> unlockQuestId/requiredItemId/
+  teacherId`) couldn't clearly express real acquisition logic — e.g.
+  "Complete Quest A AND possess Item B" versus "Complete Quest A OR
+  defeat NPC C OR reconstruct the spell through Research" are
+  genuinely different requirement STRUCTURES, not just different flat
+  lists. RESOLVED with a general requirement expression tree (this is
+  now the SAME type the Shared Cross-System Foundations document's
+  Knowledge/Unlock section, TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS
+  .txt Section 10, establishes as the general-purpose mechanism for
+  ANY domain's unlock requirements — not reinvented here, just used
+  here):
+
+  public sealed interface UnlockRequirement {
+      record AllOf(List<UnlockRequirement> children) implements
+          UnlockRequirement {}
+      record AnyOf(List<UnlockRequirement> children) implements
+          UnlockRequirement {}
+      record Condition(Identifier conditionId) implements
+          UnlockRequirement {}
+  }
+
+  public record SpellUnlockDefinition(
+          Identifier spellId, Set<Identifier> eligibilityRequirements,
+          UnlockRequirement acquisitionRequirement
+  ) {}
+
+  Condition IDs (inside `Condition` leaves) resolve through a strategy
+  registry (same pattern as every other identifier-resolved rule
+  across Totality's design — Processing's ConditionTransferPolicy,
+  Codex's ProgressionRule, etc): totality:class_level_30,
+  totality:completed_patron_finale, totality:possesses_lost_grimoire,
+  totality:earned_deity_favor, totality:studied_dimensional_anomaly,
+  totality:spared_specific_npc.
+
+  Example — a spell learnable by helping its creator, stealing the
+  spellbook, defeating the creator, OR reconstructing it through
+  research (four independent alternative paths):
+
+    acquisitionRequirement = AnyOf([
+        Condition(totality:helped_spell_creator),
+        Condition(totality:stole_spellbook),
+        Condition(totality:defeated_spell_creator),
+        Condition(totality:reconstructed_via_research)
+    ])
+
+  Example — a spell requiring BOTH a completed quest AND possession of
+  a specific item:
+
+    acquisitionRequirement = AllOf([
+        Condition(totality:completed_quest_a),
+        Condition(totality:possesses_item_b)
+    ])
+
+  This same `UnlockRequirement` type is REUSABLE well beyond spells —
+  species unlocks, schematics, Chemistry reactions, advanced
+  abilities, dimensional gates, quest branches, artifact attunement
+  can all use the identical AllOf/AnyOf/Condition tree instead of each
+  domain inventing its own flat-list approximation of the same idea
+  (see TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS.txt Section 10).
+
+--------------------------------------------------------------------------------
+4c. Joke spells — a DESIGN TARGET of roughly 70%, not a strict quota,
+    with an explicit balance caveat
+--------------------------------------------------------------------------------
+  FIX: "roughly 70%" is a DESIGN TARGET, not a strict content quota —
+  a final list landing at 65% or 75% joke spells would still satisfy
+  the underlying intention (preventing level 10 from becoming a
+  collection of interchangeable reality-destroying buttons). Don't
+  treat 70% as a number to hit exactly.
+
+  Making roughly 70% of custom level 10 spells humorous/absurd/
+  novelty-focused prevents the tier from becoming a collection of
+  interchangeable reality-destroying buttons, and suits Totality's
+  dimensional tone (very serious settings coexisting with ridiculous
+  ones).
+
+  IMPORTANT CAVEAT (explicit, not to be lost when these get designed):
+  being a joke does NOT automatically make a spell balanced. A funny
+  spell can still be extremely exploitable. Every spell — joke or not
+  — still needs authored limits and exploit review before it ships.
+
+  Suggested ROLES to sort level 10 spells into (not a rigid taxonomy,
+  a starting vocabulary):
+    Novelty/spectacle  — funny, spectacular, socially disruptive,
+                          bizarre
+    Utility            — solves an unusual problem at enormous
+                          opportunity cost
+    Narrative          — interacts with quests, factions, dimensions,
+                          NPCs
+    Combat             — genuinely powerful battle effects
+    Summoning
+    Divine/patron
+    Reality-altering   — rare, Wish-level effects
+
+  Example novelty-power ideas (flavor sketches, not finalized spells):
+  summon an absurd entity that may not cooperate; transform a
+  battlefield into a ridiculous environment; force everyone nearby
+  into an elaborate musical sequence; create an impossibly large but
+  mostly impractical object; temporarily impose cartoon logic on a
+  small area; conjure a legendary feast with strange side effects;
+  cause every spoken metaphor nearby to become temporarily literal.
+
+  PRODUCTION RULE: categorize planned spells by implementation cost,
+  required assets, mechanical risk, and exploit risk. Some joke
+  spells, even though conceptually "just a joke," can still be
+  mechanically powerful/exploitable AND expensive to actually build —
+  custom entities, unique VFX, bespoke animations cost real asset-
+  production time on top of the mechanical design. Sort them into
+  roughly "cheap to build" (reuses existing particle/effect/entity
+  systems) vs "needs custom assets" early, so a batch of easy ones can
+  ship without blocking on the expensive ones.
+
+  EXPLOIT REVIEW AUTHORITY (resolves the open item previously flagged
+  for this): Stefan is the final design authority. Design-partner
+  review (this assistant, and any other design-review tool used) may
+  flag risks and suggest fixes, but does not have final say. Practical
+  balance is ultimately confirmed through implementation and
+  playtesting, not through review alone.
+
+--------------------------------------------------------------------------------
+4d. Level 10 does not mean "numerically stronger than every level 9
+    spell"
+--------------------------------------------------------------------------------
+  A spell can justify being level 10 because it is: too strange to
+  classify normally, capable of affecting an enormous area,
+  narratively dangerous, connected to a cosmic being, able to bend a
+  fundamental rule, impossible to learn through ordinary study, or
+  extremely specialized but unmatched in that specialization. A level
+  9 combat spell may remain more USEFUL in an ordinary fight than a
+  level 10 joke spell — the level 10 spell is exceptional because of
+  WHAT it can do, not because every number on it is bigger.
+
+--------------------------------------------------------------------------------
+4e. Interaction with the Capstone Intervention system (Section 3)
+--------------------------------------------------------------------------------
+  Only level 10 spells EXPLICITLY AUTHORED to affect a given system
+  bypass it — level 10 is not itself a universal-override flag.
+  Example: a humorous weather spell does NOT cure disease merely
+  because it's level 10. A level 10 purification spell MAY cleanse an
+  entire settlement, if explicitly authored to. Wish may request a
+  disease cure through its OWN authored intervention rules (Section
+  3b). A reality-comedy spell might suppress symptoms while creating
+  absurd side consequences, if that's what its author wrote. The
+  Disease API (or any other affected API) never treats "is level 10"
+  as sufficient justification for an effect — every capstone effect
+  still needs its own explicit `ConditionIntervention` (Section 3b).
+
+--------------------------------------------------------------------------------
+4f. Explicit note on existing level 10 content
+--------------------------------------------------------------------------------
+  Level 10 spells were previously designed in a DIFFERENT Totality
+  design conversation, not present in this one. When this system is
+  actually built, those spells should be INTEGRATED from their
+  original notes — NOT redesigned or fabricated from memory. (Same
+  discipline as the Food Ecosystem document's stub sections: don't
+  invent content that already exists elsewhere just because it isn't
+  in the current context.)
+
+================================================================================
+5. OPEN ITEMS
+================================================================================
+  - The full Disease API (stages, treatment tags, symptoms, etc.
+    beyond the InterventionResponseDefinition contract in Section 2c)
+    is not designed in this document — only its interaction boundary
+    with the Spell API is. The rest of Disease's design, if it exists
+    elsewhere, should be integrated rather than fabricated here (same
+    discipline as everywhere else in Totality's design corpus).
+  - The Divine Intervention and Dragon Ball systems are referenced as
+    EXAMPLE capstone sources throughout Section 3 but are not
+    themselves designed here — only their role as intervention SOURCES
+    is established.
+  - This document should be revisited once Spell Slots (the next
+    planned implementation step) is actually built, since
+    SpellAccessState and the level 10 unlock model sit directly on top
+    of whatever the slot system ends up tracking.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
