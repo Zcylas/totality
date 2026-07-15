@@ -9,8 +9,8 @@ group = project.maven_group
 loom {
 	runs {
 		client {
-			programArgs.add("--username")
-			programArgs.add("Zcylas")
+			programArg "--username"
+			programArg "Zcylas"
 		}
 	}
 }
