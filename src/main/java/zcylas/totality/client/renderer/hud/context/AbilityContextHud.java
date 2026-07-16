@@ -17,7 +17,7 @@ public class AbilityContextHud {
     public static void render(GuiGraphicsExtractor graphics, Minecraft client,
                               int screenW, int screenH) {
         if (client.player == null || client.level == null) return;
-        if (client.screen != null) return;
+        if (client.gui.screen() != null) return;
 
         // Only show prompt for the equipped ability
         var equippedId = ClientAbilityManager.getEquippedAbility();

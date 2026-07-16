@@ -1,12 +1,12 @@
 // client/renderer/ability/HeatVisionBeamRenderer.java
 package zcylas.totality.client.renderer.ability;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -109,36 +109,45 @@ public final class HeatVisionBeamRenderer {
             Vec3 rightStart  = renderStart.add(right.scale(eyeSep));
 
             PoseStack matrices = context.poseStack();
-            renderBeamLayers(matrices, camera, leftStart,  hitPos, right, up, viewMatrix);
-            renderBeamLayers(matrices, camera, rightStart, hitPos, right, up, viewMatrix);
+
+            // Batched into a single BufferBuilder/draw call for the whole frame (both eyes, all
+            // three glow layers — 6 boxes total): MappableRingBuffer only has 3 slots, and each
+            // slot's fence is created by rotate() and awaited by the next currentBuffer() call on
+            // that same slot. Drawing more than 3 times per frame wraps back to a slot whose fence
+            // was created moments earlier in this same not-yet-submitted frame, and MC 26.2's GL
+            // fence throws IllegalStateException("Cannot wait on a fence for the current submit")
+            // instead of the older backend's lenient wait. One draw per frame sidesteps this
+            // entirely and matches how vanilla's own single-call-per-frame renderers use this class.
+            BufferBuilder buffer = new BufferBuilder(
+                    ALLOCATOR, PIPELINE.getPrimitiveTopology(), PIPELINE.getVertexFormatBinding(0));
+            renderBeamLayers(buffer, matrices, camera, leftStart,  hitPos, right, up);
+            renderBeamLayers(buffer, matrices, camera, rightStart, hitPos, right, up);
+
+            MeshData built = buffer.build();
+            if (built != null) draw(mc, built, viewMatrix);
         });
     }
 
     // ── Beam layers ───────────────────────────────────────────────────────────
 
-    private static void renderBeamLayers(PoseStack matrices, Vec3 camera,
+    private static void renderBeamLayers(BufferBuilder buffer, PoseStack matrices, Vec3 camera,
                                          Vec3 start, Vec3 end,
-                                         Vec3 right, Vec3 up,
-                                         Matrix4f viewMatrix) {
-        renderBox(matrices, camera, start, end, right, up,
-                OUTER_SIZE, OUTER_R, OUTER_G, OUTER_B, OUTER_A, viewMatrix);
-        renderBox(matrices, camera, start, end, right, up,
-                MID_SIZE,   MID_R,   MID_G,   MID_B,   MID_A,   viewMatrix);
-        renderBox(matrices, camera, start, end, right, up,
-                CORE_SIZE,  CORE_R,  CORE_G,  CORE_B,  CORE_A,  viewMatrix);
+                                         Vec3 right, Vec3 up) {
+        renderBox(buffer, matrices, camera, start, end, right, up,
+                OUTER_SIZE, OUTER_R, OUTER_G, OUTER_B, OUTER_A);
+        renderBox(buffer, matrices, camera, start, end, right, up,
+                MID_SIZE,   MID_R,   MID_G,   MID_B,   MID_A);
+        renderBox(buffer, matrices, camera, start, end, right, up,
+                CORE_SIZE,  CORE_R,  CORE_G,  CORE_B,  CORE_A);
     }
 
     // ── Box renderer ──────────────────────────────────────────────────────────
 
-    private static void renderBox(PoseStack matrices, Vec3 camera,
+    private static void renderBox(BufferBuilder buffer, PoseStack matrices, Vec3 camera,
                                   Vec3 start, Vec3 end,
                                   Vec3 right, Vec3 up,
                                   float half,
-                                  float r, float g, float b, float a,
-                                  Matrix4f viewMatrix) {
-        BufferBuilder buffer = new BufferBuilder(
-                ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
-
+                                  float r, float g, float b, float a) {
         matrices.pushPose();
         Matrix4fc pose = new Matrix4f(); // identity — no bob
 
@@ -172,9 +181,6 @@ public final class HeatVisionBeamRenderer {
         quad(buffer, pose, e_tr_x,e_tr_y,e_tr_z, e_tl_x,e_tl_y,e_tl_z, e_bl_x,e_bl_y,e_bl_z, e_br_x,e_br_y,e_br_z, r,g,b,a);
 
         matrices.popPose();
-
-        MeshData built = buffer.build();
-        if (built != null) draw(Minecraft.getInstance(), built, viewMatrix);
     }
 
     private static void quad(BufferBuilder buf, Matrix4fc pose,
@@ -250,16 +256,15 @@ public final class HeatVisionBeamRenderer {
                     size);
         }
 
-        CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
-        try (GpuBuffer.MappedView view = encoder.mapBuffer(
-                vertexBuffer.currentBuffer().slice(0, built.vertexBuffer().remaining()),
-                false, true)) {
+        try (GpuBufferSlice.MappedView view = vertexBuffer.currentBuffer()
+                .slice(0, built.vertexBuffer().remaining())
+                .map(false, true)) {
             MemoryUtil.memCopy(built.vertexBuffer(), view.data());
         }
 
         GpuBuffer vertices = vertexBuffer.currentBuffer();
         RenderSystem.AutoStorageIndexBuffer indexBuffer =
-                RenderSystem.getSequentialBuffer(PIPELINE.getVertexFormatMode());
+                RenderSystem.getSequentialBuffer(PIPELINE.getPrimitiveTopology());
         GpuBuffer indices = indexBuffer.getBuffer(drawState.indexCount());
 
         // Use viewRotationMatrix — pure camera rotation without head bob
@@ -270,16 +275,16 @@ public final class HeatVisionBeamRenderer {
                 .createCommandEncoder()
                 .createRenderPass(
                         () -> "totality heat vision beam rendering",
-                        mc.getMainRenderTarget().getColorTextureView(),
-                        java.util.OptionalInt.empty(),
-                        mc.getMainRenderTarget().getDepthTextureView(),
+                        mc.gameRenderer.mainRenderTarget().getColorTextureView(),
+                        java.util.Optional.empty(),
+                        mc.gameRenderer.mainRenderTarget().getDepthTextureView(),
                         java.util.OptionalDouble.empty())) {
             pass.setPipeline(PIPELINE);
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("DynamicTransforms", dynamicTransforms);
-            pass.setVertexBuffer(0, vertices);
+            pass.setVertexBuffer(0, vertices.slice());
             pass.setIndexBuffer(indices, indexBuffer.type());
-            pass.drawIndexed(0, 0, drawState.indexCount(), 1);
+            pass.drawIndexed(drawState.indexCount(), 1, 0, 0, 0);
         }
 
         built.close();

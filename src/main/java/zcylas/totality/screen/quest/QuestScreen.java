@@ -361,7 +361,7 @@ public class QuestScreen extends Screen {
         int[] b = backBounds(px, py);
         if (inB(mx, my, b[0], b[1], b[2], b[3])) {
             click();
-            Minecraft.getInstance().setScreen(new PhoneAppGridScreen(frame));
+            Minecraft.getInstance().gui.setScreen(new PhoneAppGridScreen(frame));
             return true;
         }
 
@@ -422,7 +422,7 @@ public class QuestScreen extends Screen {
         }
         if (inB(mx, my, closeX, barY + 3, closeW, btnH)) {
             click();
-            Minecraft.getInstance().setScreen(new PhoneAppGridScreen(frame));
+            Minecraft.getInstance().gui.setScreen(new PhoneAppGridScreen(frame));
             return true;
         }
         // ABANDON: no quest currently qualifies (First Signal is STARTER) — intentionally
@@ -459,7 +459,7 @@ public class QuestScreen extends Screen {
             return true;
         }
         if (key == GLFW.GLFW_KEY_ESCAPE) {
-            Minecraft.getInstance().setScreen(new PhoneAppGridScreen(frame));
+            Minecraft.getInstance().gui.setScreen(new PhoneAppGridScreen(frame));
             return true;
         }
         return super.keyPressed(event);

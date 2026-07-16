@@ -1,11 +1,11 @@
 package zcylas.totality.client.renderer.energy;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -60,8 +60,19 @@ public class SidedOverlayRenderer {
         LevelRenderEvents.BEFORE_TRANSLUCENT_TERRAIN.register(context -> {
             Vec3 camera = context.levelState().cameraRenderState.pos;
             PoseStack matrices = context.poseStack();
+            Matrix4f viewMatrix = context.levelState().cameraRenderState.viewRotationMatrix;
+
+            // Each loop below batches every pinned position into a single BufferBuilder/draw call
+            // rather than one draw per position: MappableRingBuffer only has 3 slots, and each
+            // slot's fence (created by rotate()) is awaited by the next currentBuffer() call on
+            // that same slot. Four or more pinned overlays visible in one frame would wrap back to
+            // a slot whose fence was created moments earlier in this same not-yet-submitted frame —
+            // MC 26.2's GL fence throws IllegalStateException("Cannot wait on a fence for the
+            // current submit") instead of the older backend's lenient wait.
 
             // ── Energy overlay ────────────────────────────────────────────────
+            BufferBuilder energyBuffer = new BufferBuilder(ALLOCATOR, PIPELINE.getPrimitiveTopology(), PIPELINE.getVertexFormatBinding(0));
+            boolean anyEnergyFace = false;
             for (BlockPos pos : SideModeClientCache.getAllPositions()) {
                 if (!GuiTab.isPinned(pos, "energy")) continue;
 
@@ -69,8 +80,6 @@ public class SidedOverlayRenderer {
                 boolean anyNonNone = modes.values().stream()
                         .anyMatch(m -> m != SimpleSidedUEContainer.SideMode.NONE);
                 if (!anyNonNone) continue;
-
-                BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
 
                 matrices.pushPose();
                 matrices.translate(pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z);
@@ -82,16 +91,20 @@ public class SidedOverlayRenderer {
                     float r = ((color >> 16) & 0xFF) / 255f;
                     float g = ((color >> 8) & 0xFF) / 255f;
                     float b = (color & 0xFF) / 255f;
-                    renderFace(matrices.last().pose(), buffer, dir, r, g, b, 0.6f);
+                    renderFace(matrices.last().pose(), energyBuffer, dir, r, g, b, 0.6f);
+                    anyEnergyFace = true;
                 }
 
                 matrices.popPose();
-
-                MeshData built = buffer.build();
-                if (built != null) draw(Minecraft.getInstance(), built);
+            }
+            if (anyEnergyFace) {
+                MeshData built = energyBuffer.build();
+                if (built != null) draw(Minecraft.getInstance(), built, viewMatrix);
             }
 
             // ── Item overlay ──────────────────────────────────────────────────
+            BufferBuilder itemBuffer = new BufferBuilder(ALLOCATOR, PIPELINE.getPrimitiveTopology(), PIPELINE.getVertexFormatBinding(0));
+            boolean anyItemFace = false;
             for (BlockPos pos : ItemSideModeClientCache.getAllPositions()) {
                 if (!GuiTab.isPinned(pos, "items")) continue;
 
@@ -99,8 +112,6 @@ public class SidedOverlayRenderer {
                 boolean anyNonNone = modes.values().stream()
                         .anyMatch(m -> m != ItemSideMode.NONE);
                 if (!anyNonNone) continue;
-
-                BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
 
                 matrices.pushPose();
                 matrices.translate(pos.getX() - camera.x, pos.getY() - camera.y, pos.getZ() - camera.z);
@@ -112,18 +123,20 @@ public class SidedOverlayRenderer {
                     float r = ((color >> 16) & 0xFF) / 255f;
                     float g = ((color >> 8) & 0xFF) / 255f;
                     float b = (color & 0xFF) / 255f;
-                    renderFace(matrices.last().pose(), buffer, dir, r, g, b, 0.6f);
+                    renderFace(matrices.last().pose(), itemBuffer, dir, r, g, b, 0.6f);
+                    anyItemFace = true;
                 }
 
                 matrices.popPose();
-
-                MeshData built = buffer.build();
-                if (built != null) draw(Minecraft.getInstance(), built);
+            }
+            if (anyItemFace) {
+                MeshData built = itemBuffer.build();
+                if (built != null) draw(Minecraft.getInstance(), built, viewMatrix);
             }
         });
     }
 
-    private static void draw(Minecraft client, MeshData builtBuffer) {
+    private static void draw(Minecraft client, MeshData builtBuffer, Matrix4f viewMatrix) {
         MeshData.DrawState drawParameters = builtBuffer.drawState();
         VertexFormat format = drawParameters.format();
 
@@ -133,46 +146,51 @@ public class SidedOverlayRenderer {
             vertexBuffer = new MappableRingBuffer(() -> "totality side overlay", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE, vertexBufferSize);
         }
 
-        CommandEncoder commandEncoder = RenderSystem.getDevice().createCommandEncoder();
-        try (GpuBuffer.MappedView mappedView = commandEncoder.mapBuffer(vertexBuffer.currentBuffer().slice(0, builtBuffer.vertexBuffer().remaining()), false, true)) {
+        try (GpuBufferSlice.MappedView mappedView = vertexBuffer.currentBuffer()
+                .slice(0, builtBuffer.vertexBuffer().remaining())
+                .map(false, true)) {
             MemoryUtil.memCopy(builtBuffer.vertexBuffer(), mappedView.data());
         }
 
         GpuBuffer vertices = vertexBuffer.currentBuffer();
         GpuBuffer indices;
-        VertexFormat.IndexType indexType;
+        com.mojang.blaze3d.IndexType indexType;
+        boolean ownsIndices = false;
 
-        if (PIPELINE.getVertexFormatMode() == VertexFormat.Mode.QUADS) {
+        if (PIPELINE.getPrimitiveTopology() == PrimitiveTopology.QUADS) {
             builtBuffer.sortQuads(ALLOCATOR, RenderSystem.getProjectionType().vertexSorting());
-            indices = PIPELINE.getVertexFormat().uploadImmediateIndexBuffer(builtBuffer.indexBuffer());
+            indices = RenderSystem.getDevice().createBuffer(
+                    () -> "totality side overlay indices", GpuBuffer.USAGE_INDEX, builtBuffer.indexBuffer());
             indexType = builtBuffer.drawState().indexType();
+            ownsIndices = true;
         } else {
-            RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer = RenderSystem.getSequentialBuffer(PIPELINE.getVertexFormatMode());
+            RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer = RenderSystem.getSequentialBuffer(PIPELINE.getPrimitiveTopology());
             indices = shapeIndexBuffer.getBuffer(drawParameters.indexCount());
             indexType = shapeIndexBuffer.type();
         }
 
         GpuBufferSlice dynamicTransforms = RenderSystem.getDynamicUniforms()
-                .writeTransform(RenderSystem.getModelViewMatrix(),
+                .writeTransform(viewMatrix,
                         COLOR_MODULATOR,
                         MODEL_OFFSET, TEXTURE_MATRIX);
 
         try (RenderPass renderPass = RenderSystem.getDevice()
                 .createCommandEncoder()
                 .createRenderPass(() -> "totality side overlay rendering",
-                        client.getMainRenderTarget().getColorTextureView(),
-                        java.util.OptionalInt.empty(),
-                        client.getMainRenderTarget().getDepthTextureView(),
+                        client.gameRenderer.mainRenderTarget().getColorTextureView(),
+                        java.util.Optional.empty(),
+                        client.gameRenderer.mainRenderTarget().getDepthTextureView(),
                         java.util.OptionalDouble.empty())) {
             renderPass.setPipeline(PIPELINE);
             RenderSystem.bindDefaultUniforms(renderPass);
             renderPass.setUniform("DynamicTransforms", dynamicTransforms);
-            renderPass.setVertexBuffer(0, vertices);
+            renderPass.setVertexBuffer(0, vertices.slice());
             renderPass.setIndexBuffer(indices, indexType);
-            renderPass.drawIndexed(0 / format.getVertexSize(), 0, drawParameters.indexCount(), 1);
+            renderPass.drawIndexed(drawParameters.indexCount(), 1, 0, 0, 0);
         }
 
         builtBuffer.close();
+        if (ownsIndices) indices.close();
         vertexBuffer.rotate();
     }
 

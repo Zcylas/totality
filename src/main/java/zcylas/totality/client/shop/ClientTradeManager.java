@@ -16,27 +16,27 @@ public final class ClientTradeManager {
         if (payload.ended()) {
             // Part F: if the SERVER ends the session (NPC invalidated, etc.) while the screen is
             // open, the client must close/disable it rather than silently keep showing stale data.
-            if (mc.screen instanceof TradingScreen) mc.setScreen(null);
+            if (mc.gui.screen() instanceof TradingScreen) mc.gui.setScreen(null);
             return;
         }
 
-        if (mc.screen instanceof TradingScreen ts) {
+        if (mc.gui.screen() instanceof TradingScreen ts) {
             ts.applyUpdate(payload);
         } else {
-            mc.setScreen(new TradingScreen(payload));
+            mc.gui.setScreen(new TradingScreen(payload));
         }
     }
 
     public static void handleSellQuote(SellQuoteResultPayload payload) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof TradingScreen ts) {
+        if (mc.gui.screen() instanceof TradingScreen ts) {
             ts.applySellQuote(payload);
         }
     }
 
     public static void handleRejection(TradeRejectionPayload payload) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof TradingScreen ts) {
+        if (mc.gui.screen() instanceof TradingScreen ts) {
             ts.showRejection(payload.buy(), payload.reasonKey());
         }
     }

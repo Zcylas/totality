@@ -88,7 +88,9 @@ public class TotalityOverworldSurfaceRules implements DataProvider {
 
             SurfaceRules.RuleSource combined = floodedBiomes.isEmpty()
                     ? vanilla.surfaceRule()
-                    : SurfaceRules.sequence(buildFloodedBiomeWaterRule(floodedBiomes, vanilla.seaLevel()), vanilla.surfaceRule());
+                    : SurfaceRules.sequence(buildFloodedBiomeWaterRule(
+                            provider.lookupOrThrow(Registries.BIOME), floodedBiomes, vanilla.seaLevel()),
+                            vanilla.surfaceRule());
 
             NoiseGeneratorSettings modified = new NoiseGeneratorSettings(
                     vanilla.noiseSettings(), vanilla.defaultBlock(), vanilla.defaultFluid(),
@@ -109,7 +111,8 @@ public class TotalityOverworldSurfaceRules implements DataProvider {
      * only in the single-block band just below sea level, only where our own coverage noise field
      * crosses the threshold — force water; everywhere else, fall through untouched.
      */
-    private static SurfaceRules.RuleSource buildFloodedBiomeWaterRule(List<ResourceKey<Biome>> floodedBiomes, int seaLevel) {
+    private static SurfaceRules.RuleSource buildFloodedBiomeWaterRule(
+            net.minecraft.core.HolderGetter<Biome> biomes, List<ResourceKey<Biome>> floodedBiomes, int seaLevel) {
         @SuppressWarnings("unchecked")
         ResourceKey<Biome>[] biomeArray = floodedBiomes.toArray(new ResourceKey[0]);
 
@@ -117,10 +120,10 @@ public class TotalityOverworldSurfaceRules implements DataProvider {
         SurfaceRules.ConditionSource belowSeaLevel = SurfaceRules.not(SurfaceRules.yBlockCheck(VerticalAnchor.absolute(seaLevel), 0));
 
         return SurfaceRules.ifTrue(SurfaceRules.ON_FLOOR,
-                SurfaceRules.ifTrue(SurfaceRules.isBiome(biomeArray),
+                SurfaceRules.ifTrue(SurfaceRules.isBiome(biomes, biomeArray),
                         SurfaceRules.ifTrue(atOrAboveFloor,
                                 SurfaceRules.ifTrue(belowSeaLevel,
-                                        SurfaceRules.ifTrue(SurfaceRules.noiseCondition(ModNoises.FLOODED_FOREST_COVERAGE_KEY, WATER_NOISE_THRESHOLD),
+                                        SurfaceRules.ifTrue(SurfaceRules.noiseCondition2d(ModNoises.FLOODED_FOREST_COVERAGE_KEY, WATER_NOISE_THRESHOLD),
                                                 SurfaceRules.state(Blocks.WATER.defaultBlockState()))))));
     }
 

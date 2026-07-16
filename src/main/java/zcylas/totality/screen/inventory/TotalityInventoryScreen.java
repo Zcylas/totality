@@ -428,7 +428,7 @@ public class TotalityInventoryScreen extends Screen {
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
             fadeOutTo(() -> {
                 Minecraft client = Minecraft.getInstance();
-                if (!PhoneScreens.openForEquippedPhone(client)) client.setScreen(null);
+                if (!PhoneScreens.openForEquippedPhone(client)) client.gui.setScreen(null);
             });
             return true;
         }

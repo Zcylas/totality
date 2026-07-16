@@ -33,6 +33,7 @@
 		"client.MinecraftAttackMixin",
 		"client.GuiGraphicsExtractorMixin",
 		"client.AvatarRendererMixin",
+		"client.GuiExtractRenderStateMixin",
 		"client.HumanoidModelMixin",
 		"client.ItemInHandRendererMixin",
 		"client.MultiPlayerGameModeMixin"

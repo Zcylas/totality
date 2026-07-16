@@ -31,7 +31,7 @@ public final class TotalityMovementHandler {
                 return;
             }
 
-            if (client.screen != null) {
+            if (client.gui.screen() != null) {
                 updatePowerSprintState(false);
                 return;
             }

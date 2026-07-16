@@ -72,7 +72,7 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
                 IngredientItems.TRUE_WHEAT_SEEDS,
                 net.minecraft.world.level.storage.loot.predicates.LootItemBlockStatePropertyCondition
                         .hasBlockStateProperties(AlchemyBlocks.TRUE_WHEAT_CROP)
-                        .setProperties(net.minecraft.advancements.criterion.StatePropertiesPredicate.Builder
+                        .setProperties(net.minecraft.advancements.predicates.StatePropertiesPredicate.Builder
                                 .properties().hasProperty(CropBlock.AGE, 7))
         ));
     }

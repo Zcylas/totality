@@ -168,7 +168,7 @@ public class GrimoireRadialScreen extends Screen {
                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
                         new SwitchGrimoireSlotPayload(selectedSlot));
             }
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
         }
     }
 

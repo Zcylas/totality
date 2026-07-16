@@ -1,0 +1,286 @@
+
+> Configure project :
+Fabric Loom: 1.17.14
+
+> Task :compileJava
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\api\client\gui\TotalityGuiRenderer.java:44: error: cannot find symbol
+                        .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+                                                                                          ^
+  symbol:   variable Mode
+  location: class VertexFormat
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:140: error: cannot find symbol
+                ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                   ^
+  symbol:   method getVertexFormatMode()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:140: error: cannot find symbol
+                ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                   ^
+  symbol:   method getVertexFormat()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:254: error: cannot find symbol
+        try (GpuBuffer.MappedView view = encoder.mapBuffer(
+                      ^
+  symbol:   class MappedView
+  location: class GpuBuffer
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:254: error: cannot find symbol
+        try (GpuBuffer.MappedView view = encoder.mapBuffer(
+                                                ^
+  symbol:   method mapBuffer(GpuBufferSlice,boolean,boolean)
+  location: variable encoder of type CommandEncoder
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:262: error: cannot find symbol
+                RenderSystem.getSequentialBuffer(PIPELINE.getVertexFormatMode());
+                                                         ^
+  symbol:   method getVertexFormatMode()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:275: error: cannot find symbol
+                        mc.getMainRenderTarget().getDepthTextureView(),
+                          ^
+  symbol:   method getMainRenderTarget()
+  location: variable mc of type Minecraft
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:273: error: cannot find symbol
+                        mc.getMainRenderTarget().getColorTextureView(),
+                          ^
+  symbol:   method getMainRenderTarget()
+  location: variable mc of type Minecraft
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:280: error: incompatible types: GpuBuffer cannot be converted to GpuBufferSlice
+            pass.setVertexBuffer(0, vertices);
+                                    ^
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:282: error: method drawIndexed in class RenderPass cannot be applied to given types;
+            pass.drawIndexed(0, 0, drawState.indexCount(), 1);
+                ^
+  required: int,int,int,int,int
+  found:    int,int,int,int
+  reason: actual and formal argument lists differ in length
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:73: error: cannot find symbol
+                BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                            ^
+  symbol:   method getVertexFormatMode()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:73: error: cannot find symbol
+                BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                                                            ^
+  symbol:   method getVertexFormat()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:103: error: cannot find symbol
+                BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                            ^
+  symbol:   method getVertexFormatMode()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:103: error: cannot find symbol
+                BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                                                            ^
+  symbol:   method getVertexFormat()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:137: error: cannot find symbol
+        try (GpuBuffer.MappedView mappedView = commandEncoder.mapBuffer(vertexBuffer.currentBuffer().slice(0, builtBuffer.vertexBuffer().remaining()), false, true)) {
+                      ^
+  symbol:   class MappedView
+  location: class GpuBuffer
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:137: error: cannot find symbol
+        try (GpuBuffer.MappedView mappedView = commandEncoder.mapBuffer(vertexBuffer.currentBuffer().slice(0, builtBuffer.vertexBuffer().remaining()), false, true)) {
+                                                             ^
+  symbol:   method mapBuffer(GpuBufferSlice,boolean,boolean)
+  location: variable commandEncoder of type CommandEncoder
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:143: error: cannot find symbol
+        VertexFormat.IndexType indexType;
+                    ^
+  symbol:   class IndexType
+  location: class VertexFormat
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:145: error: cannot find symbol
+        if (PIPELINE.getVertexFormatMode() == VertexFormat.Mode.QUADS) {
+                    ^
+  symbol:   method getVertexFormatMode()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:145: error: cannot find symbol
+        if (PIPELINE.getVertexFormatMode() == VertexFormat.Mode.QUADS) {
+                                                          ^
+  symbol:   variable Mode
+  location: class VertexFormat
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:147: error: cannot find symbol
+            indices = PIPELINE.getVertexFormat().uploadImmediateIndexBuffer(builtBuffer.indexBuffer());
+                              ^
+  symbol:   method getVertexFormat()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:150: error: cannot find symbol
+            RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer = RenderSystem.getSequentialBuffer(PIPELINE.getVertexFormatMode());
+                                                                                                            ^
+  symbol:   method getVertexFormatMode()
+  location: variable PIPELINE of type RenderPipeline
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:156: error: cannot find symbol
+                .writeTransform(RenderSystem.getModelViewMatrix(),
+                                            ^
+  symbol:   method getModelViewMatrix()
+  location: class RenderSystem
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:165: error: cannot find symbol
+                        client.getMainRenderTarget().getDepthTextureView(),
+                              ^
+  symbol:   method getMainRenderTarget()
+  location: variable client of type Minecraft
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:163: error: cannot find symbol
+                        client.getMainRenderTarget().getColorTextureView(),
+                              ^
+  symbol:   method getMainRenderTarget()
+  location: variable client of type Minecraft
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:170: error: incompatible types: GpuBuffer cannot be converted to GpuBufferSlice
+            renderPass.setVertexBuffer(0, vertices);
+                                          ^
+C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:172: error: method drawIndexed in class RenderPass cannot be applied to given types;
+            renderPass.drawIndexed(0 / format.getVertexSize(), 0, drawParameters.indexCount(), 1);
+                      ^
+  required: int,int,int,int,int
+  found:    int,int,int,int
+  reason: actual and formal argument lists differ in length
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
+26 errors
+
+> Task :compileJava FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/andre/Documents/Programming/Minecraft/Totality/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':compileJava' (registered by plugin class 'org.gradle.api.plugins.JavaBasePlugin').
+> Compilation failed; see the compiler output below.
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:282: error: method drawIndexed in class RenderPass cannot be applied to given types;
+              pass.drawIndexed(0, 0, drawState.indexCount(), 1);
+                  ^
+    required: int,int,int,int,int
+    found:    int,int,int,int
+    reason: actual and formal argument lists differ in length
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:172: error: method drawIndexed in class RenderPass cannot be applied to given types;
+              renderPass.drawIndexed(0 / format.getVertexSize(), 0, drawParameters.indexCount(), 1);
+                        ^
+    required: int,int,int,int,int
+    found:    int,int,int,int
+    reason: actual and formal argument lists differ in length
+  Note: Recompile with -Xlint:deprecation for details.
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:280: error: incompatible types: GpuBuffer cannot be converted to GpuBufferSlice
+              pass.setVertexBuffer(0, vertices);
+                                      ^
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:170: error: incompatible types: GpuBuffer cannot be converted to GpuBufferSlice
+              renderPass.setVertexBuffer(0, vertices);
+                                            ^
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\api\client\gui\TotalityGuiRenderer.java:44: error: cannot find symbol
+                          .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+                                                                                            ^
+    symbol:   variable Mode
+    location: class VertexFormat
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:254: error: cannot find symbol
+          try (GpuBuffer.MappedView view = encoder.mapBuffer(
+                        ^
+    symbol:   class MappedView
+    location: class GpuBuffer
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:137: error: cannot find symbol
+          try (GpuBuffer.MappedView mappedView = commandEncoder.mapBuffer(vertexBuffer.currentBuffer().slice(0, builtBuffer.vertexBuffer().remaining()), false, true)) {
+                        ^
+    symbol:   class MappedView
+    location: class GpuBuffer
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:143: error: cannot find symbol
+          VertexFormat.IndexType indexType;
+                      ^
+    symbol:   class IndexType
+    location: class VertexFormat
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:145: error: cannot find symbol
+          if (PIPELINE.getVertexFormatMode() == VertexFormat.Mode.QUADS) {
+                                                            ^
+    symbol:   variable Mode
+    location: class VertexFormat
+  Note: Some input files use or override a deprecated API.
+  Note: Some messages have been simplified; recompile with -Xdiags:verbose to get full output
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:140: error: cannot find symbol
+                  ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                     ^
+    symbol:   method getVertexFormatMode()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:140: error: cannot find symbol
+                  ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                     ^
+    symbol:   method getVertexFormat()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:254: error: cannot find symbol
+          try (GpuBuffer.MappedView view = encoder.mapBuffer(
+                                                  ^
+    symbol:   method mapBuffer(GpuBufferSlice,boolean,boolean)
+    location: variable encoder of type CommandEncoder
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:262: error: cannot find symbol
+                  RenderSystem.getSequentialBuffer(PIPELINE.getVertexFormatMode());
+                                                           ^
+    symbol:   method getVertexFormatMode()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:275: error: cannot find symbol
+                          mc.getMainRenderTarget().getDepthTextureView(),
+                            ^
+    symbol:   method getMainRenderTarget()
+    location: variable mc of type Minecraft
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\ability\HeatVisionBeamRenderer.java:273: error: cannot find symbol
+                          mc.getMainRenderTarget().getColorTextureView(),
+                            ^
+    symbol:   method getMainRenderTarget()
+    location: variable mc of type Minecraft
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:73: error: cannot find symbol
+                  BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                              ^
+    symbol:   method getVertexFormatMode()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:73: error: cannot find symbol
+                  BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                                                              ^
+    symbol:   method getVertexFormat()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:103: error: cannot find symbol
+                  BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                              ^
+    symbol:   method getVertexFormatMode()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:103: error: cannot find symbol
+                  BufferBuilder buffer = new BufferBuilder(ALLOCATOR, PIPELINE.getVertexFormatMode(), PIPELINE.getVertexFormat());
+                                                                                                              ^
+    symbol:   method getVertexFormat()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:137: error: cannot find symbol
+          try (GpuBuffer.MappedView mappedView = commandEncoder.mapBuffer(vertexBuffer.currentBuffer().slice(0, builtBuffer.vertexBuffer().remaining()), false, true)) {
+                                                               ^
+    symbol:   method mapBuffer(GpuBufferSlice,boolean,boolean)
+    location: variable commandEncoder of type CommandEncoder
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:145: error: cannot find symbol
+          if (PIPELINE.getVertexFormatMode() == VertexFormat.Mode.QUADS) {
+                      ^
+    symbol:   method getVertexFormatMode()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:147: error: cannot find symbol
+              indices = PIPELINE.getVertexFormat().uploadImmediateIndexBuffer(builtBuffer.indexBuffer());
+                                ^
+    symbol:   method getVertexFormat()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:150: error: cannot find symbol
+              RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer = RenderSystem.getSequentialBuffer(PIPELINE.getVertexFormatMode());
+                                                                                                              ^
+    symbol:   method getVertexFormatMode()
+    location: variable PIPELINE of type RenderPipeline
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:156: error: cannot find symbol
+                  .writeTransform(RenderSystem.getModelViewMatrix(),
+                                              ^
+    symbol:   method getModelViewMatrix()
+    location: class RenderSystem
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:165: error: cannot find symbol
+                          client.getMainRenderTarget().getDepthTextureView(),
+                                ^
+    symbol:   method getMainRenderTarget()
+    location: variable client of type Minecraft
+  C:\Users\andre\Documents\Programming\Minecraft\Totality\src\main\java\zcylas\totality\client\renderer\energy\SidedOverlayRenderer.java:163: error: cannot find symbol
+                          client.getMainRenderTarget().getColorTextureView(),
+                                ^
+    symbol:   method getMainRenderTarget()
+    location: variable client of type Minecraft
+  26 errors
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 4s
+1 actionable task: 1 executed

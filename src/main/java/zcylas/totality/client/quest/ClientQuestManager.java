@@ -36,11 +36,11 @@ public final class ClientQuestManager {
         lastKnownQuests = payload.quests();
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof QuestScreen qs) {
+        if (mc.gui.screen() instanceof QuestScreen qs) {
             qs.applyUpdate(payload);
         } else if (awaitingOpen) {
             awaitingOpen = false;
-            mc.setScreen(new QuestScreen(payload, pendingFrame));
+            mc.gui.setScreen(new QuestScreen(payload, pendingFrame));
         }
         // Otherwise: a background push (join/equip/setup) — cache updated above,
         // no screen opened. The HUD tracker picks it up from getTrackedQuest().

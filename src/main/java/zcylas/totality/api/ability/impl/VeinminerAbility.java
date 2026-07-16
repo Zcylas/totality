@@ -240,14 +240,14 @@ public class VeinminerAbility extends Ability implements ClientAbilityContext {
     }
 
     private boolean isOre(BlockState state) {
-        return state.is(BlockTags.COAL_ORES)
+        return state.is(ModTags.VANILLA_COAL_ORES)
                 || state.is(BlockTags.IRON_ORES)
                 || state.is(BlockTags.COPPER_ORES)
                 || state.is(BlockTags.GOLD_ORES)
-                || state.is(BlockTags.DIAMOND_ORES)
-                || state.is(BlockTags.EMERALD_ORES)
-                || state.is(BlockTags.LAPIS_ORES)
-                || state.is(BlockTags.REDSTONE_ORES)
+                || state.is(ModTags.VANILLA_DIAMOND_ORES)
+                || state.is(ModTags.VANILLA_EMERALD_ORES)
+                || state.is(ModTags.VANILLA_LAPIS_ORES)
+                || state.is(ModTags.VANILLA_REDSTONE_ORES)
                 || state.is(Blocks.NETHER_QUARTZ_ORE)
                 || state.is(Blocks.ANCIENT_DEBRIS)
                 || state.is(ModTags.VEINMINABLE);

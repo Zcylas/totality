@@ -25,7 +25,7 @@ public final class AttunementClientManager {
     }
 
     private static void tick(Minecraft client) {
-        if (client.player == null || client.screen == null) { reset(); return; }
+        if (client.player == null || client.gui.screen() == null) { reset(); return; }
 
         com.mojang.blaze3d.platform.Window window = client.getWindow();
         boolean rDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
@@ -75,7 +75,7 @@ public final class AttunementClientManager {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static int getHoveredSlot(Minecraft client) {
-        if (client.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen) {
+        if (client.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen) {
             var slot = ((zcylas.totality.mixin.client.AbstractContainerScreenAccessor) screen)
                     .totality$getHoveredSlot();
             return slot != null ? slot.index : -1;
@@ -84,7 +84,7 @@ public final class AttunementClientManager {
     }
 
     private static ItemStack getStackInSlot(Minecraft client, int slotIndex) {
-        if (client.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen) {
+        if (client.gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen) {
             var slots = screen.getMenu().slots;
             if (slotIndex >= 0 && slotIndex < slots.size())
                 return slots.get(slotIndex).getItem();

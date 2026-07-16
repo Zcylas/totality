@@ -60,19 +60,19 @@ public final class TotalityKeybindHandlers {
                 grimoireHoldTicks++;
                 // Hold → open Grimoire radial
                 if (grimoireHoldTicks >= HOLD_THRESHOLD && !grimoireRadialOpened
-                        && client.screen == null) {
+                        && client.gui.screen() == null) {
                     ItemStack main = client.player.getMainHandItem();
                     ItemStack off  = client.player.getOffhandItem();
                     ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
                             : off.getItem() instanceof GrimoireItem ? off
                             : ItemStack.EMPTY;
                     if (!grimoire.isEmpty()) {
-                        client.setScreen(new GrimoireRadialScreen(grimoire));
+                        client.gui.setScreen(new GrimoireRadialScreen(grimoire));
                         grimoireRadialOpened = true;
                     }
                 }
             } else {
-                if (grimoireWasDown && !grimoireRadialOpened && client.screen == null) {
+                if (grimoireWasDown && !grimoireRadialOpened && client.gui.screen() == null) {
                     // Quick tap
                     boolean shiftHeld =
                             com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
@@ -80,7 +80,7 @@ public final class TotalityKeybindHandlers {
                             com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
                                     org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT);
                     if (shiftHeld) {
-                        client.setScreen(new zcylas.totality.screen.character.CharacterScreen(
+                        client.gui.setScreen(new zcylas.totality.screen.character.CharacterScreen(
                                 zcylas.totality.screen.character.CharacterScreen.CharacterTab.CLASS));
                     } else {
                         ItemStack main = client.player.getMainHandItem();
@@ -89,7 +89,7 @@ public final class TotalityKeybindHandlers {
                                 : off.getItem() instanceof GrimoireItem ? off
                                 : ItemStack.EMPTY;
                         if (!grimoire.isEmpty()) {
-                            client.setScreen(new GrimoireScreen(grimoire));
+                            client.gui.setScreen(new GrimoireScreen(grimoire));
                         }
                     }
                 }
@@ -104,7 +104,7 @@ public final class TotalityKeybindHandlers {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (ModKeybinds.OPEN_MENU.consumeClick()) {
                 if (client.player == null) return;
-                if (client.screen == null) {
+                if (client.gui.screen() == null) {
                     if (!PhoneScreens.openForEquippedPhone(client)) {
                         NotificationManager.add("No phone equipped.", 0xFFAA8833);
                     }
@@ -136,13 +136,13 @@ public final class TotalityKeybindHandlers {
                 abilityHoldTicks++;
                 // Hold threshold reached — open ability radial
                 if (abilityHoldTicks >= HOLD_THRESHOLD && !abilityRadialOpened
-                        && client.screen == null
+                        && client.gui.screen() == null
                         && !ClientAbilityManager.getAbilityFavorites().isEmpty()) {
-                    client.setScreen(new zcylas.totality.screen.ability.AbilityRadialScreen());
+                    client.gui.setScreen(new zcylas.totality.screen.ability.AbilityRadialScreen());
                     abilityRadialOpened = true;
                 }
             } else {
-                if (abilityWasDown && !abilityRadialOpened && client.screen == null) {
+                if (abilityWasDown && !abilityRadialOpened && client.gui.screen() == null) {
                     // Quick tap — fire equipped ability
                     Identifier equippedId = ClientAbilityManager.getEquippedAbility();
                     if (equippedId != null && !ClientAbilityManager.isOnCooldown(equippedId)) {
@@ -169,13 +169,13 @@ public final class TotalityKeybindHandlers {
                 if (!spellWasDown) { spellHoldTicks = 0; spellRadialOpened = false; }
                 spellHoldTicks++;
                 if (spellHoldTicks >= HOLD_THRESHOLD && !spellRadialOpened
-                        && client.screen == null
+                        && client.gui.screen() == null
                         && !ClientAbilityManager.getSpellFavorites().isEmpty()) {
-                    client.setScreen(new zcylas.totality.screen.ability.SpellRadialScreen());
+                    client.gui.setScreen(new zcylas.totality.screen.ability.SpellRadialScreen());
                     spellRadialOpened = true;
                 }
             } else {
-                if (spellWasDown && !spellRadialOpened && client.screen == null) {
+                if (spellWasDown && !spellRadialOpened && client.gui.screen() == null) {
                     // Quick tap — fire selected spell
                     String selectedSpell = zcylas.totality.client.spell.ClientSelectedSpellManager
                             .getSelectedSpell();
@@ -202,7 +202,7 @@ public final class TotalityKeybindHandlers {
                     window, org.lwjgl.glfw.GLFW.GLFW_KEY_V);
 
             // Start blocking: V just went down with no screen open
-            if (vDown && !blockWasDown && client.screen == null && !blockingActive) {
+            if (vDown && !blockWasDown && client.gui.screen() == null && !blockingActive) {
                 InteractionHand blockHand = resolveBlockHand(client.player.getOffhandItem(),
                         client.player.getMainHandItem());
                 if (blockHand != null) {
@@ -215,7 +215,7 @@ public final class TotalityKeybindHandlers {
             }
 
             // Re-apply if V is held but local item use was cancelled (e.g., by right-click)
-            if (blockingActive && vDown && client.screen == null
+            if (blockingActive && vDown && client.gui.screen() == null
                     && !client.player.isUsingItem()) {
                 InteractionHand blockHand = resolveBlockHand(client.player.getOffhandItem(),
                         client.player.getMainHandItem());
@@ -223,7 +223,7 @@ public final class TotalityKeybindHandlers {
             }
 
             // Stop blocking: V released, or a screen opened while we were blocking
-            if (blockingActive && (!vDown || client.screen != null)) {
+            if (blockingActive && (!vDown || client.gui.screen() != null)) {
                 client.player.stopUsingItem();
                 ClientPlayNetworking.send(new BlockKeyPayload(false));
                 blockingActive = false;

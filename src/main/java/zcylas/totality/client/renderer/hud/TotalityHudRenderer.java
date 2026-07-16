@@ -83,7 +83,7 @@ public class TotalityHudRenderer {
 
         HudElementRegistry.addLast(HUD_ID, (graphics, delta) -> {
             Minecraft client = Minecraft.getInstance();
-            if (client.player == null || client.options.hideGui) return;
+            if (client.player == null || client.gui.hud.isHidden()) return;
 
             int screenW = graphics.guiWidth();
             int screenH = graphics.guiHeight();

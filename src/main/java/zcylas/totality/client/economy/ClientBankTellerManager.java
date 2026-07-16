@@ -10,10 +10,10 @@ public final class ClientBankTellerManager {
 
     public static void handle(ShowBankTellerPayload payload) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof BankTellerScreen screen) {
+        if (mc.gui.screen() instanceof BankTellerScreen screen) {
             screen.applyUpdate(payload);
         } else {
-            mc.setScreen(new BankTellerScreen(payload));
+            mc.gui.setScreen(new BankTellerScreen(payload));
         }
     }
 }

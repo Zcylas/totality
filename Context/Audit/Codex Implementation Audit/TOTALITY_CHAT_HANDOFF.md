@@ -42,15 +42,17 @@ Components include stats, skills, masteries, abilities, generic resources, comba
 
 ## 9. Major implementation gaps
 
-26.2 regression baseline; completion of generic resource definitions/behavior; U/A/E implementation; component schema migration; server-owned spell authorization; death/equipment policy; durable merchant state; packet-negative tests; lifecycle/multiplayer/worldgen verification.
+Completion of generic resource definitions/behavior; U/A/E implementation; component schema migration; server-owned spell authorization; death/equipment policy; durable merchant state; packet-negative tests; lifecycle/multiplayer/worldgen verification. (Totality now runs on Minecraft 26.2 — see §11 — so the 26.2 regression baseline is no longer a gap.)
 
 ## 10. Highest-priority architecture improvements
 
-Migrate to 26.2 separately; version/test component saves; finish generic resource definitions/behavior around shared storage; implement source-aware entitlements; centralize spell authorization; define death handling across vanilla/custom inventories; harden packet context validation; persist merchant identity/state.
+Version/test component saves; finish generic resource definitions/behavior around shared storage; implement source-aware entitlements; centralize spell authorization; define death handling across vanilla/custom inventories; harden packet context validation; persist merchant identity/state.
 
-## 11. Current migration concerns
+## 11. Migration status (updated 2026-07-16)
 
-The code has many version-sensitive mixins, worldgen hooks, GUI/render internals, payload codecs, Fabric Transfer integration and mapped accessors. Do not combine 26.2 mapping changes with foundational semantic rewrites.
+**The Minecraft 26.2 migration is complete.** Compilation, clean build, datagen, dedicated-server startup, development-client startup, and Stefan's manual gameplay smoke test all passed — see `Context/Audit/TOTALITY_26.2_MIGRATION_REPORT.md` and `Context/Audit/TOTALITY_26.2_MANUAL_SMOKE_TEST_RESULTS.md` for full detail. Known non-blocking limitations carried forward: a Heat Vision visual regression (functional, not visually restored), a pre-existing ability/spell hold-input design conflict (unrelated to the migration, not yet solved), a pre-existing Fluid Tank placeholder visual (not a migration regression), and no reproducible 26.1.2 save fixture (old-save compatibility formally untested). None of these block continued development on 26.2. Development sequence going forward: migration completed → migration-related regressions fixed → smoke testing completed with documented limitations → development continues on 26.2 → return to whatever implementation phase was previously planned next.
+
+The concerns that shaped how the migration was scoped remain useful context for future version bumps: the code has many version-sensitive mixins, worldgen hooks, GUI/render internals, payload codecs, Fabric Transfer integration and mapped accessors, so it was deliberately kept separate from foundational semantic rewrites — a pattern worth repeating next time.
 
 ## 12. Important design/implementation discrepancies
 
@@ -66,11 +68,10 @@ Final multiclass acquisition/allocation, backgrounds, starter equipment, physica
 
 ## 15. Suggested next-chat questions
 
-1. Which 26.2 acceptance tests and old-save fixtures are mandatory?
-2. What exact legacy resource keys map into the Generic Resource API?
-3. How should existing spell/ability/class/origin grants map to U/A/E sources?
-4. What is the authoritative death matrix for every inventory and Soulbound?
-5. Which planned domain should be designed only after those foundations?
+1. What exact legacy resource keys map into the Generic Resource API?
+2. How should existing spell/ability/class/origin grants map to U/A/E sources?
+3. What is the authoritative death matrix for every inventory and Soulbound?
+4. Which planned domain should be designed only after those foundations?
 
 ## Receiving-chat rules
 

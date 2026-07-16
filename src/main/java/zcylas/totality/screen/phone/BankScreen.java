@@ -80,7 +80,7 @@ public class BankScreen extends Screen {
     public boolean keyPressed(KeyEvent event) {
         int key = event.key();
         if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_TAB) {
-            Minecraft.getInstance().setScreen(new PhoneAppGridScreen(frame));
+            Minecraft.getInstance().gui.setScreen(new PhoneAppGridScreen(frame));
             return true;
         }
         return super.keyPressed(event);

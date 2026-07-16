@@ -56,10 +56,10 @@ public class PhoneAppGridScreen extends Screen {
     }
 
     private void buildApps() {
-        Runnable openCharacter = () -> Minecraft.getInstance().setScreen(new CharacterScreen());
-        Runnable openSkills    = () -> Minecraft.getInstance().setScreen(new CharacterScreen(CharacterScreen.CharacterTab.SKILLS));
-        Runnable openInventory = () -> Minecraft.getInstance().setScreen(new TotalityInventoryScreen());
-        Runnable openBank      = () -> Minecraft.getInstance().setScreen(new BankScreen(frame));
+        Runnable openCharacter = () -> Minecraft.getInstance().gui.setScreen(new CharacterScreen());
+        Runnable openSkills    = () -> Minecraft.getInstance().gui.setScreen(new CharacterScreen(CharacterScreen.CharacterTab.SKILLS));
+        Runnable openInventory = () -> Minecraft.getInstance().gui.setScreen(new TotalityInventoryScreen());
+        Runnable openBank      = () -> Minecraft.getInstance().gui.setScreen(new BankScreen(frame));
         Runnable openQuests    = () -> zcylas.totality.client.quest.ClientQuestManager.openQuestApp(frame);
         boolean bankUnlocked   = zcylas.totality.client.dialogue.ClientNarrativeFlagsManager.hasFlag("bank_app_unlocked");
 
@@ -267,8 +267,8 @@ public class PhoneAppGridScreen extends Screen {
             if (idx >= 0 && idx < favs.length) {
                 click();
                 switch (favs[idx]) {
-                    case "Character" -> Minecraft.getInstance().setScreen(new CharacterScreen());
-                    case "Skills"    -> Minecraft.getInstance().setScreen(new CharacterScreen(CharacterScreen.CharacterTab.SKILLS));
+                    case "Character" -> Minecraft.getInstance().gui.setScreen(new CharacterScreen());
+                    case "Skills"    -> Minecraft.getInstance().gui.setScreen(new CharacterScreen(CharacterScreen.CharacterTab.SKILLS));
                     case "Quests"    -> zcylas.totality.client.quest.ClientQuestManager.openQuestApp(frame);
                     default -> { /* Wallet: no backing system yet */ }
                 }
@@ -283,7 +283,7 @@ public class PhoneAppGridScreen extends Screen {
     public boolean keyPressed(KeyEvent event) {
         int key = event.key();
         if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_TAB) {
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
             return true;
         }
         return super.keyPressed(event);

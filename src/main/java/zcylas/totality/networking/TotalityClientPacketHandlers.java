@@ -85,12 +85,12 @@ public class TotalityClientPacketHandlers {
         );
         ClientPlayNetworking.registerGlobalReceiver(
                 OpenApothecaryTablePayload.TYPE,
-                (payload, context) -> Minecraft.getInstance().setScreen(new ApothecaryTableScreen())
+                (payload, context) -> Minecraft.getInstance().gui.setScreen(new ApothecaryTableScreen())
         );
         ClientPlayNetworking.registerGlobalReceiver(
                 BrewResultPayload.TYPE,
                 (payload, context) -> {
-                    Screen current = Minecraft.getInstance().screen;
+                    Screen current = Minecraft.getInstance().gui.screen();
                     if (current instanceof ApothecaryTableScreen alchemy) {
                         alchemy.onBrewResult(payload.potionName(), payload.discoveredEffects());
                     }
@@ -104,11 +104,11 @@ public class TotalityClientPacketHandlers {
                 (payload, ctx) -> PhoneScreens.openForEquippedPhone(ctx.client()));
         ClientPlayNetworking.registerGlobalReceiver(
                 OpenAncestrySelectionPayload.TYPE,
-                (payload, ctx) -> ctx.client().setScreen(
+                (payload, ctx) -> ctx.client().gui.setScreen(
                         new zcylas.totality.screen.ancestry.SpeciesSelectionScreen()));
         ClientPlayNetworking.registerGlobalReceiver(
                 OpenClassSelectionPayload.TYPE,
-                (payload, ctx) -> ctx.client().setScreen(new ClassSelectionScreen())
+                (payload, ctx) -> ctx.client().gui.setScreen(new ClassSelectionScreen())
         );
 
         // Server → client: open subclass selection at the correct class level
@@ -118,7 +118,7 @@ public class TotalityClientPacketHandlers {
                     net.minecraft.resources.Identifier classId =
                             net.minecraft.resources.Identifier.parse(payload.classId());
                     zcylas.totality.api.rpg.classes.ClassRegistry.get(classId).ifPresent(cls ->
-                            ctx.client().setScreen(
+                            ctx.client().gui.setScreen(
                                     new zcylas.totality.screen.classes.SubclassSelectionScreen(cls)));
                 }
         );
@@ -155,7 +155,7 @@ public class TotalityClientPacketHandlers {
         DiceRollResultClientHandler.registerRequest();
         ClientPlayNetworking.registerGlobalReceiver(
                 zcylas.totality.networking.rest.OpenRestChoicePayload.TYPE,
-                (payload, ctx) -> ctx.client().setScreen(
+                (payload, ctx) -> ctx.client().gui.setScreen(
                         new zcylas.totality.screen.rest.RestChoiceScreen(payload.bedPos(), payload.shortRestRemaining()))
         );
         ClientPlayNetworking.registerGlobalReceiver(
