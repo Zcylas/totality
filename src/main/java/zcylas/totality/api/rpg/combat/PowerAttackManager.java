@@ -2,7 +2,11 @@ package zcylas.totality.api.rpg.combat;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.init.ModTags;
@@ -19,6 +23,31 @@ public class PowerAttackManager {
     private static final int BASE_COST_ONE_HANDED  = 30;
     private static final int BASE_COST_TWO_HANDED   = 45;
     private static final float DAMAGE_MULTIPLIER    = 1.5f;
+
+    /** Same melee reach {@link zcylas.totality.networking.combat.OffhandAttackHandler} already
+     *  uses for its own (offhand) power attack — Power Attack is the mainhand analogue of that
+     *  exact mechanic and must share the identical reach, not a second invented value. */
+    public static final double MELEE_TARGET_RANGE = 4.5;
+    private static final double MELEE_TARGET_RANGE_SQ = MELEE_TARGET_RANGE * MELEE_TARGET_RANGE;
+
+    /**
+     * True if {@code target} is a legal Power Attack target for {@code player} right now: a
+     * living, alive, attackable entity other than the player themself, within melee reach
+     * (correction pass, Part C). Shared by both the client (gates whether a hold-charge may even
+     * begin/continue — {@code MinecraftAttackMixin}) and the server (re-validates before ever
+     * consuming Stamina or marking advantage — never trusts the client's own gating alone).
+     * Existing PvP/team/invulnerability rules are enforced downstream, unchanged, by vanilla's own
+     * attack/damage resolution — this only gates whether a charge may start/continue at all, it
+     * does not re-implement or bypass those rules. Takes the common {@link Player} supertype so
+     * the identical check runs for both a {@code LocalPlayer} (client) and a {@link ServerPlayer}
+     * (server) — one source of truth, not two copies that could drift apart.
+     */
+    public static boolean isValidTarget(Player player, @Nullable Entity target) {
+        if (!(target instanceof LivingEntity living)) return false;
+        if (living == player) return false;
+        if (!living.isAlive() || !living.isAttackable()) return false;
+        return player.distanceToSqr(living) <= MELEE_TARGET_RANGE_SQ;
+    }
 
     // Mastery IDs — kept here so a rename is one-line, not a grep
     private static final String MASTERY_DISCIPLINED_FIGHTER = "disciplined_fighter";

@@ -338,12 +338,26 @@ public final class TradeSessionManager {
         }
 
         long payout = quote.totalPayout();
-        if (!CreditPaymentHelper.canReceive(player, payout)) {
+        // A player with no open bank account has nowhere for a Wallet credit to represent —
+        // physical Credits are the only thing they can actually hold/use (Phase 4 correction
+        // pass, Part A). Never inferred from WalletComponent's mere existence (every player has
+        // one regardless of account status) — CreditPaymentHelper.hasOpenAccount reads the same
+        // has_account narrative flag the Banker's own account-opening dialogue sets, and this
+        // SELL path never sets that flag itself (no implicit account opening).
+        boolean hasAccount = CreditPaymentHelper.hasOpenAccount(player);
+        boolean canDeliver = hasAccount
+                ? CreditPaymentHelper.canReceive(player, payout)
+                : CreditPaymentHelper.canReceivePhysical(payout);
+        if (!canDeliver) {
             return SellResult.rejected(SellResult.Reason.CANNOT_RECEIVE);
         }
 
         inventory.removeItem(slotIndex, quantity);
-        CreditPaymentHelper.receive(player, payout);
+        if (hasAccount) {
+            CreditPaymentHelper.receive(player, payout);
+        } else {
+            CreditPaymentHelper.receivePhysical(player, payout);
+        }
         merchant.setCurrentCredits(merchant.currentCredits() - payout);
 
         sendState(player, false);

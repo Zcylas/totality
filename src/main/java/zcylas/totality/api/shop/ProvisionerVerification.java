@@ -164,6 +164,12 @@ public final class ProvisionerVerification {
         checkBuyingFromOneDoesNotChangeOther(r, server);
         checkSameAssortmentIdDoesNotShareRuntimeState(r, server);
 
+        // ── Correction pass — persistence / no natural despawn (Part B) ──────
+        checkProvisionerIsPersistenceRequired(r, server);
+        checkProvisionerSurvivesCheckDespawnFarFromPlayer(r, server);
+        checkGenericNpcDespawnsFarFromPlayerControl(r, server);
+        checkFullSaveLoadRoundTripPreservesCompleteMerchantState(r, server);
+
         // ── Transaction integration ──────────────────────────────────────
         checkEntityBackedSessionResolvesEntityRuntime(r, player, server);
         checkStockBuyDecreasesOnlyThatEntitysStock(r, player, server);
@@ -1110,6 +1116,113 @@ public final class ProvisionerVerification {
             boolean pass = !npc.isStockInitialized() && npc.stockEntries().isEmpty() && npc.isCreditsInitialized();
             return result(pass, "stockInitialized=" + npc.isStockInitialized() + ", stock=" + npc.stockEntries()
                     + ", creditsInitialized=" + npc.isCreditsInitialized());
+        });
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Correction pass — persistence / no natural despawn (Part B)
+    // ═════════════════════════════════════════════════════════════════════
+
+    private static void checkProvisionerIsPersistenceRequired(VerificationReporter r, MinecraftServer server) {
+        safe(r, "A Provisioner is always persistence-required, regardless of persisted NBT", () -> {
+            ProvisionerNpcEntity npc = isolatedProvisioner(server);
+            boolean pass = npc.isPersistenceRequired();
+            return result(pass, "isPersistenceRequired=" + npc.isPersistenceRequired());
+        });
+    }
+
+    /**
+     * Drives the REAL {@code Mob#checkDespawn()} (public, unmodified vanilla method) against a
+     * genuinely level-added Provisioner positioned far beyond any mob category's despawn distance
+     * from the only player present — this is the exact code path that discarded a Provisioner when
+     * Stefan died and respawned far away (correction pass, Part B root cause). Distance is 100,000
+     * blocks specifically so this passes regardless of the entity's {@code MobCategory}'s exact
+     * despawn-distance constant (deliberately not hardcoding vanilla's current value here).
+     *
+     * <p>{@code checkDespawn()}'s distance branch only runs at all once {@code Level#getNearestPlayer}
+     * finds SOMEONE — which requires a fake player genuinely registered in the level's own player
+     * list ({@code ServerLevel#players()}), not merely constructed. Deliberately uses its OWN
+     * dedicated fake player (added and removed within this single check), never the suite-wide
+     * {@code player} fixture every other check shares — registering/unregistering a player from a
+     * level is exactly the kind of state mutation that must not leak into the dozens of unrelated
+     * checks that run after this one in the same suite.
+     */
+    private static void checkProvisionerSurvivesCheckDespawnFarFromPlayer(VerificationReporter r, MinecraftServer server) {
+        safe(r, "A Provisioner survives checkDespawn() even 100,000 blocks from the only player online", () -> {
+            ServerPlayer despawnTestPlayer = TotalityFakePlayer.create(server.overworld(), "[ProvisionerVerification-despawn]");
+            ProvisionerNpcEntity npc = addedProvisioner(server, despawnTestPlayer);
+            try {
+                server.overworld().addNewPlayer(despawnTestPlayer);
+                npc.setPos(despawnTestPlayer.getX() + 100_000, despawnTestPlayer.getY(), despawnTestPlayer.getZ());
+                npc.checkDespawn();
+                boolean pass = !npc.isRemoved();
+                return result(pass, "removed=" + npc.isRemoved());
+            } finally {
+                discard(npc);
+                server.overworld().removePlayerImmediately(despawnTestPlayer, Entity.RemovalReason.DISCARDED);
+            }
+        });
+    }
+
+    /**
+     * Negative control for {@link #checkProvisionerSurvivesCheckDespawnFarFromPlayer}: a plain
+     * {@code totality:totality_npc} (not persistence-required) genuinely DOES despawn under the
+     * identical conditions — proving the positive check above is actually exercising real
+     * despawn logic, not passing vacuously (e.g. because no player is registered as a level player,
+     * or {@code checkDespawn} no-ops in this harness for some unrelated reason). Uses its own
+     * dedicated fake player, same reasoning as the positive check above.
+     */
+    private static void checkGenericNpcDespawnsFarFromPlayerControl(VerificationReporter r, MinecraftServer server) {
+        safe(r, "Control: a non-persistence-required generic NPC DOES despawn under the identical far-away condition", () -> {
+            ServerPlayer despawnTestPlayer = TotalityFakePlayer.create(server.overworld(), "[ProvisionerVerification-despawn-control]");
+            zcylas.totality.entity.npc.TotalityNpcEntity npc =
+                    new zcylas.totality.entity.npc.TotalityNpcEntity(ModEntities.TOTALITY_NPC, server.overworld());
+            npc.setPos(despawnTestPlayer.getX(), despawnTestPlayer.getY(), despawnTestPlayer.getZ());
+            server.overworld().addFreshEntity(npc);
+            try {
+                server.overworld().addNewPlayer(despawnTestPlayer);
+                npc.setPos(despawnTestPlayer.getX() + 100_000, despawnTestPlayer.getY(), despawnTestPlayer.getZ());
+                npc.checkDespawn();
+                boolean pass = npc.isRemoved();
+                return result(pass, "removed=" + npc.isRemoved());
+            } finally {
+                if (!npc.isRemoved()) npc.discard();
+                server.overworld().removePlayerImmediately(despawnTestPlayer, Entity.RemovalReason.DISCARDED);
+            }
+        });
+    }
+
+    private static void checkFullSaveLoadRoundTripPreservesCompleteMerchantState(VerificationReporter r, MinecraftServer server) {
+        safe(r, "A full save/load round-trip (gender, dialogue id, assortment pool id, Credits, and stock together, "
+                + "not just the Phase 3 fields in isolation) preserves the complete merchant state", () -> {
+            ProvisionerNpcEntity original = isolatedProvisioner(server);
+            // Rolls identity (gender/name) + assortment + Credits together, exactly like a real spawn.
+            original.finalizeSpawn(server.overworld(), server.overworld().getCurrentDifficultyAt(original.blockPosition()),
+                    EntitySpawnReason.COMMAND, null);
+            zcylas.totality.entity.npc.NpcGender originalGender = original.getGender();
+            Identifier originalDialogue = original.getDialogueId();
+            Identifier originalPool = original.getAssortmentPoolId();
+            long originalCredits = original.currentCredits();
+            List<MerchantStockEntry> originalStock = original.stockEntries();
+
+            TagValueOutput output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, server.registryAccess());
+            original.simulateFullSaveForTest(output);
+            CompoundTag tag = output.buildResult();
+
+            ProvisionerNpcEntity reloaded = isolatedProvisioner(server);
+            reloaded.simulateFullLoadForTest(TagValueInput.create(ProblemReporter.DISCARDING, server.registryAccess(), tag));
+
+            boolean pass = reloaded.getGender() == originalGender
+                    && originalDialogue.equals(reloaded.getDialogueId())
+                    && originalPool.equals(reloaded.getAssortmentPoolId())
+                    && reloaded.currentCredits() == originalCredits
+                    && reloaded.isCreditsInitialized() && reloaded.isStockInitialized()
+                    && stockEquals(originalStock, reloaded.stockEntries());
+            return result(pass, "gender=" + originalGender + "->" + reloaded.getGender()
+                    + ", dialogue=" + originalDialogue + "->" + reloaded.getDialogueId()
+                    + ", pool=" + originalPool + "->" + reloaded.getAssortmentPoolId()
+                    + ", credits=" + originalCredits + "->" + reloaded.currentCredits()
+                    + ", stock=" + originalStock + "->" + reloaded.stockEntries());
         });
     }
 

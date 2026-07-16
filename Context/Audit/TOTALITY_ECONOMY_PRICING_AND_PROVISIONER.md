@@ -2598,6 +2598,116 @@ Implementation Order step lands.
   Blacksmith, Alchemist, an economy ledger/refund framework, and the
   unrelated dedicated-server client-classloading fix.
 
+--------------------------------------------------------------------------------
+14. Phase 4 correction pass — accountless SELL payout, Provisioner
+    persistence (2026-07-16, after the MC 26.2 migration closeout)
+--------------------------------------------------------------------------------
+  First correction pass following Stefan's manual test of Phase 4 (13,
+  above). Two economy/entity bugs, kept deliberately separate from the
+  same pass's unrelated combat/input corrections (documented in
+  `TOTALITY_COMBAT_INPUT_AND_HUD.md`, Sections 1-2). Does NOT begin the
+  Trading Screen visual/layout pass — still deferred to a later,
+  dedicated Fable session per task instruction.
+
+  14a. ACCOUNTLESS SELL PAYOUT (Part A).
+  ROOT CAUSE: `TradeSessionManager.handleSell` always called
+  `CreditPaymentHelper.receive` (the Wallet/account credit path)
+  regardless of whether the selling player had ever opened a bank
+  account. `WalletComponent` exists on every player unconditionally
+  (Section 0/2a already established this — it is NOT gated behind
+  account creation), so its presence was never a valid signal of
+  account ownership. The real signal already existed, just unused by
+  SELL: the `has_account` narrative flag the Banker's own
+  `open_account` dialogue actions set (`banker_intro.json`).
+
+  FIX: `CreditPaymentHelper.hasOpenAccount(ServerPlayer)` (new) reads
+  that exact flag via `DialogueComponents.FLAGS`. `handleSell` now
+  branches: an account holder still receives the payout via the
+  existing `receive`/`canReceive` (Wallet) path, unchanged; a player
+  with no account receives it via two new symmetric methods,
+  `CreditPaymentHelper.receivePhysical`/`canReceivePhysical`, which
+  deliver physical `totality:credits` items via
+  `CurrencyItems.CREDITS.createStacks(amount)` — the SAME
+  `MAX_PER_STACK`-splitting + "add to inventory, drop at feet only if
+  full" fallback `BankTellerHandler.withdraw` and BUY's item delivery
+  already use, not a new ground-drop mechanism invented for this path.
+  Validation (`canReceive`/`canReceivePhysical`) still happens BEFORE
+  `inventory.removeItem` — the existing validate-then-mutate ordering
+  is unchanged, just branched on account status. SELL never sets
+  `has_account` itself (no implicit account opening). BUY is completely
+  untouched — `CreditPaymentHelper.canAfford`/`pay` (Wallet-then-
+  physical combined spend) still gate BUY exactly as before.
+
+  New checks added to `MerchantSellVerification`: accountless SELL
+  pays physical Credits and leaves the Wallet unchanged; accountless
+  SELL never sets `has_account`; `receivePhysical` rejects a negative
+  amount without mutation; `receivePhysical` delivers a large payout
+  (250,000, spanning 25 stacks) without overflow/exception. Every
+  pre-existing Wallet-payout SELL check (`checkSuccessfulSellPaysExactAmount`
+  etc.) still passes unchanged — the suite's shared fixture player is
+  now explicitly marked an account holder at suite start (matching
+  what those checks always implicitly assumed), and the new checks
+  flip the flag off/on around themselves, restoring it in `finally`.
+
+  14b. PROVISIONER PERSISTENCE / NO NATURAL DESPAWN (Part B).
+  ROOT CAUSE: `ProvisionerNpcEntity` (and `TotalityNpcEntity` generally)
+  never overrode `Mob.isPersistenceRequired()`. Confirmed via
+  decompiled 26.2 bytecode that `Mob.checkDespawn()` unconditionally
+  discards a mob once `Level.getNearestPlayer` finds the nearest player
+  beyond `MobCategory.getDespawnDistance()` (128 blocks for `MISC`,
+  the Provisioner's category) — no randomness gates this branch, unlike
+  the separate long-distance random-despawn branch. A player dying and
+  respawning far away is exactly this scenario: the Provisioner's chunk
+  is often still loaded for a moment post-respawn, `checkDespawn` runs,
+  finds the player far away, and discards it immediately.
+
+  FIX: `ProvisionerNpcEntity.isPersistenceRequired()` now unconditionally
+  returns `true` — an override, not just calling the inherited
+  `setPersistenceRequired()` once, so the invariant holds regardless of
+  what NBT happens to contain on load (mirrors `defaultDialogueId()`'s
+  "always enforce this invariant" approach). This is the ENTIRE fix —
+  `Mob.checkDespawn()`'s own vanilla logic already skips its whole
+  distance-despawn branch when `isPersistenceRequired()` is true; no
+  other method needed changing. Death is unaffected (a Provisioner
+  still dies normally when actually killed — nothing about
+  invulnerability/damage was touched); NBT save/load, stock, and
+  Credits persistence were already correct (Phase 3) and untouched.
+
+  New checks added to `ProvisionerVerification`: a fresh Provisioner is
+  always persistence-required; a level-added Provisioner survives a
+  REAL `checkDespawn()` call 100,000 blocks from the only registered
+  player (drives vanilla's actual, unmodified method — not a
+  reimplementation); a negative CONTROL check confirms a plain
+  `totality:totality_npc` (still not persistence-required, unaffected
+  by this fix, matching this document's declared scope of Provisioner
+  only) genuinely DOES despawn under the identical condition, proving
+  the positive check isn't vacuously passing; a full save/load round
+  trip (gender, dialogue id, assortment pool id, Credits, and stock
+  together, via the real `addAdditionalSaveData`/`readAdditionalSaveData`
+  chain, not just the Phase-3-only fields) preserves all of it at once.
+  Zero/zero-stock survival, no-reroll-on-reload, and two-Provisioner
+  independence were already covered by Phase 3's existing checks — not
+  duplicated here.
+
+  RUNTIME-VERIFIED (2026-07-16, `gradlew runClient
+  --args="--quickPlaySingleplayer \"New Testing World\""`):
+  `[MerchantSellVerification] All 37 self-test checks passed.` (was
+  33 — +4 new Part A checks); `[ProvisionerVerification] All 71
+  self-test checks passed.` (was 67 — +4 new Part B checks); every
+  other pre-existing suite (`ItemValueVerification` 19,
+  `TradingScreenVerification` 14, `ProvisionerEntityBackedSmokeTest` 4)
+  unchanged and passing. `gradlew compileJava`/`build`: SUCCESSFUL.
+
+  MANUAL TESTING: Stefan confirmed, 2026-07-16 — accountless SELL
+  correctly provides physical Credits; account holders retain the
+  intended Wallet payout; Provisioners remain persistent after moving
+  away, death/respawn, and chunk unloading.
+
+  NOT implemented, unchanged from scope: everything Section 13's "NOT
+  implemented" list already covers, plus this pass adds nothing new to
+  that list — no GUI work was touched (Trading Screen remains exactly
+  as Section 13 left it, deferred to the Fable pass).
+
 ================================================================================
 END OF DOCUMENT
 ================================================================================

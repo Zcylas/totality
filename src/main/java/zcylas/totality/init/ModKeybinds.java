@@ -70,6 +70,21 @@ public class ModKeybinds {
                     TOTALITY_CATEGORY
             )
     );
+
+    /**
+     * Held together with {@link #USE_ABILITY}/{@link #USE_SPELL} to open the respective Favorites
+     * radial instead of activating/casting (Phase 4 correction pass, Part D) — replaces the old
+     * hold-Z/hold-X-for-one-second radial trigger, which interrupted channeled abilities/spells
+     * once the threshold passed. Rebindable specifically because the default (Left Alt) can
+     * conflict with external overlays (Discord, Nvidia/AMD, Steam) on some systems.
+     */
+    public static final KeyMapping RADIAL_MODIFIER = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.radial_modifier",
+                    GLFW.GLFW_KEY_LEFT_ALT,
+                    TOTALITY_CATEGORY
+            )
+    );
     public static final KeyMapping MOVEMENT_POWER = KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
                     "key.totality.movement_power",

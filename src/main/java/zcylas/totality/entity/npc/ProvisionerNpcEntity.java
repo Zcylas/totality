@@ -91,6 +91,23 @@ public class ProvisionerNpcEntity extends TotalityNpcEntity implements MerchantR
     }
 
     /**
+     * A dedicated Provisioner is a persistent civilian NPC, not a generic despawnable mob (Phase 4
+     * correction pass, Part B) — its rolled identity, assortment, and Credits are meant to be
+     * permanent for that entity instance. Overriding this (rather than only calling the inherited
+     * {@code setPersistenceRequired()} once, which a stale/absent persisted NBT value could
+     * disagree with on a later load) unconditionally exempts it from {@code Mob#checkDespawn}'s
+     * distance/instant-despawn branch regardless of anything read from save data, exactly mirroring
+     * {@code defaultDialogueId()}'s "always enforce this invariant, never rely on NBT alone"
+     * approach just above. Does not affect natural death — {@link #die} is unchanged, and this
+     * class does not override damage/invulnerability, so a Provisioner still dies normally when
+     * actually killed.
+     */
+    @Override
+    public boolean isPersistenceRequired() {
+        return true;
+    }
+
+    /**
      * Phase 3 hardening pass, Section 1: a fresh {@code /summon totality:provisioner} (or any
      * other command/structure spawn with no explicit {@code DialogueId}) still routes through
      * {@link #readAdditionalSaveData} via {@code Entity#load}, which previously reset

@@ -187,6 +187,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("key.category.totality.totality", "Totality");
         translationBuilder.add("key.totality.open_radial", "Radial Spell Selector");
         translationBuilder.add("key.totality.open_ability_radial", "Ability Radial Menu");
+        translationBuilder.add("key.totality.radial_modifier", "Radial Modifier");
         translationBuilder.add("key.totality.movement_power", "Movement Power");
         //Effects
         translationBuilder.add("effect.totality.glide", "Glide");

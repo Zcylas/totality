@@ -92,8 +92,8 @@ public class TotalityHudRenderer {
             int staminaY = screenH - BOTTOM_MARGIN - BG_HEIGHT;  // bottom
             int manaY    = staminaY - BAR_SPACING  - BG_HEIGHT;  // middle
             int hpY      = manaY    - BAR_SPACING  - BG_HEIGHT;  // top
-            // Power attack flash
-            PowerAttackFlash.tick();
+            // Power attack flash — timer advanced by PowerAttackFlash's own END_CLIENT_TICK
+            // registration (correction pass), never here; this reads current state only.
             if (PowerAttackFlash.isActive()) {
                 int flashColor = ColorUtils.setAlpha(0xFFFF6600, (int)(PowerAttackFlash.getAlpha() * 255));
                 graphics.fill(0, 0, screenW, screenH, flashColor);

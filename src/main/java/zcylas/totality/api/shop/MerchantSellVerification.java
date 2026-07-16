@@ -13,6 +13,7 @@ import net.minecraft.world.item.alchemy.Potions;
 import zcylas.totality.Totality;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.util.VerificationReporter;
+import zcylas.totality.api.dialogue.DialogueComponents;
 import zcylas.totality.api.economy.currency.CreditPaymentHelper;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.economy.value.ItemPricingService;
@@ -67,6 +68,11 @@ public final class MerchantSellVerification {
 
         VerificationReporter r = new VerificationReporter(Totality.LOGGER, "MerchantSellVerification");
         ServerPlayer player = TotalityFakePlayer.create(server.overworld(), "[MerchantSellVerification]");
+        // Established account holder by default — matches every pre-existing SELL/Wallet check
+        // below, which already assumed a SELL payout reaches the Wallet. The Part A checks flip
+        // this flag off temporarily (and restore it) to exercise the no-account physical-payout
+        // path (correction pass, Part A).
+        setHasAccount(player, true);
 
         checkAcceptedValuedItemSellable(r, player);
         checkValuedItemOutsideAcceptedTagsRejected(r, player);
@@ -92,6 +98,11 @@ public final class MerchantSellVerification {
         checkInvalidSessionSlotQuantityStaleStackRejected(r, player);
         checkSellingPartOfStackLeavesRemainder(r, player);
         checkExtraIrrelevantComponentsStillUseCorrectBaseValue(r, player);
+
+        checkAccountlessSellPaysPhysicalCreditsNotWallet(r, player);
+        checkAccountlessSellDoesNotOpenAccount(r, player);
+        checkReceivePhysicalRejectsNegativeAmount(r, player);
+        checkReceivePhysicalHandlesLargeAmountSafely(r, player);
 
         checkNegativePaymentRejectedWithoutMutation(r, player);
         checkNegativePhysicalPaymentRejectedWithoutMutation(r, player);
@@ -360,6 +371,93 @@ public final class MerchantSellVerification {
             namedBread.set(DataComponents.CUSTOM_NAME, Component.literal("Fancy Bread"));
             MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, namedBread, 1, 1);
             return result(quote.sellable() && quote.unitPayout() == 6L, "quote=" + quote);
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Correction pass — accountless SELL payout (Part A)
+    // ─────────────────────────────────────────────────────────────────────
+
+    private static void checkAccountlessSellPaysPhysicalCreditsNotWallet(VerificationReporter r, ServerPlayer player) {
+        safe(r, "SELL for a player with no open bank account pays physical Credits, not the Wallet", () -> {
+            int slot = 7;
+            ItemStack slotBefore = player.getInventory().getItem(slot).copy();
+            MerchantRuntime merchant = freshMerchant(300);
+            long physicalBefore = physical(player);
+            try {
+                setHasAccount(player, false);
+                player.getInventory().setItem(slot, new ItemStack(Items.BREAD, 4));
+                long walletBefore = wallet(player);
+
+                TradeSessionManager.startTradeForVerification(player, VERIFICATION_SHOP_ID, standardShop(), merchant);
+                SellResult sellResult = TradeSessionManager.handleSell(player, slot, 4);
+
+                long walletAfter = wallet(player);
+                long physicalAfter = physical(player);
+                boolean pass = sellResult.success() && sellResult.payout() == 24L // 4 * 6
+                        && walletAfter == walletBefore
+                        && physicalAfter - physicalBefore == 24L
+                        && merchant.currentCredits() == 300 - 24;
+                return result(pass, "sellResult=" + sellResult + ", wallet=" + walletBefore + "->" + walletAfter
+                        + ", physical=" + physicalBefore + "->" + physicalAfter
+                        + ", merchantCredits=" + merchant.currentCredits());
+            } finally {
+                TradeSessionManager.endTrade(player);
+                setHasAccount(player, true);
+                player.getInventory().setItem(slot, slotBefore);
+                restorePhysicalCredits(player, physicalBefore);
+            }
+        });
+    }
+
+    private static void checkAccountlessSellDoesNotOpenAccount(VerificationReporter r, ServerPlayer player) {
+        safe(r, "A no-account SELL never implicitly sets the has_account flag", () -> {
+            int slot = 7;
+            ItemStack slotBefore = player.getInventory().getItem(slot).copy();
+            MerchantRuntime merchant = freshMerchant(300);
+            long physicalBefore = physical(player);
+            try {
+                setHasAccount(player, false);
+                player.getInventory().setItem(slot, new ItemStack(Items.BREAD, 2));
+
+                TradeSessionManager.startTradeForVerification(player, VERIFICATION_SHOP_ID, standardShop(), merchant);
+                SellResult sellResult = TradeSessionManager.handleSell(player, slot, 2);
+
+                boolean pass = sellResult.success() && !CreditPaymentHelper.hasOpenAccount(player);
+                return result(pass, "sellResult=" + sellResult
+                        + ", hasOpenAccount=" + CreditPaymentHelper.hasOpenAccount(player));
+            } finally {
+                TradeSessionManager.endTrade(player);
+                setHasAccount(player, true);
+                player.getInventory().setItem(slot, slotBefore);
+                restorePhysicalCredits(player, physicalBefore);
+            }
+        });
+    }
+
+    private static void checkReceivePhysicalRejectsNegativeAmount(VerificationReporter r, ServerPlayer player) {
+        safe(r, "CreditPaymentHelper.receivePhysical rejects a negative amount without mutation "
+                + "(failed physical delivery leaves state unchanged)", () -> {
+            long before = physical(player);
+            boolean received = CreditPaymentHelper.receivePhysical(player, -50);
+            long after = physical(player);
+            boolean pass = !received && after == before;
+            return result(pass, "received=" + received + ", before=" + before + ", after=" + after);
+        });
+    }
+
+    private static void checkReceivePhysicalHandlesLargeAmountSafely(VerificationReporter r, ServerPlayer player) {
+        safe(r, "receivePhysical delivers a large payout across multiple stacks without overflow/exception", () -> {
+            long before = physical(player);
+            long amount = 250_000L; // spans 25 MAX_PER_STACK(10,000)-sized stacks
+            try {
+                boolean received = CreditPaymentHelper.receivePhysical(player, amount);
+                long after = physical(player);
+                boolean pass = received && after - before == amount;
+                return result(pass, "received=" + received + ", before=" + before + ", after=" + after);
+            } finally {
+                restorePhysicalCredits(player, before);
+            }
         });
     }
 
@@ -694,6 +792,24 @@ public final class MerchantSellVerification {
 
     private static void giveWallet(ServerPlayer player, long amount) {
         CurrencyComponents.WALLET.get((ComponentProvider) player).modify(amount);
+    }
+
+    private static void setHasAccount(ServerPlayer player, boolean hasAccount) {
+        DialogueComponents.FLAGS.get((ComponentProvider) player).setFlag("has_account", hasAccount ? 1 : 0);
+    }
+
+    private static long physical(ServerPlayer player) {
+        return CreditPaymentHelper.physicalCredits(player);
+    }
+
+    /** Pays down any physical Credits a check created back to {@code before} — mirrors this
+     *  suite's existing wallet/slot restoration pattern so a Part A check can never leak physical
+     *  Credits stacks into the fake player's inventory for a later check to trip over. */
+    private static void restorePhysicalCredits(ServerPlayer player, long before) {
+        long current = physical(player);
+        if (current > before) {
+            CreditPaymentHelper.payPhysical(player, current - before);
+        }
     }
 
     private record CheckResult(boolean pass, String detail) {}

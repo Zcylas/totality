@@ -3,7 +3,11 @@ package zcylas.totality.api.economy.currency;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.dialogue.DialogueComponents;
+import zcylas.totality.init.items.CurrencyItems;
 import zcylas.totality.item.tools.CreditsItem;
+
+import java.util.List;
 
 /**
  * Pays a Credits amount: Wallet (account) balance first, then physical
@@ -13,7 +17,22 @@ import zcylas.totality.item.tools.CreditsItem;
  */
 public final class CreditPaymentHelper {
 
+    /** The narrative flag a Banker's {@code open_account} dialogue actions set (see
+     *  {@code banker_intro.json}) — the sole source of truth for whether a player has an open
+     *  bank account. {@link zcylas.totality.api.economy.currency.WalletComponent} exists on
+     *  every player regardless of account status (it's a plain per-player component, not
+     *  gated behind account creation), so its mere presence must never be read as "has an
+     *  account" — only this flag may. */
+    private static final String HAS_ACCOUNT_FLAG = "has_account";
+
     private CreditPaymentHelper() {}
+
+    /** True if {@code player} has opened a bank account with a Banker (Phase 4 correction pass,
+     *  Part A). Gates whether a SELL payout may reach the Wallet balance ({@link #receive}) or
+     *  must be delivered as physical Credits ({@link #receivePhysical}) instead. */
+    public static boolean hasOpenAccount(ServerPlayer player) {
+        return DialogueComponents.FLAGS.get((ComponentProvider) player).hasFlag(HAS_ACCOUNT_FLAG);
+    }
 
     public static boolean canAfford(ServerPlayer player, long amount) {
         if (amount < 0) return false;
@@ -75,6 +94,37 @@ public final class CreditPaymentHelper {
         if (amount == 0) return true;
         long current = CurrencyComponents.WALLET.get((ComponentProvider) player).getValue();
         return current <= Long.MAX_VALUE - amount;
+    }
+
+    /**
+     * Delivers {@code amount} as physical {@code totality:credits} items instead of crediting the
+     * account (Wallet) balance — the SELL payout path for a player with no open bank account
+     * (Phase 4 correction pass, Part A). Splits into {@link CreditsItem#MAX_PER_STACK}-sized
+     * stacks (same helper {@link zcylas.totality.networking.economy.BankTellerHandler#register}'s
+     * withdraw path already uses) and falls back to dropping a stack at the player's feet only
+     * when their inventory is genuinely full — the same already-canonical fallback BUY and
+     * withdraw already use, not a new one invented for this path.
+     *
+     * @return true if the payout was delivered; false (no state changed) only for a negative
+     *         {@code amount} — unlike {@link #receive}, there is no balance to overflow, so a
+     *         non-negative amount can never fail to be delivered.
+     */
+    public static boolean receivePhysical(ServerPlayer player, long amount) {
+        if (!canReceivePhysical(amount)) return false;
+        if (amount == 0) return true;
+        for (ItemStack stack : CurrencyItems.CREDITS.createStacks(amount)) {
+            if (!player.getInventory().add(stack)) {
+                player.drop(stack, false);
+            }
+        }
+        return true;
+    }
+
+    /** True if {@link #receivePhysical} would succeed for {@code amount} — negative amounts are
+     *  always rejected; every non-negative amount always succeeds (physical delivery has no
+     *  balance ceiling to overflow, unlike {@link #canReceive}'s Wallet check). */
+    public static boolean canReceivePhysical(long amount) {
+        return amount >= 0;
     }
 
     /** Sums every physical {@code totality:credits} stack in the player's inventory. Saturates at

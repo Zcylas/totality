@@ -84,7 +84,15 @@ public class TotalityServerPacketHandlers {
         ServerPlayNetworking.registerGlobalReceiver(
                 PowerAttackPayload.TYPE,
                 (payload, context) -> context.server().execute(() -> {
-                    PowerAttackManager.onPowerAttackReceived(context.player());
+                    ServerPlayer player = context.player();
+                    // Server-authoritative re-validation (correction pass, Part C) — the client
+                    // already gates this the same way, but a modified/malicious client must never
+                    // be able to trigger advantage or spend Stamina against an invalid target
+                    // (a block, air, itself, or an out-of-range/dead/unattackable entity) just by
+                    // sending this payload directly.
+                    net.minecraft.world.entity.Entity target = player.level().getEntity(payload.targetEntityId());
+                    if (!PowerAttackManager.isValidTarget(player, target)) return;
+                    PowerAttackManager.onPowerAttackReceived(player);
                 }));
         zcylas.totality.networking.combat.BlockKeyHandler.register();
         zcylas.totality.networking.combat.OffhandAttackHandler.register();

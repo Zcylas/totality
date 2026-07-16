@@ -113,37 +113,47 @@ public final class TotalityKeybindHandlers {
         });
     }
 
-    // ── Hold-to-open radial state ────────────────────────────────────────────
-    private static int  abilityHoldTicks  = 0;
+    // ── Radial modifier chord state (Phase 4 correction pass, Part D) ─────────
+    // Replaces the old hold-Z/hold-X-for-HOLD_THRESHOLD-ticks radial trigger (which interrupted
+    // channeled abilities/spells once the threshold passed — 26.2 migration §15.6d) with a
+    // modifier chord: the Radial Modifier key must already be held at the moment Z/X is FIRST
+    // pressed for that press to be treated as "open the radial, don't activate." The decision is
+    // made once, at the press-edge, and never re-evaluated for the rest of that hold — pressing
+    // the modifier after Z/X has already started, or releasing it mid-hold, has no effect on an
+    // already-running press. `abilityRadialOpened`/`spellRadialOpened` are reused (not renamed)
+    // from the old implementation: `abilityRadialOpened` is also read by
+    // registerVeinminerKeyKeybind() below to suppress channeled-ability start/veinminer for the
+    // duration of a radial-chord press, exactly as it suppressed it once the old threshold fired —
+    // now suppressed from the very first tick instead of only after ~1 second.
     private static boolean abilityWasDown = false;
     private static boolean abilityRadialOpened = false;
-    private static int  spellHoldTicks    = 0;
     private static boolean spellWasDown   = false;
     private static boolean spellRadialOpened = false;
-    private static final int HOLD_THRESHOLD = 10; // ticks before radial opens
+    private static final int HOLD_THRESHOLD = 10; // still used by the unrelated Grimoire (C) hold-radial, unchanged by Part D
 
     private static void registerAbilityKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null) return;
             com.mojang.blaze3d.platform.Window window = client.getWindow();
 
+            boolean radialModifierDown = ModKeybinds.RADIAL_MODIFIER.isDown();
+
             // ── Ability (Z key) ───────────────────────────────────────────────
             boolean zDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
                     window, org.lwjgl.glfw.GLFW.GLFW_KEY_Z);
 
             if (zDown) {
-                if (!abilityWasDown) { abilityHoldTicks = 0; abilityRadialOpened = false; }
-                abilityHoldTicks++;
-                // Hold threshold reached — open ability radial
-                if (abilityHoldTicks >= HOLD_THRESHOLD && !abilityRadialOpened
-                        && client.gui.screen() == null
-                        && !ClientAbilityManager.getAbilityFavorites().isEmpty()) {
-                    client.gui.setScreen(new zcylas.totality.screen.ability.AbilityRadialScreen());
-                    abilityRadialOpened = true;
+                if (!abilityWasDown) {
+                    // Fresh press — decide chord-vs-activation exactly once, at the edge.
+                    abilityRadialOpened = radialModifierDown;
+                    if (abilityRadialOpened && client.gui.screen() == null
+                            && !ClientAbilityManager.getAbilityFavorites().isEmpty()) {
+                        client.gui.setScreen(new zcylas.totality.screen.ability.AbilityRadialScreen());
+                    }
                 }
             } else {
                 if (abilityWasDown && !abilityRadialOpened && client.gui.screen() == null) {
-                    // Quick tap — fire equipped ability
+                    // Quick tap / release without ever being a radial chord — fire equipped ability.
                     Identifier equippedId = ClientAbilityManager.getEquippedAbility();
                     if (equippedId != null && !ClientAbilityManager.isOnCooldown(equippedId)) {
                         Ability targeted = AbilityRegistry.get(equippedId);
@@ -156,7 +166,6 @@ public final class TotalityKeybindHandlers {
                         }
                     }
                 }
-                abilityHoldTicks = 0;
                 abilityRadialOpened = false;
             }
             abilityWasDown = zDown;
@@ -166,13 +175,12 @@ public final class TotalityKeybindHandlers {
                     window, org.lwjgl.glfw.GLFW.GLFW_KEY_X);
 
             if (xDown) {
-                if (!spellWasDown) { spellHoldTicks = 0; spellRadialOpened = false; }
-                spellHoldTicks++;
-                if (spellHoldTicks >= HOLD_THRESHOLD && !spellRadialOpened
-                        && client.gui.screen() == null
-                        && !ClientAbilityManager.getSpellFavorites().isEmpty()) {
-                    client.gui.setScreen(new zcylas.totality.screen.ability.SpellRadialScreen());
-                    spellRadialOpened = true;
+                if (!spellWasDown) {
+                    spellRadialOpened = radialModifierDown;
+                    if (spellRadialOpened && client.gui.screen() == null
+                            && !ClientAbilityManager.getSpellFavorites().isEmpty()) {
+                        client.gui.setScreen(new zcylas.totality.screen.ability.SpellRadialScreen());
+                    }
                 }
             } else {
                 if (spellWasDown && !spellRadialOpened && client.gui.screen() == null) {
@@ -186,7 +194,6 @@ public final class TotalityKeybindHandlers {
                         }
                     }
                 }
-                spellHoldTicks = 0;
                 spellRadialOpened = false;
             }
             spellWasDown = xDown;

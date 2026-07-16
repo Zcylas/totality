@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import zcylas.totality.client.renderer.hud.PowerAttackFlash;
+import zcylas.totality.api.rpg.combat.PowerAttackManager;
 import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
 import zcylas.totality.init.ModTags;
 import zcylas.totality.client.combat.DualWieldTracker;
@@ -40,9 +41,25 @@ public class MinecraftAttackMixin {
                 || held.is(ModTags.TWO_HANDED_WEAPONS);
         if (!hasWeapon) return;
 
+        // Power Attack only makes sense against an actual combat target — with no valid target
+        // (a block, air, or an unattackable/dead/self entity) let vanilla's own startAttack
+        // proceed untouched, so mining/interaction is never interfered with (correction pass,
+        // Part C). Previously this cancelled unconditionally whenever a weapon was held, which is
+        // why holding LMB on a block (e.g. chopping wood with an axe) incorrectly began charging.
+        if (!totality$hasValidPowerAttackTarget(client)) return;
+
         totality$holdingAttack = true;
         cir.setReturnValue(false);
         cir.cancel();
+    }
+
+    /** Shared client-side gate for {@link #totality$interceptAttack}/{@link #totality$tickHold} —
+     *  delegates to {@link PowerAttackManager#isValidTarget}, the exact same predicate the server
+     *  re-checks before ever consuming Stamina, so the two can never disagree about what counts as
+     *  a valid target (correction pass, Part C). */
+    @Unique
+    private static boolean totality$hasValidPowerAttackTarget(Minecraft client) {
+        return client.player != null && PowerAttackManager.isValidTarget(client.player, client.crosshairPickEntity);
     }
 
     // Skyrim-style independent offhand attack: RMB on a target while dual-wielding.
@@ -85,12 +102,16 @@ public class MinecraftAttackMixin {
         boolean hasWeapon = held.is(ModTags.ONE_HANDED_WEAPONS)
                 || held.is(ModTags.TWO_HANDED_WEAPONS);
         boolean mouseHeld = client.options.keyAttack.isDown();
+        // Re-checked every tick, not just at the moment the charge began — if the player looks
+        // away from the target (or it dies/leaves range) partway through the charge, the attempt
+        // must cancel instead of completing (correction pass, Part C).
+        boolean targetStillValid = totality$holdingAttack && totality$hasValidPowerAttackTarget(client);
 
-        if (totality$holdingAttack && mouseHeld && hasWeapon) {
+        if (totality$holdingAttack && mouseHeld && hasWeapon && targetStillValid) {
             totality$holdTicks++;
 
             if (totality$holdTicks == POWER_ATTACK_HOLD_TICKS) {
-                ClientPlayNetworking.send(new PowerAttackPayload());
+                ClientPlayNetworking.send(new PowerAttackPayload(client.crosshairPickEntity.getId()));
                 client.player.swing(InteractionHand.MAIN_HAND, true);
                 // Dual-wield power attack: both weapons strike together as one finisher, driven
                 // entirely by our own DualWieldTracker animation (not vanilla's swing(), which
@@ -110,7 +131,12 @@ public class MinecraftAttackMixin {
                 totality$holdTicks = 0;
                 totality$holdingAttack = false;
             }
-        } else if (totality$holdingAttack && !mouseHeld) {
+        } else if (totality$holdingAttack && (!mouseHeld || !targetStillValid)) {
+            // Released early, or the target became invalid mid-charge — cancel the power-attack
+            // attempt safely: PowerAttackPayload is never sent, so no Stamina is spent on an
+            // attack that was never valid (correction pass, Part C). Falls back to the existing
+            // early-release behavior (a normal, non-power attack/swing against whatever's
+            // currently under the crosshair, if anything).
             if (totality$holdTicks < POWER_ATTACK_HOLD_TICKS) {
                 if (client.gameMode != null && client.crosshairPickEntity != null) {
                     client.gameMode.attack(client.player, client.crosshairPickEntity);
