@@ -218,6 +218,12 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("totality.trading.not_accepted", "Item not accepted");
         translationBuilder.add("totality.trading.no_value", "No known value");
         translationBuilder.add("totality.trading.merchant_cannot_afford", "Merchant cannot afford this quantity");
+        translationBuilder.add("totality.trading.merchant_can_afford", "Merchant can afford");
+        translationBuilder.add("totality.trading.sellable_hint", "Click to select for sale");
+        translationBuilder.add("totality.trading.your_inventory", "Your Inventory");
+        translationBuilder.add("totality.trading.rejected_legend", "Red-marked items cannot be sold to this merchant");
+        translationBuilder.add("totality.trading.cancel", "Cancel");
+        translationBuilder.add("totality.trading.clear", "Clear");
         //Trading Screen — rejection messages (Part D/H)
         translationBuilder.add("totality.trading.reject.trade_ended", "Trade ended");
         translationBuilder.add("totality.trading.reject.invalid_quantity", "Invalid quantity");

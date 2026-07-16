@@ -2708,6 +2708,248 @@ Implementation Order step lands.
   that list — no GUI work was touched (Trading Screen remains exactly
   as Section 13 left it, deferred to the Fable pass).
 
+--------------------------------------------------------------------------------
+15. Phase 4 — Trading Screen GUI refinement pass (2026-07-16, the
+    "Fable pass" Sections 13/14 deferred to)
+--------------------------------------------------------------------------------
+  Native Minecraft rendering only — flat-color panels, normal item/text
+  rendering, scissor regions, hover tooltips. The FULL custom textured
+  GUI overhaul (background art, portrait system, decorative borders —
+  the trade_screen_*_v1 mockups' visual polish) remains EXPLICITLY
+  DEFERRED; those mockups were consulted for information hierarchy
+  only. This pass is a client GUI task — TradeSessionManager,
+  CreditPaymentHelper, stock/Credits storage, payloads, and every
+  server-authoritative rule are untouched; NO backend or networking
+  change was needed (all rejection-reason data was already
+  client-available: the vanilla-synced #totality:provisioner_buys tag
+  and ShowShopStatePayload.valuedInventorySlots).
+
+  15a. GUI SCALE 4 LAYOUT — ROOT CAUSE AND FIX.
+  At GUI Scale 4 on 1080p (480x270 logical) the old layout's fixed
+  margins (width/20, height/14), 30px header, and 20px tabs around the
+  fixed 102px inventory block left only 68px of content height. The
+  BUY detail panel's top-down field flow (~52px) and bottom-anchored
+  quantity/total/button controls (~46px) need ~98px combined — they
+  physically overlapped. The binding constraint was VERTICAL, not
+  horizontal (the 48%/52% catalog/detail split is fine at 480 wide).
+  Fixed by the new pure `TradingScreenLayout` (`api/shop/`, sibling to
+  `TradingQuantityMath`, zero client dependencies so
+  `TradingScreenVerification` exercises the REAL layout math
+  server-side): two-pass compute — normal metrics first, compact
+  fallback (8/4px margins, 24px header, 16px tabs) whenever content
+  height would fall below MIN_CONTENT_H (100px). At 480x270 compact
+  yields 108px; larger screens never trigger it and keep their exact
+  previous proportions. Additionally the detail panels now reserve a
+  fixed bottom action band (DETAIL_BOTTOM_BAND_H = 46px) and both skip
+  and scissor their top field flow at the band edge — no window size
+  can make fields and controls overlap, even below the supported
+  minimum. All geometry (regions, catalog cards, inventory slots) is
+  computed fresh every frame/input event from one source; nothing is
+  cached across resizes.
+
+  15b. EXPLICIT SOLD-OUT PRESENTATION.
+  Root cause of the old unclear state: the 0xB0 dark overlay was drawn
+  AFTER the card's own "Sold Out" text, washing out its own label.
+  Now: overlay first, then a crisp centered red "SOLD OUT" label
+  (upper-cased from the existing totality.trading.sold_out key — no
+  new key) over the dimmed card, red border drawn last, price shown
+  dimmed. Sold-out entries are now SELECTABLE view-only (previously
+  the click was swallowed): max quantity is 0, so quantity controls
+  render inactive, BUY stays disabled, no payload is possible; the
+  detail panel adds its own explicit red "Sold Out" line, and the
+  card's hover tooltip repeats it. The entry never disappears from
+  the catalog (Phase 3's zero-stock-stays-in-position guarantee,
+  unchanged). No restocking.
+
+  15c. REJECTED-SELL-ITEM EXPLANATIONS.
+  Rejected items previously showed only an unexplained red tint. Now,
+  in SELL mode: hovering ANY inventory item shows a tooltip (item name
+  + status line) via the established setComponentTooltipForNextFrame
+  pattern — a rejected-category item states "Merchant does not buy
+  this type of item" (totality.trading.reject.not_accepted), an
+  accepted-but-unvalued item states "This item has no known value"
+  (totality.trading.reject.no_value) — the SAME keys the server's own
+  TradeRejectionKeys resolves for a committed-SELL rejection, chosen
+  by the new pure TradingScreenLayout.sellSlotIssueKey (acceptance
+  outranks value), driven purely by server-derived data — no
+  client-invented acceptance rule. Rejected slots additionally carry
+  a corner "x" badge (trade_screen_sell_v1's red-X hierarchy cue,
+  rendered as text, no art). Selecting a rejected item still routes
+  through the live server quote and shows the reason in the detail
+  panel (existing short keys, unchanged); its detail panel now also
+  keeps the Cancel button available (previously rejected/loading
+  selections had no buttons at all). Sellable items hover a new
+  "Click to select for sale" hint (totality.trading.sellable_hint,
+  new key). Rejected items remain fully visible, never hidden, and
+  can never submit a SELL (no quantity controls exist for them; the
+  server revalidates at commit regardless).
+
+  15d. OTHER RESILIENCE/INTERACTION FIXES (each a real found defect):
+    - Credit values now thousands-grouped EVERYWHERE (cards, Price/
+      Payout Each, totals) via TradingScreenLayout.formatCredits —
+      previously only the header balances were formatted. "Your
+      Credits" retains its established meaning: Wallet + physical
+      (total spendable funds, matching CreditPaymentHelper.canAfford).
+    - Mouse wheel now scrolls the catalog only while the pointer is
+      over it (previously it scrolled from anywhere on the screen).
+    - Catalog click hit-testing now requires the click inside the
+      catalog viewport — previously a partially-scrolled-out card's
+      unclipped hitbox could catch clicks over the tabs/inventory
+      area (rendered-position vs hitbox mismatch).
+    - The minus button rendered disabled at quantity 1 but its click
+      still decremented to 0 — all quantity-control hitboxes now obey
+      the exact enabled predicates the rendering shows, via one shared
+      geometry source per control (catalogCardRect/inventorySlotRect).
+    - applyUpdate/applySellQuote dropped their Math.max(quantity, 1)
+      bump — it could RAISE a clamped-to-0 quantity back to 1 on a
+      later refresh (e.g. merchant Credits recovering), violating
+      "a refresh must never increase a player-selected quantity";
+      reconcileAfterRefresh alone is strictly non-increasing. A
+      typed quantity commit clamps into [1, max] when transacting is
+      possible (typed "0" becomes 1).
+    - A SELL selection whose stack disappears is now cleared outright
+      (both on state refresh and the per-frame staleness check) —
+      previously the empty slot could be re-quoted and misreport as
+      "not accepted".
+    - The rejection banner wraps within the panel (previously one long
+      line could overrun it), sits at the top of the content band
+      (never over quantity/action controls), auto-expires after 6
+      seconds (Screen#tick), and still clears immediately on any new
+      server state, selection change, or tab switch. Reopening never
+      retains stale feedback (fresh screen instance per session).
+    - SELL detail adds a "Merchant can afford: N" row (new key
+      totality.trading.merchant_can_afford, trade_screen_sell_v1's
+      hierarchy) when the merchant's Credits — not the stack size —
+      are the binding quantity limit; the zero case keeps the existing
+      red merchant_cannot_afford message.
+    - BUYBACK: unchanged — visible, "(Coming Later)", inert; no
+      transaction path exists for it (confirmAction only handles
+      BUY/SELL).
+
+  15d-2. MOCKUP-INFORMED SECOND ITERATION (same day — driven by
+  Stefan's live GUI Scale 4 screenshot, Context/Trading Test/
+  trade_screen2.png, taken against the first iteration):
+    - CATALOG CARD INTERIOR: the first iteration kept the old
+      centered-column card (name top, icon center, price bottom) —
+      at real card sizes the price line drew straight through the
+      item icon. Rebuilt as icon-left with name and price stacked to
+      its right (the trade_screen_buy_v1 hierarchy adapted to wide
+      cells), zero interior collisions at any card width.
+    - CATALOG_ROW_H 44 -> 36: the taller cards were hollow, and at
+      GUI Scale 4's 108px content height showed two-and-a-half rows
+      with a chopped third; 36px rows show exactly three full rows.
+    - AUTO-SELECT ON OPEN: the screen now opens with the first
+      purchasable entry pre-selected (mockup behavior) instead of an
+      empty "Select an Item" detail pane; a deliberate Cancel is
+      never overridden by a later refresh.
+    - INVENTORY PANEL MARGINS: "Your Inventory" label in the left
+      margin and, in SELL mode, the mockup's red-items legend
+      ("Red-marked items cannot be sold to this merchant") wrapped in
+      the right margin — the side space was previously dead. Two more
+      keys: totality.trading.your_inventory,
+      totality.trading.rejected_legend (4 new keys total this pass).
+    All suites re-run green after this iteration (TradingScreen still
+    20 — the scroll-bounds check's literals updated for the 36px row).
+
+  15d-3. REFERENCE-STYLE THIRD ITERATION (same day — Stefan confirmed
+  the mechanics work but asked for closer fidelity to the
+  trade_screen_buy_v1/sell_v1 references; screenshots trade_screen3/
+  4.png record the pre-iteration state). Still native rendering only —
+  the references' PALETTE and HIERARCHY, not their texture art:
+    - PALETTE SHIFT: dark navy surfaces (panel 0xFF0A0E16, cells
+      0xFF0D131D) with steel-cyan structural borders (0xFF2A4A5A)
+      replacing the previous gold-dominant frames; gold is now
+      reserved for the title, prices, and Credit values — the
+      references' color language.
+    - HEADER: large centered "TRADING" title (scaled 1.4x, 1.1x
+      compact) with flanking accent lines, merchant name + archetype
+      centered beneath, and a bordered two-row Credits box top-right
+      with right-aligned gold values — replacing the small top-left
+      text block. "Your Credits" meaning unchanged (Wallet +
+      physical).
+    - DETAIL PANELS: shared header (framed 20px icon box + name,
+      divider with a small gold center accent), then label/value rows
+      with RIGHT-ALIGNED values (Price/Payout Each, Stock, Merchant
+      can afford) per the references' two-column row treatment.
+    - QUANTITY ROW: now labeled ("Quantity:" left, compact -/box/+
+      controls right-aligned); the box shows just the quantity (the
+      max lives in the Stock/Merchant-can-afford rows, as in the
+      references).
+    - ACTION BUTTONS: full-width split pair, chunkier (15px) —
+      BUY mode: gold "Cancel" + cyan "Buy"; SELL mode: red "Clear" +
+      green "Sell" (the references' per-mode button colors). Bottom
+      band row offsets shared as constants between drawing and click
+      hit-testing.
+    - SELL LEFT PANE: now instructions ("Select an item from Your
+      Inventory below to offer it") + the red-items legend — replacing
+      the second "Select an Item" placeholder that duplicated the
+      detail panel's (Stefan's trade_screen4.png showed both panes
+      identical and looking broken).
+    - INVENTORY: "YOUR INVENTORY" upper-cased steel-cyan header in
+      the left margin; ordinary sellable slots now use quiet frames —
+      only problems are highlighted (rejected red + x, unvalued gold
+      + x, selection bright cyan), matching the references' restraint.
+    Three more keys: totality.trading.sell_instructions/.cancel/
+    .clear (7 new keys total this pass). No layout-math change
+    (TradingScreenLayout untouched this iteration); all suites re-run
+    green (TradingScreen 20).
+
+  15d-4. PER-MODE INVENTORY LAYOUTS (same day — Stefan: "much
+  better," but asked for the references' actual inventory placement;
+  trade_screen5.png records the pre-iteration state and its
+  credits-box row overlap):
+    - BUY/BUYBACK (trade_screen_buy_v1): the bottom inventory area is
+      now a single HOTBAR-ROW strip (HOTBAR_STRIP_H = 30px), not the
+      four-row block. Display-only, hover tooltips still work;
+      storage slots simply have no on-screen location in these modes.
+    - SELL (trade_screen_sell_v1): the LEFT panel now HOSTS the full
+      four-row inventory grid ("YOUR INVENTORY" header above it, the
+      red-items legend beneath it) and there is NO bottom strip — the
+      content band runs to the panel bottom. In the layout math the
+      SELL Regions' inventory() IS the catalog rect; the left panel's
+      width is guaranteed to fit the 9-column grid (GRID_W) before
+      the detail panel takes the remainder.
+    - TradingScreenLayout.compute now takes a sellLayout flag
+      (2-arg overload = BUY layout); freeing ~72px of vertical space
+      means the COMPACT fallback no longer triggers at 480x270 at all
+      (BUY contentH 140, SELL 170, both on normal metrics) — it
+      remains for genuinely short windows (engages at e.g. 480x200)
+      with its header raised 24->26px so the credits-box rows can
+      never collide again (the trade_screen5.png overlap: two 8px
+      rows at +2/+8 in an 18px box; rows now derive from box height).
+    - The sell_instructions key from 15d-3 became unused (the grid
+      replaced the instruction pane) and was removed — 6 net new keys
+      this pass. CATALOG_ROW_H 36 -> 35.
+    Verification updated, not just re-run: the region-overlap check
+    now exercises BOTH per-mode layouts at every size (asserting
+    SELL's inventory==catalog identity), and the Scale-4 check now
+    asserts both modes fit on normal metrics, the SELL left panel
+    fits GRID_W, and compact still engages at 480x200. All suites
+    green (TradingScreen 20).
+
+  15e. VERIFICATION. TradingScreenVerification 14 -> 20 (+6, all pure
+  logic, no framebuffer dependency): region non-overlap at 480x270/
+  640x360/960x540/1920x1080/320x240 with every region inside the
+  panel; GUI Scale 4 triggers compact with contentH >= MIN_CONTENT_H
+  while 1920x1080 stays non-compact; scroll clamp bounds (never
+  negative, never past the last row, zero when everything fits);
+  thousands-grouping preserves digits (locale-agnostic assertion);
+  sellSlotIssueKey distinguishes not_accepted/no_value/sellable with
+  acceptance outranking value; sold-out semantics (limited+zero
+  exactly, entry stays listed, max quantity 0). RUNTIME-VERIFIED
+  (2026-07-16, quickplay "New Testing World"): all suites green —
+  ItemValue 19, MerchantSell 37, Provisioner 71, TradingScreen 20,
+  PowerAttack 9, Keybind 3, ProvisionerRenderer 4, NotificationTiming
+  9, PowerAttackFlash 7, and ProvisionerEntityBackedSmokeTest 4/4 (the
+  known short-run timing flake did not trigger this run). gradlew
+  compileJava/build: SUCCESSFUL. Datagen regenerated only the lang
+  file (2 new keys).
+
+  MANUAL TESTING: PENDING — Stefan's 30-item checklist (GUI Scale 4
+  layout, sold-out presentation, rejected-item tooltips/reasons,
+  scrolling, resize, Escape/lock release, regression spot-checks).
+  Not claimed passed until Stefan reports.
+
 ================================================================================
 END OF DOCUMENT
 ================================================================================

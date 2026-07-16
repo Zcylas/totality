@@ -134,7 +134,10 @@
   "totality.trading.archetype.provisioner": "Provisioner",
   "totality.trading.buy": "Buy",
   "totality.trading.buyback": "Buyback",
+  "totality.trading.cancel": "Cancel",
+  "totality.trading.clear": "Clear",
   "totality.trading.coming_later": "Coming Later",
+  "totality.trading.merchant_can_afford": "Merchant can afford",
   "totality.trading.merchant_cannot_afford": "Merchant cannot afford this quantity",
   "totality.trading.merchant_credits": "Merchant Credits",
   "totality.trading.no_value": "No known value",
@@ -152,12 +155,15 @@
   "totality.trading.reject.not_accepted": "Merchant does not buy this type of item",
   "totality.trading.reject.stock_changed": "Stock changed",
   "totality.trading.reject.trade_ended": "Trade ended",
+  "totality.trading.rejected_legend": "Red-marked items cannot be sold to this merchant",
   "totality.trading.select_an_item": "Select an Item",
   "totality.trading.sell": "Sell",
+  "totality.trading.sellable_hint": "Click to select for sale",
   "totality.trading.sold_out": "Sold Out",
   "totality.trading.stock": "Stock",
   "totality.trading.title": "Trading",
   "totality.trading.total_cost": "Total Cost",
   "totality.trading.total_payout": "Total Payout",
-  "totality.trading.your_credits": "Your Credits"
+  "totality.trading.your_credits": "Your Credits",
+  "totality.trading.your_inventory": "Your Inventory"
 }
