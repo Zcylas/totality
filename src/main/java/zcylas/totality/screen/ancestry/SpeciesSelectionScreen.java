@@ -186,7 +186,7 @@ public class SpeciesSelectionScreen extends BaseAncestryScreen {
         if (selSp != null && isNext(mx, my)) {
             click();
             var unlocked = OriginRegistry.getUnlockedForSpecies(selSp.getId());
-            Minecraft.getInstance().setScreen(unlocked.isEmpty()
+            Minecraft.getInstance().gui.setScreen(unlocked.isEmpty()
                     ? new ConfirmAncestryScreen(selSp, null)
                     : new OriginSelectionScreen(selSp));
             return true;

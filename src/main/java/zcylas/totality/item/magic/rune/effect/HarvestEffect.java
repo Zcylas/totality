@@ -125,7 +125,7 @@ public class HarvestEffect extends AbstractEffectRune {
             }
         }
 
-        Vec3 center = pos.getBottomCenter();
+        Vec3 center = Vec3.atBottomCenterOf(pos);
         for (ItemStack drop : drops) {
             if (drop.isEmpty()) continue;
             level.addFreshEntity(new ItemEntity(level,

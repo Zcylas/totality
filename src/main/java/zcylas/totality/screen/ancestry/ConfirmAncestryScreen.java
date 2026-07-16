@@ -132,7 +132,7 @@ public class ConfirmAncestryScreen extends BaseAncestryScreen {
 
         if (isBack(mx, my)) {
             click();
-            Minecraft.getInstance().setScreen(origin != null
+            Minecraft.getInstance().gui.setScreen(origin != null
                     ? new OriginSelectionScreen(species)
                     : new SpeciesSelectionScreen());
             return true;

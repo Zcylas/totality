@@ -125,7 +125,7 @@ public class PhoneSetupScreen extends Screen {
             return true;
         }
         if (key == GLFW.GLFW_KEY_TAB) {
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
             return true;
         }
         return super.keyPressed(event);
@@ -139,7 +139,7 @@ public class PhoneSetupScreen extends Screen {
         }
         ClientPlayNetworking.send(new PhoneSetupPayload(source.equipped(),
                 source.hand() == net.minecraft.world.InteractionHand.OFF_HAND));
-        Minecraft.getInstance().setScreen(new PhoneAppGridScreen(frame));
+        Minecraft.getInstance().gui.setScreen(new PhoneAppGridScreen(frame));
     }
 
     private void drawFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int t, int color) {

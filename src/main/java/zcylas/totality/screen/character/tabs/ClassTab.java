@@ -417,7 +417,7 @@ public class ClassTab extends CharacterScreenTab {
         // AddClassLevelHandler handles both cases on the server.
         if (lvlUpBtnW > 0 && screen.inB(mx, my, lvlUpBtnX, lvlUpBtnY, lvlUpBtnW, lvlUpBtnH)) {
             zcylas.totality.screen.classes.ClassScreenMode.IS_MULTICLASSING = true;
-            net.minecraft.client.Minecraft.getInstance().setScreen(
+            net.minecraft.client.Minecraft.getInstance().gui.setScreen(
                     new zcylas.totality.screen.classes.ClassSelectionScreen());
         }
     }

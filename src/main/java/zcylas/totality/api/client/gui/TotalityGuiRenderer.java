@@ -1,6 +1,7 @@
 // api/client/gui/TotalityGuiRenderer.java
 package zcylas.totality.api.client.gui;
 
+import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
@@ -8,7 +9,6 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
@@ -41,7 +41,8 @@ public final class TotalityGuiRenderer {
         PIPELINE_QUADS = RenderPipelines.register(
                 RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
                         .withLocation(Identifier.fromNamespaceAndPath("totality", "pipeline/gui_fill"))
-                        .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+                        .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
+                        .withPrimitiveTopology(PrimitiveTopology.QUADS)
                         .withColorTargetState(WITH_BLEND)
                         .withCull(false)
                         .withDepthStencilState(DEPTH_NONE)

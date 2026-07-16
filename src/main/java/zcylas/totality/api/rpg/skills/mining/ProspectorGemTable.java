@@ -8,6 +8,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import zcylas.totality.init.ModTags;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,8 +47,8 @@ public final class ProspectorGemTable {
         gemDrop(Blocks.AMETHYST_CLUSTER,      Items.AMETHYST_SHARD, 0.20f);
 
         // ── Any diamond ore (catches modded) ──────────────────────────────────
-        tagDrop(BlockTags.DIAMOND_ORES,       Items.DIAMOND,  0.10f);
-        tagDrop(BlockTags.EMERALD_ORES,       Items.EMERALD,  0.10f);
+        tagDrop(ModTags.VANILLA_DIAMOND_ORES, Items.DIAMOND,  0.10f);
+        tagDrop(ModTags.VANILLA_EMERALD_ORES, Items.EMERALD,  0.10f);
 
         // ── Custom gems — add yours here as they are registered ───────────────
         // Example:

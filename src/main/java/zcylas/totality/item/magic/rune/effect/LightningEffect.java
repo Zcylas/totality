@@ -3,7 +3,7 @@ package zcylas.totality.item.magic.rune.effect;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -70,7 +70,7 @@ public class LightningEffect extends AbstractEffectRune {
 
     private void spawnLightning(ServerLevel level, Vec3 pos,
                                 LivingEntity caster, FormulaStats stats) {
-        LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level,
+        LightningBolt bolt = EntityTypes.LIGHTNING_BOLT.create(level,
                 net.minecraft.world.entity.EntitySpawnReason.TRIGGERED);
         if (bolt == null) return;
 

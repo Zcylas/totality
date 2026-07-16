@@ -467,7 +467,7 @@ public class AbilitiesScreen extends net.minecraft.client.gui.screens.Screen {
     }
 
     private void closeScreen() {
-        fadeOutTo(() -> Minecraft.getInstance().setScreen(null));
+        fadeOutTo(() -> Minecraft.getInstance().gui.setScreen(null));
     }
 
     private void fadeOutTo(Runnable onDone) {

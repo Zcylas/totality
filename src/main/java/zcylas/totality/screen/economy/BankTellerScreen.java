@@ -286,7 +286,7 @@ public class BankTellerScreen extends Screen {
         if (inB(mx, my, depX, tabY + 3, tabW, tabH)) { click(); mode = Mode.DEPOSIT; clampAmount(); return true; }
         if (inB(mx, my, witX, tabY + 3, tabW, tabH)) { click(); mode = Mode.WITHDRAW; clampAmount(); return true; }
         if (inB(mx, my, confirmX, tabY + 3, btnW2, btnH2)) { confirmTransaction(); return true; }
-        if (inB(mx, my, cancelX, tabY + 3, btnW2, btnH2)) { click(); Minecraft.getInstance().setScreen(null); return true; }
+        if (inB(mx, my, cancelX, tabY + 3, btnW2, btnH2)) { click(); Minecraft.getInstance().gui.setScreen(null); return true; }
 
         return super.mouseClicked(mouse, doubleClick);
     }

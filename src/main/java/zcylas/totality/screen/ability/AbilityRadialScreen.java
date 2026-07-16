@@ -48,7 +48,7 @@ public class AbilityRadialScreen extends Screen {
         super.extractRenderState(g, mx, my, a);
 
         if (favIds.isEmpty()) {
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
             return;
         }
 
@@ -240,7 +240,7 @@ public class AbilityRadialScreen extends Screen {
         if (!zHeld) {
             if (selectedSlot >= 0 && selectedSlot < favIds.size())
                 ClientPlayNetworking.send(new EquipAbilityPayload(favIds.get(selectedSlot)));
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
         }
     }
 
@@ -248,7 +248,7 @@ public class AbilityRadialScreen extends Screen {
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         if (selectedSlot >= 0 && selectedSlot < favIds.size()) {
             ClientPlayNetworking.send(new EquipAbilityPayload(favIds.get(selectedSlot)));
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
             return true;
         }
         return false;

@@ -60,7 +60,7 @@ public class SpellRadialScreen extends Screen {
         super.extractRenderState(g, mx, my, a);
 
         if (spellIds.isEmpty()) {
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
             return;
         }
 
@@ -187,7 +187,7 @@ public class SpellRadialScreen extends Screen {
             if (selectedSlot >= 0 && selectedSlot < spellIds.size()) {
                 selectSpell(spellIds.get(selectedSlot));
             }
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
         }
     }
 
@@ -195,7 +195,7 @@ public class SpellRadialScreen extends Screen {
     public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean dc) {
         if (selectedSlot >= 0 && selectedSlot < spellIds.size()) {
             selectSpell(spellIds.get(selectedSlot));
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
             return true;
         }
         return false;

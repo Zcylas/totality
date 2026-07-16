@@ -46,7 +46,7 @@ public class NotificationManager {
     public static void register() {
         HudElementRegistry.addLast(HUD_ID, (graphics, delta) -> {
             Minecraft client = Minecraft.getInstance();
-            if (client.player == null || client.options.hideGui) return;
+            if (client.player == null || client.gui.hud.isHidden()) return;
 
             // Tick down all notifications
             Iterator<Notification> it = active.iterator();

@@ -13,7 +13,7 @@ public final class DiceRollResultClientHandler {
                 DiceRollResultPayload.TYPE,
                 (payload, ctx) -> {
                     ctx.client().execute(() -> {
-                        if (Minecraft.getInstance().screen instanceof DiceRollScreen screen) {
+                        if (Minecraft.getInstance().gui.screen() instanceof DiceRollScreen screen) {
                             screen.receiveResult(payload.result());
                         }
                     });
@@ -26,7 +26,7 @@ public final class DiceRollResultClientHandler {
                 DiceCheckRequestPayload.TYPE,
                 (payload, ctx) -> {
                     ctx.client().execute(() ->
-                            Minecraft.getInstance().setScreen(
+                            Minecraft.getInstance().gui.setScreen(
                                     new DiceRollScreen(payload.sessionId(), payload.context())
                             )
                     );

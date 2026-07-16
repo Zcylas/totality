@@ -54,9 +54,15 @@ import java.util.stream.Collectors;
  */
 public final class TotalityOverworldClimate {
 
-    /** OverworldBiomeBuilder().addBiomes(...) point count recorded on 26.1.2 at the time this was written. */
-    private static final int EXPECTED_VANILLA_POINT_COUNT = 7593;
-    private static final String EXPECTED_VANILLA_FINGERPRINT = "9a22d59d56ba3707545fdacbd41dd2d7ed672da5f1465084989d82af4b211b24";
+    /**
+     * OverworldBiomeBuilder().addBiomes(...) point count. Bumped 7593 → 7594 for MC 26.2: vanilla
+     * added a new {@code addUndergroundBiome(..., Biomes.SULFUR_CAVES)} call in
+     * {@code addUndergroundBiomes} (one new underground biome, one new point) — confirmed by diffing
+     * decompiled {@code OverworldBiomeBuilder} between 26.1.2 and 26.2. Not a Swamp point, so
+     * {@link #remapSwampSubrangeToFloodedForest} passes it through untouched.
+     */
+    private static final int EXPECTED_VANILLA_POINT_COUNT = 7594;
+    private static final String EXPECTED_VANILLA_FINGERPRINT = "bb4b08fa93763640a6bee504512f81780460d3d9dfcf196b04a5df5c231eb434";
 
     /**
      * Real vanilla Swamp points whose weirdness band isn't one of the two extreme-edge bands

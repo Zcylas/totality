@@ -30,7 +30,7 @@ public final class QuestTrackerHud {
     public static void register() {
         HudElementRegistry.addLast(HUD_ID, (graphics, delta) -> {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.options.hideGui) return;
+            if (mc.player == null || mc.gui.hud.isHidden()) return;
 
             QuestEntryDisplayData quest = ClientQuestManager.getTrackedQuest().orElse(null);
             if (quest == null) return;

@@ -15,7 +15,7 @@ public class ItemInHandRendererMixin {
     // First-person rendering keys the block/eat/charge arm transform off getUsedItemHand(),
     // which vanilla only ever tracks for ONE hand at a time (set to MAIN_HAND by our block
     // keybind). Without this, the offhand sword renders as a normal idle hold while blocking.
-    @ModifyExpressionValue(method = "renderArmWithItem",
+    @ModifyExpressionValue(method = "submitArmWithItem",
             at = @At(value = "INVOKE",
                     target = "Lnet/minecraft/client/player/AbstractClientPlayer;getUsedItemHand()Lnet/minecraft/world/InteractionHand;"))
     private InteractionHand totality$forceDualBlockUsedHand(InteractionHand original,
@@ -27,9 +27,9 @@ public class ItemInHandRendererMixin {
     // once per hand, passing 0 as the swing-progress argument for whichever hand isn't vanilla's
     // single swingingArm. Ordinal 1 = the OFF_HAND call — override its swing-progress argument
     // with our own tracked progress so it animates independently of the mainhand's real swing.
-    @ModifyArg(method = "renderHandsWithItems",
+    @ModifyArg(method = "submitHandsWithItems",
             at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V",
+                    target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;submitArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V",
                     ordinal = 1),
             index = 4)
     private float totality$offhandSwingProgress(float original, @Local(argsOnly = true) float partialTick) {

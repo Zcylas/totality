@@ -93,7 +93,7 @@ public class CharacterScreen extends BaseCharacterScreen {
             return true;
         }
         if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-            fadeOutTo(() -> Minecraft.getInstance().setScreen(null));
+            fadeOutTo(() -> Minecraft.getInstance().gui.setScreen(null));
             return true;
         }
         if (activeTabInstance().keyPressed(key)) return true;

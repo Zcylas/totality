@@ -18,17 +18,17 @@ public final class ClientDialogueManager {
         Minecraft mc = Minecraft.getInstance();
 
         if (payload.ended() && payload.npcText().getString().isEmpty()) {
-            if (mc.screen instanceof DialogueScreen) mc.setScreen(null);
+            if (mc.gui.screen() instanceof DialogueScreen) mc.gui.setScreen(null);
             pendingUpdate = null;
             return;
         }
 
-        if (mc.screen instanceof DialogueScreen ds) {
+        if (mc.gui.screen() instanceof DialogueScreen ds) {
             ds.applyUpdate(payload);
-        } else if (mc.screen instanceof DiceRollScreen) {
+        } else if (mc.gui.screen() instanceof DiceRollScreen) {
             pendingUpdate = payload;
         } else {
-            mc.setScreen(new DialogueScreen(payload));
+            mc.gui.setScreen(new DialogueScreen(payload));
         }
     }
 
@@ -45,7 +45,7 @@ public final class ClientDialogueManager {
                 // alone as "nothing to show" was dropping that text entirely, leaving no dialogue
                 // UI visible at all after the dice screen closed.
                 if (update.ended() && update.npcText().getString().isEmpty()) return;
-                Minecraft.getInstance().setScreen(new DialogueScreen(update));
+                Minecraft.getInstance().gui.setScreen(new DialogueScreen(update));
             });
         }
     }

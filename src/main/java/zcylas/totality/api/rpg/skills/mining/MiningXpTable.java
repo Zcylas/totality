@@ -5,6 +5,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import zcylas.totality.init.ModTags;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,14 +54,14 @@ public final class MiningXpTable {
         block(Blocks.SMALL_AMETHYST_BUD,         3);
 
         // ── Tag-based catch-alls for modded ores ──────────────────────────────
-        tag(BlockTags.DIAMOND_ORES,             30);
-        tag(BlockTags.EMERALD_ORES,             30);
+        tag(ModTags.VANILLA_DIAMOND_ORES,       30);
+        tag(ModTags.VANILLA_EMERALD_ORES,       30);
         tag(BlockTags.GOLD_ORES,                20);
-        tag(BlockTags.REDSTONE_ORES,            20);
-        tag(BlockTags.LAPIS_ORES,               20);
+        tag(ModTags.VANILLA_REDSTONE_ORES,      20);
+        tag(ModTags.VANILLA_LAPIS_ORES,         20);
         tag(BlockTags.IRON_ORES,                15);
         tag(BlockTags.COPPER_ORES,              15);
-        tag(BlockTags.COAL_ORES,                10);
+        tag(ModTags.VANILLA_COAL_ORES,          10);
         tag(BlockTags.STONE_ORE_REPLACEABLES,    5);
         tag(BlockTags.DEEPSLATE_ORE_REPLACEABLES, 5);
 

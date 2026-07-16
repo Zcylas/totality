@@ -18,6 +18,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityContext;
+import zcylas.totality.init.ModTags;
 import zcylas.totality.api.client.particles.TotalityParticles;
 import zcylas.totality.api.combat.damage.DamageFlags;
 import zcylas.totality.api.combat.damage.DamageTypes;
@@ -182,7 +183,7 @@ public class HeatVisionAbility extends Ability {
 
         var above = pos.above();
         if (level.getBlockState(above).isAir()) {
-            if (state.is(BlockTags.LOGS_THAT_BURN)
+            if (state.is(ModTags.VANILLA_LOGS_THAT_BURN)
                     || state.is(BlockTags.LEAVES)
                     || state.is(BlockTags.PLANKS)
                     || state.is(BlockTags.WOOL)

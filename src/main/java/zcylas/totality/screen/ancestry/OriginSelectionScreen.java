@@ -162,12 +162,12 @@ public class OriginSelectionScreen extends BaseAncestryScreen {
 
         if (isBack(mx, my)) {
             click();
-            Minecraft.getInstance().setScreen(new SpeciesSelectionScreen());
+            Minecraft.getInstance().gui.setScreen(new SpeciesSelectionScreen());
             return true;
         }
         if (selOr != null && isNext(mx, my)) {
             click();
-            Minecraft.getInstance().setScreen(new ConfirmAncestryScreen(species, selOr));
+            Minecraft.getInstance().gui.setScreen(new ConfirmAncestryScreen(species, selOr));
             return true;
         }
         return super.mouseClicked(mouse, dc);

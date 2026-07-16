@@ -84,7 +84,7 @@ public class AccessoryInventoryButton extends AbstractButton {
 
         if (isAccessoryScreen) {
             player.containerMenu = player.inventoryMenu;
-            mc.setScreen(new InventoryScreen(player));
+            mc.gui.setScreen(new InventoryScreen(player));
             ClientPlayNetworking.send(new OpenInventoryPayload());
         } else {
             ClientPlayNetworking.send(new OpenAccessoryInventoryPayload());

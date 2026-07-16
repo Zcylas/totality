@@ -19,7 +19,7 @@ public final class SecondaryResourceHud {
     public static void register() {
         HudElementRegistry.addLast(HUD_ID, (graphics, delta) -> {
             Minecraft client = Minecraft.getInstance();
-            if (client.player == null || client.options.hideGui) return;
+            if (client.player == null || client.gui.hud.isHidden()) return;
 
             List<ISecondaryResource> active = SecondaryResourceRegistry.all()
                     .stream()
