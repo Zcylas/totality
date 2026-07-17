@@ -20,27 +20,50 @@ import zcylas.totality.networking.stamina.StaminaServerTick;
 /** Skyrim-style independent offhand attack — triggered by RMB while dual-wielding, not auto-mirrored from LMB. */
 public final class OffhandAttackHandler {
 
-    private static final double MAX_ATTACK_RANGE_SQ = 4.5 * 4.5;
-
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(OffhandAttackPayload.TYPE,
                 (payload, ctx) -> ctx.server().execute(() -> handle(ctx.player(), payload)));
     }
 
-    private static void handle(ServerPlayer player, OffhandAttackPayload payload) {
+    /** Package-private (not {@code private}) so {@link OffhandAttackVerification} can drive the
+     *  real handler directly with a hand-built payload — the same "exercise the real production
+     *  code, not a reimplementation" discipline every other verification suite in this codebase
+     *  follows. */
+    static void handle(ServerPlayer player, OffhandAttackPayload payload) {
         if (!isDualWielding(player)) return;
         if (!DualWieldCooldownTracker.canOffhandAttack(player)) return;
 
+        // Shared target-validity predicate (correction pass, Part C) — the same reach/liveness/
+        // attackability rule Power Attack uses server-side (PowerAttackManager.MELEE_TARGET_RANGE
+        // is this exact reach value; the offhand path was its original source, preserved unchanged
+        // by sharing it rather than duplicating a second copy that could drift).
         Entity targetEntity = player.level().getEntity(payload.targetEntityId());
-        if (!(targetEntity instanceof LivingEntity target) || !target.isAlive()) return;
-        if (player.distanceToSqr(target) > MAX_ATTACK_RANGE_SQ) return;
+        if (!PowerAttackManager.isValidTarget(player, targetEntity)) return;
+        LivingEntity target = (LivingEntity) targetEntity;
+
+        // Post-review correction: a Power-Attack-flagged request against an attacker-illegal
+        // target (PvP-disabled, team friendly-fire, invulnerable) must be rejected outright, not
+        // silently downgraded into an ordinary attack. The previous code folded isAttackerLegal
+        // into the same "gracefully downgrade" ANDed condition as the insufficient-Stamina case
+        // below, so an illegal target still fell through into the normal-attack path — spending
+        // ordinary offhand Stamina, damaging the offhand weapon's durability, and landing a
+        // (non-power) hit, none of which an illegal Power Attack may do. This check returns
+        // BEFORE any Stamina/durability/attack-execution decision is made, exactly mirroring the
+        // mainhand PowerAttackPayload handler's own "isAttackerLegal fails -> return" gate.
+        // Insufficient Power Attack Stamina remains the SEPARATE, intentional "graceful downgrade
+        // to a legal normal attack" case below — unaffected by this check, since it only ever
+        // runs once isAttackerLegal has already passed.
+        if (payload.powerAttack() && !PowerAttackManager.isAttackerLegal(player, target)) {
+            return;
+        }
 
         ItemStack offWeapon = player.getOffhandItem();
 
         // Offhand's own hold-to-charge power attack — rolls with advantage, costs extra stamina.
-        // Gracefully downgrades to a normal roll if stamina is insufficient (mirrors the
-        // mainhand's PowerAttackManager.onPowerAttackReceived behavior: the swing always
-        // happens, only the advantage bonus is denied).
+        // Gracefully downgrades to a normal roll if Stamina is insufficient — the swing still
+        // happens, only the advantage bonus and its extra Stamina cost are denied. Attacker
+        // legality was already fully validated above; it can never reach this line as a reason to
+        // downgrade.
         boolean usePower = payload.powerAttack()
                 && (player.isCreative() || PlayerStaminaManager.hasStamina(player, PowerAttackManager.getOffhandStaminaCost(player)));
         RollType rollType = usePower ? RollType.ADVANTAGE : RollType.NORMAL;

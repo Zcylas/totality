@@ -85,6 +85,7 @@ public class TotalityClient implements ClientModInitializer {
 
         // ── Keybinds & tick handlers ──────────────────────────────────────────
         TotalityKeybindHandlers.register();
+        zcylas.totality.init.KeybindVerification.runIfDev();
         TotalityMovementHandler.register();
         zcylas.totality.client.item.AttunementClientManager.register();
         zcylas.totality.client.spell.ClientCastManager.register();
@@ -115,6 +116,9 @@ public class TotalityClient implements ClientModInitializer {
         TotalityHudRenderer.register();
         zcylas.totality.client.hud.rest.RestHud.register();
         NotificationManager.register();
+        zcylas.totality.client.renderer.hud.notification.NotificationTimingVerification.runIfDev();
+        zcylas.totality.client.renderer.hud.PowerAttackFlash.register();
+        zcylas.totality.client.renderer.hud.PowerAttackFlashVerification.runIfDev();
         zcylas.totality.client.quest.QuestTrackerHud.register();
         MobHealthBarHud.register();
         CombatTextRenderer.register();

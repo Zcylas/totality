@@ -224,6 +224,12 @@ This is a **pre-existing `TotalityKeybindHandlers` design gap**, not something i
 
 It was not solved as part of the 26.2 migration, is not a migration regression, and does not block migration completion. No design or implementation work toward a solution was done in this task, per its documentation-only scope.
 
+**RESOLVED (2026-07-16), post-migration follow-up work — Phase 4 correction pass.** A modifier-chord input model (Radial Modifier, default Left Alt, rebindable) replaced the hold-threshold radial trigger: Z/X alone activate normally with the full hold/channel gesture available with no timeout; Radial Modifier+Z/X opens the respective radial without activating anything. Full detail in `TOTALITY_COMBAT_INPUT_AND_HUD.md` Section 2. This note records the resolution; it does not reopen or rewrite this migration's own conclusion (§15.9) — the fix was later, separate work, not a correction to the migration itself.
+
+## 15.6f Post-migration HUD/notification timing regressions (found and fixed later — not part of this migration)
+
+Two additional issues surfaced during the SAME later Phase 4 correction pass (2026-07-16) that also touched §15.6d above, unrelated to that item: Totality's custom notifications (`NotificationManager`) and the Power Attack screen-corner flash (`PowerAttackFlash`) both stayed visible for a noticeably shorter real-world duration after this migration than before it. Root-caused to a pre-existing bug in BOTH systems (their authoritative lifetime timers were decremented once per rendered HUD frame rather than once per game tick — confirmed via `git diff` against this migration's own baseline commit, `953a677`, that neither system's code nor Fabric's HUD-callback invocation mechanism actually changed during this migration). The bug was always frame-rate dependent; it became severely more noticeable specifically because this migration's GPU-pipeline rewrite (§15.3/§15.6b) legitimately increased achieved frame rates for the same scene. Both were fixed by moving each system's lifetime decrement to its own `ClientTickEvents.END_CLIENT_TICK` registration. Full root-cause analysis and fix detail in `TOTALITY_COMBAT_INPUT_AND_HUD.md` Sections 3-5. Recorded here as a genuine post-migration regression in user-visible behavior (not a migration-introduced code defect) that was later found and corrected — this note does not reopen or rewrite this migration's own conclusion (§15.9).
+
 ## 15.6e Fluid Tank (known pre-existing issue, not a migration regression)
 
 The Fluid Tank places, loads, and its tested functionality (screen, interaction) remains operational under Minecraft 26.2. Its model and texture (`assets/totality/models/block/copper_tank.json`, `models/item/copper_tank.json`, `textures/block/copper_tank.png`) are a known pre-existing placeholder or incomplete visual implementation, sourced originally as temporary reference material and never replaced with a finished Totality-specific design. **None of these files were touched by this migration** (confirmed via `git status`). The tank's final visual design is deferred to the dedicated future Fluid API phase.
@@ -268,7 +274,9 @@ Explicitly out of scope for this migration, per the task's exclusion list — no
 - Broad performance optimization
 - Future Fluid API, future system redesigns, performance profiling
 - **Heat Vision visual rework** (§15.6c) — functional, not restored to prior appearance
-- **Ability/spell hold-input redesign** (§15.6d) — input-system design issue, unsolved
+- **Ability/spell hold-input redesign** (§15.6d) — input-system design issue, unsolved at
+  migration close; **resolved 2026-07-16** by later, separate Phase 4 correction-pass work
+  (Radial Modifier chord model) — see §15.6d's update and `TOTALITY_COMBAT_INPUT_AND_HUD.md`
 - **Fluid Tank visual completion** (§15.6e) — pre-existing, not caused by this migration
 
 **Findings surfaced during this migration that belong to separate, later work** (not fixed here, since fixing them would exceed migration scope):

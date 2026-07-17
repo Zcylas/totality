@@ -1,6 +1,5 @@
 package zcylas.totality.screen.ability;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -11,6 +10,7 @@ import net.minecraft.util.Mth;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.networking.ability.ClientAbilityManager;
 import zcylas.totality.networking.ability.EquipAbilityPayload;
 
@@ -233,11 +233,25 @@ public class AbilityRadialScreen extends Screen {
 
     // ── Screen lifecycle ──────────────────────────────────────────────────────
 
+    /**
+     * Radial correction pass, Part A: previously polled raw {@code GLFW_KEY_Z} directly instead
+     * of {@link ModKeybinds#USE_ABILITY}, so rebinding Ability away from Z meant this screen's own
+     * release check kept reading "Z is not held" — closing the radial immediately regardless of
+     * whether the rebound key was actually being held.
+     *
+     * <p>Follow-up fix: switching that check to plain {@code ModKeybinds.USE_ABILITY.isDown()}
+     * turned out to ALSO close immediately, even at the DEFAULT Z binding — {@code
+     * Gui.setScreen(Screen)} unconditionally calls {@code KeyMapping.releaseAll()} right before
+     * opening ANY screen, including this one, on the very tick it opens; that zeroes {@code
+     * isDown()} for every key mapping regardless of whether the physical key is still held, and
+     * nothing re-asserts it while the key stays continuously down. {@link
+     * ModKeybinds#isPhysicallyDown} reads real hardware state for whichever key is CURRENTLY bound
+     * instead — immune to that side effect, and still fully rebind-aware (see its javadoc for the
+     * full explanation).
+     */
     @Override
     public void tick() {
-        com.mojang.blaze3d.platform.Window window = Minecraft.getInstance().getWindow();
-        boolean zHeld = InputConstants.isKeyDown(window, org.lwjgl.glfw.GLFW.GLFW_KEY_Z);
-        if (!zHeld) {
+        if (!ModKeybinds.isPhysicallyDown(ModKeybinds.USE_ABILITY)) {
             if (selectedSlot >= 0 && selectedSlot < favIds.size())
                 ClientPlayNetworking.send(new EquipAbilityPayload(favIds.get(selectedSlot)));
             Minecraft.getInstance().gui.setScreen(null);

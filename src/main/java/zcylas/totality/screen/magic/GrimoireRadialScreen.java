@@ -1,7 +1,5 @@
 package zcylas.totality.screen.magic;
 
-import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -13,7 +11,7 @@ import zcylas.totality.api.magic.grimoire.GrimoireCaster;
 import zcylas.totality.api.magic.grimoire.MagicComponents;
 import zcylas.totality.api.magic.grimoire.rune.AbstractFormRune;
 import zcylas.totality.api.magic.grimoire.rune.AbstractRune;
-import org.lwjgl.glfw.GLFW;
+import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.networking.magic.grimoire.SwitchGrimoireSlotPayload;
 
@@ -159,11 +157,13 @@ public class GrimoireRadialScreen extends Screen {
         }
     }
 
+    /** Radial correction pass, Part B + follow-up: same fix as {@code AbilityRadialScreen.tick()}
+     *  — uses {@link ModKeybinds#isPhysicallyDown} instead of raw {@code GLFW_KEY_C} or plain
+     *  {@code ModKeybinds.OPEN_GRIMOIRE.isDown()}, both of which closed this radial immediately
+     *  (see {@link ModKeybinds#isPhysicallyDown}'s javadoc). */
     @Override
     public void tick() {
-        Window window = Minecraft.getInstance().getWindow();
-        boolean cDown = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_C);
-        if (!cDown) {
+        if (!ModKeybinds.isPhysicallyDown(ModKeybinds.OPEN_GRIMOIRE)) {
             if (selectedSlot != -1 && selectedSlot != currentSlot) {
                 net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
                         new SwitchGrimoireSlotPayload(selectedSlot));

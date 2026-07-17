@@ -285,10 +285,12 @@ public final class TradeSessionManager {
     }
 
     /**
-     * Server-authoritative SELL — the client only ever supplies a slot index and a quantity;
-     * every other fact (the real stack, its count, the merchant's acceptance/value/Credits, and
-     * the resulting quote) is re-read and revalidated here, never trusted from the client. See
-     * design document Section D for the full validation order this method implements:
+     * Server-authoritative SELL — the client only ever supplies a slot index, a quantity, and
+     * (Phase 4 correction pass, Part A) whether the player explicitly confirmed a reduced payout
+     * plus the exact terms they confirmed; every other fact (the real stack, its count, the
+     * merchant's acceptance/value/Credits, and the resulting quote) is re-read and revalidated
+     * here, never trusted from the client. See design document Section D for the full validation
+     * order this method implements:
      *
      * <ol>
      *   <li>An active trade session exists for the player.
@@ -298,12 +300,12 @@ public final class TradeSessionManager {
      *   <li>{@code slotIndex} is a valid inventory slot.
      *   <li>The real stack in that slot is non-empty.
      *   <li>The real stack holds at least {@code quantity}.
-     *   <li>The merchant accepts the item ({@link MerchantSellQuoteView}).
-     *   <li>The item has a resolvable central base value ({@link MerchantSellQuoteView}).
-     *   <li>A SELL quote can be produced ({@link MerchantSellQuoteView}).
-     *   <li>The quote total is valid and does not overflow ({@link MerchantSellQuoteView}).
-     *   <li>The merchant has enough {@code currentCredits} ({@link MerchantSellQuoteView}).
-     *   <li>The player can safely receive the payout ({@link CreditPaymentHelper#canReceive}).
+     *   <li>The merchant accepts the item, has a resolvable value, has nonzero Credits, and the
+     *       quantity/overflow bounds hold ({@link MerchantSellQuoteView}).
+     *   <li>If the quote is underfunded ({@link MerchantSellQuoteView#requiresConfirmation()}),
+     *       the request carries explicit confirmation whose terms exactly match the just-recomputed
+     *       quote — never inferred, never honored if stale.
+     *   <li>The player can safely receive the resulting payout ({@link CreditPaymentHelper#canReceive}).
      * </ol>
      *
      * <p>Every precondition is confirmed before any mutation. The commit itself (remove item,
@@ -316,6 +318,12 @@ public final class TradeSessionManager {
      * {@link MerchantStockProvider}, if the merchant has one, is never touched here.
      */
     public static SellResult handleSell(ServerPlayer player, int slotIndex, int quantity) {
+        return handleSell(player, slotIndex, quantity, false, 0L, 0L);
+    }
+
+    public static SellResult handleSell(
+            ServerPlayer player, int slotIndex, int quantity,
+            boolean confirmedReducedPayout, long confirmedTotalValue, long confirmedPayableAmount) {
         ActiveTrade trade = SESSIONS.get(player.getUUID());
         if (trade == null) return SellResult.rejected(SellResult.Reason.NO_SESSION);
         if (!revalidateNpc(player, trade)) return SellResult.rejected(SellResult.Reason.NPC_INVALID);
@@ -334,16 +342,61 @@ public final class TradeSessionManager {
         MerchantRuntime merchant = currentMerchant(trade, currentNpc(player, trade));
         MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, real, real.getCount(), quantity);
         if (!quote.sellable()) {
-            return SellResult.rejected(SellResult.Reason.NOT_SELLABLE, quote.rejectionReason().orElse("unknown"));
+            return SellResult.rejected(SellResult.Reason.NOT_SELLABLE, quote.rejectionReason());
         }
 
-        long payout = quote.totalPayout();
-        if (!CreditPaymentHelper.canReceive(player, payout)) {
+        // Post-review correction: branch on WHAT THE REQUEST CLAIMS (confirmedReducedPayout),
+        // never on the current quote's requiresConfirmation() state alone — the original code
+        // branched on the CURRENT quote, so a reduced-payout confirmation submitted while the
+        // merchant was underfunded could silently complete as an ordinary full-value sale if the
+        // merchant became fully funded (Credits rose) before the server processed it. The terms
+        // shown in the popup changed either way — better or worse — and always require fresh
+        // player review; only a request that still explicitly claims "I confirmed a reduced
+        // payout" is checked against the confirmed amounts at all.
+        long payout;
+        if (confirmedReducedPayout) {
+            if (!quote.requiresConfirmation()) {
+                // The merchant is now fully funded (or otherwise no longer underfunded) — the
+                // popup the player confirmed no longer describes reality. Never silently honor
+                // either the old reduced amount or the new full amount; require a fresh request.
+                return SellResult.rejected(SellResult.Reason.STALE_CONFIRMATION);
+            }
+            // A conservative exact-match check against the CURRENT, freshly recomputed quote —
+            // client-supplied values are never authoritative, only proof of the terms the player
+            // actually saw and clicked "Sell for ₵X" on. Any change to merchant Credits, price,
+            // inventory, or quantity since confirmation invalidates the match (Part A: "do not
+            // silently complete the sale using a worse or different payout").
+            if (confirmedTotalValue != quote.totalValue() || confirmedPayableAmount != quote.payableAmount()) {
+                return SellResult.rejected(SellResult.Reason.STALE_CONFIRMATION);
+            }
+            payout = quote.payableAmount();
+        } else {
+            if (quote.requiresConfirmation()) {
+                return SellResult.rejected(SellResult.Reason.CONFIRMATION_REQUIRED);
+            }
+            payout = quote.totalValue();
+        }
+
+        // A player with no open bank account has nowhere for a Wallet credit to represent —
+        // physical Credits are the only thing they can actually hold/use (Phase 4 correction
+        // pass, Part A). Never inferred from WalletComponent's mere existence (every player has
+        // one regardless of account status) — CreditPaymentHelper.hasOpenAccount reads the same
+        // has_account narrative flag the Banker's own account-opening dialogue sets, and this
+        // SELL path never sets that flag itself (no implicit account opening).
+        boolean hasAccount = CreditPaymentHelper.hasOpenAccount(player);
+        boolean canDeliver = hasAccount
+                ? CreditPaymentHelper.canReceive(player, payout)
+                : CreditPaymentHelper.canReceivePhysical(payout);
+        if (!canDeliver) {
             return SellResult.rejected(SellResult.Reason.CANNOT_RECEIVE);
         }
 
         inventory.removeItem(slotIndex, quantity);
-        CreditPaymentHelper.receive(player, payout);
+        if (hasAccount) {
+            CreditPaymentHelper.receive(player, payout);
+        } else {
+            CreditPaymentHelper.receivePhysical(player, payout);
+        }
         merchant.setCurrentCredits(merchant.currentCredits() - payout);
 
         sendState(player, false);
@@ -385,12 +438,13 @@ public final class TradeSessionManager {
             } else {
                 MerchantRuntime merchant = currentMerchant(trade, currentNpc(player, trade));
                 // requestedQuantity=1 only to obtain the quantity-INDEPENDENT fields (unitPayout,
-                // maxQuantityByStack, maxQuantityByMerchant, effectiveMaxQuantity) — the client
-                // computes its own DISPLAY total as unitPayout * selectedQuantity, still fully
-                // revalidated server-side at actual SELL commit time regardless.
+                // maxQuantityByStack, effectiveMaxQuantity) — the client computes its own DISPLAY
+                // total/payable/forfeited as unitPayout * selectedQuantity against the
+                // accompanying ShowShopStatePayload.merchantCredits (piggybacked below), still
+                // fully revalidated server-side at actual SELL commit time regardless (Part A).
                 MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, real, real.getCount(), 1);
                 result = new SellQuoteResultPayload(slotIndex, quote.accepted(), quote.hasValue(), quote.unitPayout(),
-                        real.getCount(), quote.maxQuantityByStack(), quote.maxQuantityByMerchant(), quote.effectiveMaxQuantity());
+                        real.getCount(), quote.maxQuantityByStack(), quote.effectiveMaxQuantity());
             }
         }
         ServerPlayNetworking.send(player, result);

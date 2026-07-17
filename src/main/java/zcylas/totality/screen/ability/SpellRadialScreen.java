@@ -1,6 +1,5 @@
 package zcylas.totality.screen.ability;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -14,6 +13,7 @@ import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.magic.spell.ClientSpellSlotManager;
 import zcylas.totality.api.magic.spell.Spell;
 import zcylas.totality.client.spell.ClientSelectedSpellManager;
+import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.networking.ability.ClientAbilityManager;
 import zcylas.totality.networking.ability.SelectSpellPayload;
 import zcylas.totality.util.RadialAnimationHelper;
@@ -178,12 +178,15 @@ public class SpellRadialScreen extends Screen {
         }
     }
 
+    /** Radial correction pass, Part A + follow-up: same fix as {@code AbilityRadialScreen.tick()}
+     *  — uses {@link ModKeybinds#isPhysicallyDown} instead of raw {@code GLFW_KEY_X} (broke
+     *  rebound keys) or plain {@code ModKeybinds.USE_SPELL.isDown()} (broke ALL keys, including
+     *  the default, because opening this very screen triggers {@code KeyMapping.releaseAll()} —
+     *  see {@link ModKeybinds#isPhysicallyDown}'s javadoc for the full explanation). */
     @Override
     public void tick() {
-        com.mojang.blaze3d.platform.Window w = Minecraft.getInstance().getWindow();
-        boolean spellHeld = InputConstants.isKeyDown(w, org.lwjgl.glfw.GLFW.GLFW_KEY_X);
-        if (!spellHeld) {
-            // Only SELECT the spell — tap X to fire it
+        if (!ModKeybinds.isPhysicallyDown(ModKeybinds.USE_SPELL)) {
+            // Only SELECT the spell — tap the Spell key to fire it
             if (selectedSlot >= 0 && selectedSlot < spellIds.size()) {
                 selectSpell(spellIds.get(selectedSlot));
             }

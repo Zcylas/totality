@@ -28,8 +28,9 @@ public final class TotalityKeybindHandlers {
 
     private static boolean lastAbilityKeyHeld = false;
 
-    // ── Grimoire hold state ──────────────────────────────────────────────────
-    private static int     grimoireHoldTicks    = 0;
+    // ── Grimoire modifier-chord state (radial correction pass, Part B) ────────
+    // Migrated off the old hold-C-for-HOLD_THRESHOLD-ticks radial trigger onto the SAME
+    // Radial-Modifier-chord model Ability/Spell already use — see registerGrimoireKeybind().
     private static boolean grimoireWasDown      = false;
     private static boolean grimoireRadialOpened = false;
 
@@ -47,33 +48,54 @@ public final class TotalityKeybindHandlers {
         registerAbilityRadialKeybind();
     }
 
+    /**
+     * Radial correction pass, Part B: previously a hold-C-for-{@code HOLD_THRESHOLD}-ticks radial
+     * trigger — the exact OLD model Ability/Spell were already migrated off in the prior pass
+     * (design document {@code TOTALITY_COMBAT_INPUT_AND_HUD.md} Section 2), left un-migrated for
+     * Grimoire at the time. Now uses the SAME Radial-Modifier-chord model, decided once at the
+     * press edge, mirroring {@link #registerAbilityKeybind()} exactly: {@link
+     * ModKeybinds#OPEN_GRIMOIRE} alone (any hold duration — there is no more continuous "charging"
+     * gesture to preserve for a bare press, unlike a channeled Ability) opens the ordinary Grimoire
+     * crafting screen (or the Class tab if Shift is held, an unrelated pre-existing quirk left
+     * unchanged) on release; {@link ModKeybinds#RADIAL_MODIFIER} + {@link
+     * ModKeybinds#OPEN_GRIMOIRE} opens the Grimoire radial immediately and suppresses the normal
+     * screen from opening on release. Reuses the EXISTING registered {@link
+     * ModKeybinds#OPEN_GRIMOIRE} key mapping (default C) — no second Grimoire key mapping was
+     * created. V was never wired to the Grimoire radial in this codebase (confirmed by audit —
+     * only {@link #registerBlockKeybind()} reads {@code GLFW_KEY_V}/{@link ModKeybinds#BLOCK}) and
+     * remains untouched, exclusively Blocking's key.
+     */
     private static void registerGrimoireKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null) return;
             com.mojang.blaze3d.platform.Window window = client.getWindow();
 
-            boolean cDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
-                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_C);
+            // ModKeybinds.isPhysicallyDown, NOT .isDown() — see its javadoc: opening the Grimoire
+            // radial screen itself (below) triggers Gui.setScreen's unconditional
+            // KeyMapping.releaseAll(), which would otherwise corrupt THIS handler's own tracking
+            // on every subsequent tick while the radial stays open.
+            boolean radialModifierDown = ModKeybinds.isPhysicallyDown(ModKeybinds.RADIAL_MODIFIER);
+            boolean cDown = ModKeybinds.isPhysicallyDown(ModKeybinds.OPEN_GRIMOIRE);
 
             if (cDown) {
-                if (!grimoireWasDown) { grimoireHoldTicks = 0; grimoireRadialOpened = false; }
-                grimoireHoldTicks++;
-                // Hold → open Grimoire radial
-                if (grimoireHoldTicks >= HOLD_THRESHOLD && !grimoireRadialOpened
-                        && client.gui.screen() == null) {
-                    ItemStack main = client.player.getMainHandItem();
-                    ItemStack off  = client.player.getOffhandItem();
-                    ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
-                            : off.getItem() instanceof GrimoireItem ? off
-                            : ItemStack.EMPTY;
-                    if (!grimoire.isEmpty()) {
-                        client.gui.setScreen(new GrimoireRadialScreen(grimoire));
-                        grimoireRadialOpened = true;
+                if (!grimoireWasDown) {
+                    // Fresh press — decide chord-vs-normal exactly once, at the edge.
+                    grimoireRadialOpened = radialModifierDown;
+                    if (grimoireRadialOpened && client.gui.screen() == null) {
+                        ItemStack main = client.player.getMainHandItem();
+                        ItemStack off  = client.player.getOffhandItem();
+                        ItemStack grimoire = main.getItem() instanceof GrimoireItem ? main
+                                : off.getItem() instanceof GrimoireItem ? off
+                                : ItemStack.EMPTY;
+                        if (!grimoire.isEmpty()) {
+                            client.gui.setScreen(new GrimoireRadialScreen(grimoire));
+                        }
                     }
                 }
             } else {
                 if (grimoireWasDown && !grimoireRadialOpened && client.gui.screen() == null) {
-                    // Quick tap
+                    // Release without ever being a radial chord — open the ordinary Grimoire
+                    // screen, exactly as a quick tap always did before.
                     boolean shiftHeld =
                             com.mojang.blaze3d.platform.InputConstants.isKeyDown(window,
                                     org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT) ||
@@ -93,7 +115,6 @@ public final class TotalityKeybindHandlers {
                         }
                     }
                 }
-                grimoireHoldTicks    = 0;
                 grimoireRadialOpened = false;
             }
             grimoireWasDown = cDown;
@@ -113,37 +134,66 @@ public final class TotalityKeybindHandlers {
         });
     }
 
-    // ── Hold-to-open radial state ────────────────────────────────────────────
-    private static int  abilityHoldTicks  = 0;
+    // ── Radial modifier chord state (Phase 4 correction pass, Part D) ─────────
+    // Replaces the old hold-Z/hold-X-for-HOLD_THRESHOLD-ticks radial trigger (which interrupted
+    // channeled abilities/spells once the threshold passed — 26.2 migration §15.6d) with a
+    // modifier chord: the Radial Modifier key must already be held at the moment Z/X is FIRST
+    // pressed for that press to be treated as "open the radial, don't activate." The decision is
+    // made once, at the press-edge, and never re-evaluated for the rest of that hold — pressing
+    // the modifier after Z/X has already started, or releasing it mid-hold, has no effect on an
+    // already-running press. `abilityRadialOpened`/`spellRadialOpened` are reused (not renamed)
+    // from the old implementation: `abilityRadialOpened` is also read by
+    // registerVeinminerKeyKeybind() below to suppress channeled-ability start/veinminer for the
+    // duration of a radial-chord press, exactly as it suppressed it once the old threshold fired —
+    // now suppressed from the very first tick instead of only after ~1 second.
     private static boolean abilityWasDown = false;
     private static boolean abilityRadialOpened = false;
-    private static int  spellHoldTicks    = 0;
     private static boolean spellWasDown   = false;
     private static boolean spellRadialOpened = false;
-    private static final int HOLD_THRESHOLD = 10; // ticks before radial opens
+    // HOLD_THRESHOLD (the old hold-N-ticks radial trigger) was fully retired by the radial
+    // correction pass, Part B — Grimoire was its last remaining user (now migrated to the
+    // Modifier-chord model, see registerGrimoireKeybind()); no field remains that reads it.
 
+    /**
+     * Phase 4 correction pass, Part B: previously read literal {@code GLFW_KEY_Z}/{@code
+     * GLFW_KEY_X} via raw {@code InputConstants.isKeyDown} instead of the registered {@link
+     * ModKeybinds#USE_ABILITY}/{@link ModKeybinds#USE_SPELL} key mappings — rebinding either key
+     * in the controls menu changed nothing here (it only changed {@code
+     * registerVeinminerKeyKeybind}'s already-correct channeled-hold check below, producing a split
+     * where the channeled-hold gesture followed the rebound key but ordinary activation and the
+     * radial chord silently kept following Z/X).
+     *
+     * <p>Radial correction pass follow-up: this method now uses {@link
+     * ModKeybinds#isPhysicallyDown} rather than {@code KeyMapping.isDown()} for ALL of Ability,
+     * Spell, and Radial Modifier — {@code isDown()} gets unconditionally zeroed by {@code
+     * Gui.setScreen}'s {@code KeyMapping.releaseAll()} the instant the radial screen opens (see
+     * {@link ModKeybinds#isPhysicallyDown}'s javadoc), and this is a GLOBAL per-tick listener that
+     * keeps running for as long as the key is held, including every tick the radial stays open
+     * afterward — a naive {@code isDown()} read here would misread "released" on the very next
+     * tick even though the key never actually moved, corrupting {@code abilityWasDown}/{@code
+     * abilityRadialOpened} state out from under the still-open radial screen.
+     */
     private static void registerAbilityKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null) return;
-            com.mojang.blaze3d.platform.Window window = client.getWindow();
 
-            // ── Ability (Z key) ───────────────────────────────────────────────
-            boolean zDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
-                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_Z);
+            boolean radialModifierDown = ModKeybinds.isPhysicallyDown(ModKeybinds.RADIAL_MODIFIER);
 
-            if (zDown) {
-                if (!abilityWasDown) { abilityHoldTicks = 0; abilityRadialOpened = false; }
-                abilityHoldTicks++;
-                // Hold threshold reached — open ability radial
-                if (abilityHoldTicks >= HOLD_THRESHOLD && !abilityRadialOpened
-                        && client.gui.screen() == null
-                        && !ClientAbilityManager.getAbilityFavorites().isEmpty()) {
-                    client.gui.setScreen(new zcylas.totality.screen.ability.AbilityRadialScreen());
-                    abilityRadialOpened = true;
+            // ── Ability (ModKeybinds.USE_ABILITY, default Z, rebindable) ───────
+            boolean abilityDown = ModKeybinds.isPhysicallyDown(ModKeybinds.USE_ABILITY);
+
+            if (abilityDown) {
+                if (!abilityWasDown) {
+                    // Fresh press — decide chord-vs-activation exactly once, at the edge.
+                    abilityRadialOpened = radialModifierDown;
+                    if (abilityRadialOpened && client.gui.screen() == null
+                            && !ClientAbilityManager.getAbilityFavorites().isEmpty()) {
+                        client.gui.setScreen(new zcylas.totality.screen.ability.AbilityRadialScreen());
+                    }
                 }
             } else {
                 if (abilityWasDown && !abilityRadialOpened && client.gui.screen() == null) {
-                    // Quick tap — fire equipped ability
+                    // Quick tap / release without ever being a radial chord — fire equipped ability.
                     Identifier equippedId = ClientAbilityManager.getEquippedAbility();
                     if (equippedId != null && !ClientAbilityManager.isOnCooldown(equippedId)) {
                         Ability targeted = AbilityRegistry.get(equippedId);
@@ -156,23 +206,20 @@ public final class TotalityKeybindHandlers {
                         }
                     }
                 }
-                abilityHoldTicks = 0;
                 abilityRadialOpened = false;
             }
-            abilityWasDown = zDown;
+            abilityWasDown = abilityDown;
 
-            // ── Spell (X key) ────────────────────────────────────────────────
-            boolean xDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
-                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_X);
+            // ── Spell (ModKeybinds.USE_SPELL, default X, rebindable) ───────────
+            boolean spellDown = ModKeybinds.isPhysicallyDown(ModKeybinds.USE_SPELL);
 
-            if (xDown) {
-                if (!spellWasDown) { spellHoldTicks = 0; spellRadialOpened = false; }
-                spellHoldTicks++;
-                if (spellHoldTicks >= HOLD_THRESHOLD && !spellRadialOpened
-                        && client.gui.screen() == null
-                        && !ClientAbilityManager.getSpellFavorites().isEmpty()) {
-                    client.gui.setScreen(new zcylas.totality.screen.ability.SpellRadialScreen());
-                    spellRadialOpened = true;
+            if (spellDown) {
+                if (!spellWasDown) {
+                    spellRadialOpened = radialModifierDown;
+                    if (spellRadialOpened && client.gui.screen() == null
+                            && !ClientAbilityManager.getSpellFavorites().isEmpty()) {
+                        client.gui.setScreen(new zcylas.totality.screen.ability.SpellRadialScreen());
+                    }
                 }
             } else {
                 if (spellWasDown && !spellRadialOpened && client.gui.screen() == null) {
@@ -186,20 +233,27 @@ public final class TotalityKeybindHandlers {
                         }
                     }
                 }
-                spellHoldTicks = 0;
                 spellRadialOpened = false;
             }
-            spellWasDown = xDown;
+            spellWasDown = spellDown;
         });
     }
 
+    /**
+     * Post-review correction: previously polled raw {@code GLFW_KEY_V} directly instead of the
+     * registered {@link ModKeybinds#BLOCK} key mapping — {@code BLOCK} was registered (and
+     * appeared in Controls) but rebinding it changed nothing here. Now reads {@link
+     * ModKeybinds#isPhysicallyDown} (not {@code KeyMapping.isDown()} — see its javadoc: opening
+     * any screen, e.g. the Grimoire radial while dual-wielding, zeroes {@code isDown()} via
+     * {@code KeyMapping.releaseAll()} regardless of physical key state), so Block press/hold/
+     * release all follow whichever key is currently bound, immune to that side effect, exactly
+     * like Ability/Spell/Grimoire/Radial Modifier already do.
+     */
     private static void registerBlockKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null) return;
-            com.mojang.blaze3d.platform.Window window = client.getWindow();
 
-            boolean vDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
-                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_V);
+            boolean vDown = ModKeybinds.isPhysicallyDown(ModKeybinds.BLOCK);
 
             // Start blocking: V just went down with no screen open
             if (vDown && !blockWasDown && client.gui.screen() == null && !blockingActive) {
@@ -254,7 +308,12 @@ public final class TotalityKeybindHandlers {
     private static void registerVeinminerKeyKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null) return;
-            boolean held = ModKeybinds.USE_ABILITY.isDown();
+            // ModKeybinds.isPhysicallyDown, not .isDown() — see its javadoc. This tracker keeps
+            // running every tick regardless of what screen is open, including every tick after a
+            // radial screen's own KeyMapping.releaseAll() side effect; a naive isDown() read here
+            // would misreport a still-held Ability key as "just released" and could desync
+            // veinminer/channeled-ability state out from under an actually-continuous hold.
+            boolean held = ModKeybinds.isPhysicallyDown(ModKeybinds.USE_ABILITY);
             if (held != lastAbilityKeyHeld) {
                 lastAbilityKeyHeld = held;
 

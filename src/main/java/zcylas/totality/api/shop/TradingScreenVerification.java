@@ -61,10 +61,20 @@ public final class TradingScreenVerification {
         checkQuantityClampedDownwardWhenStockDecreases(r);
         checkUnlimitedLegacyShopCappedAtServerMax(r);
         checkSellMaxRespectsStackCount(r, server, player);
-        checkSellMaxRespectsMerchantCredits(r, server, player);
+        checkSellMaxNotCappedByMerchantCredits(r, server, player);
         checkRejectedItemsCannotSubmitSell(r);
         checkShowShopStatePayloadRoundTripsNewFields(r, server);
+        checkSellItemPayloadRoundTripsConfirmationFields(r, server);
+        checkSellQuoteResultPayloadRoundTrips(r, server);
         checkClosingSessionEndsTrading(r, server, player);
+
+        // ── GUI refinement pass (TradingScreenLayout — pure layout/display math) ─
+        checkLayoutRegionsDoNotOverlapAtRepresentativeSizes(r);
+        checkGuiScale4UsesCompactLayoutWithSufficientContent(r);
+        checkScrollClampBounds(r);
+        checkCreditFormattingGroupsThousands(r);
+        checkSellSlotIssueKeyDistinguishesReasons(r);
+        checkSoldOutSemantics(r);
 
         r.summarize();
     }
@@ -149,28 +159,43 @@ public final class TradingScreenVerification {
         });
     }
 
-    private static void checkSellMaxRespectsMerchantCredits(VerificationReporter r, MinecraftServer server, ServerPlayer player) {
-        safe(r, "SELL maximum respects the merchant's available Credits", () -> {
+    /**
+     * Phase 4 correction pass, Part A: SELL quantity selection is bounded by the stack/server cap
+     * only — a merchant that can't fully afford the requested value no longer clamps the
+     * selectable quantity. A low merchant balance instead surfaces via {@code payableAmount}/
+     * {@code forfeitedValue}/{@code requiresConfirmation}, exercised directly against {@link
+     * MerchantSellQuoteView} here (the same computation {@code TradeSessionManager} commits
+     * against).
+     */
+    private static void checkSellMaxNotCappedByMerchantCredits(VerificationReporter r, MinecraftServer server, ServerPlayer player) {
+        safe(r, "SELL maximum is bounded by stack count, never by merchant affordability", () -> {
             ProvisionerNpcEntity npc = new ProvisionerNpcEntity(ModEntities.PROVISIONER, server.overworld());
-            npc.setCreditsForTest(10L); // bread payout is 6 each -> merchant can afford only 1
-            MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, npc, new ItemStack(Items.BREAD, 4), 4, 1);
-            return result(quote.maxQuantityByMerchant() == 1 && quote.effectiveMaxQuantity() == 1,
-                    "maxQuantityByMerchant=" + quote.maxQuantityByMerchant() + ", effectiveMaxQuantity=" + quote.effectiveMaxQuantity());
+            npc.setCreditsForTest(10L); // bread payout is 6 each -> merchant can only fully afford 1
+            MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, npc, new ItemStack(Items.BREAD, 4), 4, 4);
+            boolean pass = quote.sellable() && quote.effectiveMaxQuantity() == 4
+                    && quote.totalValue() == 24L && quote.payableAmount() == 10L && quote.forfeitedValue() == 14L
+                    && quote.requiresConfirmation();
+            return result(pass, "quote=" + quote);
         });
     }
 
     private static void checkRejectedItemsCannotSubmitSell(VerificationReporter r) {
-        safe(r, "TradeRejectionKeys maps NOT_SELLABLE's detail to the correct specific reason key", () -> {
-            String notAccepted = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, "Merchant does not accept this item");
-            String noValue = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, "Item has no resolvable value");
-            String cannotAfford = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, "Merchant cannot afford that quantity");
-            String unknown = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, "some future unrecognized reason");
+        safe(r, "TradeRejectionKeys maps NOT_SELLABLE's structured SellRejectionReason to the correct key", () -> {
+            String notAccepted = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, SellRejectionReason.NOT_ACCEPTED);
+            String noValue = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, SellRejectionReason.NO_VALUE);
+            String zeroCredits = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, SellRejectionReason.MERCHANT_ZERO_CREDITS);
+            String confirmationRequired = TradeRejectionKeys.forSell(SellResult.Reason.CONFIRMATION_REQUIRED, null);
+            String stale = TradeRejectionKeys.forSell(SellResult.Reason.STALE_CONFIRMATION, null);
+            String unknown = TradeRejectionKeys.forSell(SellResult.Reason.NOT_SELLABLE, SellRejectionReason.GENERIC);
             boolean pass = notAccepted.equals("totality.trading.reject.not_accepted")
                     && noValue.equals("totality.trading.reject.no_value")
-                    && cannotAfford.equals("totality.trading.reject.merchant_cannot_afford")
+                    && zeroCredits.equals("totality.trading.reject.merchant_zero_credits")
+                    && confirmationRequired.equals("totality.trading.reject.confirmation_required")
+                    && stale.equals("totality.trading.reject.stale_confirmation")
                     && unknown.equals("totality.trading.reject.generic");
             return result(pass, "notAccepted=" + notAccepted + ", noValue=" + noValue
-                    + ", cannotAfford=" + cannotAfford + ", unknown=" + unknown);
+                    + ", zeroCredits=" + zeroCredits + ", confirmationRequired=" + confirmationRequired
+                    + ", stale=" + stale + ", unknown=" + unknown);
         });
     }
 
@@ -194,6 +219,158 @@ public final class TradingScreenVerification {
                     && decoded.sells().size() == 1
                     && decoded.walletBalance() == 500 && decoded.merchantCredits() == 300;
             return result(pass, "decoded=" + decoded);
+        });
+    }
+
+    private static void checkSellItemPayloadRoundTripsConfirmationFields(VerificationReporter r, MinecraftServer server) {
+        safe(r, "SellItemPayload round-trips the underfunded-confirmation fields (Part A)", () -> {
+            zcylas.totality.networking.shop.SellItemPayload original =
+                    new zcylas.totality.networking.shop.SellItemPayload(5, 17, true, 102L, 100L);
+
+            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), server.registryAccess());
+            zcylas.totality.networking.shop.SellItemPayload.STREAM_CODEC.encode(buf, original);
+            zcylas.totality.networking.shop.SellItemPayload decoded =
+                    zcylas.totality.networking.shop.SellItemPayload.STREAM_CODEC.decode(buf);
+
+            boolean pass = decoded.slotIndex() == 5 && decoded.quantity() == 17
+                    && decoded.confirmedReducedPayout()
+                    && decoded.confirmedTotalValue() == 102L && decoded.confirmedPayableAmount() == 100L;
+            return result(pass, "decoded=" + decoded);
+        });
+    }
+
+    private static void checkSellQuoteResultPayloadRoundTrips(VerificationReporter r, MinecraftServer server) {
+        safe(r, "SellQuoteResultPayload round-trips its (Part A) trimmed field set correctly", () -> {
+            zcylas.totality.networking.shop.SellQuoteResultPayload original =
+                    new zcylas.totality.networking.shop.SellQuoteResultPayload(4, true, true, 6L, 20, 20, 20);
+
+            RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), server.registryAccess());
+            zcylas.totality.networking.shop.SellQuoteResultPayload.STREAM_CODEC.encode(buf, original);
+            zcylas.totality.networking.shop.SellQuoteResultPayload decoded =
+                    zcylas.totality.networking.shop.SellQuoteResultPayload.STREAM_CODEC.decode(buf);
+
+            boolean pass = decoded.slotIndex() == 4 && decoded.accepted() && decoded.hasValue()
+                    && decoded.unitPayout() == 6L && decoded.stackCount() == 20
+                    && decoded.maxQuantityByStack() == 20 && decoded.effectiveMaxQuantity() == 20;
+            return result(pass, "decoded=" + decoded);
+        });
+    }
+
+    // ── GUI refinement pass — TradingScreenLayout (pure geometry/display math) ─
+
+    /**
+     * Region non-overlap at representative logical screen sizes, in BOTH per-mode layouts (BUY
+     * hotbar-strip layout and SELL left-panel-inventory layout — the references' split): 480x270
+     * (1080p at GUI Scale 4 — Stefan's normal setting), 640x360 (1440p at Scale 4), 960x540
+     * (1080p at Scale 2), 1920x1080 (Scale 1), and 320x240 (the smallest window Minecraft
+     * allows). Asserts every pair of major regions is disjoint and every region sits inside the
+     * panel — the pure-math half of "no overlap at GUI Scale 4"; the rendered result is Stefan's
+     * manual check. In the SELL layout {@code inventory() == catalog()} by design, so the
+     * pairwise set there is header/tabs/catalog/detail.
+     */
+    private static void checkLayoutRegionsDoNotOverlapAtRepresentativeSizes(VerificationReporter r) {
+        safe(r, "Layout regions never overlap at representative sizes, in both BUY and SELL layouts", () -> {
+            int[][] sizes = { {480, 270}, {640, 360}, {960, 540}, {1920, 1080}, {320, 240} };
+            for (int[] size : sizes) {
+                for (boolean sellLayout : new boolean[] { false, true }) {
+                    TradingScreenLayout.Regions l = TradingScreenLayout.compute(size[0], size[1], sellLayout);
+                    TradingScreenLayout.Rect[] regions = sellLayout
+                            ? new TradingScreenLayout.Rect[] { l.header(), l.tabs(), l.catalog(), l.detail() }
+                            : new TradingScreenLayout.Rect[] { l.header(), l.tabs(), l.catalog(), l.detail(), l.inventory() };
+                    for (int a = 0; a < regions.length; a++) {
+                        for (int b = a + 1; b < regions.length; b++) {
+                            if (regions[a].intersects(regions[b])) {
+                                return result(false, "overlap at " + size[0] + "x" + size[1]
+                                        + " sell=" + sellLayout + ": " + regions[a] + " vs " + regions[b]);
+                            }
+                        }
+                    }
+                    for (TradingScreenLayout.Rect region : regions) {
+                        boolean inPanel = region.x() >= l.panel().x() && region.y() >= l.panel().y()
+                                && region.right() <= l.panel().right() && region.bottom() <= l.panel().bottom();
+                        if (!inPanel) {
+                            return result(false, "region outside panel at " + size[0] + "x" + size[1]
+                                    + " sell=" + sellLayout + ": " + region);
+                        }
+                    }
+                    if (sellLayout && !l.inventory().equals(l.catalog())) {
+                        return result(false, "SELL layout must host the inventory in the left panel at "
+                                + size[0] + "x" + size[1]);
+                    }
+                }
+            }
+            return result(true, "all sizes clean in both layouts");
+        });
+    }
+
+    private static void checkGuiScale4UsesCompactLayoutWithSufficientContent(VerificationReporter r) {
+        safe(r, "GUI Scale 4 @ 1080p (480x270) fits both per-mode layouts on normal metrics, the SELL left "
+                + "panel fits the 9-column grid, and the compact fallback still engages at shorter windows", () -> {
+            TradingScreenLayout.Regions buy4 = TradingScreenLayout.compute(480, 270, false);
+            TradingScreenLayout.Regions sell4 = TradingScreenLayout.compute(480, 270, true);
+            TradingScreenLayout.Regions shortWindow = TradingScreenLayout.compute(480, 200, false);
+            boolean pass = !buy4.compact() && buy4.contentH() >= TradingScreenLayout.MIN_CONTENT_H
+                    && !sell4.compact() && sell4.contentH() >= TradingScreenLayout.MIN_CONTENT_H
+                    && sell4.catalog().w() >= TradingScreenLayout.GRID_W + TradingScreenLayout.PAD
+                    && shortWindow.compact() && shortWindow.contentH() >= TradingScreenLayout.MIN_CONTENT_H;
+            return result(pass, "buy4.contentH=" + buy4.contentH() + ", sell4.contentH=" + sell4.contentH()
+                    + ", sell4.catalogW=" + sell4.catalog().w() + " (grid " + TradingScreenLayout.GRID_W + ")"
+                    + ", shortWindow.compact=" + shortWindow.compact()
+                    + ", shortWindow.contentH=" + shortWindow.contentH());
+        });
+    }
+
+    private static void checkScrollClampBounds(VerificationReporter r) {
+        safe(r, "Catalog scroll bounds stay valid: never negative, never past the last row, zero when everything fits", () -> {
+            int contentH = 108; // the compact GUI Scale 4 content height — 3 visible rows of 36px
+            boolean negativeClamped = TradingScreenLayout.clampScroll(-5, 10, contentH) == 0;
+            int maxFor10 = TradingScreenLayout.maxScrollRows(10, contentH); // 4 rows total, 3 visible -> 1
+            boolean overClamped = TradingScreenLayout.clampScroll(999, 10, contentH) == maxFor10;
+            boolean emptyListNoScroll = TradingScreenLayout.maxScrollRows(0, contentH) == 0;
+            boolean fitsNoScroll = TradingScreenLayout.maxScrollRows(9, contentH) == 0; // 3 rows, 3 visible
+            boolean pass = negativeClamped && overClamped && maxFor10 == 1 && emptyListNoScroll && fitsNoScroll;
+            return result(pass, "negativeClamped=" + negativeClamped + ", maxFor10=" + maxFor10
+                    + ", overClamped=" + overClamped + ", emptyListNoScroll=" + emptyListNoScroll
+                    + ", fitsNoScroll=" + fitsNoScroll);
+        });
+    }
+
+    private static void checkCreditFormattingGroupsThousands(VerificationReporter r) {
+        safe(r, "Credit formatting groups thousands without altering digits (locale-agnostic assertion)", () -> {
+            String big = TradingScreenLayout.formatCredits(1_234_567L);
+            String small = TradingScreenLayout.formatCredits(999L);
+            boolean digitsPreserved = big.replaceAll("\\D", "").equals("1234567");
+            boolean grouped = big.length() == 9; // 7 digits + 2 grouping separators, whatever the locale uses
+            boolean smallUngrouped = small.equals("999");
+            boolean pass = digitsPreserved && grouped && smallUngrouped;
+            return result(pass, "big=" + big + ", small=" + small);
+        });
+    }
+
+    private static void checkSellSlotIssueKeyDistinguishesReasons(VerificationReporter r) {
+        safe(r, "Rejected-item hover reason distinguishes 'not accepted' from 'no known value', and a sellable item has neither", () -> {
+            String notAccepted = TradingScreenLayout.sellSlotIssueKey(false, true);
+            String notAcceptedNoValue = TradingScreenLayout.sellSlotIssueKey(false, false);
+            String noValue = TradingScreenLayout.sellSlotIssueKey(true, false);
+            String sellable = TradingScreenLayout.sellSlotIssueKey(true, true);
+            boolean pass = "totality.trading.reject.not_accepted".equals(notAccepted)
+                    && "totality.trading.reject.not_accepted".equals(notAcceptedNoValue) // acceptance outranks value
+                    && "totality.trading.reject.no_value".equals(noValue)
+                    && sellable == null
+                    && !notAccepted.equals(noValue);
+            return result(pass, "notAccepted=" + notAccepted + ", noValue=" + noValue + ", sellable=" + sellable);
+        });
+    }
+
+    private static void checkSoldOutSemantics(VerificationReporter r) {
+        safe(r, "Sold-out is exactly 'limited stock at zero' — the entry stays in the list (visible) with max quantity 0", () -> {
+            ShopEntryDisplayData soldOut = new ShopEntryDisplayData(new ItemStack(Items.TORCH), 4, true, true, 0);
+            ShopEntryDisplayData inStock = new ShopEntryDisplayData(new ItemStack(Items.TORCH), 4, true, true, 1);
+            ShopEntryDisplayData unlimited = new ShopEntryDisplayData(new ItemStack(Items.TORCH), 4, true, false, 0);
+            boolean pass = soldOut.soldOut() && !inStock.soldOut() && !unlimited.soldOut()
+                    && TradingQuantityMath.maxBuyQuantity(true, 0, 4, 1_000_000L) == 0;
+            return result(pass, "soldOut=" + soldOut.soldOut() + ", inStock=" + inStock.soldOut()
+                    + ", unlimited=" + unlimited.soldOut());
         });
     }
 
