@@ -944,12 +944,28 @@ cause until confirmed.
   as a Phase 4 blocker.
 
   MANUAL TESTING (Ability/Spell/Grimoire radial rebind checklist, prior
-  correction pass, unrelated to this pass): still PENDING — rebind
-  Ability to M, confirm normal activation, old Z stops activating,
-  Modifier+M opens and RETAINS the Ability radial without activating,
-  select/cancel/reopen, channeled-Ability hold/release on M; same for
-  Spell on a second rebound key; Grimoire: default C opens the normal
-  screen, Modifier+C opens and retains the radial without also opening
-  the normal screen, V does not open the Grimoire radial, rebind
-  Grimoire and repeat; regression: default Z/X, all three radial
-  selections. Not claimed passed until Stefan reports it.
+  correction pass): CONFIRMED (2026-07-17, Stefan) — the rebound Ability
+  key activates the Ability normally; the old Z binding no longer
+  activates it after rebinding; Modifier + the rebound Ability key opens
+  and RETAINS the Ability radial without activating; channeled-Ability
+  hold/release correctly follows the rebound key. The rebound Spell key
+  casts normally; the old X binding no longer casts after rebinding;
+  Modifier + the rebound Spell key opens and retains the Spell radial.
+  The Grimoire key alone opens the normal Grimoire screen; Modifier +
+  the bound Grimoire key opens and retains the Grimoire radial without
+  also opening the normal screen; Grimoire rebinding works; the default
+  Grimoire radial chord is Left Alt (Radial Modifier) + C (Grimoire's
+  default key). V is no longer used by the Grimoire in any form and
+  remains exclusively the default Blocking key. Block rebinding and
+  resetting Block back to default V were both manually confirmed (see
+  above). This closes out the full radial/rebind/Block manual checklist
+  from this and the prior correction pass.
+
+  PvP-disabled and team-friendly-fire-protected Power Attack legality
+  remain NOT manually tested — Stefan currently has no second player/
+  account available to set up either scenario. This is recorded as
+  MANUALLY DEFERRED, not failed and not passed, and is explicitly NOT a
+  Phase 4 blocker. The automated, server-side legality checks
+  (`PowerAttackManager.isAttackerLegal` and its `PowerAttackVerification`/
+  `OffhandAttackVerification` coverage) remain present and unchanged on
+  account of this gap.
