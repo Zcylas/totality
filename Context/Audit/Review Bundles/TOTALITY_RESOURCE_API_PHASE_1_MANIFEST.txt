@@ -1,0 +1,130 @@
+TOTALITY GENERIC PLAYER RESOURCE API — PHASE 1 REVIEW BUNDLE MANIFEST
+======================================================================
+
+Bundle creation date (UTC): 2026-07-17 23:04:59
+Revision: FINAL — post pre-commit correction pass AND post manual client
+  smoke test (join/save/reopen/rejoin/save, BUILD SUCCESSFUL, no Resource
+  API errors, no gameplay/HUD regression observed). Documentation updated
+  to mark all pre-correction/pre-verification claims as superseded rather
+  than ambiguous. Same 33-file implementation set as the prior bundle;
+  only the two report files' content changed in this revision.
+Branch: feature/general-resource-api
+HEAD commit: bc16cc34b127ebd9892ddf1a6fff73149e2598a4
+
+----------------------------------------------------------------------
+git status --short (full working tree, at manifest generation time)
+----------------------------------------------------------------------
+ M build.gradle
+ M src/main/generated/data/minecraft/worldgen/noise_settings/overworld.json
+ M src/main/generated/data/totality/loot_table/blocks/apothecary_table.json
+ M src/main/generated/data/totality/loot_table/blocks/copper_cable.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/electric_furnace.json
+ M src/main/generated/data/totality/loot_table/blocks/flecked_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/generator.json
+ M src/main/generated/data/totality/loot_table/blocks/graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/limestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone_bricks.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_altar.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_dais.json
+ M src/main/generated/data/totality/loot_table/blocks/ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/tin_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/true_wheat_crop.json
+ M src/main/generated/data/totality/loot_table/blocks/whitestone.json
+ M src/main/generated/data/totality/recipe/copper_gear.json
+ M src/main/generated/data/totality/recipe/diamond_gear.json
+ M src/main/generated/data/totality/recipe/gold_gear.json
+ M src/main/generated/data/totality/recipe/iron_gear.json
+ M src/main/java/zcylas/totality/init/ModComponents.java
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_1.patch"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_1_IMPLEMENTATION_REPORT.md"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_1_MANIFEST.txt"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_1_REVIEW_BUNDLE.zip"
+?? Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+?? "Context/Trading Test/trade_screen2.png"
+?? "Context/Trading Test/trade_screen3.png"
+?? "Context/Trading Test/trade_screen4.png"
+?? "Context/Trading Test/trade_screen5.png"
+?? src/main/generated/.cache/
+?? src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceDefinition.java
+?? src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistry.java
+?? src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponent.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceAmount.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceCapability.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceDeathPolicy.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceLifecyclePolicy.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceModel.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourcePolarity.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceStateAuthority.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceStateComponents.java
+?? src/main/java/zcylas/totality/api/rpg/resources/ResourceTargetRange.java
+?? src/main/java/zcylas/totality/api/rpg/resources/integration/
+?? src/main/java/zcylas/totality/api/rpg/resources/state/
+?? src/test/
+
+NOTE: only the files listed in the FILE INVENTORY section below are
+included in the ZIP. The pre-existing modified files under
+src/main/generated/data/** (loot tables, recipes, noise settings),
+the untracked Context/Trading Test/*.png screenshots, and the
+untracked src/main/generated/.cache/ directory are unrelated
+uncommitted work and are deliberately excluded from this bundle.
+src/main/java/zcylas/totality/api/rpg/resources/ResourceInitializationPolicy.java
+was REMOVED during the pre-commit correction pass (replaced by
+api/rpg/resources/integration/ResourceGrantInitialization.java) and
+therefore no longer exists in the working tree or this bundle.
+
+----------------------------------------------------------------------
+FILE INVENTORY (33 implementation files + report + patch + manifest)
+----------------------------------------------------------------------
+
+Format: CLASSIFICATION  bytes=<size>  sha256=<hash>  <project-relative path>
+
+MODIFIED  bytes=2530     sha256=6fb32213a8ebfdfb3e700192dac2b93a3040e59963c71979073b6e1931a8d45a  build.gradle
+MODIFIED  bytes=2431     sha256=3f40c2a6d06cd342767a30fc9db334b118fd5c4576ace9144aab9934526086fe  src/main/java/zcylas/totality/init/ModComponents.java
+CREATED   bytes=6244     sha256=6c830485b52e646908151f9c556c0131990901109a8087297c245144cf3f5610  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceDefinition.java
+CREATED   bytes=7718     sha256=80cc3827de39042195865b77d8ad689c7f3e4817855ef16951b6a18611b1ee44  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistry.java
+CREATED   bytes=19234    sha256=75310cfe985364ec4426e26ac0859740043357617eb8f340a953b5d594dd7954  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponent.java
+CREATED   bytes=1641     sha256=c64d4f825c1de4aefc37c64893ceee4b70398bf4271dda86c26d56a4682b2a6d  src/main/java/zcylas/totality/api/rpg/resources/ResourceAmount.java
+CREATED   bytes=842      sha256=92625f8a93a5cb75c4217ba57b13f72fe819af0523d873b880c3840ed73c0cfa  src/main/java/zcylas/totality/api/rpg/resources/ResourceCapability.java
+CREATED   bytes=613      sha256=07f0d16eecf2f7f75f6b440560be446eba4af3d58c71e350907b83b1a238d388  src/main/java/zcylas/totality/api/rpg/resources/ResourceDeathPolicy.java
+CREATED   bytes=1614     sha256=746282ea1337a7574bcd8ca60730e64b3e8b75f7d56c5f68021df0fa1905d82a  src/main/java/zcylas/totality/api/rpg/resources/ResourceLifecyclePolicy.java
+CREATED   bytes=448      sha256=cab55724140e721d7ad0606a1f8706e5a5f287e0361d5b3a4b344aef2b34e3c8  src/main/java/zcylas/totality/api/rpg/resources/ResourceModel.java
+CREATED   bytes=641      sha256=5114216484833a7300971b5872bea7344680b8f167a57903fd39d50f0e3c59f5  src/main/java/zcylas/totality/api/rpg/resources/ResourcePolarity.java
+CREATED   bytes=479      sha256=fca8c34017f1892182e3d69b316edb05eeede409dc054cb03be3553225fc9f5c  src/main/java/zcylas/totality/api/rpg/resources/ResourceStateAuthority.java
+CREATED   bytes=1891     sha256=4687152cc8ce497f252728441908961d5c763435a420262584c3bdb76bc30f91  src/main/java/zcylas/totality/api/rpg/resources/ResourceStateComponents.java
+CREATED   bytes=1611     sha256=1e54d4c597f2ffce4427777f3d6512d2e67ed82c246dd0c33c040cc6620de505  src/main/java/zcylas/totality/api/rpg/resources/ResourceTargetRange.java
+CREATED   bytes=2618     sha256=a35e53e09b28dfc7be1b8b78f1741a66533f67f695bc54983b7ad5a8775e01a0  src/main/java/zcylas/totality/api/rpg/resources/integration/ResourceGrantInitialization.java
+CREATED   bytes=3712     sha256=09e90fbf454fce40490aefee6ee93745b6442d3eea62668df588a7f2f5986117  src/main/java/zcylas/totality/api/rpg/resources/state/OrphanedResourceState.java
+CREATED   bytes=2484     sha256=511230fccfd0d2699ea8a069fbcda66d8f6df263438f23045546bae874574020  src/main/java/zcylas/totality/api/rpg/resources/state/PartitionedResourceState.java
+CREATED   bytes=630      sha256=db953e845f276e96bf095be8382405e7548b9dc355348de293a51f855f049fe0  src/main/java/zcylas/totality/api/rpg/resources/state/ResourceState.java
+CREATED   bytes=1724     sha256=7a01bc4d3d4edb2d79eef12f06c04da238ed31b91d2962ae3deff8845ee1ad11  src/main/java/zcylas/totality/api/rpg/resources/state/ScalarResourceState.java
+CREATED   bytes=2093     sha256=23abee3260815b02755f947a5d7d377637b8be1d278826f48ee8d8d835cc1292  src/test/java/zcylas/totality/api/core/rpgutils/HungerDisplayCharacterizationTest.java
+CREATED   bytes=2664     sha256=7d89c2f49f25a7894f2a93ed04ad0d8a366473a8d459b8cd5641a21c74561a21  src/test/java/zcylas/totality/api/core/rpgutils/RpgDisplayUtilsCharacterizationTest.java
+CREATED   bytes=5326     sha256=e0ba60deb46f94a53e17cead033502e511c6c27c3996417d0ddbb7ceb15ce164  src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java
+CREATED   bytes=3516     sha256=bf49e90312d91e21e9ab4ed5f46c87365ed6a3026eaee69896508b49d2776d63  src/test/java/zcylas/totality/api/rpg/resources/integration/ResourceGrantInitializationTest.java
+CREATED   bytes=15564    sha256=261a0058f31d8fa05db69e729666057edfe849c2c5f7755e29f68fdeb754e557  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+CREATED   bytes=1127     sha256=4411079a576ba427d2bedb258a0bcb99132199ac47feec201c701a2999b124e5  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentMalformedDataTest.java
+CREATED   bytes=11861    sha256=ac3bfae2fd45cf479dc27dbf82aec3456e59aea6c01b18827fd9d33a6a56dfde  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+CREATED   bytes=1063     sha256=8315f48054f49328503132a902334f5efd11b2c5623cf24b7b12dc221f73bbe1  src/test/java/zcylas/totality/api/rpg/resources/ResourceAmountTest.java
+CREATED   bytes=2404     sha256=efc2f4082866537bd0d2c929dcad05e7982a322e8a141d588d547f3c756d135a  src/test/java/zcylas/totality/api/rpg/resources/ResourceTargetRangeTest.java
+CREATED   bytes=2816     sha256=531b4b88e7980dc056a67316387faeb14d6dbec70be6e5bdc9bb9ae6ef405f43  src/test/java/zcylas/totality/api/rpg/resources/state/OrphanedResourceStateTest.java
+CREATED   bytes=3095     sha256=b9de0b79516165cb96a8f2426b33b6efa6b165203ebf10b7e3107cc2973221bc  src/test/java/zcylas/totality/api/rpg/resources/state/PartitionedResourceStateTest.java
+CREATED   bytes=1572     sha256=8cbb2c33f53cdd53078835df26c3c99b20783cbe9b19edf32a813727a0bf064e  src/test/java/zcylas/totality/api/rpg/resources/state/ScalarResourceStateTest.java
+CREATED   bytes=3586     sha256=08aef041496fff4cb739b5552edb2d9ac951aa8110a16c37fe97a8c1d2e0ca9b  src/test/java/zcylas/totality/api/rpg/stats/PlayerStatsCharacterizationTest.java
+CREATED   bytes=113374   sha256=372987af6a2572945d5f66fcdf753d026e6cac249d129bff96f9650c5c05a29a  Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+REPORT    bytes=39782    sha256=4364446539109cf78443c505cab5a54b4f4bfbf422f3158389b7486a7b78e768  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_1_IMPLEMENTATION_REPORT.md
+PATCH     bytes=239663   sha256=4b0470989142682287de560e99b3aba659645f2b2d363d3630b6e4715cfdbf4c  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_1.patch
+MANIFEST  bytes=N/A       sha256=N/A (self-referential — this row describes this file; a file cannot contain a hash of its own final byte contents without circularity)  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_1_MANIFEST.txt
+
+----------------------------------------------------------------------
+TOTALS
+----------------------------------------------------------------------
+Files listed above (excluding this manifest's own self-referential row): 35
+  - MODIFIED: 2
+  - CREATED:  31
+  - REPORT:   1
+  - PATCH:    1
+  - MANIFEST: 1 (this file)
+Total files packaged into the ZIP: 36
