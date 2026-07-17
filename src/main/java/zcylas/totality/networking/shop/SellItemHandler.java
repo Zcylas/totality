@@ -17,11 +17,12 @@ public final class SellItemHandler {
         ServerPlayNetworking.registerGlobalReceiver(
                 SellItemPayload.TYPE,
                 (payload, context) -> context.server().execute(() -> {
-                    SellResult result = TradeSessionManager.handleSell(context.player(), payload.slotIndex(), payload.quantity());
-                    // Ordinary rejections (not accepted, no value, merchant can't afford it, a
-                    // stack that changed since the client's last quote) are normal gameplay
-                    // outcomes, not worth logging. An out-of-range slot or a non-positive
-                    // quantity is something the real SELL UI can never send.
+                    SellResult result = TradeSessionManager.handleSell(context.player(), payload.slotIndex(), payload.quantity(),
+                            payload.confirmedReducedPayout(), payload.confirmedTotalValue(), payload.confirmedPayableAmount());
+                    // Ordinary rejections (not accepted, no value, merchant has no Credits, a
+                    // stack that changed since the client's last quote, confirmation required/
+                    // stale) are normal gameplay outcomes, not worth logging. An out-of-range
+                    // slot or a non-positive quantity is something the real SELL UI can never send.
                     if (!result.success()
                             && (result.reason() == SellResult.Reason.INVALID_SLOT || result.reason() == SellResult.Reason.INVALID_QUANTITY)) {
                         LOGGER.warn("Malformed SELL packet from {}: slot={}, quantity={}, reason={}",
@@ -31,7 +32,7 @@ public final class SellItemHandler {
                     // happening — success is already fully communicated by the state refresh.
                     if (!result.success()) {
                         ServerPlayNetworking.send(context.player(), new TradeRejectionPayload(
-                                false, TradeRejectionKeys.forSell(result.reason(), result.detail())));
+                                false, TradeRejectionKeys.forSell(result.reason(), result.quoteReason())));
                     }
                 })
         );

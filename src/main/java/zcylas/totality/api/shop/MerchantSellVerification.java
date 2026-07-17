@@ -86,7 +86,9 @@ public final class MerchantSellVerification {
         checkQuantityMultiplication(r, player);
         checkQuantityOverflowRejected(r, player);
         checkMerchantWithExactCreditsCanSell(r, player);
-        checkMerchantWithInsufficientCreditsRejects(r, player);
+        checkMerchantWithInsufficientCreditsRequiresConfirmation(r, player);
+        checkMerchantWithZeroCreditsRejectsOutright(r, player);
+        checkSellQuantityNotCappedByMerchantAffordability(r, player);
         checkNegativeBaseValueRejectedBySellUnitPayout(r);
 
         checkSuccessfulSellRemovesExactQuantity(r, player);
@@ -98,6 +100,11 @@ public final class MerchantSellVerification {
         checkInvalidSessionSlotQuantityStaleStackRejected(r, player);
         checkSellingPartOfStackLeavesRemainder(r, player);
         checkExtraIrrelevantComponentsStillUseCorrectBaseValue(r, player);
+
+        checkUnderfundedSellWithoutConfirmationRejected(r, player);
+        checkUnderfundedSellWithConfirmationCompletesAtomically(r, player);
+        checkStaleConfirmationRejected(r, player);
+        checkZeroCreditMerchantCannotSell(r, player);
 
         checkAccountlessSellPaysPhysicalCreditsNotWallet(r, player);
         checkAccountlessSellDoesNotOpenAccount(r, player);
@@ -214,18 +221,51 @@ public final class MerchantSellVerification {
     }
 
     private static void checkMerchantWithExactCreditsCanSell(VerificationReporter r, ServerPlayer player) {
-        safe(r, "Merchant with exact Credits can buy the item", () -> {
+        safe(r, "Merchant with exact Credits can buy the item, with nothing forfeited", () -> {
             MerchantRuntime merchant = freshMerchant(6); // exactly one Bread's payout
             MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, new ItemStack(Items.BREAD), 1, 1);
-            return result(quote.sellable() && quote.totalPayout() == 6L, "quote=" + quote);
+            boolean pass = quote.sellable() && quote.totalValue() == 6L && quote.payableAmount() == 6L
+                    && quote.forfeitedValue() == 0L && !quote.requiresConfirmation();
+            return result(pass, "quote=" + quote);
         });
     }
 
-    private static void checkMerchantWithInsufficientCreditsRejects(VerificationReporter r, ServerPlayer player) {
-        safe(r, "Merchant with insufficient Credits rejects the sale", () -> {
+    /**
+     * Phase 4 correction pass, Part A: a merchant that can't fully afford the requested value no
+     * longer REJECTS the quote outright — it stays {@code sellable()} (quantity is bounded by the
+     * stack/server cap only, never by affordability) and instead surfaces
+     * {@code requiresConfirmation}/{@code payableAmount}/{@code forfeitedValue} for the Trading
+     * Screen's underfunded confirmation popup. {@link TradeSessionManager#handleSell} itself is
+     * what refuses to commit without explicit confirmation — exercised separately below.
+     */
+    private static void checkMerchantWithInsufficientCreditsRequiresConfirmation(VerificationReporter r, ServerPlayer player) {
+        safe(r, "Merchant with insufficient (but nonzero) Credits stays sellable and requires confirmation", () -> {
             MerchantRuntime merchant = freshMerchant(5); // one short of Bread's payout of 6
             MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, new ItemStack(Items.BREAD), 1, 1);
-            return result(!quote.sellable() && quote.rejectionReason().isPresent(), "quote=" + quote);
+            boolean pass = quote.sellable() && quote.totalValue() == 6L && quote.payableAmount() == 5L
+                    && quote.forfeitedValue() == 1L && quote.requiresConfirmation();
+            return result(pass, "quote=" + quote);
+        });
+    }
+
+    private static void checkMerchantWithZeroCreditsRejectsOutright(VerificationReporter r, ServerPlayer player) {
+        safe(r, "Merchant with exactly zero Credits rejects the sale outright, never requiring confirmation", () -> {
+            MerchantRuntime merchant = freshMerchant(0);
+            MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, new ItemStack(Items.BREAD), 1, 1);
+            boolean pass = !quote.sellable() && !quote.requiresConfirmation()
+                    && quote.rejectionReason() == SellRejectionReason.MERCHANT_ZERO_CREDITS;
+            return result(pass, "quote=" + quote);
+        });
+    }
+
+    private static void checkSellQuantityNotCappedByMerchantAffordability(VerificationReporter r, ServerPlayer player) {
+        safe(r, "SELL quantity selection is bounded by stack count only, never by merchant affordability", () -> {
+            MerchantRuntime merchant = freshMerchant(6); // affords only 1 of 4 Bread
+            MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, new ItemStack(Items.BREAD, 4), 4, 4);
+            boolean pass = quote.sellable() && quote.effectiveMaxQuantity() == 4
+                    && quote.totalValue() == 24L && quote.payableAmount() == 6L && quote.forfeitedValue() == 18L
+                    && quote.requiresConfirmation();
+            return result(pass, "quote=" + quote);
         });
     }
 
@@ -372,6 +412,72 @@ public final class MerchantSellVerification {
             MerchantSellQuoteView quote = MerchantSellQuoteView.compute(player, merchant, namedBread, 1, 1);
             return result(quote.sellable() && quote.unitPayout() == 6L, "quote=" + quote);
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Phase 4 correction pass — underfunded-merchant SELL confirmation (Part A)
+    // ─────────────────────────────────────────────────────────────────────
+
+    private static void checkUnderfundedSellWithoutConfirmationRejected(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "Underfunded SELL without confirmation is rejected and changes nothing", player, standardShop(), 100,
+                new ItemStack(Items.BREAD, 20), (merchant, slot) -> {
+                    long walletBefore = wallet(player);
+                    SellResult sellResult = TradeSessionManager.handleSell(player, slot, 17); // 17*6=102 > 100
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = !sellResult.success() && sellResult.reason() == SellResult.Reason.CONFIRMATION_REQUIRED
+                            && after.getCount() == 20
+                            && wallet(player) == walletBefore
+                            && merchant.currentCredits() == 100;
+                    return result(pass, "sellResult=" + sellResult + ", after=" + after);
+                });
+    }
+
+    private static void checkUnderfundedSellWithConfirmationCompletesAtomically(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "Underfunded SELL with matching confirmation completes atomically at the payable amount", player,
+                standardShop(), 100, new ItemStack(Items.BREAD, 20), (merchant, slot) -> {
+                    long walletBefore = wallet(player);
+                    SellResult sellResult = TradeSessionManager.handleSell(player, slot, 17, true, 102L, 100L);
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = sellResult.success() && sellResult.payout() == 100L && sellResult.quantitySold() == 17
+                            && after.getCount() == 3
+                            && wallet(player) - walletBefore == 100L
+                            && merchant.currentCredits() == 0L;
+                    return result(pass, "sellResult=" + sellResult + ", after=" + after
+                            + ", merchantCredits=" + merchant.currentCredits());
+                });
+    }
+
+    private static void checkStaleConfirmationRejected(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "A confirmation whose terms no longer match the current quote is rejected as stale, changing nothing",
+                player, standardShop(), 100, new ItemStack(Items.BREAD, 20), (merchant, slot) -> {
+                    long walletBefore = wallet(player);
+                    // Confirmed terms (102/100) no longer match — merchant Credits changed
+                    // underneath the confirmation (simulating another transaction landing between
+                    // popup-open and click, or a manipulated client).
+                    merchant.setCurrentCredits(50);
+                    SellResult sellResult = TradeSessionManager.handleSell(player, slot, 17, true, 102L, 100L);
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = !sellResult.success() && sellResult.reason() == SellResult.Reason.STALE_CONFIRMATION
+                            && after.getCount() == 20
+                            && wallet(player) == walletBefore
+                            && merchant.currentCredits() == 50;
+                    return result(pass, "sellResult=" + sellResult + ", after=" + after);
+                });
+    }
+
+    private static void checkZeroCreditMerchantCannotSell(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "A merchant with zero Credits rejects SELL outright — no confirmation, no free disposal", player,
+                standardShop(), 0, new ItemStack(Items.BREAD, 4), (merchant, slot) -> {
+                    long walletBefore = wallet(player);
+                    SellResult sellResult = TradeSessionManager.handleSell(player, slot, 4);
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = !sellResult.success() && sellResult.reason() == SellResult.Reason.NOT_SELLABLE
+                            && sellResult.quoteReason() == SellRejectionReason.MERCHANT_ZERO_CREDITS
+                            && after.getCount() == 4
+                            && wallet(player) == walletBefore
+                            && merchant.currentCredits() == 0;
+                    return result(pass, "sellResult=" + sellResult + ", after=" + after);
+                });
     }
 
     // ─────────────────────────────────────────────────────────────────────

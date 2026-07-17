@@ -92,6 +92,11 @@ public class TotalityServerPacketHandlers {
                     // sending this payload directly.
                     net.minecraft.world.entity.Entity target = player.level().getEntity(payload.targetEntityId());
                     if (!PowerAttackManager.isValidTarget(player, target)) return;
+                    // Attacker-specific legality (PvP-disabled, team friendly-fire, general
+                    // invulnerability) is checked HERE, before Stamina is committed (correction
+                    // pass, Part D) — previously deferred until vanilla's own damage resolution
+                    // ran afterward, by which point onPowerAttackReceived had already spent it.
+                    if (!PowerAttackManager.isAttackerLegal(player, (net.minecraft.world.entity.LivingEntity) target)) return;
                     PowerAttackManager.onPowerAttackReceived(player);
                 }));
         zcylas.totality.networking.combat.BlockKeyHandler.register();

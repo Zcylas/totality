@@ -2950,6 +2950,231 @@ Implementation Order step lands.
   scrolling, resize, Escape/lock release, regression spot-checks).
   Not claimed passed until Stefan reports.
 
+--------------------------------------------------------------------------------
+16. Phase 4 correction pass #3 — underfunded-merchant SELL confirmation,
+    structured rejection reasons (2026-07-17)
+--------------------------------------------------------------------------------
+  Post-review correction pass, distinct from the "Phase 4 correction pass"
+  in Section 14 (accountless payout/Provisioner persistence, 2026-07-16)
+  and the GUI refinement pass in Section 15. Combat/input corrections from
+  the SAME task are documented separately in
+  `TOTALITY_COMBAT_INPUT_AND_HUD.md` Section 7, per the same
+  deliberate-separation convention Sections 13-15 already established.
+
+  16a. ROOT CAUSE OF THE SILENTLY-CLAMPED SELL VALUE.
+  `MerchantSellQuoteView.compute` computed `maxQuantityByMerchant =
+  merchant.currentCredits() / unitPayout` and then set
+  `effectiveMaxQuantity = min(maxQuantityByStack, maxQuantityByMerchant)`
+  — the SELECTABLE quantity itself was capped by merchant affordability,
+  not just the payout. Selling 19 units at a merchant that could only
+  afford 18 was therefore never actually representable: the UI could
+  only ever select up to 18, and `totalPayout` was computed FROM that
+  already-clamped quantity — there was no code path that ever computed
+  "the real value of the quantity the player actually wanted" at all,
+  so there was nothing to silently substitute; the substitution was
+  structural (the wrong quantity was selectable in the first place),
+  not a display-layer bug over a correct number.
+
+  16b. FINAL DATA MODEL. `MerchantSellQuoteView` (`api/shop/`,
+  rewritten) now separates SELECTION from AFFORDABILITY:
+    - `maxQuantityByStack`/`effectiveMaxQuantity` — bounded by the
+      player's stack count and the server cap (100) ONLY. Equal to each
+      other whenever the merchant has any positive Credits; both 0 when
+      the merchant has exactly zero Credits (Section 16d) or the item
+      isn't sellable at all. Merchant affordability no longer bounds
+      quantity SELECTION.
+    - `totalValue` — the FULL quoted value of `requestedQuantity` units,
+      computed from `unitPayout * requestedQuantity`, NEVER clamped to
+      what the merchant can currently pay.
+    - `merchantCredits` — the merchant's live balance snapshot (never
+      negative; a corrupt negative balance reads as 0 here, matching
+      `TradeSessionManager`'s existing separate refusal to transact
+      against one at all).
+    - `payableAmount = min(totalValue, merchantCredits)` — what the
+      merchant can actually pay right now.
+    - `forfeitedValue = totalValue - payableAmount` — what the player
+      would forfeit by accepting the reduced payout. Zero whenever the
+      merchant can fully afford the sale.
+    - `requiresConfirmation = forfeitedValue > 0` (only meaningful when
+      the quote is otherwise `sellable()` — a SEPARATE concern from
+      sellability itself: an underfunded-but-sellable quote is still
+      `sellable()`, it just additionally needs the player's explicit
+      consent before committing).
+    - `rejectionReason` — see Section 16f (structured, Part E).
+
+  The Trading Screen's SELL detail panel (`screen/shop/TradingScreen.java`)
+  now shows, per the canonical presentation:
+    `Payout Each: ₵16`, `Total Value: ₵304` (the real, full, never-
+    clamped quote — unchanged in principle from before, renamed from
+    "Total Payout" to "Total Value" to match the task's exact wording),
+    and — ONLY when `forfeitedValue > 0` — two additional rows,
+    `Merchant Can Pay: ₵300` and `Forfeited: ₵4`, so the ordinary
+    fully-funded case stays exactly as uncluttered as before.
+
+  16c. CONFIRMATION PROTOCOL. Pressing SELL when the client's own
+  locally-computed `totalValue > state.merchantCredits() > 0` opens a
+  modal popup (`TradingScreen.PendingSellConfirmation` — slotIndex,
+  quantity, totalValue, payableAmount captured at the moment SELL was
+  pressed) instead of submitting anything: "These items are worth ₵304,
+  but this merchant can only pay ₵300. Sell them for ₵300 anyway?" with
+  `Cancel`/`Sell for ₵300` buttons (new `totality.trading.underfunded_confirm`/
+  `totality.trading.sell_for` keys, dynamic — no hardcoded English in
+  rendering code). The modal swallows all other input (clicks and Esc)
+  until dismissed; Esc closes only the modal, never the whole Trading
+  Screen (which would otherwise release the NPC interaction lock out
+  from under an open confirmation).
+
+    - CONFIRM: sends `SellItemPayload(slotIndex, quantity,
+      confirmedReducedPayout=true, confirmedTotalValue, confirmedPayableAmount)`
+      — a typed consent field plus the exact terms the player saw and
+      accepted, per the task's "clearly typed confirmation field in the
+      existing SELL request" option. The client-supplied amounts are
+      NEVER trusted as authoritative — see Section 16e.
+    - CANCEL: sends nothing. No items removed, no Credits moved, no
+      merchant state changed — the popup simply closes.
+
+  16d. ZERO-CREDIT MERCHANT. A merchant with `currentCredits <= 0` is a
+  DISTINCT, non-confirmation-eligible case
+  (`SellRejectionReason.MERCHANT_ZERO_CREDITS`) — `MerchantSellQuoteView.compute`
+  returns `effectiveMaxQuantity = 0` and an explicit rejection reason
+  the moment `merchantCredits <= 0` is observed, before quantity/value
+  math even runs. The Trading Screen shows "This merchant has no
+  Credits remaining." (new `totality.trading.merchant_zero_credits`
+  key), disables quantity controls and the SELL button entirely, and
+  never offers a confirmation popup — SELL for ₵0 is never presented as
+  a legitimate transaction. No donation/disposal/trash/recycling/skill-
+  XP behavior was added; that remains explicitly future scope per the
+  task instruction.
+
+  16e. SERVER AUTHORITY, ATOMICITY, AND STALE-CONFIRMATION PROTECTION.
+  `TradeSessionManager.handleSell` (extended, new overload
+  `handleSell(player, slotIndex, quantity, confirmedReducedPayout,
+  confirmedTotalValue, confirmedPayableAmount)`; the original 3-arg
+  method is now a thin `confirmedReducedPayout=false` delegate, so every
+  pre-existing production/verification call site is unaffected)
+  RECOMPUTES `MerchantSellQuoteView` fresh from live server state on
+  every call — session, NPC revalidation, slot, stack, acceptance,
+  value, and merchant Credits are all re-read exactly as before. If the
+  freshly recomputed quote `requiresConfirmation()`:
+    - no `confirmedReducedPayout` -> rejected
+      (`SellResult.Reason.CONFIRMATION_REQUIRED`), nothing mutated.
+    - `confirmedReducedPayout` present but `confirmedTotalValue`/
+      `confirmedPayableAmount` do NOT exactly match the just-recomputed
+      `quote.totalValue()`/`quote.payableAmount()` -> rejected as stale
+      (`SellResult.Reason.STALE_CONFIRMATION`), nothing mutated. This is
+      the conservative EXACT-MATCH check the task asked for (over a
+      revision-counter scheme) — any change to merchant Credits, price,
+      inventory, or requested quantity between popup-open and click
+      changes the recomputed values and is therefore caught. The
+      client-supplied amounts are used ONLY to prove what the player
+      confirmed, never as the authoritative payout.
+    - Matching confirmation -> commits at `payableAmount` (== the
+      merchant's current Credits exactly), removing the FULL requested
+      quantity, paying the player `payableAmount`, and reducing merchant
+      Credits to exactly 0 — one atomic commit, same "validate
+      everything, mutate nothing until it can't fail" discipline the
+      unconfirmed path already used.
+  A fully-funded SELL (`requiresConfirmation() == false`) is completely
+  unaffected — same validation order, same atomic commit, at the full
+  `totalValue` — as before this pass.
+
+  16f. STRUCTURED SELL REJECTION REASONS (Part E). New
+  `SellRejectionReason` enum (`api/shop/`) — `NONE`, `NOT_ACCEPTED`,
+  `NO_VALUE`, `MERCHANT_ZERO_CREDITS`, `INVALID_QUANTITY`, `OVERFLOW`,
+  `GENERIC` — produced directly by `MerchantSellQuoteView.compute`
+  (never derived from prose). `SellResult` (`api/shop/`) replaces its
+  previous free-text `detail` field with a typed `quoteReason` of this
+  enum, and gains two new top-level `Reason` values,
+  `CONFIRMATION_REQUIRED`/`STALE_CONFIRMATION` (Section 16e), alongside
+  the existing session/slot/stack reasons. `TradeRejectionKeys.forSell`
+  (rewritten) switches on the real enum values — the previous
+  `detail.contains("does not accept")`/`"no resolvable value"`/etc.
+  English-string inspection is gone entirely, replaced by an exhaustive
+  `switch` over `SellRejectionReason` (an unrecognized/future value —
+  practically only reachable via `NONE`/`OVERFLOW`/`GENERIC`, none of
+  which `NOT_SELLABLE` should ever carry in practice — falls back
+  safely to `totality.trading.reject.generic`, never crashes). New
+  localization keys: `totality.trading.reject.merchant_zero_credits`,
+  `totality.trading.reject.confirmation_required`,
+  `totality.trading.reject.stale_confirmation`. The client still never
+  receives or trusts raw server text for this — only the resolved key,
+  unchanged from Section 13's original design.
+
+  16g. NETWORKING CHANGES (all additive/trimmed, not a new protocol).
+    - `SellItemPayload` gained `confirmedReducedPayout` (boolean),
+      `confirmedTotalValue`/`confirmedPayableAmount` (`long`, VarLong
+      wire-encoded) — Section 16c/16e.
+    - `SellQuoteResultPayload` DROPPED `maxQuantityByMerchant` (no
+      longer a meaningful concept — quantity is never merchant-capped)
+      and otherwise unchanged; the client derives `totalValue`/
+      `payableAmount`/`forfeitedValue` for the currently SELECTED
+      quantity itself from `unitPayout` (quantity-independent, still
+      carried) and the already-present `ShowShopStatePayload.merchantCredits`
+      (piggybacked on every `RequestSellQuotePayload` response, as
+      before) — never a new round-trip per quantity change.
+    - `ShowShopStatePayload`/`RequestSellQuotePayload` themselves:
+      UNCHANGED.
+  Both changed payloads gained direct `STREAM_CODEC` round-trip
+  verification checks (Section 16h) per the task's "add codec
+  verification if payload structure changes" instruction.
+
+  16h. VERIFICATION (2026-07-17). `MerchantSellQuoteView`'s pure-quote
+  checks in `MerchantSellVerification` were extended/corrected:
+  `checkMerchantWithInsufficientCreditsRejects` (which asserted the OLD,
+  now-wrong behavior of outright rejecting an underfunded quote) became
+  `checkMerchantWithInsufficientCreditsRequiresConfirmation` (asserts
+  `sellable() && requiresConfirmation() && payableAmount/forfeitedValue`
+  are correct); new `checkMerchantWithZeroCreditsRejectsOutright` and
+  `checkSellQuantityNotCappedByMerchantAffordability` (a 4-unit stack
+  vs. a 1-unit-affordable merchant still offers `effectiveMaxQuantity ==
+  4`). Four new REAL session/commit checks drive
+  `TradeSessionManager.handleSell` directly: an underfunded SELL without
+  confirmation is rejected and changes nothing; a matching confirmation
+  completes atomically at the payable amount, removes the full
+  quantity, and leaves the merchant at exactly 0; a confirmation whose
+  terms no longer match a since-changed quote (merchant Credits
+  manually altered mid-check) is rejected as stale and changes nothing;
+  a zero-Credit merchant rejects SELL outright with no confirmation
+  path. `TradingScreenVerification` gained
+  `checkSellItemPayloadRoundTripsConfirmationFields`/
+  `checkSellQuoteResultPayloadRoundTrips` (direct `STREAM_CODEC`
+  encode/decode round trips) and `checkRejectedItemsCannotSubmitSell`
+  was rewritten against the real `SellRejectionReason` enum instead of
+  string literals; `checkSellMaxRespectsMerchantCredits` became
+  `checkSellMaxNotCappedByMerchantCredits` (asserts the corrected
+  behavior directly).
+
+  RUNTIME-VERIFIED (2026-07-17, `gradlew runClient
+  --args="--quickPlaySingleplayer \"New Testing World\""`):
+  `[ItemValueVerification] All 19 self-test checks passed.`;
+  `[MerchantSellVerification] All 43 self-test checks passed.` (was 37
+  — +6 this pass); `[ProvisionerVerification] All 71 self-test checks
+  passed.` (unchanged — nothing in this pass touched Provisioner entity
+  logic); `[TradingScreenVerification] All 22 self-test checks passed.`
+  (was 20 — +2). Combat-side suite counts
+  (`PowerAttackVerification`/`KeybindVerification`) are reported in
+  `TOTALITY_COMBAT_INPUT_AND_HUD.md` Section 7. Zero unexpected
+  `WARN`/`ERROR` lines from the `totality` namespace — the only `ERROR`
+  lines present are `ProvisionerVerification`'s own known, unchanged
+  synthetic negative-test scenarios (corrupt-data self-tests), confirmed
+  by grep. `gradlew compileJava`/`build`: SUCCESSFUL. `gradlew
+  runDatagen`: regenerated ONLY the lang file (9 new keys); no other
+  generated output changed.
+
+  MANUAL TESTING: CONFIRMED (2026-07-17, Stefan) — fully funded SELL;
+  underfunded SELL full-value display; Merchant Can Pay/Forfeited Value
+  display; the underfunded confirmation popup; Cancel and Escape
+  behavior; a confirmed reduced payout; the merchant reaching ₵0;
+  zero-Credit merchant SELL prevention; accountless physical-Credit
+  payout; account-holder Wallet payout; structured rejection reasons;
+  BUY and SOLD OUT regression behavior. Stale-confirmation refresh
+  specifically was exercised only indirectly (no report of a dedicated
+  stale-terms repro) — not called out as a separate failure, but not
+  independently itemized either. No further economy/SELL manual testing
+  is currently pending; the correction pass that followed this
+  confirmation (`TOTALITY_COMBAT_INPUT_AND_HUD.md` Section 8) was
+  input-only and touched no economy/SELL logic.
+
 ================================================================================
 END OF DOCUMENT
 ================================================================================

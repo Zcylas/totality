@@ -183,12 +183,15 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.shuriken.damage", "Throw Damage: %s ❤");
 
         //Keys
-        translationBuilder.add("key.totality.open_grimoire", "Open Grimoire");
         translationBuilder.add("key.category.totality.totality", "Totality");
-        translationBuilder.add("key.totality.open_radial", "Radial Spell Selector");
-        translationBuilder.add("key.totality.open_ability_radial", "Ability Radial Menu");
+        translationBuilder.add("key.totality.open_grimoire", "Open Grimoire");
+        translationBuilder.add("key.totality.block", "Block");
+        translationBuilder.add("key.totality.open_menu", "Open Phone");
+        translationBuilder.add("key.totality.use_ability", "Use Ability");
+        translationBuilder.add("key.totality.use_spell", "Use Spell");
         translationBuilder.add("key.totality.radial_modifier", "Radial Modifier");
         translationBuilder.add("key.totality.movement_power", "Movement Power");
+        translationBuilder.add("key.totality.attune_item", "Attune Item");
         //Effects
         translationBuilder.add("effect.totality.glide", "Glide");
         //Entities
@@ -224,6 +227,14 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("totality.trading.rejected_legend", "Red-marked items cannot be sold to this merchant");
         translationBuilder.add("totality.trading.cancel", "Cancel");
         translationBuilder.add("totality.trading.clear", "Clear");
+        //Trading Screen — underfunded-merchant SELL confirmation (Phase 4 correction pass, Part A)
+        translationBuilder.add("totality.trading.total_value", "Total Value");
+        translationBuilder.add("totality.trading.merchant_can_pay", "Merchant Can Pay");
+        translationBuilder.add("totality.trading.forfeited_value", "Forfeited");
+        translationBuilder.add("totality.trading.merchant_zero_credits", "This merchant has no Credits remaining.");
+        translationBuilder.add("totality.trading.underfunded_confirm",
+                "These items are worth %s, but this merchant can only pay %s. Sell them for %s anyway?");
+        translationBuilder.add("totality.trading.sell_for", "Sell for %s");
         //Trading Screen — rejection messages (Part D/H)
         translationBuilder.add("totality.trading.reject.trade_ended", "Trade ended");
         translationBuilder.add("totality.trading.reject.invalid_quantity", "Invalid quantity");
@@ -233,6 +244,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("totality.trading.reject.not_accepted", "Merchant does not buy this type of item");
         translationBuilder.add("totality.trading.reject.no_value", "This item has no known value");
         translationBuilder.add("totality.trading.reject.merchant_cannot_afford", "Merchant cannot afford that quantity");
+        translationBuilder.add("totality.trading.reject.merchant_zero_credits", "This merchant has no Credits remaining");
+        translationBuilder.add("totality.trading.reject.confirmation_required", "Confirmation required for a reduced payout");
+        translationBuilder.add("totality.trading.reject.stale_confirmation", "Terms changed — please review and confirm again");
         translationBuilder.add("totality.trading.reject.generic", "That didn't work");
     }
 }

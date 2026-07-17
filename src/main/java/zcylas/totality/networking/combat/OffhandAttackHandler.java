@@ -20,8 +20,6 @@ import zcylas.totality.networking.stamina.StaminaServerTick;
 /** Skyrim-style independent offhand attack — triggered by RMB while dual-wielding, not auto-mirrored from LMB. */
 public final class OffhandAttackHandler {
 
-    private static final double MAX_ATTACK_RANGE_SQ = 4.5 * 4.5;
-
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(OffhandAttackPayload.TYPE,
                 (payload, ctx) -> ctx.server().execute(() -> handle(ctx.player(), payload)));
@@ -31,17 +29,25 @@ public final class OffhandAttackHandler {
         if (!isDualWielding(player)) return;
         if (!DualWieldCooldownTracker.canOffhandAttack(player)) return;
 
+        // Shared target-validity predicate (correction pass, Part C) — the same reach/liveness/
+        // attackability rule Power Attack uses server-side (PowerAttackManager.MELEE_TARGET_RANGE
+        // is this exact reach value; the offhand path was its original source, preserved unchanged
+        // by sharing it rather than duplicating a second copy that could drift).
         Entity targetEntity = player.level().getEntity(payload.targetEntityId());
-        if (!(targetEntity instanceof LivingEntity target) || !target.isAlive()) return;
-        if (player.distanceToSqr(target) > MAX_ATTACK_RANGE_SQ) return;
+        if (!PowerAttackManager.isValidTarget(player, targetEntity)) return;
+        LivingEntity target = (LivingEntity) targetEntity;
 
         ItemStack offWeapon = player.getOffhandItem();
 
         // Offhand's own hold-to-charge power attack — rolls with advantage, costs extra stamina.
-        // Gracefully downgrades to a normal roll if stamina is insufficient (mirrors the
-        // mainhand's PowerAttackManager.onPowerAttackReceived behavior: the swing always
-        // happens, only the advantage bonus is denied).
+        // Gracefully downgrades to a normal roll if Stamina is insufficient OR the attacker is not
+        // currently legally permitted to attack this target at all (PvP-disabled, team
+        // friendly-fire, invulnerability — correction pass, Part D: mainhand and offhand share the
+        // identical PowerAttackManager.isAttackerLegal gate, checked BEFORE any Power-Attack-
+        // specific Stamina is committed below) — the swing always happens, only the advantage
+        // bonus and its extra Stamina cost are denied.
         boolean usePower = payload.powerAttack()
+                && PowerAttackManager.isAttackerLegal(player, target)
                 && (player.isCreative() || PlayerStaminaManager.hasStamina(player, PowerAttackManager.getOffhandStaminaCost(player)));
         RollType rollType = usePower ? RollType.ADVANTAGE : RollType.NORMAL;
 

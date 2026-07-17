@@ -1,11 +1,13 @@
 package zcylas.totality.api.rpg.combat;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.gamerules.GameRules;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
@@ -47,6 +49,44 @@ public class PowerAttackManager {
         if (living == player) return false;
         if (!living.isAlive() || !living.isAttackable()) return false;
         return player.distanceToSqr(living) <= MELEE_TARGET_RANGE_SQ;
+    }
+
+    /**
+     * True if {@code attacker} is currently legally permitted to attack {@code target} at all —
+     * a SEPARATE concern from {@link #isValidTarget} (which only checks whether the target is a
+     * combat-legal thing to aim a Power Attack at in the first place). Checked BEFORE Stamina is
+     * committed for a Power Attack (correction pass, Part D): PvP-disabled worlds, team
+     * friendly-fire settings, and general invulnerability must gate Stamina spend itself, not be
+     * deferred until vanilla's own damage resolution silently no-ops the hit afterward.
+     *
+     * <p>Mirrors the exact rules vanilla's own player-attack resolution already applies for a
+     * player target ({@link GameRules#PVP}, {@link Player#canHarmPlayer}) plus general
+     * {@link Entity#isInvulnerable()} — no blanket restriction against neutral/allied non-player
+     * mobs is added here; ordinary attackable mobs are unaffected. Takes the common {@link Player}
+     * supertype so the identical check runs for both a {@code LocalPlayer} (client — used only to
+     * avoid showing accepted flash/sound feedback for an attack the server would reject; the
+     * client's own copy is optimistic-only and never authoritative) and a {@link ServerPlayer}
+     * (server — the actual gate before {@link #onPowerAttackReceived} runs).
+     *
+     * <p>The {@link GameRules#PVP} check itself only runs when {@code attacker.level()} is a
+     * {@link ServerLevel} — {@code getGameRules()} exists only there in this Minecraft version
+     * (neither the generic {@code Level} nor {@code ClientLevel} expose it, confirmed by
+     * inspection; game rule VALUES are synced to the client via a dedicated packet, but not
+     * through {@code Level} itself). The server-side call (the actual authoritative gate before
+     * Stamina is spent) is always a {@link ServerPlayer} and therefore always exercises this
+     * check in full. The client-side call is optimistic-only anyway (see above) — no speculative
+     * networking was added just to make the PVP-rule half of this cosmetic pre-check visible to
+     * the client too; team friendly-fire and invulnerability are still checked there.
+     */
+    public static boolean isAttackerLegal(Player attacker, LivingEntity target) {
+        if (target.isInvulnerable()) return false;
+        if (target instanceof Player targetPlayer) {
+            if (attacker.level() instanceof ServerLevel serverLevel && !serverLevel.getGameRules().get(GameRules.PVP)) {
+                return false;
+            }
+            if (!attacker.canHarmPlayer(targetPlayer)) return false;
+        }
+        return true;
     }
 
     // Mastery IDs — kept here so a rename is one-line, not a grep

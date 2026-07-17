@@ -127,6 +127,14 @@ public class TradingScreen extends Screen {
     @Nullable private String rejectionKey;
     private int rejectionTicksLeft = 0;
 
+    /** Terms of an underfunded-merchant SELL the player has been shown and must explicitly accept
+     *  or cancel (design document Part A) — captured at the moment SELL is pressed, echoed back to
+     *  the server only as PROOF of what was confirmed (never authoritative; the server independently
+     *  recomputes and rejects as stale on any mismatch). Modal: while non-null, all other click/key
+     *  input is swallowed. */
+    private record PendingSellConfirmation(int slotIndex, int quantity, long totalValue, long payableAmount) {}
+    @Nullable private PendingSellConfirmation pendingSellConfirmation;
+
     public TradingScreen(ShowShopStatePayload initial) {
         super(Component.translatable("totality.trading.title"));
         this.state = initial;
@@ -235,6 +243,7 @@ public class TradingScreen extends Screen {
         drawInventoryRow(g, l, mx, my);
         drawRejectionBanner(g, l);
         drawHoverTooltips(g, l, mx, my);
+        drawSellConfirmation(g, mx, my);
     }
 
     // ── Header (reference style: big centered title, merchant beneath, credits box right) ──
@@ -515,7 +524,14 @@ public class TradingScreen extends Screen {
             return;
         }
 
-        boolean sellable = sellQuote != null && sellQuote.accepted() && sellQuote.hasValue();
+        // Quantity controls only ever offered when the item itself is sellable AND the merchant
+        // has any Credits at all — a zero-Credit merchant is a distinct, non-confirmation-eligible
+        // state (design document Part A), never presented as "sell for ₵0". Merchant affordability
+        // for the FULL requested value no longer bounds this — see the underfunded confirmation
+        // flow below instead.
+        boolean itemSellable = sellQuote != null && sellQuote.accepted() && sellQuote.hasValue();
+        boolean merchantHasCredits = state.merchantCredits() > 0;
+        boolean canShowQuantityControls = itemSellable && merchantHasCredits && sellQuote.effectiveMaxQuantity() > 0;
         int bandTop = y + h - DETAIL_BOTTOM_BAND_H;
 
         try (CloseableScissor ignored = new CloseableScissor(g, x + 1, y + 1, w - 2, Math.max(1, bandTop - y - 1))) {
@@ -527,6 +543,13 @@ public class TradingScreen extends Screen {
                 g.text(font, Component.translatable("totality.trading.not_accepted"), x + PAD, cy, COLOR_RED, false);
             } else if (!sellQuote.hasValue()) {
                 g.text(font, Component.translatable("totality.trading.no_value"), x + PAD, cy, COLOR_RED, false);
+            } else if (!merchantHasCredits) {
+                for (String wline : wrap(Component.translatable("totality.trading.merchant_zero_credits").getString(),
+                        w - PAD * 2)) {
+                    if (cy > bandTop - 9) break;
+                    g.text(font, Component.literal(wline), x + PAD, cy, COLOR_RED, false);
+                    cy += 9;
+                }
             } else {
                 drawLabelValueRow(g, x + PAD, cy, w - PAD * 2,
                         Component.translatable("totality.trading.payout_each").getString() + ":",
@@ -540,42 +563,130 @@ public class TradingScreen extends Screen {
                     cy += 10;
                 }
 
-                if (sellQuote.effectiveMaxQuantity() <= 0 && cy <= bandTop - 9) {
-                    for (String wline : wrap(Component.translatable("totality.trading.merchant_cannot_afford").getString(),
-                            w - PAD * 2)) {
-                        if (cy > bandTop - 9) break;
-                        g.text(font, Component.literal(wline), x + PAD, cy, COLOR_RED, false);
-                        cy += 9;
-                    }
-                } else if (sellQuote.maxQuantityByMerchant() < sellQuote.maxQuantityByStack() && cy <= bandTop - 9) {
-                    // Merchant-capacity row (trade_screen_sell_v1 reference hierarchy) — shown
-                    // when the merchant's Credits, not the stack size, limit the sale.
+                // Canonical presentation (Part A): the full quoted value never disappears, but
+                // when the merchant can't fully afford it, show separately what it CAN pay and
+                // what the player would forfeit — never silently substituted for the real total.
+                long fullValue = TradingQuantityMath.checkedTotal(sellQuote.unitPayout(), sellQuantity);
+                long merchantCredits = state.merchantCredits();
+                long payableAmount = fullValue < 0 ? 0 : Math.min(fullValue, merchantCredits);
+                long forfeitedValue = fullValue < 0 ? 0 : fullValue - payableAmount;
+                if (forfeitedValue > 0 && cy <= bandTop - 9) {
                     drawLabelValueRow(g, x + PAD, cy, w - PAD * 2,
-                            Component.translatable("totality.trading.merchant_can_afford").getString() + ":",
-                            String.valueOf(sellQuote.maxQuantityByMerchant()), COLOR_GOLD);
+                            Component.translatable("totality.trading.merchant_can_pay").getString() + ":",
+                            CREDITS_SYMBOL + TradingScreenLayout.formatCredits(payableAmount), COLOR_GOLD);
                     cy += 10;
+                    if (cy <= bandTop - 9) {
+                        drawLabelValueRow(g, x + PAD, cy, w - PAD * 2,
+                                Component.translatable("totality.trading.forfeited_value").getString() + ":",
+                                CREDITS_SYMBOL + TradingScreenLayout.formatCredits(forfeitedValue), COLOR_RED_SOFT);
+                        cy += 10;
+                    }
                 }
             }
         }
 
-        if (sellable) {
+        if (canShowQuantityControls) {
             drawQuantityRow(g, x + PAD, y + h - QTY_ROW_OFFSET, w - PAD * 2,
                     sellQuantity, sellQuote.effectiveMaxQuantity(), mx, my);
 
+            // The real full quote — NEVER clamped to the merchant's current Credits (Part A: "the
+            // ordinary SELL detail panel must continue showing the real full quote").
             long total = TradingQuantityMath.checkedTotal(sellQuote.unitPayout(), sellQuantity);
             boolean canConfirm = sellQuantity > 0 && total >= 0;
             drawLabelValueRow(g, x + PAD, y + h - TOTAL_ROW_OFFSET, w - PAD * 2,
-                    Component.translatable("totality.trading.total_payout").getString() + ":",
+                    Component.translatable("totality.trading.total_value").getString() + ":",
                     CREDITS_SYMBOL + (total < 0 ? "?" : TradingScreenLayout.formatCredits(total)),
                     canConfirm ? COLOR_GOLD : COLOR_DIM);
 
             drawConfirmCancel(g, x, y, w, h, true, canConfirm, mx, my);
         } else {
-            // Rejected/still-loading selection: no quantity controls or SELL button (a disabled
-            // action for an impossible sale would be noise), but the clear/cancel button stays
-            // available so the selection can be dismissed from the panel itself.
+            // Rejected/still-loading/zero-Credit selection: no quantity controls or SELL button (a
+            // disabled action for an impossible sale would be noise), but the clear/cancel button
+            // stays available so the selection can be dismissed from the panel itself.
             drawConfirmCancel(g, x, y, w, h, false, false, mx, my);
         }
+    }
+
+    /** Underfunded-merchant confirmation modal (design document Part A) — a dimmed full-screen
+     *  overlay with a centered box: wrapped explanatory text, then a Cancel/"Sell for ₵X" pair.
+     *  Geometry is recomputed fresh every frame from {@link #pendingSellConfirmation} alone (same
+     *  discipline as every other region in this screen) and shared exactly with
+     *  {@link #handleSellConfirmationClick} so drawn buttons and their hitboxes can never diverge. */
+    private void drawSellConfirmation(GuiGraphicsExtractor g, int mx, int my) {
+        if (pendingSellConfirmation == null) return;
+        g.fill(0, 0, width, height, 0xB0000000);
+
+        String totalStr = CREDITS_SYMBOL + TradingScreenLayout.formatCredits(pendingSellConfirmation.totalValue());
+        String payableStr = CREDITS_SYMBOL + TradingScreenLayout.formatCredits(pendingSellConfirmation.payableAmount());
+        String msg = Component.translatable("totality.trading.underfunded_confirm", totalStr, payableStr, payableStr).getString();
+
+        int boxW = Math.min(220, width - 20);
+        List<String> lines = wrap(msg, boxW - 16);
+        int boxH = lines.size() * 10 + 12 + BUTTON_H + 8;
+        int boxX = (width - boxW) / 2;
+        int boxY = (height - boxH) / 2;
+
+        g.fill(boxX, boxY, boxX + boxW, boxY + boxH, COLOR_PANEL_BG);
+        drawFrame(g, boxX, boxY, boxW, boxH, 2, COLOR_GOLD);
+
+        int ty = boxY + 8;
+        for (String line : lines) {
+            g.text(font, Component.literal(line), boxX + (boxW - font.width(line)) / 2, ty, COLOR_LABEL, false);
+            ty += 10;
+        }
+
+        int btnW = (boxW - 24) / 2;
+        int by = boxY + boxH - BUTTON_H - 6;
+        int cancelX = boxX + 8;
+        int confirmX = cancelX + btnW + 8;
+
+        boolean cancelHovered = inB(mx, my, cancelX, by, btnW, BUTTON_H);
+        g.fill(cancelX, by, cancelX + btnW, by + BUTTON_H, cancelHovered ? 0xFF32280F : 0xFF1C1608);
+        drawFrame(g, cancelX, by, btnW, BUTTON_H, 1, COLOR_GOLD);
+        drawScaledCentered(g, Component.translatable("totality.trading.cancel").getString(),
+                cancelX + btnW / 2, by + (BUTTON_H - 8) / 2, btnW - 4, COLOR_GOLD);
+
+        String sellLabel = Component.translatable("totality.trading.sell_for", payableStr).getString();
+        boolean confirmHovered = inB(mx, my, confirmX, by, btnW, BUTTON_H);
+        g.fill(confirmX, by, confirmX + btnW, by + BUTTON_H, confirmHovered ? 0xFF1A4A1A : 0xFF0F2A0F);
+        drawFrame(g, confirmX, by, btnW, BUTTON_H, 1, COLOR_GREEN);
+        drawScaledCentered(g, sellLabel, confirmX + btnW / 2, by + (BUTTON_H - 8) / 2, btnW - 4, COLOR_GREEN);
+    }
+
+    /** Hit-testing mirror of {@link #drawSellConfirmation} — Confirm sends the SELL packet with
+     *  explicit consent to the terms captured when the popup opened; Cancel removes no items,
+     *  moves no Credits, and changes no merchant state (it never even sends a packet). Either way
+     *  the modal closes and input resumes flowing to the rest of the screen. */
+    private boolean handleSellConfirmationClick(int mx, int my) {
+        PendingSellConfirmation pending = pendingSellConfirmation;
+        if (pending == null) return false;
+
+        String totalStr = CREDITS_SYMBOL + TradingScreenLayout.formatCredits(pending.totalValue());
+        String payableStr = CREDITS_SYMBOL + TradingScreenLayout.formatCredits(pending.payableAmount());
+        String msg = Component.translatable("totality.trading.underfunded_confirm", totalStr, payableStr, payableStr).getString();
+        int boxW = Math.min(220, width - 20);
+        List<String> lines = wrap(msg, boxW - 16);
+        int boxH = lines.size() * 10 + 12 + BUTTON_H + 8;
+        int boxX = (width - boxW) / 2;
+        int boxY = (height - boxH) / 2;
+        int btnW = (boxW - 24) / 2;
+        int by = boxY + boxH - BUTTON_H - 6;
+        int cancelX = boxX + 8;
+        int confirmX = cancelX + btnW + 8;
+
+        if (inB(mx, my, confirmX, by, btnW, BUTTON_H)) {
+            click();
+            ClientPlayNetworking.send(new SellItemPayload(
+                    pending.slotIndex(), pending.quantity(), true, pending.totalValue(), pending.payableAmount()));
+            pendingSellConfirmation = null;
+            return true;
+        }
+        if (inB(mx, my, cancelX, by, btnW, BUTTON_H)) {
+            click();
+            pendingSellConfirmation = null;
+            return true;
+        }
+        return true; // modal — swallow every other click while open
     }
 
     private void drawSelectHint(GuiGraphicsExtractor g, int x, int y, int w, int h) {
@@ -902,7 +1013,8 @@ public class TradingScreen extends Screen {
      *  gating can never diverge from what's rendered. */
     private int currentDetailMaxQuantity() {
         if (mode == Mode.BUY) return computeMaxBuyQuantity(selectedBuyIndex);
-        if (mode == Mode.SELL && sellQuote != null && sellQuote.accepted() && sellQuote.hasValue()) {
+        if (mode == Mode.SELL && sellQuote != null && sellQuote.accepted() && sellQuote.hasValue()
+                && state.merchantCredits() > 0) {
             return sellQuote.effectiveMaxQuantity();
         }
         return 0;
@@ -936,6 +1048,7 @@ public class TradingScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent mouse, boolean doubleClick) {
         int mx = (int) mouse.x(), my = (int) mouse.y();
+        if (pendingSellConfirmation != null) return handleSellConfirmationClick(mx, my);
         if (editingQuantity) commitQuantityEdit();
 
         Regions l = TradingScreenLayout.compute(width, height, mode == Mode.SELL);
@@ -1062,6 +1175,7 @@ public class TradingScreen extends Screen {
         sellQuantity = 0;
         quotedStackSnapshot = null;
         pendingFreshSellSelection = false;
+        pendingSellConfirmation = null;
     }
 
     private void clearRejection() {
@@ -1074,12 +1188,29 @@ public class TradingScreen extends Screen {
         if (mode == Mode.BUY) buyQuantity = q; else sellQuantity = q;
     }
 
+    /**
+     * BUY submits immediately, unchanged. SELL branches on the underfunded confirmation flow
+     * (design document Part A): a fully-affordable sale submits immediately with no confirmation
+     * flag set (server treats that identically to before); a sale whose full value exceeds the
+     * merchant's current Credits opens the confirmation popup instead of submitting anything —
+     * the actual {@link SellItemPayload} is only sent once the player explicitly accepts it via
+     * {@link #handleSellConfirmationClick}.
+     */
     private void confirmAction() {
-        click();
         if (mode == Mode.BUY && selectedBuyIndex >= 0) {
+            click();
             ClientPlayNetworking.send(new BuyItemPayload(selectedBuyIndex, buyQuantity));
-        } else if (mode == Mode.SELL && selectedSellSlot >= 0) {
-            ClientPlayNetworking.send(new SellItemPayload(selectedSellSlot, sellQuantity));
+        } else if (mode == Mode.SELL && selectedSellSlot >= 0 && sellQuote != null) {
+            long totalValue = TradingQuantityMath.checkedTotal(sellQuote.unitPayout(), sellQuantity);
+            long merchantCredits = state.merchantCredits();
+            boolean needsConfirmation = totalValue >= 0 && merchantCredits > 0 && totalValue > merchantCredits;
+            click();
+            if (needsConfirmation) {
+                long payableAmount = Math.min(totalValue, merchantCredits);
+                pendingSellConfirmation = new PendingSellConfirmation(selectedSellSlot, sellQuantity, totalValue, payableAmount);
+            } else {
+                ClientPlayNetworking.send(new SellItemPayload(selectedSellSlot, sellQuantity, false, 0L, 0L));
+            }
         }
     }
 
@@ -1117,6 +1248,13 @@ public class TradingScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (pendingSellConfirmation != null) {
+            // Escape dismisses only the modal (equivalent to Cancel) — it must never fall through
+            // to closing the whole Trading Screen and releasing the NPC lock out from under an
+            // open confirmation.
+            if (event.isEscape()) { pendingSellConfirmation = null; }
+            return true;
+        }
         if (editingQuantity) {
             if (event.isEscape()) { editingQuantity = false; editBuffer = ""; return true; }
             int key = event.key();
