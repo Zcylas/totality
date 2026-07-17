@@ -239,13 +239,21 @@ public final class TotalityKeybindHandlers {
         });
     }
 
+    /**
+     * Post-review correction: previously polled raw {@code GLFW_KEY_V} directly instead of the
+     * registered {@link ModKeybinds#BLOCK} key mapping — {@code BLOCK} was registered (and
+     * appeared in Controls) but rebinding it changed nothing here. Now reads {@link
+     * ModKeybinds#isPhysicallyDown} (not {@code KeyMapping.isDown()} — see its javadoc: opening
+     * any screen, e.g. the Grimoire radial while dual-wielding, zeroes {@code isDown()} via
+     * {@code KeyMapping.releaseAll()} regardless of physical key state), so Block press/hold/
+     * release all follow whichever key is currently bound, immune to that side effect, exactly
+     * like Ability/Spell/Grimoire/Radial Modifier already do.
+     */
     private static void registerBlockKeybind() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null) return;
-            com.mojang.blaze3d.platform.Window window = client.getWindow();
 
-            boolean vDown = com.mojang.blaze3d.platform.InputConstants.isKeyDown(
-                    window, org.lwjgl.glfw.GLFW.GLFW_KEY_V);
+            boolean vDown = ModKeybinds.isPhysicallyDown(ModKeybinds.BLOCK);
 
             // Start blocking: V just went down with no screen open
             if (vDown && !blockWasDown && client.gui.screen() == null && !blockingActive) {

@@ -25,7 +25,11 @@ public final class OffhandAttackHandler {
                 (payload, ctx) -> ctx.server().execute(() -> handle(ctx.player(), payload)));
     }
 
-    private static void handle(ServerPlayer player, OffhandAttackPayload payload) {
+    /** Package-private (not {@code private}) so {@link OffhandAttackVerification} can drive the
+     *  real handler directly with a hand-built payload — the same "exercise the real production
+     *  code, not a reimplementation" discipline every other verification suite in this codebase
+     *  follows. */
+    static void handle(ServerPlayer player, OffhandAttackPayload payload) {
         if (!isDualWielding(player)) return;
         if (!DualWieldCooldownTracker.canOffhandAttack(player)) return;
 
@@ -37,17 +41,30 @@ public final class OffhandAttackHandler {
         if (!PowerAttackManager.isValidTarget(player, targetEntity)) return;
         LivingEntity target = (LivingEntity) targetEntity;
 
+        // Post-review correction: a Power-Attack-flagged request against an attacker-illegal
+        // target (PvP-disabled, team friendly-fire, invulnerable) must be rejected outright, not
+        // silently downgraded into an ordinary attack. The previous code folded isAttackerLegal
+        // into the same "gracefully downgrade" ANDed condition as the insufficient-Stamina case
+        // below, so an illegal target still fell through into the normal-attack path — spending
+        // ordinary offhand Stamina, damaging the offhand weapon's durability, and landing a
+        // (non-power) hit, none of which an illegal Power Attack may do. This check returns
+        // BEFORE any Stamina/durability/attack-execution decision is made, exactly mirroring the
+        // mainhand PowerAttackPayload handler's own "isAttackerLegal fails -> return" gate.
+        // Insufficient Power Attack Stamina remains the SEPARATE, intentional "graceful downgrade
+        // to a legal normal attack" case below — unaffected by this check, since it only ever
+        // runs once isAttackerLegal has already passed.
+        if (payload.powerAttack() && !PowerAttackManager.isAttackerLegal(player, target)) {
+            return;
+        }
+
         ItemStack offWeapon = player.getOffhandItem();
 
         // Offhand's own hold-to-charge power attack — rolls with advantage, costs extra stamina.
-        // Gracefully downgrades to a normal roll if Stamina is insufficient OR the attacker is not
-        // currently legally permitted to attack this target at all (PvP-disabled, team
-        // friendly-fire, invulnerability — correction pass, Part D: mainhand and offhand share the
-        // identical PowerAttackManager.isAttackerLegal gate, checked BEFORE any Power-Attack-
-        // specific Stamina is committed below) — the swing always happens, only the advantage
-        // bonus and its extra Stamina cost are denied.
+        // Gracefully downgrades to a normal roll if Stamina is insufficient — the swing still
+        // happens, only the advantage bonus and its extra Stamina cost are denied. Attacker
+        // legality was already fully validated above; it can never reach this line as a reason to
+        // downgrade.
         boolean usePower = payload.powerAttack()
-                && PowerAttackManager.isAttackerLegal(player, target)
                 && (player.isCreative() || PlayerStaminaManager.hasStamina(player, PowerAttackManager.getOffhandStaminaCost(player)));
         RollType rollType = usePower ? RollType.ADVANTAGE : RollType.NORMAL;
 

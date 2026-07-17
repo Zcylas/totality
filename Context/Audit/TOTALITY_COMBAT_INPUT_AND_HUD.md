@@ -816,13 +816,140 @@ cause until confirmed.
   history — none of these were modified. No dialogue-check XP, quest
   skill XP, disposal, gifting, or donation behavior was implemented.
 
-  MANUAL TESTING: PENDING — Stefan's full checklist (rebind Ability to
-  M, confirm normal activation, old Z stops activating, Modifier+M opens
-  and RETAINS the Ability radial without activating, select/cancel/
-  reopen, channeled-Ability hold/release on M; same for Spell on a
-  second rebound key; Grimoire: default C opens the normal screen,
-  Modifier+C opens and retains the radial without also opening the
-  normal screen, V does not open the Grimoire radial, V still Blocks,
-  rebind Grimoire and repeat; regression: default Z/X, all three radial
-  selections, Trading Screen underfunded flow, mainhand/offhand Power
-  Attack). Not claimed passed until Stefan reports.
+  --------------------------------------------------------------------------
+  8f. POST-REVIEW CORRECTION PASS (2026-07-17): BLOCK REGISTERED MAPPING +
+      ILLEGAL OFFHAND POWER ATTACK REJECTION
+  --------------------------------------------------------------------------
+  The regenerated Phase 4 review bundle passed archive validation and
+  static review, but flagged two remaining implementation defects, fixed
+  this pass:
+
+  Block still read raw input instead of its own key mapping.
+  `TotalityKeybindHandlers.registerBlockKeybind()` polled
+  `InputConstants.isKeyDown(window, GLFW.GLFW_KEY_V)` directly every
+  client tick, instead of `ModKeybinds.BLOCK` — the registered, rebindable
+  mapping created back in Section 8's original correction pass. Rebinding
+  Block in the controls menu therefore changed nothing: the literal V
+  scancode kept blocking regardless of the configured key, and the newly
+  bound key did nothing. Fixed by replacing the raw GLFW poll with
+  `ModKeybinds.isPhysicallyDown(ModKeybinds.BLOCK)` — the same
+  `releaseAll()`-immune helper Ability/Spell/Grimoire already use, so
+  Block now follows the exact same rebind semantics as the rest of the
+  Totality key mappings: `ModKeybinds.BLOCK` is the sole authoritative
+  binding, the default remains V, rebinding moves ALL blocking behavior
+  (start, re-apply-while-held, stop) to the new key, and V stops blocking
+  once rebound away from it. Mainhand/offhand blocking, the block
+  animation, packet flow, and Stamina behavior were not touched — only
+  the one line reading physical key state changed. Grimoire was already
+  unaffected (it never read GLFW_KEY_V; see Section 8b) and remains so.
+
+  An offhand request flagged as Power Attack against an attacker-illegal
+  target (PvP-disabled, team friendly-fire, invulnerable) was falling
+  through into a normal attack instead of being rejected outright.
+  `OffhandAttackHandler.handle` ANDed `PowerAttackManager.isAttackerLegal`
+  into the same "gracefully downgrade" condition used for insufficient
+  Power Attack Stamina, so an illegal target still reached the
+  normal-attack path below: it spent ordinary offhand Stamina, damaged
+  the offhand weapon's durability, and landed a non-power hit — none of
+  which an illegal Power Attack may do. Fixed by hoisting the legality
+  check into its own unconditional early return —
+  `if (payload.powerAttack() && !PowerAttackManager.isAttackerLegal(player,
+  target)) return;` — placed immediately after target-validity resolution
+  and BEFORE the normal-vs-power Stamina/damage/durability decision, so an
+  illegal target now costs no Stamina (ordinary or Power), no durability,
+  lands no attack, and produces no accepted flash/sound/success state.
+  This exactly mirrors the mainhand `PowerAttackPayload` handler's own
+  "isAttackerLegal fails -> return" gate, which was never affected by this
+  bug. The insufficient-Stamina case is unchanged and intentionally
+  distinct: once legality has passed, insufficient Power Attack Stamina
+  still gracefully downgrades to a legal normal attack, exactly as before.
+
+  Extended `KeybindVerification` (12 -> 13 checks) with a Block
+  registration-category-parity check, mirroring the existing Ability/
+  Spell/Grimoire checks, so a rebind has something real to change; the
+  live press/hold/release/rebind behavior itself remains manual (see the
+  updated class javadoc). Added a new suite, `OffhandAttackVerification`
+  (5 checks, server-side, deferred 40 ticks past `SERVER_STARTED` past the
+  same freshly-spawned-entity tick-visibility limitation
+  `ProvisionerVerification`'s smoke test already works around — see that
+  class's javadoc): a PvP-disabled Power Attack against a real player
+  target spends no Stamina, damages no durability, and does not mark an
+  offhand attack as having occurred (with an explicit precondition proving
+  the target actually resolved, so the check cannot pass vacuously);
+  parallel checks for an invulnerable target and a legal target (legal
+  Power Attack spends Power Stamina and marks an attack; legal ordinary
+  attack spends ordinary Stamina; insufficient-Stamina Power Attack still
+  downgrades to a legal normal attack, spending ordinary Stamina, not
+  Power Stamina). None of these checks assert a guaranteed hit — the
+  underlying `CombatResolver` roll can legitimately miss — so only
+  deterministic Stamina/durability/cooldown-tracker state is asserted.
+
+  RUNTIME-VERIFIED (2026-07-17, `gradlew runClient
+  --args="--quickPlaySingleplayer \"New Testing World\""`, bounded dev
+  client boot): `[KeybindVerification] All 13 self-test checks passed.`
+  (was 12), `[MerchantSellVerification] All 47 self-test checks passed.`
+  (was 43, see the Economy/Provisioner doc for the confirmation-staleness
+  fix behind the 4 new checks), `[OffhandAttackVerification] All 5
+  self-test checks passed.` (new suite). Every other suite passed
+  unchanged: ItemValue 19, Provisioner 71, TradingScreen 22, PowerAttack
+  12, ProvisionerRenderer 4, NotificationTiming 9, PowerAttackFlash 7,
+  ProvisionerEntityBackedSmokeTest 4 — **213 checks total across 11
+  suites, zero failures.** `gradlew compileJava` / `gradlew build`:
+  SUCCESSFUL. One expected, cosmetic, dev-harness-only `WARN` was
+  observed and is documented inline at its source
+  (`OffhandAttackVerification.checkPvpDisabledOffhandPowerAttackSpendsNoStamina`):
+  "Server attempted to add player prior to sending player info," logged
+  once for the synthetic `TotalityFakePlayer` target because it is added
+  to the level directly rather than through the normal
+  `PlayerList.placeNewPlayer` join flow. This is unreachable in real
+  gameplay (every real player joins through the normal connection flow)
+  and does not affect the check's pass/fail; the entity is discarded
+  immediately after the check via an explicit `finally` block.
+
+  PvP / team-friendly-fire manual testing remains deferred exactly as
+  described in Section 8d — unchanged by this pass, and still not a
+  Phase 4 blocker.
+
+  --------------------------------------------------------------------------
+  8g. QUOTE-TOKEN / STACK-FINGERPRINT HARDENING (NOT IMPLEMENTED)
+  --------------------------------------------------------------------------
+  A stronger request-integrity mechanism (a server-issued quote token or a
+  stack-fingerprint check, binding a SELL confirmation to the exact quote
+  and stack it was issued against) was raised as an optional hardening
+  idea during review. It was NOT implemented this pass — the fix in
+  Section 8f / the Economy doc's stale-confirmation section is a value
+  re-validation against the current quote (no new protocol, no new
+  client/server payload fields), which fully closes the reported
+  fully-funded-merchant bug on its own. Quote tokens remain a possible
+  FUTURE hardening step only, not scheduled work.
+
+  MANUAL TESTING (Block + illegal-offhand-rejection, this pass): CONFIRMED
+  (2026-07-17, Stefan) — default V Blocking works; rebinding Block moves
+  Blocking to the new key; the old V binding stops Blocking after
+  rebinding; holding and releasing the rebound key correctly starts and
+  stops Blocking; resetting the Block binding to default V works;
+  Grimoire input remains unaffected; ordinary offhand attacks work;
+  legal offhand Power Attacks work; invalid block/air/entity targeting
+  does not produce an offhand Power Attack; no unexpected Stamina or
+  durability loss was observed in the manually testable invalid-target
+  cases. Trading regression touched by this pass also confirmed:
+  ordinary fully funded SELL, underfunded SELL confirmation, zero-Credit
+  merchant SELL prevention, and BUY all remain unchanged (see
+  `TOTALITY_ECONOMY_PRICING_AND_PROVISIONER.md` Section 16i for the
+  stale-confirmation-specific result). PvP-disabled and team-friendly-
+  fire-protected Power Attacks remain MANUALLY DEFERRED — Stefan
+  currently has no second player/account to set up either scenario; the
+  server-side legality checks and their automated coverage (Section 7c,
+  Section 8f) are preserved unchanged and this is explicitly not treated
+  as a Phase 4 blocker.
+
+  MANUAL TESTING (Ability/Spell/Grimoire radial rebind checklist, prior
+  correction pass, unrelated to this pass): still PENDING — rebind
+  Ability to M, confirm normal activation, old Z stops activating,
+  Modifier+M opens and RETAINS the Ability radial without activating,
+  select/cancel/reopen, channeled-Ability hold/release on M; same for
+  Spell on a second rebound key; Grimoire: default C opens the normal
+  screen, Modifier+C opens and retains the radial without also opening
+  the normal screen, V does not open the Grimoire radial, rebind
+  Grimoire and repeat; regression: default Z/X, all three radial
+  selections. Not claimed passed until Stefan reports it.

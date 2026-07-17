@@ -21,7 +21,10 @@ import zcylas.totality.api.core.util.VerificationReporter;
  * GrimoireRadialScreen}), and whether the old default key stops working once rebound — all require
  * driving real keyboard input against a live client window, which this environment has no tool to
  * do (the same standing limitation documented throughout the Provisioner phases). Those items
- * remain Stefan's manual checklist.
+ * remain Stefan's manual checklist. The SAME limitation applies to Block (post-review correction):
+ * whether V starts/maintains/stops Blocking, whether rebinding Block moves that behavior to the
+ * new key while V stops blocking, and whether Grimoire remains unaffected by V — all require live
+ * input and remain manual.
  */
 public final class KeybindVerification {
 
@@ -91,6 +94,15 @@ public final class KeybindVerification {
                         && ModKeybinds.BLOCK.getDefaultKey().getValue() != ModKeybinds.OPEN_GRIMOIRE.getDefaultKey().getValue(),
                 "blockDefault=" + ModKeybinds.BLOCK.getDefaultKey().getValue()
                         + ", grimoireDefault=" + ModKeybinds.OPEN_GRIMOIRE.getDefaultKey().getValue());
+
+        // Post-review correction — Block: registerBlockKeybind previously polled raw GLFW_KEY_V
+        // instead of this registration, so rebinding Block changed nothing. This confirms the
+        // registration itself is correct (category parity with every other Totality key mapping)
+        // so a rebind has something real to change; the live press/hold/release/rebind behavior
+        // itself is manual (see class javadoc).
+        r.check("Block key mapping is registered under the Totality category",
+                ModKeybinds.BLOCK.getCategory() == ModKeybinds.TOTALITY_CATEGORY,
+                "category=" + ModKeybinds.BLOCK.getCategory());
 
         r.check("Grimoire and Block use distinct translation keys from each other and from Ability/Spell/Radial Modifier",
                 "key.totality.open_grimoire".equals(ModKeybinds.OPEN_GRIMOIRE.getName())

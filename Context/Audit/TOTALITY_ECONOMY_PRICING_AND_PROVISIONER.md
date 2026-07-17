@@ -3170,10 +3170,135 @@ Implementation Order step lands.
   BUY and SOLD OUT regression behavior. Stale-confirmation refresh
   specifically was exercised only indirectly (no report of a dedicated
   stale-terms repro) — not called out as a separate failure, but not
-  independently itemized either. No further economy/SELL manual testing
-  is currently pending; the correction pass that followed this
-  confirmation (`TOTALITY_COMBAT_INPUT_AND_HUD.md` Section 8) was
-  input-only and touched no economy/SELL logic.
+  independently itemized either.
+
+  --------------------------------------------------------------------------
+  16i. POST-REVIEW CORRECTION (2026-07-17): REDUCED-PAYOUT CONFIRMATION
+       STALE ON A NEWLY FULLY-FUNDED MERCHANT
+  --------------------------------------------------------------------------
+  The regenerated Phase 4 review bundle passed archive validation and
+  static review, but flagged one remaining implementation defect in the
+  confirmation-staleness check added in Section 16e, fixed this pass.
+
+  Reported scenario: a player's goods are worth ₵304, the merchant has
+  ₵300, the player confirms terms offering the reduced ₵300 payout, and
+  before the server processes that confirmation the merchant's Credits
+  rise to ₵304 or more (a concurrent BUY from another source, a Credit
+  top-up, etc.). Section 16e's original staleness check only re-validated
+  a confirmed REDUCED payout against a quote that STILL required
+  confirmation (i.e., still underfunded) — it never considered the case
+  where the quote had crossed the line into full funding. The confirmed
+  ₵300 terms therefore silently completed as an ordinary fully-funded
+  sale, using the OLD confirmed numbers rather than the current ones —
+  a real terms mismatch slipping through undetected, exactly opposite of
+  the intended "any change to confirmed terms requires fresh review"
+  rule.
+
+  Root cause: `TradeSessionManager.handleSell`'s confirmation branching
+  was structured around the CURRENT quote's `requiresConfirmation()`
+  state first, not around what the request itself claimed the player had
+  confirmed. Once the current quote stopped requiring confirmation (the
+  fully-funded case), the code fell straight into the ordinary/no-
+  confirmation-needed branch regardless of whether the request was
+  actually carrying stale confirmed-reduced-payout fields from a moment
+  earlier.
+
+  Fixed by restructuring the branch to check the REQUEST's claim first,
+  exactly per the canonical rule ("any change to confirmed terms requires
+  fresh player review, whether the change is better or worse"):
+
+    IF the request says the player confirmed a reduced payout:
+        IF the current quote no longer requires confirmation:
+            reject as STALE_CONFIRMATION
+        IF the confirmed total value differs from the current total value:
+            reject as STALE_CONFIRMATION
+        IF the confirmed payable amount differs from the current payable amount:
+            reject as STALE_CONFIRMATION
+        payout = current payable amount
+    ELSE:
+        IF the current quote requires confirmation:
+            reject as CONFIRMATION_REQUIRED
+        payout = current total value
+
+  A confirmed-reduced-payout request is now rejected as
+  `STALE_CONFIRMATION` the instant the merchant becomes fully (or over-)
+  funded, in addition to the pre-existing case where the merchant's
+  affordability shifts while still underfunded. Rejection remains fully
+  atomic on every path — no items removed, no Wallet/physical Credits/
+  merchant Credits changed, and no partial transaction — unchanged from
+  Section 16e's original atomicity guarantee. No new quote-token or
+  stack-fingerprint protocol was introduced; this is a pure re-validation
+  of the existing quote fields against the existing request fields (see
+  Section 16j).
+
+  Extended `MerchantSellVerification` with 4 new REAL session/commit
+  checks (43 -> 47), all driving `TradeSessionManager.handleSell`
+  directly against a `standardShop()` fixture (Bread, payout ₵6/unit,
+  quantity 17, totalValue ₵102): confirming a reduced payout while the
+  merchant is still underfunded, then having the merchant's Credits rise
+  further but remain underfunded, correctly still rejects the old
+  confirmation as stale (`checkMerchantRisingWhileStillUnderfundedInvalidatesOldConfirmation`);
+  the merchant's Credits reaching exactly the total value (the reported
+  bug's exact boundary) correctly rejects the old reduced-payout
+  confirmation as stale rather than silently completing it
+  (`checkFullyFundedMerchantInvalidatesOldReducedConfirmation`); the
+  merchant's Credits rising past the total value (overfunded) correctly
+  rejects the same way
+  (`checkOverfundedMerchantInvalidatesOldReducedConfirmation`); and,
+  after a stale rejection, a fresh SELL request carrying no confirmation
+  claim against the now-fully-funded quote correctly succeeds at the
+  full current total value
+  (`checkStaleRejectionAllowsFreshFullValueSale`) — proving the fix
+  rejects only the stale request, not the merchant's ability to
+  transact at all. Every check asserts full atomicity on rejection
+  (unchanged item count, unchanged Wallet/merchant Credits).
+
+  RUNTIME-VERIFIED (2026-07-17, `gradlew runClient
+  --args="--quickPlaySingleplayer \"New Testing World\""`, bounded dev
+  client boot): `[MerchantSellVerification] All 47 self-test checks
+  passed.` (was 43). Every other suite passed unchanged: ItemValue 19,
+  Provisioner 71, TradingScreen 22 — combat-side suite counts (Block
+  rebind fix, illegal-offhand-rejection fix, `KeybindVerification` 13,
+  new `OffhandAttackVerification` 5) are reported in
+  `TOTALITY_COMBAT_INPUT_AND_HUD.md` Section 8f. **213 checks total
+  across 11 suites, zero failures.** `gradlew compileJava`/`gradlew
+  build`: SUCCESSFUL. No datagen was run for this fix — no new
+  localization keys or other generated resources were needed.
+
+  --------------------------------------------------------------------------
+  16j. QUOTE-TOKEN / STACK-FINGERPRINT HARDENING (NOT IMPLEMENTED)
+  --------------------------------------------------------------------------
+  Same note as `TOTALITY_COMBAT_INPUT_AND_HUD.md` Section 8g: a
+  server-issued quote token or stack-fingerprint protocol was raised as
+  an optional hardening idea during review, and was NOT implemented this
+  pass. Section 16i's fix fully closes the reported bug by re-validating
+  existing quote fields against existing request fields — no new
+  client/server payload fields were added. This remains a possible
+  FUTURE hardening step only, not scheduled work.
+
+  MANUAL TESTING (2026-07-17, Stefan): ordinary fully funded SELL,
+  underfunded SELL confirmation, and zero-Credit merchant SELL
+  prevention were all re-confirmed working after this pass's fix, and
+  BUY remains unchanged.
+
+  The fully-funded-while-confirming-a-reduced-payout transition itself
+  is recorded as **AUTOMATED-ONLY, not manually tested** — Stefan
+  reports it could not be produced safely in a solo GUI session, since
+  the merchant/session locking makes concurrently changing the
+  merchant's Credits mid-confirmation impractical to trigger by hand
+  with only one client. This is not treated as a gap in the fix itself:
+  the exact reported bug scenario (₵304 goods, ₵300 merchant, confirm at
+  ₵300, merchant rises to ≥₵304 before the server processes the
+  confirmation) is covered by the 4 new real session/commit checks in
+  Section 16h/16i
+  (`checkFullyFundedMerchantInvalidatesOldReducedConfirmation`,
+  `checkOverfundedMerchantInvalidatesOldReducedConfirmation`, and their
+  siblings), which drive `TradeSessionManager.handleSell` directly
+  rather than through the GUI and do not have this locking limitation.
+  All previously-confirmed economy/SELL manual testing above is
+  unaffected and remains valid — this fix only changes which requests
+  get rejected as stale, not any already-tested successful path's
+  numbers.
 
 ================================================================================
 END OF DOCUMENT

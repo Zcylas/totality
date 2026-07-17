@@ -120,6 +120,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.shop.ProvisionerVerification.register();
 		zcylas.totality.api.shop.TradingScreenVerification.register();
 		zcylas.totality.api.rpg.combat.PowerAttackVerification.register();
+		zcylas.totality.networking.combat.OffhandAttackVerification.register();
 		ModEvents.register();
 	}
 

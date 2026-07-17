@@ -105,6 +105,10 @@ public final class MerchantSellVerification {
         checkUnderfundedSellWithConfirmationCompletesAtomically(r, player);
         checkStaleConfirmationRejected(r, player);
         checkZeroCreditMerchantCannotSell(r, player);
+        checkMerchantRisingWhileStillUnderfundedInvalidatesOldConfirmation(r, player);
+        checkFullyFundedMerchantInvalidatesOldReducedConfirmation(r, player);
+        checkOverfundedMerchantInvalidatesOldReducedConfirmation(r, player);
+        checkStaleRejectionAllowsFreshFullValueSale(r, player);
 
         checkAccountlessSellPaysPhysicalCreditsNotWallet(r, player);
         checkAccountlessSellDoesNotOpenAccount(r, player);
@@ -462,6 +466,92 @@ public final class MerchantSellVerification {
                             && wallet(player) == walletBefore
                             && merchant.currentCredits() == 50;
                     return result(pass, "sellResult=" + sellResult + ", after=" + after);
+                });
+    }
+
+    /**
+     * Post-review correction: previously, {@code handleSell} branched on the CURRENT quote's
+     * {@code requiresConfirmation()} state rather than on whether the REQUEST itself claimed a
+     * confirmed reduced payout — so a reduced-payout confirmation submitted while the merchant
+     * was underfunded could silently complete as an ordinary full-value sale if the merchant's
+     * Credits rose enough (between popup-open and the request reaching the server) that the
+     * quote no longer required confirmation at all. This is the exact bug: the confirmed request
+     * still carries {@code confirmedReducedPayout=true} for the OLD (now stale) 102/100 terms,
+     * but the merchant now has exactly 101 Credits — still technically underfunded
+     * ({@code requiresConfirmation()} stays true), yet the CURRENT {@code payableAmount} (101) no
+     * longer matches the confirmed one (100). Must still be rejected as stale.
+     */
+    private static void checkMerchantRisingWhileStillUnderfundedInvalidatesOldConfirmation(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "A reduced-payout confirmation is rejected as stale when merchant Credits rise but remain underfunded",
+                player, standardShop(), 100, new ItemStack(Items.BREAD, 20), (merchant, slot) -> {
+                    long walletBefore = wallet(player);
+                    merchant.setCurrentCredits(101); // still short of the full 102, but not the confirmed 100
+                    SellResult sellResult = TradeSessionManager.handleSell(player, slot, 17, true, 102L, 100L);
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = !sellResult.success() && sellResult.reason() == SellResult.Reason.STALE_CONFIRMATION
+                            && after.getCount() == 20
+                            && wallet(player) == walletBefore
+                            && merchant.currentCredits() == 101;
+                    return result(pass, "sellResult=" + sellResult + ", after=" + after);
+                });
+    }
+
+    /**
+     * The actual reported defect: goods worth 102, merchant had 100 (confirmed 102/100), but by
+     * the time the confirmed request is processed the merchant's Credits have risen to EXACTLY
+     * 102 — fully funding the sale. Even though the new terms are strictly BETTER for the player,
+     * the terms shown in the popup (a reduced payout) no longer describe reality and must not be
+     * silently honored as either the old reduced amount or the new full amount.
+     */
+    private static void checkFullyFundedMerchantInvalidatesOldReducedConfirmation(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "A reduced-payout confirmation is rejected as stale once the merchant becomes exactly fully funded",
+                player, standardShop(), 100, new ItemStack(Items.BREAD, 20), (merchant, slot) -> {
+                    long walletBefore = wallet(player);
+                    merchant.setCurrentCredits(102);
+                    SellResult sellResult = TradeSessionManager.handleSell(player, slot, 17, true, 102L, 100L);
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = !sellResult.success() && sellResult.reason() == SellResult.Reason.STALE_CONFIRMATION
+                            && after.getCount() == 20
+                            && wallet(player) == walletBefore
+                            && merchant.currentCredits() == 102;
+                    return result(pass, "sellResult=" + sellResult + ", after=" + after);
+                });
+    }
+
+    /** Same as above but the merchant ends up with MORE than the full value — still stale. */
+    private static void checkOverfundedMerchantInvalidatesOldReducedConfirmation(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "A reduced-payout confirmation is rejected as stale once the merchant becomes more than fully funded",
+                player, standardShop(), 100, new ItemStack(Items.BREAD, 20), (merchant, slot) -> {
+                    long walletBefore = wallet(player);
+                    merchant.setCurrentCredits(500);
+                    SellResult sellResult = TradeSessionManager.handleSell(player, slot, 17, true, 102L, 100L);
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = !sellResult.success() && sellResult.reason() == SellResult.Reason.STALE_CONFIRMATION
+                            && after.getCount() == 20
+                            && wallet(player) == walletBefore
+                            && merchant.currentCredits() == 500;
+                    return result(pass, "sellResult=" + sellResult + ", after=" + after);
+                });
+    }
+
+    /** After a stale reduced-payout confirmation is correctly rejected, the player must be able
+     *  to submit a genuinely fresh (non-confirmed) request and have it complete normally at the
+     *  new, now-fully-funded full value — the merchant becoming fully funded is never itself
+     *  blocked from ever selling again, only the OLD, now-mismatched confirmation is refused. */
+    private static void checkStaleRejectionAllowsFreshFullValueSale(VerificationReporter r, ServerPlayer player) {
+        runSessionCheck(r, "After a stale reduced-payout rejection, a fresh ordinary request completes at the new full value",
+                player, standardShop(), 100, new ItemStack(Items.BREAD, 20), (merchant, slot) -> {
+                    merchant.setCurrentCredits(102);
+                    SellResult stale = TradeSessionManager.handleSell(player, slot, 17, true, 102L, 100L);
+                    long walletBefore = wallet(player);
+                    SellResult fresh = TradeSessionManager.handleSell(player, slot, 17);
+                    ItemStack after = player.getInventory().getItem(slot);
+                    boolean pass = !stale.success() && stale.reason() == SellResult.Reason.STALE_CONFIRMATION
+                            && fresh.success() && fresh.payout() == 102L && fresh.quantitySold() == 17
+                            && after.getCount() == 3
+                            && wallet(player) - walletBefore == 102L
+                            && merchant.currentCredits() == 0L;
+                    return result(pass, "stale=" + stale + ", fresh=" + fresh + ", after=" + after);
                 });
     }
 

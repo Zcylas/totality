@@ -345,10 +345,21 @@ public final class TradeSessionManager {
             return SellResult.rejected(SellResult.Reason.NOT_SELLABLE, quote.rejectionReason());
         }
 
+        // Post-review correction: branch on WHAT THE REQUEST CLAIMS (confirmedReducedPayout),
+        // never on the current quote's requiresConfirmation() state alone — the original code
+        // branched on the CURRENT quote, so a reduced-payout confirmation submitted while the
+        // merchant was underfunded could silently complete as an ordinary full-value sale if the
+        // merchant became fully funded (Credits rose) before the server processed it. The terms
+        // shown in the popup changed either way — better or worse — and always require fresh
+        // player review; only a request that still explicitly claims "I confirmed a reduced
+        // payout" is checked against the confirmed amounts at all.
         long payout;
-        if (quote.requiresConfirmation()) {
-            if (!confirmedReducedPayout) {
-                return SellResult.rejected(SellResult.Reason.CONFIRMATION_REQUIRED);
+        if (confirmedReducedPayout) {
+            if (!quote.requiresConfirmation()) {
+                // The merchant is now fully funded (or otherwise no longer underfunded) — the
+                // popup the player confirmed no longer describes reality. Never silently honor
+                // either the old reduced amount or the new full amount; require a fresh request.
+                return SellResult.rejected(SellResult.Reason.STALE_CONFIRMATION);
             }
             // A conservative exact-match check against the CURRENT, freshly recomputed quote —
             // client-supplied values are never authoritative, only proof of the terms the player
@@ -360,6 +371,9 @@ public final class TradeSessionManager {
             }
             payout = quote.payableAmount();
         } else {
+            if (quote.requiresConfirmation()) {
+                return SellResult.rejected(SellResult.Reason.CONFIRMATION_REQUIRED);
+            }
             payout = quote.totalValue();
         }
 
