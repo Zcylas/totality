@@ -66,6 +66,25 @@ class PlayerStatsCharacterizationTest {
                         + "live StatAttributeApplier path (CON modifier * 2.0 vanilla HP units)");
     }
 
+    /**
+     * Phase 2C's Resource API audit: neither {@code PlayerManaManager.getMaxMana}/
+     * {@code PlayerStaminaManager.getMaxStamina} nor this bonus formula floors the result above
+     * zero — a sufficiently negative END/INT modifier can drive the legacy manager's live maximum
+     * to zero or below, which is exactly the (real, not merely theoretical) case
+     * {@code ManaResourceAdapter}/{@code StaminaResourceAdapter} must report as
+     * {@code MALFORMED_OWNER_STATE} rather than fabricate a snapshot for.
+     */
+    @Test
+    void negativeEndAndIntModifiersProduceNegativeStaminaAndManaBonuses() {
+        PlayerStats stats = new PlayerStats();
+        stats.setOriginBonus(new AbilityScoreBonus(0, 0, 0, -10, -10, 0, 0, 0)); // END/INT 10 -> 0, modifier -5
+
+        assertEquals(-5, stats.getModifier(AbilityScore.END));
+        assertEquals(-5, stats.getModifier(AbilityScore.INT));
+        assertEquals(-50, stats.getMaxStaminaBonus());
+        assertEquals(-50, stats.getMaxManaBonus());
+    }
+
     @Test
     void spendingAttributePointsAffectsFinalScoreAndDerivedBonuses() {
         PlayerStats stats = new PlayerStats();

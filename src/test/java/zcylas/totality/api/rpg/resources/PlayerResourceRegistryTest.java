@@ -245,29 +245,34 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthFoodAndBreath() {
+    void productionSingletonContainsExactlyHealthFoodBreathManaAndStamina() {
         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
-        // adds Breath — all three EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
+        // added Breath; Phase 2C adds Mana and Stamina — all five EXTERNAL_ADAPTER-authority,
+        // query-only (see ProductionResourceDefinitions). Mana/Stamina are transitional adapters
+        // over the legacy PlayerResourceComponent store, unlike the other three which wrap vanilla.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(3, PlayerResourceRegistry.INSTANCE.size());
-        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.HEALTH));
-        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.FOOD));
-        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.BREATH));
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().stateAuthority());
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
+        assertEquals(5, PlayerResourceRegistry.INSTANCE.size());
+        for (Identifier resourceId : new Identifier[] {
+                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
+                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA
+        }) {
+            assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
+            assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                    PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow().stateAuthority(),
+                    () -> resourceId + " must be EXTERNAL_ADAPTER");
+        }
         assertTrue(PlayerResourceRegistry.INSTANCE.isFrozen());
     }
 
     @Test
-    void allThreeProductionDefinitionsAreExternalScalarResources() {
+    void allFiveProductionDefinitionsAreExternalScalarResources() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        for (Identifier resourceId : new Identifier[] {PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH}) {
+        for (Identifier resourceId : new Identifier[] {
+                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
+                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA
+        }) {
             PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
             assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority(), () -> resourceId + " must be EXTERNAL_ADAPTER");
@@ -286,6 +291,57 @@ class PlayerResourceRegistryTest {
                 "The canonical name is totality:breath, not totality:oxygen");
         assertTrue(PlayerResourceRegistry.INSTANCE.get(id("air")).isEmpty(),
                 "The canonical name is totality:breath, not totality:air");
+    }
+
+    @Test
+    void productionSingletonHasNoRageOrSpellSlotDefinitionYet() {
+        // Phase 2C's own scope exclusion: only existing-store adapters land in Phase 2C/2D/2E;
+        // Rage/spell-slot legacy adapters are explicitly later phases (see the Phase 2C report's
+        // "next recommended slice").
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("rage")).isEmpty());
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("barbarian_rage")).isEmpty());
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("spell_slots")).isEmpty());
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("spell_slot")).isEmpty());
+    }
+
+    @Test
+    void productionManaAndStaminaDeclareExactlyHudVisibleAndMenuVisibleCapabilities() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        java.util.Set<ResourceCapability> expected = java.util.Set.of(
+                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE);
+
+        assertEquals(expected, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow().capabilities());
+        assertEquals(expected, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().capabilities());
+
+        for (ResourceCapability mutationCapability : new ResourceCapability[] {
+                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN
+        }) {
+            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow()
+                    .capabilities().contains(mutationCapability));
+            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow()
+                    .capabilities().contains(mutationCapability));
+        }
+    }
+
+    @Test
+    void productionManaAndStaminaDeclareAuditedLegacyBaselineMaximumsAndExplicitDefinitionVersion() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition mana = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
+        PlayerResourceDefinition stamina = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
+
+        assertEquals(1L, mana.unitScale());
+        assertEquals(1L, stamina.unitScale());
+        assertEquals(0L, mana.absoluteMinimum());
+        assertEquals(0L, stamina.absoluteMinimum());
+        assertEquals(100L, mana.authoredBaseMaximum().orElseThrow(),
+                "authored baseline is descriptive only — the live query path never consults it");
+        assertEquals(100L, stamina.authoredBaseMaximum().orElseThrow());
+        assertEquals(1, mana.definitionVersion());
+        assertEquals(1, stamina.definitionVersion());
     }
 
     @Test

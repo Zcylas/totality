@@ -4,11 +4,11 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
 import zcylas.totality.api.rpg.resources.ResourceSnapshot;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -53,10 +53,10 @@ public final class HealthResourceAdapter implements ExternalPlayerResourceAdapte
     }
 
     @Override
-    public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
+    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
         long current = toUnits(player.getHealth(), definition.unitScale());
         long maximum = toUnits(player.getMaxHealth(), definition.unitScale());
-        return Optional.of(new ResourceSnapshot(definition.id(), current, maximum, definition.unitScale()));
+        return new ResourceQueryResult.Success(new ResourceSnapshot(definition.id(), current, maximum, definition.unitScale()));
     }
 
     @Override

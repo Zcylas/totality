@@ -1,0 +1,198 @@
+TOTALITY GENERIC PLAYER RESOURCE API — PHASE 2C REVIEW BUNDLE MANIFEST
+========================================================================
+
+Bundle creation date (UTC): 2026-07-19 19:26:31 (finalization pass — records
+  the passed manual smoke test; supersedes the correction-pass bundle
+  generated earlier at 2026-07-19 19:59:33, which recorded the manual smoke
+  test as not yet executed).
+Revision: FINALIZATION PASS. Supersedes the correction-pass bundle. No
+  source, test, or logic change in this pass — only documentation updated
+  to record Stefan's manual smoke test result:
+    Stefan's report, in full: "Manual smoke testing passed. Mana and
+    Stamina behaved exactly as before, with no visible gameplay changes or
+    regressions."
+  This is a general/overall confirmation, not an itemized per-checklist-item
+  report — no individual item from the 18-item manual smoke-test checklist
+  was separately confirmed. Updated in this pass:
+    - Context/Audit/TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md
+      — §20 checklist status line superseded; Correction Pass Addendum §5
+      superseded; new "Final Status — Ready to Commit" section added.
+    - Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+      — top Status line, Phase 2C Implementation Record's "Manual
+      verification" line, and "Phase 2C Final Status" section all updated
+      to reflect the passed manual smoke test.
+  The prior correction pass's two code fixes (resolve()-orders-the-
+  initialized-check-before-the-maximum-supplier; ALLOWED_ADAPTER_FAILURE_REASONS
+  constraining what an adapter is trusted to report) are unchanged by this
+  pass — see the report's "Correction Pass Addendum" for their original
+  detail.
+Branch: feature/general-resource-api
+Starting commit (Phase 2B, confirmed committed before Phase 2C/any pass):
+  03c85a8611e20219b2fca82a03d1a4de7732c229 ("Add breath resource adapter")
+HEAD commit at manifest generation time: 03c85a8611e20219b2fca82a03d1a4de7732c229
+  (all Phase 2C work — original implementation, correction pass, and this
+  finalization pass — is uncommitted working-tree content at manifest
+  generation time; nothing was staged or committed at any point; git diff
+  --cached is empty).
+
+------------------------------------------------------------------------
+git status --short (full working tree, at manifest generation time)
+------------------------------------------------------------------------
+ M Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+ M src/main/generated/data/minecraft/worldgen/noise_settings/overworld.json
+ M src/main/generated/data/totality/loot_table/blocks/apothecary_table.json
+ M src/main/generated/data/totality/loot_table/blocks/copper_cable.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/electric_furnace.json
+ M src/main/generated/data/totality/loot_table/blocks/flecked_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/generator.json
+ M src/main/generated/data/totality/loot_table/blocks/graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/limestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone_bricks.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_altar.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_dais.json
+ M src/main/generated/data/totality/loot_table/blocks/ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/tin_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/true_wheat_crop.json
+ M src/main/generated/data/totality/loot_table/blocks/whitestone.json
+ M src/main/generated/data/totality/recipe/copper_gear.json
+ M src/main/generated/data/totality/recipe/diamond_gear.json
+ M src/main/generated/data/totality/recipe/gold_gear.json
+ M src/main/generated/data/totality/recipe/iron_gear.json
+ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ResourceComponents.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/ExternalResourceClientMirrorMode.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+ M src/test/java/zcylas/totality/api/rpg/stats/PlayerStatsCharacterizationTest.java
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2C.patch"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2C_IMPLEMENTATION_REPORT.md"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2C_MANIFEST.txt"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2C_REVIEW_BUNDLE.zip"
+?? Context/Audit/TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md
+?? "Context/Trading Test/trade_screen2.png"
+?? "Context/Trading Test/trade_screen3.png"
+?? "Context/Trading Test/trade_screen4.png"
+?? "Context/Trading Test/trade_screen5.png"
+?? logs/
+?? src/main/generated/.cache/
+?? src/main/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapter.java
+?? src/main/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapter.java
+?? src/test/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapterTest.java
+?? src/test/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapterTest.java
+
+NOTE: only the files listed in the FILE INVENTORY section below are
+included in the ZIP. The pre-existing modified files under
+src/main/generated/data/** (loot tables, recipes, noise settings), the
+untracked Context/Trading Test/*.png screenshots, the untracked
+src/main/generated/.cache/ directory, and the untracked logs/ directory
+(gzipped client-session logs, an expected byproduct of running
+`./gradlew runDatagen`/`build` during validation) are unrelated
+uncommitted/generated artifacts and are deliberately excluded from this
+bundle. No Phase 1, Phase 2A, or Phase 2B review-bundle artifact
+(TOTALITY_RESOURCE_API_PHASE_1.*, TOTALITY_RESOURCE_API_PHASE_2A.*,
+TOTALITY_RESOURCE_API_PHASE_2B.*) was modified by this phase and none is
+included here.
+
+------------------------------------------------------------------------
+FILE INVENTORY (21 modified files + 5 created files + bundle-local
+report + patch + manifest)
+------------------------------------------------------------------------
+
+Format: CLASSIFICATION  bytes=<size>  sha256=<hash>  <project-relative path>
+
+MODIFIED  bytes=143696   sha256=f10bc9c1c3e99b1c566a806f259d2f9f56bc0b1002229eb4a4b7b1e368827a37  Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+MODIFIED  bytes=2348     sha256=237218f61452b30ca9645c71200f50b14561bfb24aafbab41aef57a11bfd9efb  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+MODIFIED  bytes=12955    sha256=c260f034079859dbde2f3cb13b016969fca71e1d1d2825688db261b33363f498  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+MODIFIED  bytes=12291    sha256=2e3fadc6d3b55612aa964d0cc1927fae6c3e1eacfb43f48329085400a94a0ba3  src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+MODIFIED  bytes=1929     sha256=7cdebc9fb23a65f70f069e52e79f37fd98aa20322acf9b9b7886d105bf4ed589  src/main/java/zcylas/totality/api/rpg/resources/ResourceComponents.java
+MODIFIED  bytes=7269     sha256=9a8c807bb96428764d076b5425753adf8b642e17fb2f1911338e5834c3c63854  src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java
+MODIFIED  bytes=6667     sha256=dc1360d332a72a508606f62ee7bb3fb8cfa541f8541353937cf074cb6882dfbb  src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java
+MODIFIED  bytes=6800     sha256=25aed41b638a857f92e2f41bcbba19c614d2fca1eb1050ec0a005ff8000619b5  src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+MODIFIED  bytes=2397     sha256=fe5ac11d3ac652a0062ff2247a33cbe35e16cff399ebf30668352b62a9a01551  src/main/java/zcylas/totality/api/rpg/resources/external/ExternalResourceClientMirrorMode.java
+MODIFIED  bytes=2308     sha256=f87f3315ffc6c3ddd2a524c0f0a98099b074c4e930d3cf20f0367cf9b85cbcc4  src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java
+MODIFIED  bytes=5670     sha256=950133df606cfce811df41c9ca806018adb878c0da77b5647d58768acc8d69b6  src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java
+MODIFIED  bytes=9655     sha256=cc1fc79489b6076d45977a2f0ea3796e3283601644f70888c1331949a4a9cd06  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+MODIFIED  bytes=25291    sha256=687890243de30ea4280ad48df6e5675908547b10a03ec54556ad8440b4f70f6a  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+MODIFIED  bytes=29601    sha256=2a33976d56ef098d51f8a5d6dbb0d5de425ffa2fb95efcf03fd700eee0c0beaa  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+MODIFIED  bytes=21278    sha256=71f933d44d2be7bc46350d6dbad5ad1701ee89b92e9ec41c0d3b26b4aff83a7a  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+MODIFIED  bytes=7914     sha256=f75cc16517415e832742f1fb664725c7075d7dc28f48b2589b77ca853d444646  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+MODIFIED  bytes=11996    sha256=1bc394745be94019345f0d1a27010e67c99cb29fef94440505313bb28a2ade75  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+MODIFIED  bytes=6418     sha256=73958f2003cd23a99053ed18e381c922a796aca9b39637a42ca878c42047f032  src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java
+MODIFIED  bytes=9186     sha256=88320c06ef54ff3c9379fbe24e27ebf530e4698c69640a0092fb1b906a3ceb96  src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java
+MODIFIED  bytes=4740     sha256=c569ce7f12f0c026e8d8f65197e04daa16497245524653e5bf7301439ffc9ecb  src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+MODIFIED  bytes=4609     sha256=015540780d141af0e96ed2fe39506c9459f13bd99267b158bb25405b1e4fc16e  src/test/java/zcylas/totality/api/rpg/stats/PlayerStatsCharacterizationTest.java
+CREATED   bytes=8678     sha256=c3cc32f094b132688f52a754f0a5e741986b11d13ec7a53e67b9050db50eaa68  src/main/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapter.java
+CREATED   bytes=6719     sha256=f4792a808533b98083793d4379695dc38dc7d78129369c423d5aaf20c2c98c56  src/main/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapter.java
+CREATED   bytes=9606     sha256=16b1c1eb7bdb3490e9f05f1825f7eecb0eefc67485144fdb0ccecc8b2ee9c025  src/test/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapterTest.java
+CREATED   bytes=8965     sha256=2ecdcdb8ba735b10f18d91e75d3522122830e17b23e31d61f24d209211f548f6  src/test/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapterTest.java
+DOC       bytes=45423    sha256=705a29c6e99839083681ce8a8eea16246380ac0ab0ad7672583156558ff21457  Context/Audit/TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md
+REPORT    bytes=45423    sha256=705a29c6e99839083681ce8a8eea16246380ac0ab0ad7672583156558ff21457  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2C_IMPLEMENTATION_REPORT.md
+PATCH     bytes=195477   sha256=N/A (regenerated this pass — see PATCH REGENERATION note below)  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2C.patch
+MANIFEST  bytes=N/A       sha256=N/A (self-referential — this row describes this file; a file cannot contain a hash of its own final byte contents without circularity)  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2C_MANIFEST.txt
+
+------------------------------------------------------------------------
+PATCH REGENERATION (this pass)
+------------------------------------------------------------------------
+The correction-pass patch was regenerated in this finalization pass, purely
+to include the two documentation files' new content (the report's smoke-test
+update, the readiness doc's smoke-test update) — no source or test file's
+diff content changed from the correction-pass patch. Regeneration method:
+`git diff 03c85a86 -- <tracked files>` concatenated with `git diff --no-index
+/dev/null <file>` for each of the 5 new (untracked) files, reproducing the
+same method used to build every prior bundle in this series. Verified via
+`git apply --check --reverse` against the working tree with zero errors
+before being written to this bundle.
+
+------------------------------------------------------------------------
+TOTALS
+------------------------------------------------------------------------
+Files listed above (excluding this manifest's own self-referential row): 28
+  - MODIFIED: 21 (20 code/test files + 1 doc, the readiness audit)
+  - CREATED:  5 (4 code/test files + 1 doc, the Phase 2C implementation report)
+  - REPORT:   1 (bundle-local copy of the implementation report)
+  - PATCH:    1
+Total files packaged into the ZIP (including this manifest itself): 29
+
+------------------------------------------------------------------------
+TEST COUNT
+------------------------------------------------------------------------
+240 (end of Phase 2B) -> 287 (end of Phase 2C initial pass) -> 301 (end of
+Phase 2C correction pass). 301/301 passed, 0 failures. Unchanged by this
+finalization pass (documentation only, no source/test change).
+
+------------------------------------------------------------------------
+BUILD/VALIDATION RESULTS
+------------------------------------------------------------------------
+./gradlew compileJava        BUILD SUCCESSFUL
+./gradlew test                301/301 tests passed
+./gradlew runDatagen           BUILD SUCCESSFUL, written: 0
+./gradlew build -x runDatagen  BUILD SUCCESSFUL
+git diff --cached              empty throughout this phase and every pass
+git diff --check                only pre-existing LF/CRLF warnings, no errors
+
+------------------------------------------------------------------------
+MANUAL SMOKE TEST
+------------------------------------------------------------------------
+PASSED. Stefan's report, in full: "Manual smoke testing passed. Mana and
+Stamina behaved exactly as before, with no visible gameplay changes or
+regressions." This is a general/overall confirmation, not an itemized
+per-checklist-item report against the 18-item checklist recorded in the
+dedicated implementation report's §20 — no individual checklist item was
+separately confirmed. Phase 2C is READY TO COMMIT.

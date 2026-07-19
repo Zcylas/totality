@@ -25,9 +25,19 @@ public enum ResourceQueryFailureReason {
     STATE_NOT_INSTANTIATED,
 
     /**
-     * The definition is {@code GENERIC_COMPONENT}-authority, but generic player state can only be
-     * resolved for a {@code ServerPlayer} (it lives in a server-side component); the caller passed
-     * a client-side {@link net.minecraft.world.entity.player.Player}.
+     * State cannot be resolved on this side. Two distinct cases produce this:
+     * <ul>
+     *     <li>The definition is {@code GENERIC_COMPONENT}-authority, but generic player state can
+     *         only be resolved for a {@code ServerPlayer} (it lives in a server-side component);
+     *         the caller passed a client-side {@link net.minecraft.world.entity.player.Player}.</li>
+     *     <li>Introduced in Phase 2C: the definition is a <i>transitional</i> {@code EXTERNAL_ADAPTER}
+     *         over a legacy-authoritative store that has no generic client synchronization yet
+     *         ({@code ManaResourceAdapter}/{@code StaminaResourceAdapter} — see
+     *         {@link zcylas.totality.api.rpg.resources.external.ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION}).
+     *         Their legacy bespoke packet/client cache is the only thing currently reaching the
+     *         client; a generic client-side query must fail structurally rather than read that
+     *         client-only cache (untrusted for this purpose) or fabricate a value.</li>
+     * </ul>
      */
     STATE_UNAVAILABLE_ON_THIS_SIDE,
 
@@ -76,10 +86,30 @@ public enum ResourceQueryFailureReason {
      * represent as a valid snapshot (e.g. vanilla reporting a non-positive maximum for a resource
      * that requires a positive one) — introduced in Phase 2B for {@code BreathResourceAdapter},
      * whose owner's maximum ({@code Entity.getMaxAirSupply()}) is a virtual method future entity
-     * types could theoretically override into something degenerate. The adapter returns
-     * {@link java.util.Optional#empty()} from {@code snapshot(...)} rather than fabricating a
-     * clamped-to-nothing or otherwise invented value; this reason is never used as ordinary control
-     * flow — it fires only when the owner's actual state is genuinely unrepresentable.
+     * types could theoretically override into something degenerate. The adapter returns a
+     * {@link ResourceQueryResult.Failure} naming this reason from {@code snapshot(...)} rather than
+     * fabricating a clamped-to-nothing or otherwise invented value; this reason is never used as
+     * ordinary control flow — it fires only when the owner's actual state is genuinely
+     * unrepresentable. Also produced in Phase 2C by {@code ManaResourceAdapter}/
+     * {@code StaminaResourceAdapter} when the legacy manager's live maximum calculation
+     * ({@code PlayerManaManager.getMaxMana}/{@code PlayerStaminaManager.getMaxStamina}) resolves to
+     * a non-positive value — reachable in practice (unlike Breath's case) if a sufficiently negative
+     * ability-score modifier outweighs the base maximum, since neither legacy formula floors the
+     * result above zero.
      */
-    MALFORMED_OWNER_STATE
+    MALFORMED_OWNER_STATE,
+
+    /**
+     * Introduced in Phase 2C for {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}: the
+     * legacy-authoritative {@code PlayerResourceComponent} has never been initialized for this
+     * player ({@code isManaInitialized()}/{@code isStaminaInitialized()} is {@code false} — the
+     * stored value is still the {@code -1} sentinel). Unlike {@code PlayerManaManager.getMana}/
+     * {@code PlayerStaminaManager.getStamina}, a read-only generic query must never lazily
+     * initialize the legacy component as a side effect of being asked a question — it reports this
+     * structured failure instead. An ordinarily-joined player is expected to have both initialized
+     * almost immediately (the very next Mana/Stamina server tick, or the first legacy manager call
+     * from any existing gameplay path, initializes them) — this is a narrow, real, but short-lived
+     * window, not evidence that a derived "would-initialize-to-max" view is needed for correctness.
+     */
+    STATE_UNINITIALIZED
 }

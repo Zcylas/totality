@@ -2,9 +2,9 @@ package zcylas.totality.api.rpg.resources.external;
 
 import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
+import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
 import zcylas.totality.api.rpg.resources.ResourceSnapshot;
-
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,6 +18,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class BreathResourceAdapterTest {
 
     private static final Identifier ID = Identifier.fromNamespaceAndPath("totality", "breath");
+
+    private static ResourceSnapshot successSnapshot(ResourceQueryResult result) {
+        assertInstanceOf(ResourceQueryResult.Success.class, result);
+        return ((ResourceQueryResult.Success) result).snapshot();
+    }
 
     @Test
     void breathAdapterSupportsOnlyQuery() {
@@ -44,25 +49,22 @@ class BreathResourceAdapterTest {
 
     @Test
     void fullAirNormalizesToCurrentEqualsMaximum() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 300, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(300L, result.get().currentUnits());
-        assertEquals(300L, result.get().maximumUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 300, 300, 1));
+        assertEquals(300L, snapshot.currentUnits());
+        assertEquals(300L, snapshot.maximumUnits());
     }
 
     @Test
     void partialAirNormalizesUnchanged() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 150, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(150L, result.get().currentUnits());
-        assertEquals(300L, result.get().maximumUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 150, 300, 1));
+        assertEquals(150L, snapshot.currentUnits());
+        assertEquals(300L, snapshot.maximumUnits());
     }
 
     @Test
     void zeroAirNormalizesToZero() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 0, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(0L, result.get().currentUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 0, 300, 1));
+        assertEquals(0L, snapshot.currentUnits());
     }
 
     @Test
@@ -70,71 +72,68 @@ class BreathResourceAdapterTest {
         // Vanilla air ticks down to -20 as its own drowning-damage timer (see LivingEntity.baseTick
         // / shouldTakeDrowningDamage in the vanilla air audit) — that negative range is
         // owner-specific metadata, never exposed as negative generic Breath.
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, -20, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(0L, result.get().currentUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, -20, 300, 1));
+        assertEquals(0L, snapshot.currentUnits());
     }
 
     @Test
     void deeplyNegativeAirStillClampsToZero() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, Integer.MIN_VALUE, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(0L, result.get().currentUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, Integer.MIN_VALUE, 300, 1));
+        assertEquals(0L, snapshot.currentUnits());
     }
 
     @Test
     void currentAboveMaximumClampsDownToMaximum() {
         // No known vanilla path produces current > max, but the adapter must not fabricate an
         // invalid (current > maximum) snapshot if it ever did — clamp rather than pass through.
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 400, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(300L, result.get().currentUnits());
-        assertEquals(300L, result.get().maximumUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 400, 300, 1));
+        assertEquals(300L, snapshot.currentUnits());
+        assertEquals(300L, snapshot.maximumUnits());
     }
 
     @Test
     void dynamicMaximumDifferentFromVanillaBaselineIsRespected() {
         // getMaxAirSupply() is virtual — a future entity type could override it. The adapter must
         // never hardcode 300; it must reflect whatever live maximum it was actually given.
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 500, 600, 1);
-        assertTrue(result.isPresent());
-        assertEquals(500L, result.get().currentUnits());
-        assertEquals(600L, result.get().maximumUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 500, 600, 1));
+        assertEquals(500L, snapshot.currentUnits());
+        assertEquals(600L, snapshot.maximumUnits());
     }
 
     @Test
-    void zeroMaximumProducesMalformedOwnerStateAsEmptyOptional() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, 0, 1);
-        assertTrue(result.isEmpty(), "a non-positive maximum must be a typed decline, not a fabricated snapshot");
+    void zeroMaximumProducesMalformedOwnerStateFailure() {
+        ResourceQueryResult result = BreathResourceAdapter.normalize(ID, 100, 0, 1);
+        assertInstanceOf(ResourceQueryResult.Failure.class, result,
+                "a non-positive maximum must be a typed decline, not a fabricated snapshot");
+        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(ID, ((ResourceQueryResult.Failure) result).resourceId());
     }
 
     @Test
-    void negativeMaximumProducesMalformedOwnerStateAsEmptyOptional() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, -5, 1);
-        assertTrue(result.isEmpty());
+    void negativeMaximumProducesMalformedOwnerStateFailure() {
+        ResourceQueryResult result = BreathResourceAdapter.normalize(ID, 100, -5, 1);
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
     }
 
     @Test
     void resultCurrentAndMaximumAreExactIntegersNoFloatConversion() {
         // Breath is an int-native vanilla quantity end to end (SynchedEntityData int field) — the
         // normalization core must never round-trip through float/double.
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 137, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(137L, result.get().currentUnits());
-        assertEquals(300L, result.get().maximumUnits());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 137, 300, 1));
+        assertEquals(137L, snapshot.currentUnits());
+        assertEquals(300L, snapshot.maximumUnits());
     }
 
     @Test
     void unitScaleIsAlwaysOne() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(1L, result.get().unitScale());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 100, 300, 1));
+        assertEquals(1L, snapshot.unitScale());
     }
 
     @Test
     void resourceIdIsPreservedOnTheSnapshot() {
-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, 300, 1);
-        assertTrue(result.isPresent());
-        assertEquals(ID, result.get().resourceId());
+        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 100, 300, 1));
+        assertEquals(ID, snapshot.resourceId());
     }
 }

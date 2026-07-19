@@ -8,9 +8,11 @@ import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterR
 import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSupport;
 import zcylas.totality.api.rpg.resources.state.ScalarResourceState;
 
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 /**
  * The one public query façade for the Generic Player Resource API. See
@@ -35,6 +37,23 @@ public final class PlayerResourceService {
 
     public static final PlayerResourceService INSTANCE =
             new PlayerResourceService(PlayerResourceRegistry.INSTANCE, ExternalPlayerResourceAdapterRegistry.INSTANCE);
+
+    /**
+     * The only {@link ResourceQueryFailureReason} values an {@link ExternalPlayerResourceAdapter}
+     * is trusted to report on its own authority (correction pass, Phase 2C). Every other reason
+     * belongs to the registry/service/generic-state layers — {@code RESOURCE_NOT_REGISTERED},
+     * {@code ADAPTER_NOT_REGISTERED}, {@code STATE_NOT_INSTANTIATED}, {@code UNSUPPORTED_MODEL},
+     * {@code OPERATION_UNSUPPORTED}, {@code MAXIMUM_UNAVAILABLE}, and {@code CORRUPT_ADAPTER_SNAPSHOT}
+     * itself are all things only {@code PlayerResourceService} can legitimately determine (an
+     * adapter has no visibility into, for example, whether it is even registered). An adapter
+     * returning one of those anyway is itself malformed output — it is not trusted at face value
+     * even though its {@code resourceId} might match, and is instead turned into
+     * {@code CORRUPT_ADAPTER_SNAPSHOT}. See {@link ExternalPlayerResourceAdapter#snapshot}'s Javadoc.
+     */
+    private static final Set<ResourceQueryFailureReason> ALLOWED_ADAPTER_FAILURE_REASONS = EnumSet.of(
+            ResourceQueryFailureReason.MALFORMED_OWNER_STATE,
+            ResourceQueryFailureReason.STATE_UNINITIALIZED,
+            ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE);
 
     private final PlayerResourceRegistry registry;
     private final ExternalPlayerResourceAdapterRegistry adapters;
@@ -97,19 +116,32 @@ public final class PlayerResourceService {
             return new ResourceQueryResult.Failure(ResourceQueryFailureReason.OPERATION_UNSUPPORTED, definition.id());
         }
 
-        Optional<ResourceSnapshot> snapshot = adapter.snapshot(player, definition);
-        if (snapshot == null) {
-            // A misbehaving adapter returned a null Optional reference instead of a real one —
-            // distinct from the adapter correctly returning Optional.empty() below. Guarded
-            // defensively (never expected from a well-formed adapter) rather than trusted blindly.
+        ResourceQueryResult adapterResult = adapter.snapshot(player, definition);
+        if (adapterResult == null) {
+            // A misbehaving adapter returned a literal null instead of a real ResourceQueryResult —
+            // guarded defensively (never expected from a well-formed adapter) rather than trusted
+            // blindly.
             return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
         }
-        if (snapshot.isEmpty()) {
-            // The adapter inspected its owner and explicitly declined — a typed signal, not a
-            // null-as-control-flow shortcut. See ExternalPlayerResourceAdapter#snapshot's Javadoc.
-            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, definition.id());
+        if (adapterResult instanceof ResourceQueryResult.Failure failure) {
+            // The adapter inspected its owner and explicitly declined, naming a specific reason — a
+            // typed signal, not a null-as-control-flow shortcut. See
+            // ExternalPlayerResourceAdapter#snapshot's Javadoc for what each reason means. Trusted
+            // directly (rather than reinterpreted) only once BOTH (a) its resourceId is confirmed to
+            // match the definition actually queried, AND (b) its reason is one of the small set an
+            // adapter is actually allowed to determine on its own authority
+            // (ALLOWED_ADAPTER_FAILURE_REASONS) — an adapter naming a different resource, or
+            // claiming a registry/service-owned reason like RESOURCE_NOT_REGISTERED or
+            // MAXIMUM_UNAVAILABLE that it has no authority or visibility to determine, is itself a
+            // malformed response, not a legitimate failure about this query.
+            if (!failure.resourceId().equals(definition.id())
+                    || !ALLOWED_ADAPTER_FAILURE_REASONS.contains(failure.reason())) {
+                return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+            }
+            return failure;
         }
-        return validateExternalSnapshot(snapshot.get(), definition);
+        ResourceQueryResult.Success success = (ResourceQueryResult.Success) adapterResult;
+        return validateExternalSnapshot(success.snapshot(), definition);
     }
 
     /**

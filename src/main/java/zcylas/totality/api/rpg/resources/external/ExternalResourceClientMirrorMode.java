@@ -20,5 +20,21 @@ public enum ExternalResourceClientMirrorMode {
      * client. Not used by any Phase 2A adapter — declared for definition-shape completeness ahead
      * of the future generic synchronization phase.
      */
-    GENERIC_SYNCHRONIZATION
+    GENERIC_SYNCHRONIZATION,
+
+    /**
+     * Introduced in Phase 2C for {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}: the
+     * owner is a legacy-authoritative store ({@code PlayerResourceComponent}) that already has its
+     * own Totality-authored bespoke packet and client-side cache ({@code SyncManaPayload}/
+     * {@code ClientManaManager}, {@code SyncStaminaPayload}/{@code ClientStaminaManager}) — neither
+     * vanilla-native nor the generic Resource API sync path. Existing HUD readers keep using that
+     * bespoke packet/cache directly and are unaffected by this declaration. A generic client-side
+     * query for a resource in this mode has no trustworthy value to read yet (the Resource API does
+     * not mirror this resource to the client at all during the transitional adapter phase) and must
+     * fail with {@link zcylas.totality.api.rpg.resources.ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE}
+     * rather than reading the legacy client cache (untrusted for this purpose) or fabricating a
+     * value. This mode is expected to become {@link #GENERIC_SYNCHRONIZATION} once a future
+     * synchronization/client-presentation phase actually mirrors these resources generically.
+     */
+    LEGACY_BESPOKE_SYNCHRONIZATION
 }

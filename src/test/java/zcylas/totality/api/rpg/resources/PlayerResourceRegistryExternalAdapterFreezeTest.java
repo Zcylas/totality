@@ -10,8 +10,9 @@ import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSuppo
 import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
 
-import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,8 +32,8 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     private static ExternalPlayerResourceAdapter fakeAdapter(Identifier id) {
         return new ExternalPlayerResourceAdapter() {
             @Override public Identifier id() { return id; }
-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
-                return Optional.of(new ResourceSnapshot(id, 1, 2, 1));
+            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+                return new ResourceQueryResult.Success(new ResourceSnapshot(id, 1, 2, 1));
             }
             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
                 return Set.of(ExternalResourceOperationSupport.QUERY);
@@ -120,13 +121,61 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     }
 
     @Test
-    void productionAdapterRegistryContainsExactlyHealthFoodAndBreath() {
+    void productionManaAndStaminaDefinitionsResolveTheirRegisteredAdapters() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(3, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
+        PlayerResourceDefinition mana = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
+        PlayerResourceDefinition stamina = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
+
+        assertEquals(ManaResourceAdapter.ID, mana.externalAdapterId().orElseThrow());
+        assertEquals(StaminaResourceAdapter.ID, stamina.externalAdapterId().orElseThrow());
+        assertSame(ManaResourceAdapter.INSTANCE,
+                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(mana.externalAdapterId().orElseThrow()).orElseThrow());
+        assertSame(StaminaResourceAdapter.INSTANCE,
+                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(stamina.externalAdapterId().orElseThrow()).orElseThrow());
+        assertEquals(1, mana.definitionVersion(), "transitional legacy-adapter representation must be explicit at version 1");
+        assertEquals(1, stamina.definitionVersion());
+    }
+
+    @Test
+    void productionAdapterRegistryContainsExactlyFiveAdapters() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertEquals(5, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(HealthResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(BreathResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(ManaResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StaminaResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isFrozen());
+    }
+
+    @Test
+    void productionManaQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
+        // Exercises the FULL production query path end to end — PlayerResourceService.query ->
+        // queryExternal -> the real registered ManaResourceAdapter.snapshot -- using `null` as the
+        // player, which fails the `instanceof ServerPlayer` check exactly like a real client-side
+        // LocalPlayer would (neither is a ServerPlayer). No fake/mock Player construction needed:
+        // this is the real production adapter, actually invoked.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.MANA);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
+                ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(PlayerResourceIds.MANA, ((ResourceQueryResult.Failure) result).resourceId());
+    }
+
+    @Test
+    void productionStaminaQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.STAMINA);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
+                ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(PlayerResourceIds.STAMINA, ((ResourceQueryResult.Failure) result).resourceId());
     }
 }

@@ -1,0 +1,2669 @@
+diff --git a/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md b/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+index f92b617..0cc16b7 100644
+--- a/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
++++ b/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+@@ -1,7 +1,7 @@
+ # TOTALITY GENERIC PLAYER RESOURCE API — IMPLEMENTATION READINESS AUDIT
+ 
+-**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A Implementation Record"/"Correction Pass"/"Cleanup Pass" sections record Health and Food external adapters, landed 2026-07-19 (214/214 tests, manual smoke test passed). The "Phase 2B Implementation Record" section (same day) records the Breath external adapter. **Phase 2B is READY TO COMMIT as of 2026-07-19**: Health, Food, and Breath are real, frozen, `EXTERNAL_ADAPTER`-authority production definitions; 240/240 automated tests pass; build/datagen validation succeeds; and the manual smoke test has since passed on the real 26.2 client (Conduit Power was not tested and is non-blocking — see "Phase 2B Final Status" at the very end of this document). Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"manual test pending" statement anywhere in this document as current.
+-**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19
++**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A"/"Phase 2B"/"Phase 2C" Implementation Records (Health/Food, then Breath, then Mana/Stamina) all reached READY TO COMMIT with a passed manual smoke test. The "Phase 2C Implementation Record" section (2026-07-19) records the Mana and Stamina **transitional, query-only, legacy-store** external adapters, and the "Phase 2C Correction Pass" section (same day) fixed two issues found on review — an unnecessary maximum-calculation event dispatch for uninitialized queries, and an unconstrained adapter-returned-failure-reason trust boundary in `PlayerResourceService`. The registry now holds five production definitions (`totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina`), 301/301 automated tests pass, build/datagen validation succeeds, and Stefan's manual smoke test on the real 26.2 client passed ("Mana and Stamina behaved exactly as before, with no visible gameplay changes or regressions") — see "Phase 2C Final Status" at the very end of this document for the full result. Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"Mana and Stamina not yet registered" statement anywhere in this document as current.
++**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19; Phase 2C record added 2026-07-19
+ **Branch:** `feature/general-resource-api` (based on `master` @ `bc16cc3`, "Merge Provisioner Phase 4")
+ **Scope:** `src/main/java/zcylas/totality/**` only. `/Inspiration Mods` was excluded from every search, count, and conclusion below.
+ **Canonical design authority:** `Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API.md` (2026-07-13, CANONICAL/IMPLEMENTATION-READY), reconciled against `Context/Audit/TOTALITY_POST_AUDIT_DESIGN_DECISIONS.md` (later, overrides where they conflict) and `Context/Audit/TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS.txt`.
+@@ -813,4 +813,55 @@ This section records the third external-adapter slice, following Phase 2A's own
+ 
+ ---
+ 
++## Phase 2C Implementation Record — Mana & Stamina Legacy-Store Adapters (2026-07-19)
++
++This section records the fourth and fifth external-adapter slices — the first two that wrap a **Totality-owned legacy store** rather than a vanilla system. Full detail — the complete Mana/Stamina architecture audit, exact formulas, sentinel/lazy-init findings, the query-boundary design, test breakdown, command results, manual-test checklist — lives in the dedicated report: `Context/Audit/TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md`. This section is a pointer/summary, not a duplicate.
++
++**What changed:** `PlayerResourceRegistry.INSTANCE` now contains exactly five production definitions — `totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina` — all `EXTERNAL_ADAPTER`-authority, all frozen. `ManaResourceAdapter`/`StaminaResourceAdapter` (new, `api/rpg/resources/external/`) wrap the legacy-authoritative `PlayerResourceComponent` store (`PlayerManaManager`/`PlayerStaminaManager` remain the sole owners of every Mana/Stamina gameplay operation), query-only, never mutating, and explicitly **transitional** — both are registered at `definitionVersion = 1`, and a future migration to `GENERIC_COMPONENT` authority requires an explicit version increase and a real migration step, never a silent structural hot-swap. Because `PlayerManaManager.getMana`/`PlayerStaminaManager.getStamina` lazily initialize the legacy component's `-1` sentinel to its maximum as an intentional side effect for ordinary gameplay callers, the adapters deliberately never call those methods — they read `PlayerResourceComponent.isManaInitialized()`/`getMana()` (and the Stamina equivalents) directly, both confirmed side-effect-free, and report a new `ResourceQueryFailureReason.STATE_UNINITIALIZED` rather than initializing anything. Because Mana/Stamina have no vanilla native sync and no generic Resource API sync yet — only a legacy bespoke packet and client cache — a new `ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION` was added, and a client-side query returns the (broadened-in-doc, not behaviorally changed) `STATE_UNAVAILABLE_ON_THIS_SIDE` reason instead of reading the untrusted legacy client cache. To let an adapter report one of several distinct structured failure reasons (`STATE_UNINITIALIZED`, `MALFORMED_OWNER_STATE`, `STATE_UNAVAILABLE_ON_THIS_SIDE`) rather than only a binary present/absent signal, `ExternalPlayerResourceAdapter.snapshot(...)` was changed again — from Phase 2B's `Optional<ResourceSnapshot>` to `ResourceQueryResult` (the same sealed `Success`/`Failure` type `PlayerResourceService.query` itself already returns) — reusing an existing type rather than inventing a third adapter-result wrapper across three phases. `HealthResourceAdapter`/`FoodResourceAdapter`/`BreathResourceAdapter` were updated to the new signature with no behavior change.
++
++**What did not change:** no Mana/Stamina formula (base maximum, END/INT-modifier bonus, equipment/held-item bonuses and deduplication, effect bonuses, calculation-event hooks), no spender (sprint, Power Sprint, biological flight, bow/crossbow, melee/offhand, ability costs), no regeneration interval/amount/combat-state multiplier/Exhaustion multiplier/pause condition, no persistence NBT key, no death/respawn/dimension-transfer/logout behavior, no bespoke packet, no client cache, and no HUD reader were touched. No generic mutation (spend/restore/drain/set/transaction) was added — both adapters declare `QUERY` only. No generic synchronization, client resource manager, or HUD/menu migration was implemented. No Long Rest restoration was added for either resource. Rage and standard spell slots remain unregistered (deliberately — see "Recommended next patch" below).
++
++**Corrections to this audit's own earlier text, now superseded by the code:**
++- §6 "Proposed implementation boundaries"'s "Internally stored resources: Mana, Stamina (migrate from `PlayerResourceComponent`)..." line described a full storage migration as the eventual plan for these two resources — Phase 2C deliberately does **not** do that migration; it adds a query-only external-adapter slice first, consistent with this document's own recommended sequencing (§11) of proving the query surface before migrating storage.
++- §1's "Can implementation begin without reopening the closed design? **Yes**" remains true — the `ExternalPlayerResourceAdapter#snapshot` signature change (the one deliberate architectural deviation this phase introduces) is the same category of minimal, explicitly-motivated extension Phase 2B already established a precedent for, not a reopening of any locked canonical decision.
++
++**Test count:** 240 → **287** (47 new/net-added tests; see the dedicated report's test section for the full breakdown).
++
++**Manual verification:** ~~**Not executed by Claude Code** — no GUI/game-client tool was available in this session. An 18-item manual smoke-test checklist is recorded in the dedicated report, prepared for Stefan to run on the real 26.2 client the same way the Phase 1/2A/2B checklists were eventually executed and closed out.~~ **SUPERSEDED — since executed by Stefan on the real 26.2 client and PASSED.** Stefan's report, in full: "Mana and Stamina behaved exactly as before, with no visible gameplay changes or regressions." This is a general/overall confirmation, not an itemized per-checklist-item report like Phase 2B's — no individual item from the 18-item checklist was separately confirmed. Full detail: the dedicated report's "Final Status — Ready to Commit" section.
++
++**Build/test/datagen results (this phase):** `compileJava` succeeded; `test` passed 287/287; `runDatagen` wrote 0 files (`written: 0`, confirmed byte-identical `git status` before/after); `build -x runDatagen` succeeded. `git diff --cached` remained empty throughout — nothing staged or committed.
++
++**Recommended next patch (per the dedicated report):** **Phase 2D: Standard spell-slot legacy adapter**, followed by **Phase 2E: Rage/charge-pool legacy adapter** — both using this same transitional-adapter pattern. Only after all existing-store adapters are accepted should generic synchronization/client presentation begin.
++
++---
++
++## Phase 2C Correction Pass (2026-07-19, same day)
++
++A narrowly scoped correction pass fixed two issues in the record above:
++
++1. **Maximum computed before the initialized check.** `ManaResourceAdapter.snapshot`/`StaminaResourceAdapter.snapshot` originally read the legacy component's initialized status correctly, but then unconditionally computed the live maximum (`PlayerManaManager.getMaxMana`/`PlayerStaminaManager.getMaxStamina`) before ever checking whether the result would even be used — an uninitialized query still triggered a `MaxManaCalcEvent`/`MaxStaminaCalcEvent` dispatch for no reason. Both adapters were restructured into a new package-visible `resolve(Identifier, PlayerResourceComponent, IntSupplier maximumSupplier, long unitScale)` orchestration method that checks `isManaInitialized()`/`isStaminaInitialized()` **first** and returns `STATE_UNINITIALIZED` immediately — without ever invoking the maximum supplier — when uninitialized; the (unchanged-in-substance) `normalize(...)` pure core was narrowed to take an already-known-initialized `int current` instead of an `OptionalInt`, since `resolve` is now the only production caller and the uninitialized case never reaches it. New tests prove the maximum supplier is invoked exactly zero times for uninitialized state and exactly once for initialized state, using a real `PlayerResourceComponent` and a plain counting lambda — no mocking framework.
++2. **Adapter-returned failure reasons were not constrained.** `PlayerResourceService.queryExternal` trusted any `ResourceQueryResult.Failure` reason an adapter returned, as long as its `resourceId` matched — but several reasons (`RESOURCE_NOT_REGISTERED`, `ADAPTER_NOT_REGISTERED`, `STATE_NOT_INSTANTIATED`, `UNSUPPORTED_MODEL`, `OPERATION_UNSUPPORTED`, `MAXIMUM_UNAVAILABLE`, `CORRUPT_ADAPTER_SNAPSHOT` itself) are registry/service/generic-state-layer determinations an adapter has no authority or visibility to make about itself. A new `ALLOWED_ADAPTER_FAILURE_REASONS` set (`MALFORMED_OWNER_STATE`, `STATE_UNINITIALIZED`, `STATE_UNAVAILABLE_ON_THIS_SIDE`) is now checked alongside the existing resource-id match; an adapter returning any other reason is treated as malformed output and turned into `CORRUPT_ADAPTER_SNAPSHOT`, naming the resource actually queried. `ExternalPlayerResourceAdapter`'s Javadoc was rewritten accordingly — no longer describing only the Phase 2A Health/Food pair, but the now-genuinely-mixed adapter set (Health/Food/Breath answerable on either side; Mana/Stamina transitionally server-only), and explicitly documenting the three-reason constraint plus guidance that a future genuinely-new adapter failure mode should get its own deliberately-added reason rather than reusing one of the unrelated service-owned ones.
++
++**Preserved unchanged:** Mana/Stamina storage, sentinels, formulas, regeneration, costs, packets, client caches, HUD readers, persistence, death/respawn/dimension/logout behavior, Health/Food/Breath behavior, and all presentation metadata. The production registries remain exactly five definitions and five adapters — confirmed unchanged by this pass.
++
++**Test count:** 287 → **301** (14 new tests: 8 proving the maximum-supplier-invocation ordering for Mana/Stamina, 6 proving the allowed/rejected adapter-failure-reason set in `PlayerResourceService`).
++
++**Build/test/datagen results (this pass):** `compileJava` succeeded; `test` passed 301/301; `runDatagen` wrote 0 files (`written: 0`, confirmed byte-identical `git status` before/after); `build -x runDatagen` succeeded. `git diff --cached` remained empty throughout.
++
++---
++
++## Phase 2C Final Status (2026-07-19)
++
++**READY TO COMMIT.** Stefan manually tested the final Phase 2C implementation (301/301 automated tests, post correction pass) on the real Minecraft 26.2 client against the existing test world, and the manual smoke test **passed** — see the dedicated report's "Final Status — Ready to Commit" section for the full result. Stefan's report was a general confirmation ("Mana and Stamina behaved exactly as before, with no visible gameplay changes or regressions"), not an item-by-item walkthrough of the 18-item checklist — treat this as a passed playtest of the specific behavior summarized, not exhaustive per-item verification.
++
++- **Automated tests:** 301/301 passed.
++- **Compile:** succeeded.
++- **Datagen:** wrote 0 files.
++- **Full build:** succeeded.
++- **Manual smoke test:** passed (general confirmation; see above).
++
++**Scope boundaries carried forward unchanged:** Mana and Stamina remain owned by their existing legacy managers/component/packets/HUD readers — nothing about their current gameplay behavior changed. The Resource API can now query both on the authoritative server through `ManaResourceAdapter`/`StaminaResourceAdapter`, transitionally, at `definitionVersion = 1`. The canonical closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to record this status.
++
++---
++
+ **END OF AUDIT**
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java b/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+index 2b3fff1..2ac20da 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+@@ -8,23 +8,34 @@ import zcylas.totality.Totality;
+  * rather than inlined strings so a definition and its adapter can never drift apart, and so tests
+  * reference the same identifiers production code registers under.
+  *
+- * The adapter id intentionally equals the resource id for Health, Food, and Breath, matching the
+- * canonical examples ({@code TOTALITY_GENERIC_PLAYER_RESOURCE_API.md} §25.1/§25.2: "Adapter:
+- * totality:health" / "Adapter: totality:food").
++ * The adapter id intentionally equals the resource id for Health, Food, Breath, Mana, and Stamina,
++ * matching the canonical examples ({@code TOTALITY_GENERIC_PLAYER_RESOURCE_API.md} §25.1/§25.2:
++ * "Adapter: totality:health" / "Adapter: totality:food").
+  *
+  * Phase 2B adds {@code totality:breath} — the canonical name for what vanilla calls "air supply."
+  * Deliberately not {@code totality:oxygen}/{@code totality:air}: see the Phase 2B report's vanilla
+  * air audit for why "Breath" was chosen as the stable, forward-looking name.
++ *
++ * Phase 2C adds {@code totality:mana} and {@code totality:stamina} — transitional
++ * {@code EXTERNAL_ADAPTER} identifiers over the legacy-authoritative {@code PlayerResourceComponent}
++ * store (see {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}). These are the same stable
++ * ids the resources will keep after a future migration to {@code GENERIC_COMPONENT} authority — only
++ * the definition's {@code stateAuthority}/{@code externalAdapterId}/{@code definitionVersion} change
++ * at that point, never the id.
+  */
+ public final class PlayerResourceIds {
+ 
+     public static final Identifier HEALTH = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "health");
+     public static final Identifier FOOD = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "food");
+     public static final Identifier BREATH = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "breath");
++    public static final Identifier MANA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "mana");
++    public static final Identifier STAMINA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "stamina");
+ 
+     public static final Identifier HEALTH_ADAPTER = HEALTH;
+     public static final Identifier FOOD_ADAPTER = FOOD;
+     public static final Identifier BREATH_ADAPTER = BREATH;
++    public static final Identifier MANA_ADAPTER = MANA;
++    public static final Identifier STAMINA_ADAPTER = STAMINA;
+ 
+     private PlayerResourceIds() {}
+ }
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java b/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+index 0f44aa6..ddd0333 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+@@ -8,9 +8,11 @@ import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterR
+ import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSupport;
+ import zcylas.totality.api.rpg.resources.state.ScalarResourceState;
+ 
++import java.util.EnumSet;
+ import java.util.Objects;
+ import java.util.Optional;
+ import java.util.OptionalLong;
++import java.util.Set;
+ 
+ /**
+  * The one public query façade for the Generic Player Resource API. See
+@@ -36,6 +38,23 @@ public final class PlayerResourceService {
+     public static final PlayerResourceService INSTANCE =
+             new PlayerResourceService(PlayerResourceRegistry.INSTANCE, ExternalPlayerResourceAdapterRegistry.INSTANCE);
+ 
++    /**
++     * The only {@link ResourceQueryFailureReason} values an {@link ExternalPlayerResourceAdapter}
++     * is trusted to report on its own authority (correction pass, Phase 2C). Every other reason
++     * belongs to the registry/service/generic-state layers — {@code RESOURCE_NOT_REGISTERED},
++     * {@code ADAPTER_NOT_REGISTERED}, {@code STATE_NOT_INSTANTIATED}, {@code UNSUPPORTED_MODEL},
++     * {@code OPERATION_UNSUPPORTED}, {@code MAXIMUM_UNAVAILABLE}, and {@code CORRUPT_ADAPTER_SNAPSHOT}
++     * itself are all things only {@code PlayerResourceService} can legitimately determine (an
++     * adapter has no visibility into, for example, whether it is even registered). An adapter
++     * returning one of those anyway is itself malformed output — it is not trusted at face value
++     * even though its {@code resourceId} might match, and is instead turned into
++     * {@code CORRUPT_ADAPTER_SNAPSHOT}. See {@link ExternalPlayerResourceAdapter#snapshot}'s Javadoc.
++     */
++    private static final Set<ResourceQueryFailureReason> ALLOWED_ADAPTER_FAILURE_REASONS = EnumSet.of(
++            ResourceQueryFailureReason.MALFORMED_OWNER_STATE,
++            ResourceQueryFailureReason.STATE_UNINITIALIZED,
++            ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE);
++
+     private final PlayerResourceRegistry registry;
+     private final ExternalPlayerResourceAdapterRegistry adapters;
+ 
+@@ -97,19 +116,32 @@ public final class PlayerResourceService {
+             return new ResourceQueryResult.Failure(ResourceQueryFailureReason.OPERATION_UNSUPPORTED, definition.id());
+         }
+ 
+-        Optional<ResourceSnapshot> snapshot = adapter.snapshot(player, definition);
+-        if (snapshot == null) {
+-            // A misbehaving adapter returned a null Optional reference instead of a real one —
+-            // distinct from the adapter correctly returning Optional.empty() below. Guarded
+-            // defensively (never expected from a well-formed adapter) rather than trusted blindly.
++        ResourceQueryResult adapterResult = adapter.snapshot(player, definition);
++        if (adapterResult == null) {
++            // A misbehaving adapter returned a literal null instead of a real ResourceQueryResult —
++            // guarded defensively (never expected from a well-formed adapter) rather than trusted
++            // blindly.
+             return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+         }
+-        if (snapshot.isEmpty()) {
+-            // The adapter inspected its owner and explicitly declined — a typed signal, not a
+-            // null-as-control-flow shortcut. See ExternalPlayerResourceAdapter#snapshot's Javadoc.
+-            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, definition.id());
++        if (adapterResult instanceof ResourceQueryResult.Failure failure) {
++            // The adapter inspected its owner and explicitly declined, naming a specific reason — a
++            // typed signal, not a null-as-control-flow shortcut. See
++            // ExternalPlayerResourceAdapter#snapshot's Javadoc for what each reason means. Trusted
++            // directly (rather than reinterpreted) only once BOTH (a) its resourceId is confirmed to
++            // match the definition actually queried, AND (b) its reason is one of the small set an
++            // adapter is actually allowed to determine on its own authority
++            // (ALLOWED_ADAPTER_FAILURE_REASONS) — an adapter naming a different resource, or
++            // claiming a registry/service-owned reason like RESOURCE_NOT_REGISTERED or
++            // MAXIMUM_UNAVAILABLE that it has no authority or visibility to determine, is itself a
++            // malformed response, not a legitimate failure about this query.
++            if (!failure.resourceId().equals(definition.id())
++                    || !ALLOWED_ADAPTER_FAILURE_REASONS.contains(failure.reason())) {
++                return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
++            }
++            return failure;
+         }
+-        return validateExternalSnapshot(snapshot.get(), definition);
++        ResourceQueryResult.Success success = (ResourceQueryResult.Success) adapterResult;
++        return validateExternalSnapshot(success.snapshot(), definition);
+     }
+ 
+     /**
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java b/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+index f7e2278..ab041f4 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+@@ -4,6 +4,8 @@ import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
+ import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
++import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
++import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
+ import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
+ import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType;
+ import zcylas.totality.api.rpg.resources.presentation.ResourceHudRole;
+@@ -30,6 +32,21 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
+  * count, ...) is defined anywhere yet. Inventing one here would be a speculative formatter the
+  * Phase 2B task explicitly forbids; that decision is deferred to a future HUD-presentation phase.
+  * Breath remains contextually visible today through vanilla's own unmodified air-bubble HUD.
++ *
++ * <p>Phase 2C adds {@code totality:mana} and {@code totality:stamina} — also {@code EXTERNAL_ADAPTER}-
++ * authority and query-only, but <b>transitionally</b> so: both wrap the legacy-authoritative
++ * {@link PlayerResourceComponent} store via {@link ManaResourceAdapter}/{@link StaminaResourceAdapter}
++ * rather than a truly independent system the way vanilla owns Health/Food/Breath. Both are
++ * registered at {@code definitionVersion = 1}; a future migration to {@code GENERIC_COMPONENT}
++ * authority requires an explicit version increase and a real migration step, never a silent
++ * structural hot-swap of what these two ids mean. Both use {@link ResourceDisplayConversion#IDENTITY}
++ * (their legacy storage is already a plain integer, unlike Health's fixed-point float conversion),
++ * unlike Health/Food they declare no formatter dependency on each other, and unlike Breath they do
++ * declare a full {@link ResourcePresentationDefinition} (canonical §19.8 already treats Mana/Stamina
++ * as constant HUD elements, matching Health/Food/Hunger) — but the existing Totality-drawn HUD bars
++ * are left completely untouched by this phase; see {@code TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md}
++ * for why (no generic synchronization exists yet for either resource, so nothing could safely
++ * consume this presentation metadata client-side today regardless).
+  */
+ public final class ProductionResourceDefinitions {
+ 
+@@ -43,6 +60,8 @@ public final class ProductionResourceDefinitions {
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(HealthResourceAdapter.INSTANCE);
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(FoodResourceAdapter.INSTANCE);
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(BreathResourceAdapter.INSTANCE);
++        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(ManaResourceAdapter.INSTANCE);
++        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StaminaResourceAdapter.INSTANCE);
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
+     }
+ 
+@@ -102,6 +121,44 @@ public final class ProductionResourceDefinitions {
+                         .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                         .build());
+ 
++        // Mana/Stamina: transitional EXTERNAL_ADAPTER over the legacy PlayerResourceComponent store
++        // (see the class Javadoc). definitionVersion is explicit at 1 — a future GENERIC_COMPONENT
++        // migration must bump it, never silently redefine what totality:mana/totality:stamina mean.
++        // The authored maximum below is each legacy manager's own BASE_MAX_* constant — purely
++        // descriptive, exactly like Health/Food/Breath's authoredBaseMaximum; the live query path
++        // (ManaResourceAdapter/StaminaResourceAdapter#snapshot) always reads the manager's actual,
++        // bonus-inclusive PlayerManaManager.getMaxMana/PlayerStaminaManager.getMaxStamina and never
++        // consults this value. No SPENDABLE/RESTORABLE/DIRECT_DRAIN capability — query-only.
++        PlayerResourceRegistry.INSTANCE.register(
++                PlayerResourceDefinition.builder(PlayerResourceIds.MANA, ResourceModel.SCALAR)
++                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
++                        .externalAdapter(PlayerResourceIds.MANA_ADAPTER)
++                        .unitScale(1)
++                        .absoluteMinimum(0)
++                        .authoredBaseMaximum(zcylas.totality.api.rpg.mana.PlayerManaManager.BASE_MAX_MANA)
++                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
++                        .presentation(new ResourcePresentationDefinition(
++                                ResourceDisplayConversion.IDENTITY,
++                                ResourceDisplayType.BAR,
++                                ResourceHudRole.CORE_CONSTANT))
++                        .definitionVersion(1)
++                        .build());
++
++        PlayerResourceRegistry.INSTANCE.register(
++                PlayerResourceDefinition.builder(PlayerResourceIds.STAMINA, ResourceModel.SCALAR)
++                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
++                        .externalAdapter(PlayerResourceIds.STAMINA_ADAPTER)
++                        .unitScale(1)
++                        .absoluteMinimum(0)
++                        .authoredBaseMaximum(zcylas.totality.api.rpg.stamina.PlayerStaminaManager.BASE_MAX_STAMINA)
++                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
++                        .presentation(new ResourcePresentationDefinition(
++                                ResourceDisplayConversion.IDENTITY,
++                                ResourceDisplayType.BAR,
++                                ResourceHudRole.CORE_CONSTANT))
++                        .definitionVersion(1)
++                        .build());
++
+         PlayerResourceRegistry.INSTANCE.freeze(ExternalPlayerResourceAdapterRegistry.INSTANCE);
+     }
+ 
+@@ -110,6 +167,10 @@ public final class ProductionResourceDefinitions {
+                 ResourceValueFormatter.ofConversion(PlayerResourceIds.HEALTH, ResourceDisplayConversion.HEALTH_FOOD));
+         ResourceValueFormatterRegistry.INSTANCE.register(
+                 ResourceValueFormatter.ofConversion(PlayerResourceIds.FOOD, ResourceDisplayConversion.HEALTH_FOOD));
++        ResourceValueFormatterRegistry.INSTANCE.register(
++                ResourceValueFormatter.ofConversion(PlayerResourceIds.MANA, ResourceDisplayConversion.IDENTITY));
++        ResourceValueFormatterRegistry.INSTANCE.register(
++                ResourceValueFormatter.ofConversion(PlayerResourceIds.STAMINA, ResourceDisplayConversion.IDENTITY));
+         ResourceValueFormatterRegistry.INSTANCE.freeze();
+     }
+ 
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/ResourceComponents.java b/src/main/java/zcylas/totality/api/rpg/resources/ResourceComponents.java
+index ceb9c4e..6ee1800 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/ResourceComponents.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/ResourceComponents.java
+@@ -27,5 +27,17 @@ public final class ResourceComponents {
+         return RESOURCES.get((ComponentProvider) player);
+     }
+ 
++    /**
++     * Non-throwing, non-mutating lookup — returns {@link java.util.Optional#empty()} rather than
++     * throwing if the component has not been attached to {@code player} yet, instead of {@link #get}'s
++     * throw-on-absent contract. Added for {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}
++     * (Phase 2C): a read-only Generic Resource query must never throw, and must never go through
++     * {@code PlayerManaManager.getMana}/{@code PlayerStaminaManager.getStamina} (which lazily
++     * initialize the component as a side effect) just to read a value that may not exist yet.
++     */
++    public static java.util.Optional<PlayerResourceComponent> maybeGet(ServerPlayer player) {
++        return RESOURCES.maybeGet((ComponentProvider) player);
++    }
++
+     private ResourceComponents() {}
+ }
+\ No newline at end of file
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java b/src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java
+index 41029b1..b67585e 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java
+@@ -25,9 +25,19 @@ public enum ResourceQueryFailureReason {
+     STATE_NOT_INSTANTIATED,
+ 
+     /**
+-     * The definition is {@code GENERIC_COMPONENT}-authority, but generic player state can only be
+-     * resolved for a {@code ServerPlayer} (it lives in a server-side component); the caller passed
+-     * a client-side {@link net.minecraft.world.entity.player.Player}.
++     * State cannot be resolved on this side. Two distinct cases produce this:
++     * <ul>
++     *     <li>The definition is {@code GENERIC_COMPONENT}-authority, but generic player state can
++     *         only be resolved for a {@code ServerPlayer} (it lives in a server-side component);
++     *         the caller passed a client-side {@link net.minecraft.world.entity.player.Player}.</li>
++     *     <li>Introduced in Phase 2C: the definition is a <i>transitional</i> {@code EXTERNAL_ADAPTER}
++     *         over a legacy-authoritative store that has no generic client synchronization yet
++     *         ({@code ManaResourceAdapter}/{@code StaminaResourceAdapter} — see
++     *         {@link zcylas.totality.api.rpg.resources.external.ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION}).
++     *         Their legacy bespoke packet/client cache is the only thing currently reaching the
++     *         client; a generic client-side query must fail structurally rather than read that
++     *         client-only cache (untrusted for this purpose) or fabricate a value.</li>
++     * </ul>
+      */
+     STATE_UNAVAILABLE_ON_THIS_SIDE,
+ 
+@@ -76,10 +86,30 @@ public enum ResourceQueryFailureReason {
+      * represent as a valid snapshot (e.g. vanilla reporting a non-positive maximum for a resource
+      * that requires a positive one) — introduced in Phase 2B for {@code BreathResourceAdapter},
+      * whose owner's maximum ({@code Entity.getMaxAirSupply()}) is a virtual method future entity
+-     * types could theoretically override into something degenerate. The adapter returns
+-     * {@link java.util.Optional#empty()} from {@code snapshot(...)} rather than fabricating a
+-     * clamped-to-nothing or otherwise invented value; this reason is never used as ordinary control
+-     * flow — it fires only when the owner's actual state is genuinely unrepresentable.
++     * types could theoretically override into something degenerate. The adapter returns a
++     * {@link ResourceQueryResult.Failure} naming this reason from {@code snapshot(...)} rather than
++     * fabricating a clamped-to-nothing or otherwise invented value; this reason is never used as
++     * ordinary control flow — it fires only when the owner's actual state is genuinely
++     * unrepresentable. Also produced in Phase 2C by {@code ManaResourceAdapter}/
++     * {@code StaminaResourceAdapter} when the legacy manager's live maximum calculation
++     * ({@code PlayerManaManager.getMaxMana}/{@code PlayerStaminaManager.getMaxStamina}) resolves to
++     * a non-positive value — reachable in practice (unlike Breath's case) if a sufficiently negative
++     * ability-score modifier outweighs the base maximum, since neither legacy formula floors the
++     * result above zero.
+      */
+-    MALFORMED_OWNER_STATE
++    MALFORMED_OWNER_STATE,
++
++    /**
++     * Introduced in Phase 2C for {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}: the
++     * legacy-authoritative {@code PlayerResourceComponent} has never been initialized for this
++     * player ({@code isManaInitialized()}/{@code isStaminaInitialized()} is {@code false} — the
++     * stored value is still the {@code -1} sentinel). Unlike {@code PlayerManaManager.getMana}/
++     * {@code PlayerStaminaManager.getStamina}, a read-only generic query must never lazily
++     * initialize the legacy component as a side effect of being asked a question — it reports this
++     * structured failure instead. An ordinarily-joined player is expected to have both initialized
++     * almost immediately (the very next Mana/Stamina server tick, or the first legacy manager call
++     * from any existing gameplay path, initializes them) — this is a narrow, real, but short-lived
++     * window, not evidence that a derived "would-initialize-to-max" view is needed for correctness.
++     */
++    STATE_UNINITIALIZED
+ }
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java b/src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java
+index c5bd7b5..8e4f164 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java
+@@ -4,9 +4,10 @@ import net.minecraft.resources.Identifier;
+ import net.minecraft.world.entity.player.Player;
+ import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
+ import zcylas.totality.api.rpg.resources.PlayerResourceIds;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+ import zcylas.totality.api.rpg.resources.ResourceSnapshot;
+ 
+-import java.util.Optional;
+ import java.util.Set;
+ 
+ /**
+@@ -71,7 +72,7 @@ public final class BreathResourceAdapter implements ExternalPlayerResourceAdapte
+     }
+ 
+     @Override
+-    public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
++    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+         return normalize(definition.id(), player.getAirSupply(), player.getMaxAirSupply(), definition.unitScale());
+     }
+ 
+@@ -81,16 +82,18 @@ public final class BreathResourceAdapter implements ExternalPlayerResourceAdapte
+      * actually produce (e.g. a non-positive maximum) — without needing a real Minecraft runtime or
+      * reflection.
+      *
+-     * @return {@link Optional#empty()} if {@code rawMaximum} is not positive (the owner's state
+-     *         cannot be represented as a valid Breath snapshot); otherwise a snapshot whose
+-     *         {@code currentUnits()} is {@code rawCurrent} clamped into {@code [0, rawMaximum]}.
++     * @return a {@link ResourceQueryResult.Failure} naming {@link ResourceQueryFailureReason#MALFORMED_OWNER_STATE}
++     *         if {@code rawMaximum} is not positive (the owner's state cannot be represented as a
++     *         valid Breath snapshot); otherwise a {@link ResourceQueryResult.Success} wrapping a
++     *         snapshot whose {@code currentUnits()} is {@code rawCurrent} clamped into
++     *         {@code [0, rawMaximum]}.
+      */
+-    static Optional<ResourceSnapshot> normalize(Identifier resourceId, int rawCurrent, int rawMaximum, long unitScale) {
++    static ResourceQueryResult normalize(Identifier resourceId, int rawCurrent, int rawMaximum, long unitScale) {
+         if (rawMaximum <= 0) {
+-            return Optional.empty();
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
+         }
+         long clampedCurrent = Math.max(0, Math.min(rawCurrent, rawMaximum));
+-        return Optional.of(new ResourceSnapshot(resourceId, clampedCurrent, rawMaximum, unitScale));
++        return new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, clampedCurrent, rawMaximum, unitScale));
+     }
+ 
+     @Override
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java b/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+index 4b7d245..87729ed 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+@@ -3,28 +3,44 @@ package zcylas.totality.api.rpg.resources.external;
+ import net.minecraft.resources.Identifier;
+ import net.minecraft.world.entity.player.Player;
+ import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
+-import zcylas.totality.api.rpg.resources.ResourceSnapshot;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+ 
+-import java.util.Optional;
+ import java.util.Set;
+ 
+ /**
+- * Query-time view over a resource whose mutable state is owned by another authoritative system
+- * (vanilla Health/Combat, vanilla Food/Hunger). See
+- * {@code TOTALITY_GENERIC_PLAYER_RESOURCE_API.md} §6.5.
++ * Query-time view over a resource whose mutable state is owned by another authoritative system —
++ * either a vanilla system (Health/Combat, Food/Hunger, air supply) or a Totality-owned legacy store
++ * ({@code PlayerResourceComponent}, transitionally, ahead of a future generic-storage migration).
++ * See {@code TOTALITY_GENERIC_PLAYER_RESOURCE_API.md} §6.5.
++ *
++ * <p>This is now implemented by a genuinely mixed set of adapters, not just the original Phase 2A
++ * pair — do not read this Javadoc as describing only Health/Food:
++ * <ul>
++ *     <li>{@code HealthResourceAdapter}, {@code FoodResourceAdapter}, {@code BreathResourceAdapter}
++ *         (Phase 2A/2B) read vanilla state that is already synchronized to the client through
++ *         vanilla's own native packets ({@link ExternalResourceClientMirrorMode#NATIVE_SYNCHRONIZATION}) —
++ *         these can answer a query on <b>either</b> the server or the client, using the exact same
++ *         code path.</li>
++ *     <li>{@code ManaResourceAdapter}, {@code StaminaResourceAdapter} (Phase 2C) are
++ *         <b>transitional, server-only</b> query adapters over a legacy Totality store that has no
++ *         vanilla-native or generic Resource API client synchronization yet
++ *         ({@link ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION}) — these can only
++ *         answer on the server, and correctly decline (see below) when queried from the client.</li>
++ * </ul>
+  *
+  * <p><b>Deliberate deviation from the canonical {@code ServerPlayer}-typed interface shown in the
+- * design document:</b> this Phase 2A adapter is typed against {@link Player}, not
+- * {@code ServerPlayer}. Health and Food both read values that vanilla already keeps synchronized
+- * to the client through its own native packets ({@link ExternalResourceClientMirrorMode#NATIVE_SYNCHRONIZATION}) —
+- * {@code player.getHealth()}/{@code getMaxHealth()} and {@code player.getFoodData()} return
+- * correct, already-authoritative-mirrored values on {@code LocalPlayer} exactly as they do on
+- * {@code ServerPlayer}. Typing this interface against the common {@link Player} superclass lets
+- * the exact same query path serve both the server (future authoritative callers) and the client
+- * HUD (canonical §19.8's "HP, Mana, Stamina, and Food/Hunger are constant HUD elements") without
+- * a second client-only query surface or a duplicate packet. This is safe specifically because
+- * Phase 2A is query-only — a future mutating adapter (restore/drain/set) would need to re-narrow
+- * to {@code ServerPlayer} for those operations, since only the server may authoritatively mutate.
++ * design document:</b> this interface remains typed against the common {@link Player} superclass
++ * (not {@code ServerPlayer}) precisely so the client-capable adapters above can serve both the
++ * server and the client HUD through one query path, with no second client-only query surface or
++ * duplicate packet. Individual adapters that cannot actually answer on a given side (today: every
++ * transitional legacy-store adapter, on the client) are responsible for checking
++ * {@code player instanceof ServerPlayer} themselves and rejecting the unsupported side with
++ * {@link ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE} — the interface itself makes no
++ * promise that every adapter can answer on every side. This remains safe specifically because every
++ * adapter today is query-only — a future mutating adapter (restore/drain/set) would need to
++ * re-narrow to {@code ServerPlayer} for those operations, since only the server may authoritatively
++ * mutate.
+  */
+ public interface ExternalPlayerResourceAdapter {
+ 
+@@ -35,14 +51,47 @@ public interface ExternalPlayerResourceAdapter {
+      * Builds a read-only snapshot from the authoritative owner's current state. Must never mutate
+      * the owner's state, instantiate any Resource API player state, or send a packet.
+      *
+-     * <p>Returns {@link Optional#empty()} — never {@code null}, and never a fabricated/clamped
+-     * placeholder — when the owner's actual state cannot be represented as a valid snapshot (e.g.
+-     * a non-positive maximum). {@link zcylas.totality.api.rpg.resources.PlayerResourceService}
+-     * turns an empty result into a structured {@link zcylas.totality.api.rpg.resources.ResourceQueryFailureReason#MALFORMED_OWNER_STATE}
+-     * failure. This is a real, typed "I cannot answer" signal (introduced in Phase 2B for
+-     * {@code BreathResourceAdapter}), not {@code null} used as ordinary control flow.
++     * <p>Returns a {@link ResourceQueryResult.Success} wrapping the snapshot, or a
++     * {@link ResourceQueryResult.Failure} — never {@code null}, and never a fabricated/clamped
++     * placeholder — when the owner's actual state cannot be represented as a valid snapshot right
++     * now. {@link zcylas.totality.api.rpg.resources.PlayerResourceService} trusts a returned
++     * {@code Failure}'s reason directly only after confirming <b>both</b> (a) its
++     * {@code resourceId} matches the definition actually queried, and (b) its
++     * {@link ResourceQueryFailureReason} is one of the three an adapter is actually permitted to
++     * determine on its own authority — <b>only these three may ever be returned here</b>:
++     * <ul>
++     *     <li>{@link ResourceQueryFailureReason#MALFORMED_OWNER_STATE} — the owner's state is
++     *         genuinely unrepresentable (e.g. {@code BreathResourceAdapter}'s non-positive vanilla
++     *         maximum case, or {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}'s
++     *         non-positive legacy-manager maximum case).</li>
++     *     <li>{@link ResourceQueryFailureReason#STATE_UNINITIALIZED} — a legacy store that has
++     *         never been initialized for this player ({@code ManaResourceAdapter}/
++     *         {@code StaminaResourceAdapter}'s {@code -1} sentinel).</li>
++     *     <li>{@link ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE} — this adapter
++     *         cannot answer on the calling side at all (a transitional legacy-store adapter queried
++     *         from the client, before generic client synchronization exists).</li>
++     * </ul>
++     * Every other {@code ResourceQueryFailureReason} value belongs to the registry/service/generic-
++     * state layers ({@code RESOURCE_NOT_REGISTERED}, {@code ADAPTER_NOT_REGISTERED},
++     * {@code STATE_NOT_INSTANTIATED}, {@code UNSUPPORTED_MODEL}, {@code OPERATION_UNSUPPORTED},
++     * {@code MAXIMUM_UNAVAILABLE}, {@code CORRUPT_ADAPTER_SNAPSHOT} itself) — an adapter has no
++     * authority or visibility to determine any of those about itself, and
++     * {@code PlayerResourceService} does not trust one at face value even if returned: it is turned
++     * into {@code CORRUPT_ADAPTER_SNAPSHOT} instead (correction pass, Phase 2C). If a future adapter
++     * genuinely needs to express a failure mode none of the three current reasons covers, extend
++     * this contract deliberately (a new named {@code ResourceQueryFailureReason}, documented and
++     * added to {@code PlayerResourceService}'s allowed-reasons set) rather than reusing one of the
++     * unrelated service-owned reasons above to approximate it.
++     *
++     * <p>This is a real, typed "I cannot answer, and here specifically is why" signal, not
++     * {@code null} used as ordinary control flow. Reusing {@link ResourceQueryResult} — the same
++     * sealed type {@link zcylas.totality.api.rpg.resources.PlayerResourceService#query} itself
++     * returns — rather than inventing a third adapter-specific result wrapper is a deliberate
++     * "smallest coherent extension" (Phase 2B's own instruction, applied again in Phase 2C): the
++     * shape needed is exactly "a snapshot xor a structured reason," which {@link ResourceQueryResult}
++     * already is.
+      */
+-    Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition);
++    ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition);
+ 
+     Set<ExternalResourceOperationSupport> supportedOperations();
+ 
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalResourceClientMirrorMode.java b/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalResourceClientMirrorMode.java
+index d5d809f..1342c3b 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalResourceClientMirrorMode.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/ExternalResourceClientMirrorMode.java
+@@ -20,5 +20,21 @@ public enum ExternalResourceClientMirrorMode {
+      * client. Not used by any Phase 2A adapter — declared for definition-shape completeness ahead
+      * of the future generic synchronization phase.
+      */
+-    GENERIC_SYNCHRONIZATION
++    GENERIC_SYNCHRONIZATION,
++
++    /**
++     * Introduced in Phase 2C for {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}: the
++     * owner is a legacy-authoritative store ({@code PlayerResourceComponent}) that already has its
++     * own Totality-authored bespoke packet and client-side cache ({@code SyncManaPayload}/
++     * {@code ClientManaManager}, {@code SyncStaminaPayload}/{@code ClientStaminaManager}) — neither
++     * vanilla-native nor the generic Resource API sync path. Existing HUD readers keep using that
++     * bespoke packet/cache directly and are unaffected by this declaration. A generic client-side
++     * query for a resource in this mode has no trustworthy value to read yet (the Resource API does
++     * not mirror this resource to the client at all during the transitional adapter phase) and must
++     * fail with {@link zcylas.totality.api.rpg.resources.ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE}
++     * rather than reading the legacy client cache (untrusted for this purpose) or fabricating a
++     * value. This mode is expected to become {@link #GENERIC_SYNCHRONIZATION} once a future
++     * synchronization/client-presentation phase actually mirrors these resources generically.
++     */
++    LEGACY_BESPOKE_SYNCHRONIZATION
+ }
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java b/src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java
+index 6ba73b1..1c5345f 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java
+@@ -4,9 +4,9 @@ import net.minecraft.resources.Identifier;
+ import net.minecraft.world.entity.player.Player;
+ import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
+ import zcylas.totality.api.rpg.resources.PlayerResourceIds;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+ import zcylas.totality.api.rpg.resources.ResourceSnapshot;
+ 
+-import java.util.Optional;
+ import java.util.Set;
+ 
+ /**
+@@ -34,9 +34,9 @@ public final class FoodResourceAdapter implements ExternalPlayerResourceAdapter
+     }
+ 
+     @Override
+-    public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
++    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+         int level = player.getFoodData().getFoodLevel();
+-        return Optional.of(new ResourceSnapshot(definition.id(), level, NATIVE_MAXIMUM, definition.unitScale()));
++        return new ResourceQueryResult.Success(new ResourceSnapshot(definition.id(), level, NATIVE_MAXIMUM, definition.unitScale()));
+     }
+ 
+     @Override
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java b/src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java
+index dd5a4f7..5f9ac99 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java
+@@ -4,11 +4,11 @@ import net.minecraft.resources.Identifier;
+ import net.minecraft.world.entity.player.Player;
+ import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
+ import zcylas.totality.api.rpg.resources.PlayerResourceIds;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+ import zcylas.totality.api.rpg.resources.ResourceSnapshot;
+ 
+ import java.math.BigDecimal;
+ import java.math.RoundingMode;
+-import java.util.Optional;
+ import java.util.Set;
+ 
+ /**
+@@ -53,10 +53,10 @@ public final class HealthResourceAdapter implements ExternalPlayerResourceAdapte
+     }
+ 
+     @Override
+-    public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
++    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+         long current = toUnits(player.getHealth(), definition.unitScale());
+         long maximum = toUnits(player.getMaxHealth(), definition.unitScale());
+-        return Optional.of(new ResourceSnapshot(definition.id(), current, maximum, definition.unitScale()));
++        return new ResourceQueryResult.Success(new ResourceSnapshot(definition.id(), current, maximum, definition.unitScale()));
+     }
+ 
+     @Override
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+index 4c23abb..a4298b0 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+@@ -10,8 +10,9 @@ import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSuppo
+ import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
++import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
++import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
+ 
+-import java.util.Optional;
+ import java.util.Set;
+ 
+ import static org.junit.jupiter.api.Assertions.*;
+@@ -31,8 +32,8 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
+     private static ExternalPlayerResourceAdapter fakeAdapter(Identifier id) {
+         return new ExternalPlayerResourceAdapter() {
+             @Override public Identifier id() { return id; }
+-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
+-                return Optional.of(new ResourceSnapshot(id, 1, 2, 1));
++            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
++                return new ResourceQueryResult.Success(new ResourceSnapshot(id, 1, 2, 1));
+             }
+             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
+                 return Set.of(ExternalResourceOperationSupport.QUERY);
+@@ -120,13 +121,61 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
+     }
+ 
+     @Test
+-    void productionAdapterRegistryContainsExactlyHealthFoodAndBreath() {
++    void productionManaAndStaminaDefinitionsResolveTheirRegisteredAdapters() {
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+ 
+-        assertEquals(3, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
++        PlayerResourceDefinition mana = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
++        PlayerResourceDefinition stamina = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
++
++        assertEquals(ManaResourceAdapter.ID, mana.externalAdapterId().orElseThrow());
++        assertEquals(StaminaResourceAdapter.ID, stamina.externalAdapterId().orElseThrow());
++        assertSame(ManaResourceAdapter.INSTANCE,
++                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(mana.externalAdapterId().orElseThrow()).orElseThrow());
++        assertSame(StaminaResourceAdapter.INSTANCE,
++                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(stamina.externalAdapterId().orElseThrow()).orElseThrow());
++        assertEquals(1, mana.definitionVersion(), "transitional legacy-adapter representation must be explicit at version 1");
++        assertEquals(1, stamina.definitionVersion());
++    }
++
++    @Test
++    void productionAdapterRegistryContainsExactlyFiveAdapters() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        assertEquals(5, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(HealthResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(BreathResourceAdapter.ID));
++        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(ManaResourceAdapter.ID));
++        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StaminaResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isFrozen());
+     }
++
++    @Test
++    void productionManaQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
++        // Exercises the FULL production query path end to end — PlayerResourceService.query ->
++        // queryExternal -> the real registered ManaResourceAdapter.snapshot -- using `null` as the
++        // player, which fails the `instanceof ServerPlayer` check exactly like a real client-side
++        // LocalPlayer would (neither is a ServerPlayer). No fake/mock Player construction needed:
++        // this is the real production adapter, actually invoked.
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.MANA);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
++                ((ResourceQueryResult.Failure) result).reason());
++        assertEquals(PlayerResourceIds.MANA, ((ResourceQueryResult.Failure) result).resourceId());
++    }
++
++    @Test
++    void productionStaminaQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.STAMINA);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
++                ((ResourceQueryResult.Failure) result).reason());
++        assertEquals(PlayerResourceIds.STAMINA, ((ResourceQueryResult.Failure) result).resourceId());
++    }
+ }
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+index 0ee9183..1e447e5 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+@@ -245,29 +245,34 @@ class PlayerResourceRegistryTest {
+     }
+ 
+     @Test
+-    void productionSingletonContainsExactlyHealthFoodAndBreath() {
++    void productionSingletonContainsExactlyHealthFoodBreathManaAndStamina() {
+         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
+-        // adds Breath — all three EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
++        // added Breath; Phase 2C adds Mana and Stamina — all five EXTERNAL_ADAPTER-authority,
++        // query-only (see ProductionResourceDefinitions). Mana/Stamina are transitional adapters
++        // over the legacy PlayerResourceComponent store, unlike the other three which wrap vanilla.
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+ 
+-        assertEquals(3, PlayerResourceRegistry.INSTANCE.size());
+-        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.HEALTH));
+-        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.FOOD));
+-        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.BREATH));
+-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().stateAuthority());
+-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
+-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
++        assertEquals(5, PlayerResourceRegistry.INSTANCE.size());
++        for (Identifier resourceId : new Identifier[] {
++                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
++                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA
++        }) {
++            assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
++            assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
++                    PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow().stateAuthority(),
++                    () -> resourceId + " must be EXTERNAL_ADAPTER");
++        }
+         assertTrue(PlayerResourceRegistry.INSTANCE.isFrozen());
+     }
+ 
+     @Test
+-    void allThreeProductionDefinitionsAreExternalScalarResources() {
++    void allFiveProductionDefinitionsAreExternalScalarResources() {
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+ 
+-        for (Identifier resourceId : new Identifier[] {PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH}) {
++        for (Identifier resourceId : new Identifier[] {
++                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
++                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA
++        }) {
+             PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
+             assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
+             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority(), () -> resourceId + " must be EXTERNAL_ADAPTER");
+@@ -288,6 +293,57 @@ class PlayerResourceRegistryTest {
+                 "The canonical name is totality:breath, not totality:air");
+     }
+ 
++    @Test
++    void productionSingletonHasNoRageOrSpellSlotDefinitionYet() {
++        // Phase 2C's own scope exclusion: only existing-store adapters land in Phase 2C/2D/2E;
++        // Rage/spell-slot legacy adapters are explicitly later phases (see the Phase 2C report's
++        // "next recommended slice").
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("rage")).isEmpty());
++        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("barbarian_rage")).isEmpty());
++        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("spell_slots")).isEmpty());
++        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("spell_slot")).isEmpty());
++    }
++
++    @Test
++    void productionManaAndStaminaDeclareExactlyHudVisibleAndMenuVisibleCapabilities() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        java.util.Set<ResourceCapability> expected = java.util.Set.of(
++                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE);
++
++        assertEquals(expected, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow().capabilities());
++        assertEquals(expected, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().capabilities());
++
++        for (ResourceCapability mutationCapability : new ResourceCapability[] {
++                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN
++        }) {
++            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow()
++                    .capabilities().contains(mutationCapability));
++            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow()
++                    .capabilities().contains(mutationCapability));
++        }
++    }
++
++    @Test
++    void productionManaAndStaminaDeclareAuditedLegacyBaselineMaximumsAndExplicitDefinitionVersion() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        PlayerResourceDefinition mana = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
++        PlayerResourceDefinition stamina = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
++
++        assertEquals(1L, mana.unitScale());
++        assertEquals(1L, stamina.unitScale());
++        assertEquals(0L, mana.absoluteMinimum());
++        assertEquals(0L, stamina.absoluteMinimum());
++        assertEquals(100L, mana.authoredBaseMaximum().orElseThrow(),
++                "authored baseline is descriptive only — the live query path never consults it");
++        assertEquals(100L, stamina.authoredBaseMaximum().orElseThrow());
++        assertEquals(1, mana.definitionVersion());
++        assertEquals(1, stamina.definitionVersion());
++    }
++
+     @Test
+     void productionHealthAndFoodDeclareExactlyHudVisibleAndMenuVisibleCapabilities() {
+         // Correction pass: player-visible constant HUD resources should declare HUD_VISIBLE/
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+index a5adab8..30e7d90 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+@@ -10,7 +10,6 @@ import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSuppo
+ 
+ import java.lang.reflect.Field;
+ import java.util.Map;
+-import java.util.Optional;
+ import java.util.Set;
+ import java.util.concurrent.atomic.AtomicInteger;
+ 
+@@ -43,9 +42,9 @@ class PlayerResourceServiceTest {
+ 
+         @Override public Identifier id() { return id; }
+ 
+-        @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
++        @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+             snapshotCalls.incrementAndGet();
+-            return Optional.of(new ResourceSnapshot(definition.id(), current, max, definition.unitScale()));
++            return new ResourceQueryResult.Success(new ResourceSnapshot(definition.id(), current, max, definition.unitScale()));
+         }
+ 
+         @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
+@@ -58,23 +57,23 @@ class PlayerResourceServiceTest {
+     }
+ 
+     /**
+-     * An adapter that always returns a fixed, potentially-malformed {@code Optional<ResourceSnapshot>}
+-     * — including, deliberately, a literal {@code null} reference for one defensive test (a
+-     * misbehaving adapter returning null instead of {@code Optional.empty()}).
++     * An adapter that always returns a fixed, potentially-malformed {@code ResourceQueryResult} —
++     * including, deliberately, a literal {@code null} reference for one defensive test (a
++     * misbehaving adapter returning null instead of a real {@code Success}/{@code Failure}).
+      */
+     private static final class FixedSnapshotAdapter implements ExternalPlayerResourceAdapter {
+         private final Identifier id;
+-        private final Optional<ResourceSnapshot> fixedResult;
++        private final ResourceQueryResult fixedResult;
+         private final Set<ExternalResourceOperationSupport> support;
+ 
+-        FixedSnapshotAdapter(Identifier id, Optional<ResourceSnapshot> fixedResult, Set<ExternalResourceOperationSupport> support) {
++        FixedSnapshotAdapter(Identifier id, ResourceQueryResult fixedResult, Set<ExternalResourceOperationSupport> support) {
+             this.id = id;
+             this.fixedResult = fixedResult;
+             this.support = support;
+         }
+ 
+         @Override public Identifier id() { return id; }
+-        @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) { return fixedResult; }
++        @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) { return fixedResult; }
+         @Override public Set<ExternalResourceOperationSupport> supportedOperations() { return support; }
+         @Override public ExternalResourceClientMirrorMode clientMirrorMode() { return ExternalResourceClientMirrorMode.NATIVE_SYNCHRONIZATION; }
+     }
+@@ -84,11 +83,14 @@ class PlayerResourceServiceTest {
+                 builder -> builder.authoredBaseMaximum(100));
+     }
+ 
+-    /** {@code fixedSnapshotOrNull == null} constructs the adapter with {@code Optional.empty()} (a legitimate decline). */
++    /** {@code fixedSnapshotOrNull == null} constructs the adapter with a {@code MALFORMED_OWNER_STATE} decline. */
+     private static PlayerResourceService serviceWithFixedSnapshot(
+             Identifier resourceId, ResourceSnapshot fixedSnapshotOrNull, long absoluteMinimum) {
++        ResourceQueryResult fixedResult = fixedSnapshotOrNull == null
++                ? new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId)
++                : new ResourceQueryResult.Success(fixedSnapshotOrNull);
+         FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(
+-                resourceId, Optional.ofNullable(fixedSnapshotOrNull), Set.of(ExternalResourceOperationSupport.QUERY));
++                resourceId, fixedResult, Set.of(ExternalResourceOperationSupport.QUERY));
+         return serviceWithDefinitionBuilder(resourceId, adapter,
+                 builder -> builder.absoluteMinimum(absoluteMinimum).authoredBaseMaximum(absoluteMinimum + 100));
+     }
+@@ -303,10 +305,11 @@ class PlayerResourceServiceTest {
+     // ── Correction pass: adapter snapshot validation ────────────────────────────────────────
+ 
+     @Test
+-    void emptyAdapterSnapshotProducesMalformedOwnerStateFailure() {
+-        // The adapter legitimately declines (Optional.empty()) — e.g. BreathResourceAdapter when
+-        // the owner's maximum is non-positive. Distinct from a misbehaving null Optional reference
+-        // (see nullOptionalReferenceFromAdapterProducesCorruptAdapterSnapshotFailure below).
++    void declinedAdapterSnapshotProducesMalformedOwnerStateFailure() {
++        // The adapter legitimately declines (returns a Failure naming MALFORMED_OWNER_STATE) — e.g.
++        // BreathResourceAdapter when the owner's maximum is non-positive. Distinct from a
++        // misbehaving null reference (see nullResultFromAdapterProducesCorruptAdapterSnapshotFailure
++        // below).
+         PlayerResourceService service = serviceWithFixedSnapshot(id("declined_snapshot"), null, 0);
+ 
+         ResourceQueryResult result = service.query(null, id("declined_snapshot"));
+@@ -317,11 +320,11 @@ class PlayerResourceServiceTest {
+     }
+ 
+     @Test
+-    void nullOptionalReferenceFromAdapterProducesCorruptAdapterSnapshotFailure() {
+-        // A misbehaving adapter returns a literal null instead of Optional.empty()/Optional.of(...).
+-        // Constructed directly (bypassing serviceWithFixedSnapshot's Optional.ofNullable wrapping)
+-        // specifically to exercise PlayerResourceService's defensive null-Optional guard.
+-        Identifier resourceId = id("null_optional_reference");
++    void nullResultFromAdapterProducesCorruptAdapterSnapshotFailure() {
++        // A misbehaving adapter returns a literal null instead of a real Success/Failure.
++        // Constructed directly (bypassing serviceWithFixedSnapshot's null-to-Failure mapping)
++        // specifically to exercise PlayerResourceService's defensive null-result guard.
++        Identifier resourceId = id("null_result");
+         FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(resourceId, null, Set.of(ExternalResourceOperationSupport.QUERY));
+         PlayerResourceService service = serviceWithDefinitionBuilder(resourceId, adapter,
+                 builder -> builder.authoredBaseMaximum(100));
+@@ -333,6 +336,137 @@ class PlayerResourceServiceTest {
+                 ((ResourceQueryResult.Failure) result).reason());
+     }
+ 
++    @Test
++    void mismatchedResourceIdInFailureReasonProducesCorruptAdapterSnapshotFailure() {
++        // An adapter that returns a structurally valid Failure, but names a different resourceId
++        // than the one actually queried — must not be trusted as-is, since that would let a
++        // misbehaving/misconfigured adapter attribute a failure to the wrong resource.
++        Identifier queried = id("mismatched_failure_id");
++        FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(
++                queried,
++                new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNINITIALIZED, id("a_totally_different_resource")),
++                Set.of(ExternalResourceOperationSupport.QUERY));
++        PlayerResourceService service = serviceWithDefinitionBuilder(queried, adapter,
++                builder -> builder.authoredBaseMaximum(100));
++
++        ResourceQueryResult result = service.query(null, queried);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        ResourceQueryResult.Failure failure = (ResourceQueryResult.Failure) result;
++        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, failure.reason());
++        assertEquals(queried, failure.resourceId());
++    }
++
++    // ── Correction pass: allowed adapter-decline reasons ────────────────────────────────────
++
++    private static PlayerResourceService serviceWithAdapterFailure(Identifier resourceId, ResourceQueryFailureReason reason) {
++        FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(
++                resourceId, new ResourceQueryResult.Failure(reason, resourceId), Set.of(ExternalResourceOperationSupport.QUERY));
++        return serviceWithDefinitionBuilder(resourceId, adapter, builder -> builder.authoredBaseMaximum(100));
++    }
++
++    @Test
++    void malformedOwnerStateFromAdapterPropagatesUnchanged() {
++        Identifier resourceId = id("allowed_malformed_owner_state");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.MALFORMED_OWNER_STATE);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
++    }
++
++    @Test
++    void stateUninitializedFromAdapterPropagatesUnchanged() {
++        Identifier resourceId = id("allowed_state_uninitialized");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.STATE_UNINITIALIZED);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.STATE_UNINITIALIZED, ((ResourceQueryResult.Failure) result).reason());
++    }
++
++    @Test
++    void stateUnavailableOnThisSideFromAdapterPropagatesUnchanged() {
++        Identifier resourceId = id("allowed_state_unavailable_on_this_side");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, ((ResourceQueryResult.Failure) result).reason());
++    }
++
++    @Test
++    void resourceNotRegisteredReturnedByAnAdapterBecomesCorrupt() {
++        // RESOURCE_NOT_REGISTERED is a registry-layer determination — an adapter has no authority
++        // or visibility to make this call about itself (the fact that PlayerResourceService is even
++        // asking it means the resource IS registered).
++        Identifier resourceId = id("adapter_claims_not_registered");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.RESOURCE_NOT_REGISTERED);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
++    }
++
++    @Test
++    void adapterNotRegisteredReturnedByAnAdapterBecomesCorrupt() {
++        // Self-contradictory: the adapter itself is what is being asked, so it cannot legitimately
++        // claim it isn't registered.
++        Identifier resourceId = id("adapter_claims_adapter_not_registered");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.ADAPTER_NOT_REGISTERED);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
++    }
++
++    @Test
++    void stateNotInstantiatedReturnedByAnAdapterBecomesCorrupt() {
++        // STATE_NOT_INSTANTIATED is a GENERIC_COMPONENT-layer concept — meaningless for an
++        // EXTERNAL_ADAPTER definition, which never has generic component state to instantiate.
++        Identifier resourceId = id("adapter_claims_state_not_instantiated");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.STATE_NOT_INSTANTIATED);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
++    }
++
++    @Test
++    void maximumUnavailableReturnedByAnAdapterBecomesCorrupt() {
++        // MAXIMUM_UNAVAILABLE is the GENERIC_COMPONENT authored-maximum-absent case — an external
++        // adapter that cannot resolve a maximum has its own reason (MALFORMED_OWNER_STATE) for
++        // exactly that situation and must use it instead.
++        Identifier resourceId = id("adapter_claims_maximum_unavailable");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.MAXIMUM_UNAVAILABLE);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
++    }
++
++    @Test
++    void operationUnsupportedReturnedByTheAdapterItselfBecomesCorrupt() {
++        // OPERATION_UNSUPPORTED is determined by PlayerResourceService BEFORE the adapter is ever
++        // invoked (the supportedOperations() check a few lines above the snapshot() call) — an
++        // adapter that was actually invoked, by definition, already passed that check, so an
++        // adapter returning this reason from inside snapshot() itself is self-contradictory.
++        Identifier resourceId = id("adapter_claims_operation_unsupported");
++        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.OPERATION_UNSUPPORTED);
++
++        ResourceQueryResult result = service.query(null, resourceId);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
++    }
++
+     @Test
+     void mismatchedResourceIdInSnapshotProducesCorruptAdapterSnapshotFailure() {
+         Identifier queried = id("mismatched_id");
+@@ -397,7 +531,7 @@ class PlayerResourceServiceTest {
+     void serviceRejectsQueryWhenAdapterDoesNotDeclareQuerySupport() {
+         Identifier resourceId = id("no_query_support");
+         ExternalPlayerResourceAdapter noQueryAdapter = new FixedSnapshotAdapter(
+-                resourceId, Optional.of(new ResourceSnapshot(resourceId, 1, 2, 1)),
++                resourceId, new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, 1, 2, 1)),
+                 Set.of(ExternalResourceOperationSupport.RESTORE));
+ 
+         PlayerResourceRegistry registry = new PlayerResourceRegistry();
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+index 2bc8970..7c603b8 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+@@ -181,6 +181,72 @@ class PlayerResourceStateComponentExternalEntryPathTest {
+         assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+     }
+ 
++    @Test
++    void nbtLoadingQuarantinesStaleGenericDataForMana() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        // Phase 2C's own analogue: totality:mana is now a transitional EXTERNAL_ADAPTER over the
++        // legacy PlayerResourceComponent store, so the same quarantine guarantee must hold for it.
++        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.MANA, 100, 0, 0);
++
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
++
++        assertFalse(state.hasState(PlayerResourceIds.MANA), "Mana must never become live generic state");
++        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.MANA),
++                "stale Mana data must be quarantined, not silently dropped");
++    }
++
++    @Test
++    void nbtLoadingQuarantinesStaleGenericDataForStamina() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.STAMINA, 100, 0, 0);
++
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
++
++        assertFalse(state.hasState(PlayerResourceIds.STAMINA), "Stamina must never become live generic state");
++        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.STAMINA),
++                "stale Stamina data must be quarantined, not silently dropped");
++    }
++
++    @Test
++    void applyingASyncPayloadCannotCreateLiveManaGenericState() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
++        buf.writeInt(1);
++        buf.writeUtf(PlayerResourceIds.MANA.toString());
++        buf.writeUtf("SCALAR");
++        buf.writeLong(100L); // current
++        buf.writeLong(0L);   // overflow
++
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++        state.applySyncPacket(buf);
++
++        assertFalse(state.hasState(PlayerResourceIds.MANA), "Mana must never become live via a sync packet");
++        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
++    }
++
++    @Test
++    void applyingASyncPayloadCannotCreateLiveStaminaGenericState() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
++        buf.writeInt(1);
++        buf.writeUtf(PlayerResourceIds.STAMINA.toString());
++        buf.writeUtf("SCALAR");
++        buf.writeLong(100L); // current
++        buf.writeLong(0L);   // overflow
++
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++        state.applySyncPacket(buf);
++
++        assertFalse(state.hasState(PlayerResourceIds.STAMINA), "Stamina must never become live via a sync packet");
++        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
++    }
++
+     @Test
+     void writeDataNeverWritesALiveHealthEntryEvenIfCorruptedIntoStates() {
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+@@ -297,6 +363,13 @@ class PlayerResourceStateComponentExternalEntryPathTest {
+                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
+         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
++        // Phase 2C: Mana/Stamina are EXTERNAL_ADAPTER too (transitionally) — queryGenericState is
++        // structurally unreachable for them exactly the same way, even though their adapter reads a
++        // Totality-owned legacy store rather than a vanilla one.
++        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
++                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow().stateAuthority());
++        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
++                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().stateAuthority());
+     }
+ 
+     @Test
+@@ -307,8 +380,12 @@ class PlayerResourceStateComponentExternalEntryPathTest {
+         assertFalse(state.hasState(PlayerResourceIds.HEALTH));
+         assertFalse(state.hasState(PlayerResourceIds.FOOD));
+         assertFalse(state.hasState(PlayerResourceIds.BREATH));
++        assertFalse(state.hasState(PlayerResourceIds.MANA));
++        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
+         assertTrue(state.getScalar(PlayerResourceIds.HEALTH).isEmpty());
+         assertTrue(state.getScalar(PlayerResourceIds.FOOD).isEmpty());
+         assertTrue(state.getScalar(PlayerResourceIds.BREATH).isEmpty());
++        assertTrue(state.getScalar(PlayerResourceIds.MANA).isEmpty());
++        assertTrue(state.getScalar(PlayerResourceIds.STAMINA).isEmpty());
+     }
+ }
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+index f3b5fb3..a8c70e4 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+@@ -6,11 +6,14 @@ import org.junit.jupiter.api.Test;
+ import static org.junit.jupiter.api.Assertions.*;
+ 
+ /**
+- * Proves {@code totality:health}/{@code totality:food}/{@code totality:breath} can never become
+- * live {@link PlayerResourceStateComponent} state — the "Prevent duplicate external state"
+- * requirement from the Phase 2A task, extended to Breath in Phase 2B. Uses the real production
+- * registry (via {@link TestResourceBootstrap}) since the guarantee under test is specifically about
+- * the real external-authority definitions.
++ * Proves {@code totality:health}/{@code totality:food}/{@code totality:breath}/{@code totality:mana}/
++ * {@code totality:stamina} can never become live {@link PlayerResourceStateComponent} state — the
++ * "Prevent duplicate external state" requirement from the Phase 2A task, extended to Breath in
++ * Phase 2B and to Mana/Stamina in Phase 2C (whose transitional {@code EXTERNAL_ADAPTER} authority
++ * over the legacy {@code PlayerResourceComponent} store gets exactly the same protection
++ * automatically — this class proves that generalization holds, not just documents it). Uses the
++ * real production registry (via {@link TestResourceBootstrap}) since the guarantee under test is
++ * specifically about the real external-authority definitions.
+  */
+ class PlayerResourceStateComponentExternalSafetyTest {
+ 
+@@ -75,7 +78,47 @@ class PlayerResourceStateComponentExternalSafetyTest {
+     }
+ 
+     @Test
+-    void isRegisteredExternalAdapterAuthorityIsTrueOnlyForHealthFoodAndBreath() {
++    void instantiateScalarRejectsMana() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++
++        assertThrows(IllegalArgumentException.class,
++                () -> state.instantiateScalar(PlayerResourceIds.MANA, 100));
++        assertFalse(state.hasState(PlayerResourceIds.MANA));
++    }
++
++    @Test
++    void instantiateScalarRejectsStamina() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++
++        assertThrows(IllegalArgumentException.class,
++                () -> state.instantiateScalar(PlayerResourceIds.STAMINA, 100));
++        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
++    }
++
++    @Test
++    void instantiatePartitionedRejectsMana() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++
++        assertThrows(IllegalArgumentException.class,
++                () -> state.instantiatePartitioned(PlayerResourceIds.MANA));
++        assertFalse(state.hasState(PlayerResourceIds.MANA));
++    }
++
++    @Test
++    void instantiatePartitionedRejectsStamina() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++
++        assertThrows(IllegalArgumentException.class,
++                () -> state.instantiatePartitioned(PlayerResourceIds.STAMINA));
++        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
++    }
++
++    @Test
++    void isRegisteredExternalAdapterAuthorityIsTrueForAllFiveProductionResources() {
+         // Same-package access to the package-visible predicate — the exact decision point both
+         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+@@ -83,6 +126,8 @@ class PlayerResourceStateComponentExternalSafetyTest {
+         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.HEALTH));
+         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
+         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
++        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
++        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
+         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
+                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
+     }
+@@ -99,6 +144,8 @@ class PlayerResourceStateComponentExternalSafetyTest {
+         assertFalse(freshPlayerState.hasState(PlayerResourceIds.HEALTH));
+         assertFalse(freshPlayerState.hasState(PlayerResourceIds.FOOD));
+         assertFalse(freshPlayerState.hasState(PlayerResourceIds.BREATH));
++        assertFalse(freshPlayerState.hasState(PlayerResourceIds.MANA));
++        assertFalse(freshPlayerState.hasState(PlayerResourceIds.STAMINA));
+     }
+ 
+     @Test
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+index bee5e6d..6993d67 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+@@ -45,8 +45,8 @@ class PlayerResourceStateComponentTest {
+     void queryingUngrantedResourceDoesNotInstantiateIt() {
+         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
+ 
+-        assertTrue(component.getScalar(id("mana")).isEmpty());
+-        assertFalse(component.hasState(id("mana")));
++        assertTrue(component.getScalar(id("test_scalar_a")).isEmpty());
++        assertFalse(component.hasState(id("test_scalar_a")));
+         // The query itself must not have created state as a side effect.
+         assertTrue(component.instantiatedResourceIds().isEmpty());
+     }
+@@ -70,12 +70,12 @@ class PlayerResourceStateComponentTest {
+     void instantiateScalarCreatesStateExactlyOnce() {
+         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
+ 
+-        ScalarResourceState first = component.instantiateScalar(id("mana"), 100);
+-        ScalarResourceState second = component.instantiateScalar(id("mana"), 999);
++        ScalarResourceState first = component.instantiateScalar(id("test_scalar_a"), 100);
++        ScalarResourceState second = component.instantiateScalar(id("test_scalar_a"), 999);
+ 
+         assertSame(first, second, "instantiating an already-instantiated resource must not reinitialize it");
+         assertEquals(100, first.currentUnits(), "the second call's initial value must be ignored");
+-        assertTrue(component.hasState(id("mana")));
++        assertTrue(component.hasState(id("test_scalar_a")));
+     }
+ 
+     @Test
+@@ -102,42 +102,42 @@ class PlayerResourceStateComponentTest {
+     @Test
+     void removeStateClearsInstantiation() {
+         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
+-        component.instantiateScalar(id("stamina"), 100);
+-        assertTrue(component.hasState(id("stamina")));
++        component.instantiateScalar(id("test_scalar_b"), 100);
++        assertTrue(component.hasState(id("test_scalar_b")));
+ 
+-        component.removeState(id("stamina"));
+-        assertFalse(component.hasState(id("stamina")));
++        component.removeState(id("test_scalar_b"));
++        assertFalse(component.hasState(id("test_scalar_b")));
+     }
+ 
+     @Test
+     void copyFromDuplicatesStatesIndependently() {
+         PlayerResourceStateComponent source = new PlayerResourceStateComponent(null);
+-        source.instantiateScalar(id("mana"), 80);
++        source.instantiateScalar(id("test_scalar_a"), 80);
+         source.instantiatePartitioned(id("spell_slots")).setCurrent(1, 3);
+ 
+         PlayerResourceStateComponent target = new PlayerResourceStateComponent(null);
+         target.copyFrom(source, null);
+ 
+-        assertEquals(80, target.getScalar(id("mana")).orElseThrow().currentUnits());
++        assertEquals(80, target.getScalar(id("test_scalar_a")).orElseThrow().currentUnits());
+         assertEquals(3, target.getPartitioned(id("spell_slots")).orElseThrow().getCurrent(1));
+ 
+         // Independence: mutating the target must not affect the source (or vice versa).
+-        target.getScalar(id("mana")).orElseThrow().setCurrentUnits(1);
+-        assertEquals(80, source.getScalar(id("mana")).orElseThrow().currentUnits());
++        target.getScalar(id("test_scalar_a")).orElseThrow().setCurrentUnits(1);
++        assertEquals(80, source.getScalar(id("test_scalar_a")).orElseThrow().currentUnits());
+     }
+ 
+     @Test
+     void copyFromReplacesTargetContentsRatherThanMerging() {
+         PlayerResourceStateComponent source = new PlayerResourceStateComponent(null);
+-        source.instantiateScalar(id("mana"), 50);
++        source.instantiateScalar(id("test_scalar_a"), 50);
+ 
+         PlayerResourceStateComponent target = new PlayerResourceStateComponent(null);
+-        target.instantiateScalar(id("stamina"), 100);
++        target.instantiateScalar(id("test_scalar_b"), 100);
+ 
+         target.copyFrom(source, null);
+ 
+-        assertTrue(target.hasState(id("mana")));
+-        assertFalse(target.hasState(id("stamina")),
++        assertTrue(target.hasState(id("test_scalar_a")));
++        assertFalse(target.hasState(id("test_scalar_b")),
+                 "copyFrom must reflect the source's exact contents, not merge with prior target state");
+     }
+ 
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java b/src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java
+index 59a8674..f92c442 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java
+@@ -2,10 +2,10 @@ package zcylas.totality.api.rpg.resources.external;
+ 
+ import net.minecraft.resources.Identifier;
+ import org.junit.jupiter.api.Test;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+ import zcylas.totality.api.rpg.resources.ResourceSnapshot;
+ 
+-import java.util.Optional;
+-
+ import static org.junit.jupiter.api.Assertions.*;
+ 
+ /**
+@@ -19,6 +19,11 @@ class BreathResourceAdapterTest {
+ 
+     private static final Identifier ID = Identifier.fromNamespaceAndPath("totality", "breath");
+ 
++    private static ResourceSnapshot successSnapshot(ResourceQueryResult result) {
++        assertInstanceOf(ResourceQueryResult.Success.class, result);
++        return ((ResourceQueryResult.Success) result).snapshot();
++    }
++
+     @Test
+     void breathAdapterSupportsOnlyQuery() {
+         assertTrue(BreathResourceAdapter.INSTANCE.supportedOperations()
+@@ -44,25 +49,22 @@ class BreathResourceAdapterTest {
+ 
+     @Test
+     void fullAirNormalizesToCurrentEqualsMaximum() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 300, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(300L, result.get().currentUnits());
+-        assertEquals(300L, result.get().maximumUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 300, 300, 1));
++        assertEquals(300L, snapshot.currentUnits());
++        assertEquals(300L, snapshot.maximumUnits());
+     }
+ 
+     @Test
+     void partialAirNormalizesUnchanged() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 150, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(150L, result.get().currentUnits());
+-        assertEquals(300L, result.get().maximumUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 150, 300, 1));
++        assertEquals(150L, snapshot.currentUnits());
++        assertEquals(300L, snapshot.maximumUnits());
+     }
+ 
+     @Test
+     void zeroAirNormalizesToZero() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 0, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(0L, result.get().currentUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 0, 300, 1));
++        assertEquals(0L, snapshot.currentUnits());
+     }
+ 
+     @Test
+@@ -70,71 +72,68 @@ class BreathResourceAdapterTest {
+         // Vanilla air ticks down to -20 as its own drowning-damage timer (see LivingEntity.baseTick
+         // / shouldTakeDrowningDamage in the vanilla air audit) — that negative range is
+         // owner-specific metadata, never exposed as negative generic Breath.
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, -20, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(0L, result.get().currentUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, -20, 300, 1));
++        assertEquals(0L, snapshot.currentUnits());
+     }
+ 
+     @Test
+     void deeplyNegativeAirStillClampsToZero() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, Integer.MIN_VALUE, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(0L, result.get().currentUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, Integer.MIN_VALUE, 300, 1));
++        assertEquals(0L, snapshot.currentUnits());
+     }
+ 
+     @Test
+     void currentAboveMaximumClampsDownToMaximum() {
+         // No known vanilla path produces current > max, but the adapter must not fabricate an
+         // invalid (current > maximum) snapshot if it ever did — clamp rather than pass through.
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 400, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(300L, result.get().currentUnits());
+-        assertEquals(300L, result.get().maximumUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 400, 300, 1));
++        assertEquals(300L, snapshot.currentUnits());
++        assertEquals(300L, snapshot.maximumUnits());
+     }
+ 
+     @Test
+     void dynamicMaximumDifferentFromVanillaBaselineIsRespected() {
+         // getMaxAirSupply() is virtual — a future entity type could override it. The adapter must
+         // never hardcode 300; it must reflect whatever live maximum it was actually given.
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 500, 600, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(500L, result.get().currentUnits());
+-        assertEquals(600L, result.get().maximumUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 500, 600, 1));
++        assertEquals(500L, snapshot.currentUnits());
++        assertEquals(600L, snapshot.maximumUnits());
+     }
+ 
+     @Test
+-    void zeroMaximumProducesMalformedOwnerStateAsEmptyOptional() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, 0, 1);
+-        assertTrue(result.isEmpty(), "a non-positive maximum must be a typed decline, not a fabricated snapshot");
++    void zeroMaximumProducesMalformedOwnerStateFailure() {
++        ResourceQueryResult result = BreathResourceAdapter.normalize(ID, 100, 0, 1);
++        assertInstanceOf(ResourceQueryResult.Failure.class, result,
++                "a non-positive maximum must be a typed decline, not a fabricated snapshot");
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
++        assertEquals(ID, ((ResourceQueryResult.Failure) result).resourceId());
+     }
+ 
+     @Test
+-    void negativeMaximumProducesMalformedOwnerStateAsEmptyOptional() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, -5, 1);
+-        assertTrue(result.isEmpty());
++    void negativeMaximumProducesMalformedOwnerStateFailure() {
++        ResourceQueryResult result = BreathResourceAdapter.normalize(ID, 100, -5, 1);
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
+     }
+ 
+     @Test
+     void resultCurrentAndMaximumAreExactIntegersNoFloatConversion() {
+         // Breath is an int-native vanilla quantity end to end (SynchedEntityData int field) — the
+         // normalization core must never round-trip through float/double.
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 137, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(137L, result.get().currentUnits());
+-        assertEquals(300L, result.get().maximumUnits());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 137, 300, 1));
++        assertEquals(137L, snapshot.currentUnits());
++        assertEquals(300L, snapshot.maximumUnits());
+     }
+ 
+     @Test
+     void unitScaleIsAlwaysOne() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(1L, result.get().unitScale());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 100, 300, 1));
++        assertEquals(1L, snapshot.unitScale());
+     }
+ 
+     @Test
+     void resourceIdIsPreservedOnTheSnapshot() {
+-        Optional<ResourceSnapshot> result = BreathResourceAdapter.normalize(ID, 100, 300, 1);
+-        assertTrue(result.isPresent());
+-        assertEquals(ID, result.get().resourceId());
++        ResourceSnapshot snapshot = successSnapshot(BreathResourceAdapter.normalize(ID, 100, 300, 1));
++        assertEquals(ID, snapshot.resourceId());
+     }
+ }
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java b/src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java
+index 4a2cf64..c78f7bc 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java
+@@ -4,10 +4,10 @@ import net.minecraft.resources.Identifier;
+ import net.minecraft.world.entity.player.Player;
+ import org.junit.jupiter.api.Test;
+ import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+ import zcylas.totality.api.rpg.resources.ResourceSnapshot;
+ 
+ import java.util.HashSet;
+-import java.util.Optional;
+ import java.util.Set;
+ 
+ import static org.junit.jupiter.api.Assertions.*;
+@@ -33,8 +33,8 @@ class ExternalPlayerResourceAdapterRegistryTest {
+             Identifier id, long current, long max, Set<ExternalResourceOperationSupport> support) {
+         return new ExternalPlayerResourceAdapter() {
+             @Override public Identifier id() { return id; }
+-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
+-                return Optional.of(new ResourceSnapshot(id, current, max, 1));
++            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
++                return new ResourceQueryResult.Success(new ResourceSnapshot(id, current, max, 1));
+             }
+             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
+                 return support;
+@@ -81,7 +81,7 @@ class ExternalPlayerResourceAdapterRegistryTest {
+         ExternalPlayerResourceAdapterRegistry registry = new ExternalPlayerResourceAdapterRegistry();
+         ExternalPlayerResourceAdapter malformed = new ExternalPlayerResourceAdapter() {
+             @Override public Identifier id() { return null; }
+-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
++            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+                 throw new UnsupportedOperationException();
+             }
+             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
+@@ -180,7 +180,7 @@ class ExternalPlayerResourceAdapterRegistryTest {
+         Identifier adapterId = id("null_mirror_mode");
+         ExternalPlayerResourceAdapter adapter = new ExternalPlayerResourceAdapter() {
+             @Override public Identifier id() { return adapterId; }
+-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
++            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+                 throw new UnsupportedOperationException();
+             }
+             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java b/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+index 9a57829..4ea1ed8 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+@@ -85,4 +85,19 @@ class ResourceValueFormatterRegistryTest {
+ 
+         assertTrue(ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.BREATH).isEmpty());
+     }
++
++    @Test
++    void productionRegistryHasManaAndStaminaBothOnIdentity() {
++        // Unlike Breath, Mana/Stamina's legacy storage is already a plain integer — an identity
++        // (1/1) conversion is lossless and non-speculative, so both declare a formatter unlike Breath.
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        ResourceValueFormatter mana = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
++        ResourceValueFormatter stamina = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
++
++        assertEquals(63L, mana.toDisplayValue(63, 1));
++        assertEquals(41L, stamina.toDisplayValue(41, 1));
++        assertEquals(1L, mana.toDisplayDelta(1, 1));
++        assertEquals(1L, stamina.toDisplayDelta(1, 1));
++    }
+ }
+diff --git a/src/test/java/zcylas/totality/api/rpg/stats/PlayerStatsCharacterizationTest.java b/src/test/java/zcylas/totality/api/rpg/stats/PlayerStatsCharacterizationTest.java
+index 9b745b8..1a88eff 100644
+--- a/src/test/java/zcylas/totality/api/rpg/stats/PlayerStatsCharacterizationTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/stats/PlayerStatsCharacterizationTest.java
+@@ -66,6 +66,25 @@ class PlayerStatsCharacterizationTest {
+                         + "live StatAttributeApplier path (CON modifier * 2.0 vanilla HP units)");
+     }
+ 
++    /**
++     * Phase 2C's Resource API audit: neither {@code PlayerManaManager.getMaxMana}/
++     * {@code PlayerStaminaManager.getMaxStamina} nor this bonus formula floors the result above
++     * zero — a sufficiently negative END/INT modifier can drive the legacy manager's live maximum
++     * to zero or below, which is exactly the (real, not merely theoretical) case
++     * {@code ManaResourceAdapter}/{@code StaminaResourceAdapter} must report as
++     * {@code MALFORMED_OWNER_STATE} rather than fabricate a snapshot for.
++     */
++    @Test
++    void negativeEndAndIntModifiersProduceNegativeStaminaAndManaBonuses() {
++        PlayerStats stats = new PlayerStats();
++        stats.setOriginBonus(new AbilityScoreBonus(0, 0, 0, -10, -10, 0, 0, 0)); // END/INT 10 -> 0, modifier -5
++
++        assertEquals(-5, stats.getModifier(AbilityScore.END));
++        assertEquals(-5, stats.getModifier(AbilityScore.INT));
++        assertEquals(-50, stats.getMaxStaminaBonus());
++        assertEquals(-50, stats.getMaxManaBonus());
++    }
++
+     @Test
+     void spendingAttributePointsAffectsFinalScoreAndDerivedBonuses() {
+         PlayerStats stats = new PlayerStats();
+diff --git a/Context/Audit/TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md b/Context/Audit/TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md
+new file mode 100644
+index 0000000..d024cd0
+--- /dev/null
++++ b/Context/Audit/TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md
+@@ -0,0 +1,356 @@
++# TOTALITY RESOURCE API — PHASE 2C: MANA & STAMINA LEGACY-STORE ADAPTERS — IMPLEMENTATION REPORT
++
++**Date:** 2026-07-19
++**Branch:** `feature/general-resource-api`
++**Starting commit:** `03c85a86` ("Add breath resource adapter") — confirmed the completed, committed Phase 2B commit via `git log`; `git diff --cached` was empty before any change was made.
++**Scope:** `src/main/java/zcylas/totality/**`, `src/test/java/zcylas/totality/**` only. `/Inspiration Mods` was excluded from every search performed in this phase.
++
++---
++
++## 1. Purpose and scope
++
++Add **query-only** Generic Resource adapters over the currently authoritative legacy Mana and Stamina implementations, proving `PlayerResourceService` can represent them without migrating storage, creating duplicate state, or changing any existing formula, cost, regeneration, packet, HUD, Rest, or lifecycle behavior. This is a transitional adapter phase — Mana and Stamina remain fully owned by their existing legacy systems after this phase; only a read-only query surface was added on top.
++
++## 2. Starting state verification
++
++- Branch: `feature/general-resource-api`.
++- `HEAD`: `03c85a86`, "Add breath resource adapter" — confirmed as the completed, committed Phase 2B commit (not staged-only) via `git log -3`.
++- `git diff --cached`: empty.
++- Initial `git status --short` unrelated inventory (pre-existing, not touched by this phase): 21 modified generated JSON files under `src/main/generated/data/**`, 4 untracked PNGs under `Context/Trading Test/`, untracked `src/main/generated/.cache/`, untracked `logs/`. All remain in the exact same state at the end of this phase.
++
++## 3. Exact audited Mana architecture
++
++| Aspect | Finding |
++|---|---|
++| Resource id (this phase) | `totality:mana` |
++| Storage field/type | `PlayerResourceComponent.mana` (`int`, `api/rpg/resources/PlayerResourceComponent.java:21`) |
++| Sentinel/uninitialized value | `-1`. `isManaInitialized()` returns `mana >= 0` — **any** negative value (not only `-1`) is treated as uninitialized by the component's own contract. |
++| Public getter behavior | `PlayerResourceComponent.getMana()`/`isManaInitialized()` are pure reads, no side effect. `PlayerManaManager.getMana(Player)` (the ordinary gameplay-facing getter) **does** have a side effect: `if (!comp.isManaInitialized()) comp.setMana(getMaxMana(player))` — lazily initializes the component to its live maximum on first read. |
++| Does the getter mutate via lazy init? | Yes — `PlayerManaManager.getMana`, not `PlayerResourceComponent.getMana`. This distinction is exactly why the adapter reads the component directly. |
++| Setter/add/remove | `PlayerManaManager.setMana/addMana/removeMana/hasMana` — all route through `setMana`, which clamps to `[0, getMaxMana(player)]` via `Math.clamp`. `removeMana` no-ops for creative players. |
++| Maximum formula | `PlayerManaManager.getMaxMana(Player)`: `BASE_MAX_MANA (100)` + `PlayerStats.getMaxManaBonus()` (`INT modifier × 10`, confirmed live in `PlayerStats.java:182-184`) + armor-slot `ManaItem` bonuses (`ManaSource.ARMOR`) + `ModEffects.FORTIFY_MANA` (`amplifier + 1`) + held-item `ManaItem` bonus (`ManaSource.ITEM`, deduplicated against armor by `ItemStack.is(...)` per slot) + `MaxManaCalcEvent` hook (posted via `ManaEvents.postMaxMana`). Pure computation — confirmed no write anywhere in this method. |
++| Numeric precision | Purely integral (`int`) end to end — no fractional Mana value exists anywhere. |
++| Min/max clamping | `setMana` clamps to `[0, getMaxMana(player)]`. **Current can transiently exceed maximum** between clamping passes (e.g. immediately after a `FORTIFY_MANA` effect expires) — `PlayerResourceRecalculator` and `ManaServerTick` both explicitly re-clamp on their own next pass; this is existing, accepted behavior, not a bug. |
++| Regeneration timing | `ManaServerTick`: every 20 ticks (`ServerTickEvents.END_SERVER_TICK`, `tickCounter % 20 == 0`), unconditional (no combat/activity gating, unlike Stamina). |
++| Regeneration amount | `PlayerManaManager.calculateRegenAmount`: `max(1, (int)(maxMana × regenPercent))`. `getRegenPercent`: base `BASE_REGEN_PERCENT = 0.02f` (2%/sec) + armor `ManaRegenItem` bonus + `ModEffects.REGENERATE_MANA` (`× (1 + (amplifier+1)/100)`) + held-item `ManaRegenItem` bonus (deduplicated the same way) + `ManaRegenCalcEvent` hook. |
++| Drain sources | `FormulaResolver` (spell cast cost), `HeatVisionAbility`, `GrimoireItem` — all call `PlayerManaManager.removeMana`. |
++| NBT keys | `"mana"` (`int`, default `-1`) — `PlayerResourceComponent.writeData/readData`. |
++| Component copy behavior | `PlayerResourceComponent.copyFrom` **unconditionally resets `mana = -1`** on every respawn copy (death, dimension change, End return — identical, no `alive` check). |
++| Native/generic sync | `PlayerResourceComponent` implements `SyncedComponent`/`writeSyncPacket`/`applySyncPacket`, but `.sync()` is never called anywhere in production code (confirmed via `grep` — the only `comp.sync()` call sites found belong to an unrelated class component). No vanilla native sync exists for Mana at all. |
++| Bespoke packet sync | `SyncManaPayload` (`totality:sync_mana`, `int mana, int maxMana`) sent from `ManaServerTick.syncMana` and `PlayerResourceRecalculator`. |
++| Client cache | `ClientManaManager` — two static `int` fields (`mana`, `maxMana`), updated only by the `SyncManaPayload` handler. |
++| HUD reader | `TotalityHudRenderer.java:113-114,160-163` reads `ClientManaManager.getMana()/getMaxMana()` directly, smoothed via `manaSmooth`, drawn only `if (maxMana > 0)`. |
++| Rest integration | **None.** Confirmed absent from every `RestEventBus`/`RestManager` registration (only Rage, Abilities, and Spell Slots are registered). Phase 2C does not add this — explicitly out of scope. |
++| Death behavior | Full reset to uninitialized (`-1`) on every `copyFrom`, including death — next read lazily reinitializes to max via `PlayerManaManager.getMana`. |
++| Dimension behavior | Same `copyFrom` reset — dimension change also resets Mana to uninitialized, identical to death. This is existing, shipped behavior; Phase 2C changes nothing about it. |
++| Logout/rejoin behavior | Persisted via NBT (`"mana"` key) across logout/rejoin (not a `copyFrom` event) — the stored value round-trips normally. |
++
++## 4. Exact audited Stamina architecture
++
++| Aspect | Finding |
++|---|---|
++| Resource id (this phase) | `totality:stamina` |
++| Storage field/type | `PlayerResourceComponent.stamina` (`int`, same class, `:20`) |
++| Sentinel/uninitialized value | `-1`; `isStaminaInitialized()` returns `stamina >= 0` — same "any negative = uninitialized" contract as Mana. |
++| Public getter behavior | `PlayerResourceComponent.getStamina()`/`isStaminaInitialized()` are pure. `PlayerStaminaManager.getStamina(Player)` lazily initializes on first read exactly like the Mana equivalent. |
++| Setter/add/remove | `PlayerStaminaManager.setStamina/addStamina/removeStamina/hasStamina`, same clamp-to-`[0, max]` and creative no-op pattern as Mana. |
++| Maximum formula | `PlayerStaminaManager.getMaxStamina(Player)`: `BASE_MAX_STAMINA (100)` + `PlayerStats.getMaxStaminaBonus()` (`END modifier × 10`, confirmed live) + armor `StaminaItem` bonuses + `ModEffects.FORTIFY_STAMINA` + held-item `StaminaItem` bonus (deduplicated) + `MaxStaminaCalcEvent` hook. Pure computation, no write. |
++| Numeric precision | Purely integral. |
++| Min/max clamping | Same transient-overflow-then-reclamp pattern as Mana (`PlayerResourceRecalculator`, `StaminaServerTick`'s own `setStamina(getStamina(...))` re-clamp calls). |
++| Regeneration timing | `StaminaServerTick`: every 20 ticks, gated off while actively sprinting-with-stamina>0, Power Sprinting, bow drawn, or actively flying. |
++| Regeneration amount | `calculateRegenAmount`: `max(1, (int)(maxStamina × regenPercent))`, then further multiplied by `ExhaustionManager.getRegenMultiplier(player)` (**0.5** if combat-penalized/exhausted, **0.75** if in the Warning exhaustion state, **1.0** otherwise). `getRegenPercent`: base rate depends on combat state — `IN_COMBAT_REGEN_PERCENT = 0.02f` if `CombatStateManager.isInCombat`, else `BASE_REGEN_PERCENT = 0.05f` — plus armor/held-item `StaminaRegenItem` bonuses, `ModEffects.REGENERATE_STAMINA`, and `StaminaRegenCalcEvent`. |
++| Drain sources | Sprint (`1` every `MovementStaminaCosts.NORMAL_SPRINT_DRAIN_INTERVAL_TICKS = 3` ticks, ground-only, not while Power Sprinting/bow-drawn/creative), biological flight (`MovementStaminaCosts.FLIGHT_DRAIN_COST = 1` every `FLIGHT_DRAIN_INTERVAL_TICKS = 3` ticks), `BowStaminaHandler.tick` (bow/crossbow draw cost), `WeaponStaminaHandler` (melee), `OffhandAttackHandler`/`PowerAttackManager`/`PowerAttackVerification`, `GroundSlamAbility`, `VeinminerAbility`, `ShurikenItem`, `MovementStaminaHandler`, `PowerSprintStateHandler`, `ToggleFlightHandler`. |
++| Combat-state multiplier | Applied at the regen-percent selection step (`IN_COMBAT_REGEN_PERCENT` vs `BASE_REGEN_PERCENT`), via `CombatStateManager.isInCombat`. |
++| Exhaustion multiplier | `ExhaustionManager.getRegenMultiplier`: `0.5f` if `isPenalized` (combat-attribute-penalized), else `0.75f` if the player's tracked state is `WARNING`, else `1.0f`. Applied multiplicatively on top of the regen amount. `StaminaServerTick` also applies `-20%` movement speed and `-25%` attack-damage transient attribute modifiers while `isPenalized`. |
++| Pause conditions | Regen blocked while `(isSprinting() && currentStamina > 0)`, or Power Sprinting, or bow drawn, or actively flying. |
++| NBT keys | `"stamina"` (`int`, default `-1`) — same component as Mana. |
++| Component copy behavior | Same unconditional reset to `-1` on every `copyFrom` as Mana. |
++| Native/generic sync | Same as Mana — `.sync()` never called; no vanilla native sync exists. |
++| Bespoke packet sync | `SyncStaminaPayload` (`totality:sync_stamina`), sent from `StaminaServerTick.syncStamina` and `PlayerResourceRecalculator`. |
++| Client cache | `ClientStaminaManager` — same two-static-`int`-field shape as `ClientManaManager`. |
++| HUD reader | `TotalityHudRenderer.java:111-112,158-159` reads `ClientStaminaManager` directly, smoothed via `staminaSmooth`, always drawn (no `> 0` gate, unlike Mana). |
++| Rest integration | **None** — same absence as Mana, confirmed by the same `RestEventBus` audit. |
++| Death/dimension/logout behavior | Identical pattern to Mana — full reset on `copyFrom` (death and dimension change alike), NBT round-trip across logout/rejoin. |
++
++## 5. Sentinel/lazy-initialization findings
++
++Both `PlayerManaManager.getMana`/`PlayerStaminaManager.getStamina` — the methods every existing gameplay caller uses — **silently write** the legacy component the first time they are called for a player whose value is still the `-1` sentinel: `if (!comp.isManaInitialized()) comp.setMana(getMaxMana(player))`. This is a real, intentional side effect for ordinary gameplay (it's how a freshly-joined player ends up at full Mana/Stamina without an explicit initialization step anywhere), but it is exactly the kind of "a read silently becomes a write" the task's read-only query contract forbids. `PlayerResourceComponent`'s own `getMana()`/`getStamina()`/`isManaInitialized()`/`isStaminaInitialized()` methods, by contrast, are genuinely pure — confirmed by direct inspection (no field writes, no calls to anything else).
++
++**Uninitialized-state policy determination:** an ordinarily-joined player is expected to have both initialized almost immediately — the very next Mana/Stamina server tick (every 20 ticks, unconditional for the tick loop itself even if regen is blocked) calls the legacy manager's getter internally and initializes it, and any existing gameplay action (spending, the HUD's own client-side render triggering a sync) does the same. This is a narrow, real, but short-lived window (at most ~1 second after join, before the first server tick), not evidence that a derived "would-initialize-to-max" view is needed for correctness or that callers commonly need to see the value while genuinely uninitialized.
++
++**Chosen policy:** structured failure. `ManaResourceAdapter`/`StaminaResourceAdapter` read the component directly and return `ResourceQueryFailureReason.STATE_UNINITIALIZED` (new) when uninitialized, rather than a derived/fabricated max-value view. This follows the task's explicit preference ("prefer structured failure unless the repository demonstrates that the derived view is required for compatibility") — nothing in the audit demonstrated the derived view was required.
++
++## 6. Resource and adapter identifiers
++
++Added to `PlayerResourceIds`:
++
++```java
++public static final Identifier MANA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "mana");
++public static final Identifier STAMINA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "stamina");
++public static final Identifier MANA_ADAPTER = MANA;
++public static final Identifier STAMINA_ADAPTER = STAMINA;
++```
++
++No existing persisted NBT field (`"mana"`/`"stamina"` inside `PlayerResourceComponent`) or packet identifier (`totality:sync_mana`/`totality:sync_stamina`) was renamed or touched.
++
++## 7. Transitional adapter authority
++
++`ManaResourceAdapter`/`StaminaResourceAdapter` (`api/rpg/resources/external/`) are query-only adapters over the legacy-authoritative `PlayerResourceComponent` store. Both are registered as `EXTERNAL_ADAPTER`-authority definitions at **`definitionVersion = 1`**, explicitly documented (in both the adapter class Javadoc and `ProductionResourceDefinitions`) as transitional: a future migration of Mana/Stamina's actual storage onto `GENERIC_COMPONENT` authority (`PlayerResourceStateComponent`) requires an explicit `definitionVersion` increase and a real migration step at that time — this phase does not implement or imply any silent structural hot-swap of what `totality:mana`/`totality:stamina` mean. No duplicate generic Mana/Stamina state is created anywhere (see §15/§12 below).
++
++## 8. Server-authoritative query boundary
++
++Neither adapter imports `ClientManaManager`/`ClientStaminaManager` or any other client-only cache class. `snapshot(Player, definition)` first checks `player instanceof ServerPlayer`; if not (a client-side `LocalPlayer`), it returns `ResourceQueryResult.Failure(STATE_UNAVAILABLE_ON_THIS_SIDE, ...)` immediately — no client-only class is ever touched, no untrusted client cache is read, no value is fabricated. A new `ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION` documents this honestly: Mana/Stamina currently reach the client only through their existing bespoke packet/cache, not through vanilla native sync or the generic Resource API sync path; generic client-side querying is deferred to a future synchronization/client-presentation phase. Existing HUD readers (`TotalityHudRenderer`) continue reading `ClientManaManager`/`ClientStaminaManager` directly, completely untouched by this phase. No new Mana/Stamina packet was added.
++
++## 9. Read-only query must not initialize legacy state
++
++**Superseded by the correction pass — see "Correction Pass Addendum" at the end of this report for the current code.** `ManaResourceAdapter.snapshot`/`StaminaResourceAdapter.snapshot` never call `PlayerManaManager.getMana`/`PlayerStaminaManager.getStamina` (the mutating getters). Current shape:
++
++```java
++var component = ResourceComponents.maybeGet(serverPlayer);   // new, non-throwing, non-mutating
++if (component.isEmpty()) { return Failure(STATE_UNAVAILABLE_ON_THIS_SIDE); }
++return resolve(definition.id(), component.get(), () -> PlayerManaManager.getMaxMana(player), definition.unitScale());
++```
++
++`resolve` (new in the correction pass) checks `isManaInitialized()` **before** ever invoking the maximum supplier — see the addendum for why the original version (which computed the maximum unconditionally) was corrected.
++
++`ResourceComponents.maybeGet(ServerPlayer)` is a new, minimal, additive public accessor (mirroring the existing `ComponentKey.maybeGet`) — it never throws and never instantiates a component, unlike the existing `ResourceComponents.get(ServerPlayer)` (which throws if absent). Neither `PlayerResourceComponent` nor any mutable component map was exposed publicly; the adapter only ever calls the component's existing, already-pure public getters.
++
++A read-only query never writes the legacy component, never converts `-1` to maximum, never calls `sync()`, never dirties NBT, never triggers a packet, and never creates any Generic Resource state — all confirmed by code review of the adapter (it has no reference to any mutation method) and by the external-state-safety tests in §15/§16.
++
++## 10. Numeric representation
++
++Both Mana and Stamina are confirmed purely integral (`int` throughout — component field, manager methods, packet payload, client cache) — no fractional value exists anywhere. Both definitions use `unitScale = 1` and `ResourceDisplayConversion.IDENTITY` (already existing, `1/1`) — no rescaling of any current gameplay value. The live maximum is never hardcoded: both adapters call `PlayerManaManager.getMaxMana(player)`/`PlayerStaminaManager.getMaxStamina(player)` fresh on every query, exactly like `HealthResourceAdapter`/`BreathResourceAdapter`'s established precedent of never trusting `authoredBaseMaximum` for the live query path. The registered `authoredBaseMaximum` (100 for both, from `PlayerManaManager.BASE_MAX_MANA`/`PlayerStaminaManager.BASE_MAX_STAMINA`) is purely descriptive metadata.
++
++## 11. Production registry entries
++
++```java
++PlayerResourceRegistry.INSTANCE.register(
++        PlayerResourceDefinition.builder(PlayerResourceIds.MANA, ResourceModel.SCALAR)
++                .polarity(ResourcePolarity.HIGH_IS_GOOD)
++                .externalAdapter(PlayerResourceIds.MANA_ADAPTER)
++                .unitScale(1)
++                .absoluteMinimum(0)
++                .authoredBaseMaximum(PlayerManaManager.BASE_MAX_MANA)
++                .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
++                .presentation(new ResourcePresentationDefinition(
++                        ResourceDisplayConversion.IDENTITY, ResourceDisplayType.BAR, ResourceHudRole.CORE_CONSTANT))
++                .definitionVersion(1)
++                .build());
++// totality:stamina registered identically, substituting Stamina's own adapter/manager/constant.
++```
++
++No `SPENDABLE`/`RESTORABLE`/`DIRECT_DRAIN` capability on either — query-only, matching Health/Food/Breath's precedent.
++
++**Final production registry contents (after this phase):** exactly `totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina` — all `ResourceModel.SCALAR`, all `ResourceStateAuthority.EXTERNAL_ADAPTER`, all `ResourcePolarity.HIGH_IS_GOOD`, all frozen deterministically. No `totality:rage`/`totality:barbarian_rage`/`totality:spell_slots`/`totality:spell_slot` definition exists — verified by test.
++
++**Final external-adapter registry contents:** exactly `HealthResourceAdapter.INSTANCE`, `FoodResourceAdapter.INSTANCE`, `BreathResourceAdapter.INSTANCE`, `ManaResourceAdapter.INSTANCE`, `StaminaResourceAdapter.INSTANCE` — verified by test.
++
++## 12. Snapshot validation
++
++**Correction pass note:** the pure `normalize` core no longer handles the uninitialized case (that moved to `resolve`, §9) — see the addendum. Current shape, `ManaResourceAdapter.normalize`/`StaminaResourceAdapter.normalize` (package-visible pure cores, called only by `resolve` once `current` is already known-initialized):
++
++```java
++static ResourceQueryResult normalize(Identifier resourceId, int current, int liveMaximum, long unitScale) {
++    if (liveMaximum <= 0) {
++        return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
++    }
++    if (current < 0) {
++        return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
++    }
++    return new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, current, liveMaximum, unitScale));
++}
++```
++
++`liveMaximum <= 0` is **reachable in practice** (unlike Breath's purely-defensive case): neither `getMaxMana`/`getMaxStamina` floors its result above zero, and a sufficiently negative INT/END ability-score modifier can drive the live maximum to zero or below — confirmed and pinned by a new `PlayerStatsCharacterizationTest` test (`negativeEndAndIntModifiersProduceNegativeStaminaAndManaBonuses`). Current is **never clamped down to maximum** — it passes through unchanged even when it transiently exceeds the live maximum, matching the existing owner's own accepted permissive behavior (§3/§4's "current can transiently exceed maximum" finding) — the adapter does not "repair" that. `PlayerResourceService`'s pre-existing `validateExternalSnapshot` structural checks (resource id match, unit scale match, maximum ≥ absolute minimum) still apply unchanged to every `Success` snapshot. No `null` is ever returned from either adapter's `snapshot()`; a misbehaving hypothetical adapter returning a literal `null` `ResourceQueryResult` is still defensively caught by `PlayerResourceService.queryExternal`. As of the correction pass, an adapter's returned `Failure` reason is additionally constrained to the three reasons an adapter is actually permitted to determine — see the addendum.
++
++## 13. No generic mutation
++
++Both adapters declare `supportedOperations() = Set.of(ExternalResourceOperationSupport.QUERY)` — nothing else. No spend/restore/drain/set/transaction entry point was added to `PlayerResourceService` for any resource; Mana/Stamina spending/regeneration continues exclusively through `PlayerManaManager`/`PlayerStaminaManager`. `PlayerResourceService`'s pre-existing operation-support enforcement (both at `ExternalPlayerResourceAdapterRegistry.register` time and independently at query time) applies automatically to these two adapters with no changes needed.
++
++## 14. No synchronization or HUD migration
++
++No generic full-snapshot or delta packet, no client resource registry/state/manager, no revision counter, no client prediction reconciliation, no HUD/menu migration, and no packet removal were implemented. `SyncManaPayload`/`SyncStaminaPayload`, the generic `ComponentSync` machinery (still unused for this component), `ClientManaManager`/`ClientStaminaManager`, and `TotalityHudRenderer`'s existing Mana/Stamina bars are all left completely untouched. The pre-existing duplicated-synchronization finding (readiness audit §4.1: a written-but-unread generic `ComponentSync` mirror alongside the real bespoke packet) is unchanged and is documented, not fixed, by this phase. The HUD overlap defect (readiness audit §5/§10) was not touched.
++
++## 15. External-state safety
++
++Because Mana and Stamina are (transitionally) `EXTERNAL_ADAPTER`-authority, every existing external-state protection in `PlayerResourceStateComponent` applies to them automatically — the rejection logic is fully registry-driven (`isRegisteredExternalAdapterAuthority` looks up `PlayerResourceRegistry.INSTANCE` at call time, with no per-resource hardcoding), confirmed by direct inspection before writing any adapter code. Verified by test (§16): `instantiateScalar`/`instantiatePartitioned` both reject Mana and Stamina; stale generic-shaped NBT for either is quarantined into `orphanedStates`, never restored live; a hand-built generic sync payload carrying either id is discarded, not installed; `copyFrom`-injected corrupted live state is quarantined rather than copied; `writeData`/`writeSyncPacket` exclude any (defensively-injected-only) live entry for either id; production queries always route to the legacy adapters (`queryGenericState` is structurally unreachable for `EXTERNAL_ADAPTER`-authority definitions); registration alone creates no player state. The separate legacy `PlayerResourceComponent` (a different class entirely, `ResourceComponents.RESOURCES`) is untouched by any of this — the two systems coexist without interference.
++
++## 16. Tests
++
++All 240 pre-existing tests preserved (8 files touched only to adapt to the `ExternalPlayerResourceAdapter#snapshot` signature change, with zero behavioral change to what they assert; `PlayerResourceStateComponentTest`'s pre-existing placeholder ids `"mana"`/`"stamina"` were renamed to `"test_scalar_a"`/`"test_scalar_b"` — those tests predate Phase 2C and never intended to collide with the now-real production ids, since `PlayerResourceRegistry.INSTANCE` is shared static state across the whole test JVM). Added/changed coverage:
++
++| Area | File | Coverage |
++|---|---|---|
++| Registration | `PlayerResourceRegistryTest` (+7 net) | Exactly 5 production definitions, all `EXTERNAL_ADAPTER`/`SCALAR`; no Rage/spell-slot/Temperature/Oxygen/Air definition; Mana/Stamina capabilities (`HUD_VISIBLE`+`MENU_VISIBLE` only); Mana/Stamina authored baseline (100) and explicit `definitionVersion = 1`. |
++| Registration | `PlayerResourceRegistryExternalAdapterFreezeTest` (+4) | Exactly 5 adapters registered and frozen; Mana/Stamina definitions resolve their registered adapters with `definitionVersion = 1`; full production query path (`PlayerResourceService.INSTANCE.query(null, MANA/STAMINA)`) returns `STATE_UNAVAILABLE_ON_THIS_SIDE` structurally, not an exception — exercised against the *real* production adapter, no fake/mock. |
++| Adapter behavior | `ManaResourceAdapterTest`, `StaminaResourceAdapterTest` (new, 16 each) | `normalize()` pure logic: full, partial, zero, dynamic/bonus maximum, current-above-maximum passthrough (unclamped), uninitialized → `STATE_UNINITIALIZED`, zero/negative maximum → `MALFORMED_OWNER_STATE` (reachable, unlike Breath), negative-current-other-than-sentinel → `MALFORMED_OWNER_STATE` (defensive, unreachable through the real read path — documented as such), exact integer (no float conversion), unit scale = 1, resource id preserved, `supportedOperations()`/`clientMirrorMode()`, adapter id constant, `BASE_MAX_MANA`/`BASE_MAX_STAMINA` = 100. |
++| Lazy initialization | `ManaResourceAdapterTest`/`StaminaResourceAdapterTest`'s `uninitializedRawCurrentProducesStateUninitializedFailure` + the adapter's own design (§9) | Proves deterministically, at the pure-function level, that an uninitialized input produces a structured failure, never a fabricated max-value snapshot. The adapter's `snapshot()` method itself (which is what actually never touches the mutating legacy getters) is verified by code review + the manual smoke-test checklist, matching established precedent for methods requiring a real `ServerPlayer`. |
++| Maximum formulas | `PlayerStatsCharacterizationTest` (extended, +1) | Already pinned `getMaxStaminaBonus`/`getMaxManaBonus` = END/INT modifier × 10 (not × 5) before this phase; added `negativeEndAndIntModifiersProduceNegativeStaminaAndManaBonuses` proving a sufficiently negative modifier produces a negative bonus — the concrete evidence behind §12's "MALFORMED_OWNER_STATE is reachable in practice" claim. |
++| Query service | `PlayerResourceServiceTest` (interface-adaptation only, 0 net new; existing coverage of routing/validation/operation-support enforcement applies unchanged to the new `ResourceQueryResult`-returning contract) | Renamed two tests to reflect the new contract (`nullOptionalReferenceFromAdapter...` → `nullResultFromAdapter...`, `emptyAdapterSnapshot...` → `declinedAdapterSnapshot...`); added `mismatchedResourceIdInFailureReasonProducesCorruptAdapterSnapshotFailure` (an adapter's `Failure` naming a different resource than queried is not trusted as-is). |
++| External-state safety | `PlayerResourceStateComponentExternalSafetyTest` (+6), `PlayerResourceStateComponentExternalEntryPathTest` (+4, plus 2 existing tests extended) | Full Mana/Stamina coverage mirroring the existing Health/Food/Breath tests exactly — see §15. |
++| Presentation | `ResourceValueFormatterRegistryTest` (+1) | Mana/Stamina both have an `IDENTITY` formatter registered (unlike Breath, which deliberately has none). |
++
++**Test count: 240 → 287** (47 new/net-added tests). **Superseded by the correction pass: 287 → 301** — see "Correction Pass Addendum" at the end of this report.
++
++**No runtime coverage is claimed that was not actually executed.** `snapshot()`'s `ServerPlayer`-branch logic (the `ResourceComponents.maybeGet` call, the `instanceof ServerPlayer` check, and the full end-to-end read against a real `PlayerResourceComponent`) is not exercised by an automated test — constructing a real `ServerPlayer` outside the Minecraft runtime is impractical, matching every prior phase's established, stated limitation (`HealthResourceAdapterConversionTest`'s own Javadoc). The pure `normalize()` core, which contains 100% of the adapter's actual decision logic, is fully tested; the thin wrapper around it (§9's snippet) is verified by code review and is the subject of the manual smoke-test checklist (§20).
++
++## 17. Performance and side effects
++
++No new tick loop, per-player polling loop, packet, or continuously-running event listener was added. `PlayerManaManager.getMaxMana`/`PlayerStaminaManager.getMaxStamina` (called once per query, per resource, **only when the legacy component is actually initialized — see the correction pass addendum**) post a `MaxManaCalcEvent`/`MaxStaminaCalcEvent` — this is the same event-dispatch-during-computation pattern `HealthResourceAdapter`'s call to `player.getMaxHealth()` already relies on (vanilla attribute modifier computation), not a new or different category of side effect, and no listener anywhere currently mutates player state in response (confirmed — no masteries are registered against these events yet). Querying one resource calculates only that resource's snapshot; no cross-resource computation occurs. No query writes any state.
++
++## 18. Documentation
++
++Updated `Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md` (Phase 2C Implementation Record + Final Status sections). This report is new. The closed canonical design document (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not modified.
++
++## 19. Validation
++
++- `./gradlew compileJava` — **BUILD SUCCESSFUL**.
++- `./gradlew test` — **287/287 passed, 0 failures.**
++- `./gradlew runDatagen` — **BUILD SUCCESSFUL**, `Caching: total files: 349, old count: 349, new count: 349, removed stale: 0, written: 0`. `git status --short` confirmed byte-identical before/after.
++- `./gradlew build -x runDatagen` — **BUILD SUCCESSFUL**.
++- `git diff --cached` — empty throughout; nothing staged or committed at any point in this phase.
++
++## 20. Manual smoke-test checklist (for Stefan — not executed by Claude Code; no GUI/game-client access available in this session)
++
++1. Launch Minecraft 26.2 and join the existing test world.
++2. Confirm no Resource API error appears in logs at any point.
++3. Confirm Mana current/max display is unchanged from before this phase.
++4. Spend Mana through an existing feature (e.g. casting a spell).
++5. Confirm Mana decreases and regenerates exactly as before.
++6. Confirm Stamina display is unchanged.
++7. Sprint and confirm Stamina drain is unchanged.
++8. Stop sprinting and confirm regeneration resumes as before.
++9. Test one additional Stamina spender (flight, bow draw, melee attack, Power Sprint, or an ability) and confirm the cost is unchanged.
++10. Confirm combat Exhaustion still affects Stamina regeneration exactly as before (0.5×/0.75×/1.0× multiplier at the appropriate states).
++11. Save and exit with partial Mana and Stamina.
++12. Reopen the world and confirm the existing persistence behavior is unchanged (Mana/Stamina round-trip via NBT exactly as before — no new behavior expected or required here).
++13. Change dimensions and confirm existing behavior (reset to uninitialized, then lazily reinitialized to full on next legacy-manager read) is unchanged.
++14. Die and respawn; confirm existing behavior (same reset-then-reinitialize pattern) is unchanged.
++15. Confirm Health, Food, and Breath remain unchanged (no regression from this phase's shared-file changes to `PlayerResourceService`/`ExternalPlayerResourceAdapter`/`ResourceQueryFailureReason`).
++16. Confirm no duplicate Mana/Stamina bars or packets are visible/observable.
++17. Confirm no new Totality HUD element related to the Resource API's Mana/Stamina definitions appears anywhere (none should — none was added).
++18. Exit cleanly and inspect logs for anything related to `totality:mana`, `totality:stamina`, `ManaResourceAdapter`, or `StaminaResourceAdapter` — none expected.
++
++Long Rest restoration is explicitly **not** part of this phase and is not expected to be present.
++
++**Status:** ~~not executed by Claude Code (no GUI/display or game-client tool available in this session)~~ **SUPERSEDED — executed by Stefan on the real 26.2 client and PASSED.** See "Final Status — Ready to Commit" at the end of this report for the full result.
++
++## 21. Known limitations
++
++- As with every prior phase, `snapshot()`'s `ServerPlayer`-branch logic is not exercised by an automated test — only the pure `normalize()` core is (see §16's closing paragraph).
++- `getMaxMana`/`getMaxStamina` resolving to zero-or-below is real and reachable (unlike Breath's purely-defensive case), but requires an extreme, likely rarely-if-ever-reached ability-score modifier in current gameplay balance — documented, not treated as unreachable.
++- No presentation formatter decision beyond `IDENTITY` was made — if a future HUD wants Mana/Stamina displayed through the Resource API rather than the current bespoke path, `IDENTITY` is already lossless and ready, but nothing currently consumes it.
++
++## 22. Explicit scope exclusions confirmed absent from the diff
++
++No Mana/Stamina formula, spender, regeneration rule, multiplier, pause condition, NBT key, packet, client cache, or HUD reader was changed. No generic mutation (spend/restore/drain/set/transaction) exists for either resource. No generic synchronization, client resource manager, revision counter, prediction reconciliation, HUD/menu migration, or packet removal was implemented. No Long Rest restoration was added. No Rage or spell-slot definition was registered. Confirmed by code review of the full diff (§6–§14) and by the test suite in §16 explicitly proving no generic state can ever be created for `totality:mana`/`totality:stamina` and that registration alone changes no gameplay behavior.
++
++## 23. Recommended next Resource API slice (recommendation only, not implemented)
++
++**Phase 2D: Standard spell-slot legacy adapter**, followed by **Phase 2E: Rage/charge-pool legacy adapter** — both using this same transitional, query-only, legacy-store adapter pattern established by Phase 2C. Only after all existing-store adapters (Mana, Stamina, standard spell slots, Rage) are accepted should generic synchronization/client presentation begin, per the readiness audit's own sequencing. Neither Phase 2D nor Phase 2E is designed or implemented here — recommendation only.
++
++---
++
++## Correction Pass Addendum (2026-07-19, same day)
++
++A narrowly scoped correction pass, driven by review of the original implementation above, fixed two issues.
++
++### 1. Maximum computed before the initialized check
++
++**Problem:** `ManaResourceAdapter.snapshot`/`StaminaResourceAdapter.snapshot` correctly read the legacy component's initialized status, but then unconditionally called `PlayerManaManager.getMaxMana`/`PlayerStaminaManager.getMaxStamina` — even when the query was about to fail with `STATE_UNINITIALIZED` anyway. Those methods post a `MaxManaCalcEvent`/`MaxStaminaCalcEvent`. The audit found no listener that mutates player state in response, but an event dispatch is still an unnecessary observable side effect for a query that cannot produce a snapshot.
++
++**Fix:** both adapters now route through a new package-visible `resolve` method:
++
++```java
++// ManaResourceAdapter (StaminaResourceAdapter is identical, substituting Stamina's own types)
++@Override
++public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
++    if (!(player instanceof ServerPlayer serverPlayer)) {
++        return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, definition.id());
++    }
++    var component = ResourceComponents.maybeGet(serverPlayer);
++    if (component.isEmpty()) {
++        return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, definition.id());
++    }
++    return resolve(definition.id(), component.get(), () -> PlayerManaManager.getMaxMana(player), definition.unitScale());
++}
++
++static ResourceQueryResult resolve(Identifier resourceId, PlayerResourceComponent component, IntSupplier maximumSupplier, long unitScale) {
++    if (!component.isManaInitialized()) {
++        return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNINITIALIZED, resourceId);
++    }
++    return normalize(resourceId, component.getMana(), maximumSupplier.getAsInt(), unitScale);
++}
++```
++
++`resolve` checks `isManaInitialized()`/`isStaminaInitialized()` **first** and returns `STATE_UNINITIALIZED` immediately — the `maximumSupplier` (a lambda wrapping `PlayerManaManager.getMaxMana(player)`/`PlayerStaminaManager.getMaxStamina(player)`) is never invoked for uninitialized state. The pure `normalize(Identifier, int current, int liveMaximum, long unitScale)` core was narrowed to take an already-known-initialized `int` instead of an `OptionalInt` — `resolve` is its only production caller, and the uninitialized case never reaches it.
++
++**Testability:** `IntSupplier` was chosen specifically so a test can substitute a plain counting lambda for the real (Minecraft-runtime-dependent) maximum calculation — no mocking framework needed. New tests (`ManaResourceAdapterTest`/`StaminaResourceAdapterTest`, 4 each):
++
++- `resolveNeverInvokesTheMaximumSupplierWhenUninitialized` — a fresh `PlayerResourceComponent` (via the existing `new PlayerResourceComponent(null)` construction pattern) plus a counting `IntSupplier`; asserts the counter is `0` after `resolve` returns `STATE_UNINITIALIZED`.
++- `resolveInvokesTheMaximumSupplierExactlyOnceWhenInitialized` — a component with `setMana(42)`/`setStamina(41)` called first; asserts the counter is exactly `1` and the returned snapshot's current/maximum are correct.
++- `resolvePreservesCurrentAndDynamicMaximumForInitializedState` — a dedicated test confirming the exact current/maximum values pass through unchanged.
++- `resolveDoesNotMutateTheComponent` — calls `resolve` against both an initialized and a fresh (uninitialized) component, then asserts neither component's stored value changed and the uninitialized one is still uninitialized afterward.
++
++### 2. Adapter-returned failure reasons were not constrained
++
++**Problem:** `PlayerResourceService.queryExternal` checked that a returned `Failure`'s `resourceId` matched the definition queried, but trusted *any* `ResourceQueryFailureReason` at that point. Several reasons, however, are registry/service/generic-state-layer determinations an adapter has no authority or visibility to make about itself: `RESOURCE_NOT_REGISTERED`, `ADAPTER_NOT_REGISTERED`, `STATE_NOT_INSTANTIATED`, `UNSUPPORTED_MODEL`, `OPERATION_UNSUPPORTED`, `MAXIMUM_UNAVAILABLE`, and `CORRUPT_ADAPTER_SNAPSHOT` itself.
++
++**Fix:** a new `PlayerResourceService.ALLOWED_ADAPTER_FAILURE_REASONS` set (`MALFORMED_OWNER_STATE`, `STATE_UNINITIALIZED`, `STATE_UNAVAILABLE_ON_THIS_SIDE`) is now checked alongside the resource-id match:
++
++```java
++if (!failure.resourceId().equals(definition.id())
++        || !ALLOWED_ADAPTER_FAILURE_REASONS.contains(failure.reason())) {
++    return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
++}
++return failure;
++```
++
++An adapter returning any reason outside that set — even with a matching `resourceId` — is treated as malformed output and turned into `CORRUPT_ADAPTER_SNAPSHOT`, naming the resource actually queried. New tests in `PlayerResourceServiceTest` (10 total): three prove all three allowed reasons propagate unchanged (`malformedOwnerStateFromAdapterPropagatesUnchanged`, `stateUninitializedFromAdapterPropagatesUnchanged`, `stateUnavailableOnThisSideFromAdapterPropagatesUnchanged`); five prove each disallowed reason becomes `CORRUPT_ADAPTER_SNAPSHOT` (`resourceNotRegisteredReturnedByAnAdapterBecomesCorrupt`, `adapterNotRegisteredReturnedByAnAdapterBecomesCorrupt`, `stateNotInstantiatedReturnedByAnAdapterBecomesCorrupt`, `maximumUnavailableReturnedByAnAdapterBecomesCorrupt`, `operationUnsupportedReturnedByTheAdapterItselfBecomesCorrupt` — the last one specifically distinguishing "the service's own pre-invocation `OPERATION_UNSUPPORTED` check" from "the adapter claiming that reason from inside `snapshot()`, which is self-contradictory since it was only invoked because that check already passed"); the pre-existing `mismatchedResourceIdInFailureReasonProducesCorruptAdapterSnapshotFailure` and `declinedAdapterSnapshotProducesMalformedOwnerStateFailure` tests continue to pass unchanged, confirming successful snapshots and the resource-id check remain unaffected.
++
++`ExternalPlayerResourceAdapter`'s class and `snapshot()` Javadoc were rewritten to reflect the current mixed adapter set (Health/Food/Breath answerable on either side; Mana/Stamina transitionally server-only) and to explicitly enumerate the three allowed reasons, replacing wording that described the interface only in terms of the original Phase 2A Health/Food pair. The Javadoc also now instructs that a future genuinely-new adapter failure mode should get its own deliberately-added, documented `ResourceQueryFailureReason` (added to the allowed set) rather than reusing one of the unrelated service-owned reasons to approximate it.
++
++### 3. Preserved behavior (confirmed unchanged by this correction pass)
++
++Mana/Stamina storage, sentinel values, formulas, regeneration, costs, packets, client caches, HUD readers, persistence, death/respawn/dimension/logout behavior, Health/Food/Breath behavior, and all presentation metadata are all unchanged. The production registries remain exactly five definitions and five adapters, confirmed by the unmodified registration tests continuing to pass.
++
++### 4. Build and test results (this pass)
++
++- `./gradlew compileJava` — **BUILD SUCCESSFUL**.
++- `./gradlew test` — **301/301 passed, 0 failures** (287 → 301: 14 new tests — 8 for the maximum-supplier-invocation ordering, 6 for the allowed/rejected adapter-failure-reason set).
++- `./gradlew runDatagen` — **BUILD SUCCESSFUL**, `written: 0`, confirmed byte-identical `git status` before/after.
++- `./gradlew build -x runDatagen` — **BUILD SUCCESSFUL**.
++- `git diff --cached` — empty throughout this pass.
++
++### 5. Manual smoke test
++
++Not re-executed in this pass at the time this addendum was originally written (no GUI/game-client tool available in this session, same as the original implementation pass) — this correction pass changed no gameplay-observable behavior (both fixes are internal to the query path: an avoided-but-previously-harmless event dispatch, and a stricter internal trust boundary between the service and its adapters), so the same 18-item checklist recorded in §20 above still applied unchanged. **Since superseded — see "Final Status — Ready to Commit" below: Stefan has since run the manual smoke test on the real 26.2 client and it passed.**
++
++### 6. Genuinely unresolved issues
++
++None identified by this correction pass.
++
++---
++
++## Final Status — Ready to Commit (2026-07-19)
++
++This section is the authoritative, current status of Phase 2C, superseding every earlier "not executed"/"pending" manual-test statement in this report (§20, Correction Pass Addendum §5).
++
++### Manual smoke test — PASSED
++
++Stefan manually tested the final Phase 2C implementation (301/301 automated tests, post correction pass) on the real Minecraft 26.2 client against the existing test world. Stefan's reported result, in full: **"Manual smoke testing passed. Mana and Stamina behaved exactly as before, with no visible gameplay changes or regressions."**
++
++This is a general/overall confirmation, not an item-by-item walkthrough of the 18-item checklist in §20 — no individual checklist item (specific spender, specific regen pause condition, dimension travel, death/respawn, logout/rejoin, etc.) was separately itemized in Stefan's report. Treat this as a passed playtest of Mana/Stamina's overall observable behavior on the test world used, on this one pass — not exhaustive per-item verification of every line of the checklist.
++
++### Final Phase 2C status
++
++- **Automated tests:** 301/301 passed (`./gradlew test`).
++- **Compile:** succeeded (`./gradlew compileJava`).
++- **Datagen:** wrote 0 files (`./gradlew runDatagen`, `written: 0`).
++- **Full build:** succeeded (`./gradlew build -x runDatagen`).
++- **Manual smoke test:** passed (general confirmation; see above).
++- **Phase 2C is ready to commit.**
++
++### Scope boundaries carried forward unchanged
++
++Mana and Stamina remain owned by their existing legacy managers/component/packets/HUD readers — nothing about their current gameplay behavior changed. The Resource API can now query both on the authoritative server through `ManaResourceAdapter`/`StaminaResourceAdapter`, transitionally, at `definitionVersion = 1`. The canonical closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to record this status.
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapter.java b/src/main/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapter.java
+new file mode 100644
+index 0000000..2235eb5
+--- /dev/null
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapter.java
+@@ -0,0 +1,138 @@
++package zcylas.totality.api.rpg.resources.external;
++
++import net.minecraft.resources.Identifier;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.entity.player.Player;
++import zcylas.totality.api.rpg.mana.PlayerManaManager;
++import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
++import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
++import zcylas.totality.api.rpg.resources.PlayerResourceIds;
++import zcylas.totality.api.rpg.resources.ResourceComponents;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
++import zcylas.totality.api.rpg.resources.ResourceSnapshot;
++
++import java.util.Set;
++import java.util.function.IntSupplier;
++
++/**
++ * <b>Transitional, query-only</b> adapter over the legacy-authoritative Mana store
++ * ({@link PlayerResourceComponent#getMana()}, via {@link ResourceComponents}). {@link PlayerManaManager}
++ * remains the sole authoritative owner of every Mana gameplay operation (spending, regeneration,
++ * maximum calculation, persistence, its own bespoke packet) — this adapter changes none of that; it
++ * only ever reads, for exactly as long as this transitional phase lasts. See the Phase 2C report's
++ * "Exact audited Mana architecture" section for the full audit this class is built from.
++ *
++ * <h2>Why "transitional" (definition-version migration note)</h2>
++ * {@code totality:mana} is registered as {@code EXTERNAL_ADAPTER}-authority pointing at this
++ * adapter, at {@code definitionVersion = 1} (see {@code ProductionResourceDefinitions}). A future
++ * phase migrating Mana's actual storage onto {@code GENERIC_COMPONENT}
++ * ({@link zcylas.totality.api.rpg.resources.PlayerResourceStateComponent})
++ * requires an explicit {@code definitionVersion} increase and a real migration step at that time —
++ * never a silent structural hot-swap of what {@code totality:mana} means. Until that phase exists,
++ * {@code totality:mana} means exactly one thing: a read-only mirror of {@link PlayerResourceComponent#getMana()}.
++ *
++ * <h2>Why the legacy manager's own getters are not called here</h2>
++ * {@link PlayerManaManager#getMana(Player)} lazily initializes the legacy component to its maximum
++ * the first time it is called for a player whose Mana has never been set
++ * ({@code if (!comp.isManaInitialized()) comp.setMana(max)}) — a real, intentional side effect for
++ * ordinary gameplay callers, but exactly the kind of "a read silently becomes a write" this
++ * adapter's read-only query contract must never reproduce. This adapter instead reads
++ * {@link PlayerResourceComponent#isManaInitialized()}/{@link PlayerResourceComponent#getMana()}
++ * directly — both genuinely side-effect-free reads on the component itself — and reports
++ * {@link ResourceQueryFailureReason#STATE_UNINITIALIZED} rather than initializing anything when the
++ * component has never been set. {@link PlayerManaManager#getMaxMana(Player)} <em>is</em> called
++ * directly: it is a pure computation (equipment/effect/stat loop plus an event post), confirmed by
++ * audit to have no observable side effect, matching {@code HealthResourceAdapter}'s precedent of
++ * calling {@code player.getMaxHealth()} directly. Correction pass: the initialized check now runs
++ * <em>before</em> the maximum is ever computed — an uninitialized query returns
++ * {@code STATE_UNINITIALIZED} without calling {@link PlayerManaManager#getMaxMana(Player)} at all,
++ * so the (harmless today, but unnecessary) {@code MaxManaCalcEvent} dispatch that method performs
++ * never fires for a query that cannot produce a snapshot anyway. See {@link #resolve} below.
++ *
++ * <h2>Server/client query boundary</h2>
++ * Mana has no vanilla native synchronization and no generic Resource API synchronization yet — only
++ * a legacy bespoke packet ({@code SyncManaPayload}) and a legacy client-side cache
++ * ({@code ClientManaManager}), read directly by {@code TotalityHudRenderer} and left completely
++ * untouched by this phase. See {@link ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION}.
++ * This adapter is deliberately never given a code path that imports or reads {@code ClientManaManager} —
++ * a client-side query returns a structured {@link ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE}
++ * failure instead.
++ */
++public final class ManaResourceAdapter implements ExternalPlayerResourceAdapter {
++
++    public static final Identifier ID = PlayerResourceIds.MANA_ADAPTER;
++
++    @Override
++    public Identifier id() {
++        return ID;
++    }
++
++    @Override
++    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
++        if (!(player instanceof ServerPlayer serverPlayer)) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, definition.id());
++        }
++        var component = ResourceComponents.maybeGet(serverPlayer);
++        if (component.isEmpty()) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, definition.id());
++        }
++        return resolve(definition.id(), component.get(), () -> PlayerManaManager.getMaxMana(player), definition.unitScale());
++    }
++
++    /**
++     * Orchestrates the initialized-check-before-maximum-calculation ordering, package-visible so a
++     * test can prove the {@code maximumSupplier} is never invoked for uninitialized state — using a
++     * real {@link PlayerResourceComponent} (constructible without a {@code ServerPlayer}, matching
++     * Phase 1's own precedent) and a plain counting lambda in place of
++     * {@code PlayerManaManager.getMaxMana(Player)}, with no mocking framework needed.
++     *
++     * @return a {@link ResourceQueryResult.Failure} naming {@link ResourceQueryFailureReason#STATE_UNINITIALIZED}
++     *         immediately, without calling {@code maximumSupplier} at all, if {@code component} is
++     *         not yet initialized; otherwise delegates to {@link #normalize} with the component's
++     *         current value and the supplier's (now-computed) result.
++     */
++    static ResourceQueryResult resolve(Identifier resourceId, PlayerResourceComponent component, IntSupplier maximumSupplier, long unitScale) {
++        if (!component.isManaInitialized()) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNINITIALIZED, resourceId);
++        }
++        return normalize(resourceId, component.getMana(), maximumSupplier.getAsInt(), unitScale);
++    }
++
++    /**
++     * Pure normalization core, package-visible so it can be unit-tested directly with arbitrary
++     * {@code (current, liveMaximum)} inputs without a real Minecraft runtime. Assumes {@code current}
++     * is already known-initialized (see {@link #resolve}, which is the only production caller).
++     *
++     * @return a {@link ResourceQueryResult.Failure} naming {@link ResourceQueryFailureReason#MALFORMED_OWNER_STATE}
++     *         if {@code liveMaximum} is not positive, or if the (never legitimately negative, per
++     *         {@link PlayerResourceComponent#isManaInitialized()}'s own {@code >= 0} contract, but
++     *         guarded defensively anyway) current value is negative; otherwise a
++     *         {@link ResourceQueryResult.Success} wrapping the snapshot, current passed through
++     *         <em>unclamped</em> against the maximum — {@code PlayerResourceRecalculator} and the
++     *         Mana server tick already intentionally allow current to transiently exceed maximum
++     *         (e.g. immediately after a Fortify effect expires) until their next clamping pass, and
++     *         this adapter must not silently "repair" that existing, accepted behavior.
++     */
++    static ResourceQueryResult normalize(Identifier resourceId, int current, int liveMaximum, long unitScale) {
++        if (liveMaximum <= 0) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
++        }
++        if (current < 0) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
++        }
++        return new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, current, liveMaximum, unitScale));
++    }
++
++    @Override
++    public Set<ExternalResourceOperationSupport> supportedOperations() {
++        return Set.of(ExternalResourceOperationSupport.QUERY);
++    }
++
++    @Override
++    public ExternalResourceClientMirrorMode clientMirrorMode() {
++        return ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION;
++    }
++
++    public static final ManaResourceAdapter INSTANCE = new ManaResourceAdapter();
++}
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapter.java b/src/main/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapter.java
+new file mode 100644
+index 0000000..ffaae57
+--- /dev/null
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapter.java
+@@ -0,0 +1,115 @@
++package zcylas.totality.api.rpg.resources.external;
++
++import net.minecraft.resources.Identifier;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.entity.player.Player;
++import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
++import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
++import zcylas.totality.api.rpg.resources.PlayerResourceIds;
++import zcylas.totality.api.rpg.resources.ResourceComponents;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
++import zcylas.totality.api.rpg.resources.ResourceSnapshot;
++import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
++
++import java.util.Set;
++import java.util.function.IntSupplier;
++
++/**
++ * <b>Transitional, query-only</b> adapter over the legacy-authoritative Stamina store
++ * ({@link PlayerResourceComponent#getStamina()}, via {@link ResourceComponents}). {@link PlayerStaminaManager}
++ * remains the sole authoritative owner of every Stamina gameplay operation (sprint/flight/bow/melee/
++ * ability costs, regeneration, combat-state and Exhaustion multipliers, maximum calculation,
++ * persistence, its own bespoke packet) — this adapter changes none of that; it only ever reads, for
++ * exactly as long as this transitional phase lasts. See the Phase 2C report's "Exact audited Stamina
++ * architecture" section for the full audit this class is built from. Mirrors {@link ManaResourceAdapter}'s
++ * design exactly — see that class's Javadoc for the full rationale behind each decision below.
++ *
++ * <h2>Why "transitional" (definition-version migration note)</h2>
++ * {@code totality:stamina} is registered as {@code EXTERNAL_ADAPTER}-authority pointing at this
++ * adapter, at {@code definitionVersion = 1} (see {@code ProductionResourceDefinitions}). A future
++ * phase migrating Stamina's actual storage onto {@code GENERIC_COMPONENT}
++ * ({@link zcylas.totality.api.rpg.resources.PlayerResourceStateComponent}) requires an explicit
++ * {@code definitionVersion} increase and a real migration step at that time — never a silent
++ * structural hot-swap of what {@code totality:stamina} means.
++ *
++ * <h2>Why the legacy manager's own getters are not called here</h2>
++ * {@link PlayerStaminaManager#getStamina(Player)} lazily initializes the legacy component to its
++ * maximum the first time it is called for a player whose Stamina has never been set — this adapter
++ * instead reads {@link PlayerResourceComponent#isStaminaInitialized()}/{@link PlayerResourceComponent#getStamina()}
++ * directly (both side-effect-free) and reports {@link ResourceQueryFailureReason#STATE_UNINITIALIZED}
++ * rather than initializing anything. {@link PlayerStaminaManager#getMaxStamina(Player)} <em>is</em>
++ * called directly — a pure computation, confirmed by audit to have no observable side effect.
++ * Correction pass: the initialized check now runs <em>before</em> the maximum is ever computed — an
++ * uninitialized query returns {@code STATE_UNINITIALIZED} without calling
++ * {@link PlayerStaminaManager#getMaxStamina(Player)} at all, so the {@code MaxStaminaCalcEvent}
++ * dispatch that method performs never fires for a query that cannot produce a snapshot anyway. See
++ * {@link #resolve} below.
++ *
++ * <h2>Server/client query boundary</h2>
++ * Stamina has no vanilla native synchronization and no generic Resource API synchronization yet —
++ * only a legacy bespoke packet ({@code SyncStaminaPayload}) and a legacy client-side cache
++ * ({@code ClientStaminaManager}), read directly by {@code TotalityHudRenderer} and left completely
++ * untouched by this phase. See {@link ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION}.
++ * This adapter never imports or reads {@code ClientStaminaManager} — a client-side query returns a
++ * structured {@link ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE} failure instead.
++ */
++public final class StaminaResourceAdapter implements ExternalPlayerResourceAdapter {
++
++    public static final Identifier ID = PlayerResourceIds.STAMINA_ADAPTER;
++
++    @Override
++    public Identifier id() {
++        return ID;
++    }
++
++    @Override
++    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
++        if (!(player instanceof ServerPlayer serverPlayer)) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, definition.id());
++        }
++        var component = ResourceComponents.maybeGet(serverPlayer);
++        if (component.isEmpty()) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, definition.id());
++        }
++        return resolve(definition.id(), component.get(), () -> PlayerStaminaManager.getMaxStamina(player), definition.unitScale());
++    }
++
++    /**
++     * Orchestrates the initialized-check-before-maximum-calculation ordering. Identical rule to
++     * {@link ManaResourceAdapter#resolve} — see that method's Javadoc for the full rationale.
++     */
++    static ResourceQueryResult resolve(Identifier resourceId, PlayerResourceComponent component, IntSupplier maximumSupplier, long unitScale) {
++        if (!component.isStaminaInitialized()) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNINITIALIZED, resourceId);
++        }
++        return normalize(resourceId, component.getStamina(), maximumSupplier.getAsInt(), unitScale);
++    }
++
++    /**
++     * Pure normalization core, package-visible so it can be unit-tested directly with arbitrary
++     * {@code (current, liveMaximum)} inputs without a real Minecraft runtime. Identical rule to
++     * {@link ManaResourceAdapter#normalize} — see that method's Javadoc for the full rationale.
++     */
++    static ResourceQueryResult normalize(Identifier resourceId, int current, int liveMaximum, long unitScale) {
++        if (liveMaximum <= 0) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
++        }
++        if (current < 0) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
++        }
++        return new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, current, liveMaximum, unitScale));
++    }
++
++    @Override
++    public Set<ExternalResourceOperationSupport> supportedOperations() {
++        return Set.of(ExternalResourceOperationSupport.QUERY);
++    }
++
++    @Override
++    public ExternalResourceClientMirrorMode clientMirrorMode() {
++        return ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION;
++    }
++
++    public static final StaminaResourceAdapter INSTANCE = new StaminaResourceAdapter();
++}
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapterTest.java b/src/test/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapterTest.java
+new file mode 100644
+index 0000000..c98b2e2
+--- /dev/null
++++ b/src/test/java/zcylas/totality/api/rpg/resources/external/ManaResourceAdapterTest.java
+@@ -0,0 +1,204 @@
++package zcylas.totality.api.rpg.resources.external;
++
++import net.minecraft.resources.Identifier;
++import org.junit.jupiter.api.Test;
++import zcylas.totality.api.rpg.mana.PlayerManaManager;
++import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
++import zcylas.totality.api.rpg.resources.ResourceSnapshot;
++
++import java.util.concurrent.atomic.AtomicInteger;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++/**
++ * Pure logic for Mana, tested directly against {@link ManaResourceAdapter#resolve}/{@link ManaResourceAdapter#normalize}
++ * rather than through a real {@code ServerPlayer} (constructing one outside the Minecraft runtime is
++ * impractical — matching {@code BreathResourceAdapterTest}'s established precedent).
++ * {@link ManaResourceAdapter#snapshot} itself (including the client/server routing it adds on top)
++ * is exercised end-to-end only by the manual smoke-test checklist in the Phase 2C report.
++ */
++class ManaResourceAdapterTest {
++
++    private static final Identifier ID = Identifier.fromNamespaceAndPath("totality", "mana");
++
++    private static ResourceSnapshot successSnapshot(ResourceQueryResult result) {
++        assertInstanceOf(ResourceQueryResult.Success.class, result);
++        return ((ResourceQueryResult.Success) result).snapshot();
++    }
++
++    private static ResourceQueryFailureReason failureReason(ResourceQueryResult result) {
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        return ((ResourceQueryResult.Failure) result).reason();
++    }
++
++    @Test
++    void manaAdapterSupportsOnlyQuery() {
++        assertTrue(ManaResourceAdapter.INSTANCE.supportedOperations().contains(ExternalResourceOperationSupport.QUERY));
++        assertEquals(1, ManaResourceAdapter.INSTANCE.supportedOperations().size(),
++                "Mana is query-only in Phase 2C — no RESTORE/DRAIN/SPEND/SET support");
++        assertEquals(ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION,
++                ManaResourceAdapter.INSTANCE.clientMirrorMode());
++    }
++
++    @Test
++    void adapterIdMatchesTheManaResourceId() {
++        assertEquals(ID, ManaResourceAdapter.INSTANCE.id());
++        assertEquals(ID, ManaResourceAdapter.ID);
++    }
++
++    @Test
++    void baseMaxManaIsOneHundred() {
++        // PlayerManaManager.BASE_MAX_MANA — the audited baseline before any bonus.
++        assertEquals(100, PlayerManaManager.BASE_MAX_MANA);
++    }
++
++    // ── resolve(): initialized-check-before-maximum-calculation ordering ───────────────────
++
++    @Test
++    void resolveNeverInvokesTheMaximumSupplierWhenUninitialized() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        assertFalse(component.isManaInitialized(), "sanity: a fresh component starts uninitialized");
++        AtomicInteger invocations = new AtomicInteger();
++
++        ResourceQueryResult result = ManaResourceAdapter.resolve(ID, component, () -> {
++            invocations.incrementAndGet();
++            return 100;
++        }, 1);
++
++        assertEquals(ResourceQueryFailureReason.STATE_UNINITIALIZED, failureReason(result));
++        assertEquals(ID, ((ResourceQueryResult.Failure) result).resourceId());
++        assertEquals(0, invocations.get(), "the maximum supplier must not be invoked for uninitialized state");
++    }
++
++    @Test
++    void resolveInvokesTheMaximumSupplierExactlyOnceWhenInitialized() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        component.setMana(42);
++        assertTrue(component.isManaInitialized());
++        AtomicInteger invocations = new AtomicInteger();
++
++        ResourceQueryResult result = ManaResourceAdapter.resolve(ID, component, () -> {
++            invocations.incrementAndGet();
++            return 100;
++        }, 1);
++
++        assertEquals(1, invocations.get(), "the maximum supplier must be invoked exactly once for initialized state");
++        ResourceSnapshot snapshot = successSnapshot(result);
++        assertEquals(42L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void resolvePreservesCurrentAndDynamicMaximumForInitializedState() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        component.setMana(150);
++
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.resolve(ID, component, () -> 180, 1));
++
++        assertEquals(150L, snapshot.currentUnits());
++        assertEquals(180L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void resolveDoesNotMutateTheComponent() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        component.setMana(37);
++
++        ManaResourceAdapter.resolve(ID, component, () -> 100, 1);
++        // Also exercise the uninitialized path against a separate fresh component.
++        PlayerResourceComponent freshComponent = new PlayerResourceComponent(null);
++        ManaResourceAdapter.resolve(ID, freshComponent, () -> 100, 1);
++
++        assertEquals(37, component.getMana(), "resolve must never write the component it read");
++        assertFalse(freshComponent.isManaInitialized(), "resolve must never initialize an uninitialized component");
++        assertEquals(-1, freshComponent.getMana());
++    }
++
++    // ── normalize(): pure clamp/validate core ───────────────────────────────────────────────
++
++    @Test
++    void fullManaNormalizesToCurrentEqualsMaximum() {
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 100, 100, 1));
++        assertEquals(100L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void partialManaNormalizesUnchanged() {
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 37, 100, 1));
++        assertEquals(37L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void zeroManaNormalizesToZero() {
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 0, 100, 1));
++        assertEquals(0L, snapshot.currentUnits());
++    }
++
++    @Test
++    void dynamicBonusMaximumIsRespected() {
++        // A stat/equipment/effect-bumped maximum (e.g. base 100 + 20 INT bonus + armor bonus).
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 150, 180, 1));
++        assertEquals(150L, snapshot.currentUnits());
++        assertEquals(180L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void currentAboveMaximumPassesThroughUnclampedMatchingExistingOwnerPermissiveness() {
++        // PlayerResourceRecalculator / ManaServerTick both intentionally allow current to transiently
++        // exceed maximum (e.g. immediately after a Fortify effect expires) until their own next
++        // clamping pass — the adapter must not silently "repair" that existing, accepted behavior.
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 120, 100, 1));
++        assertEquals(120L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void zeroMaximumProducesMalformedOwnerStateFailure() {
++        // Reachable in practice (unlike Breath's case): a sufficiently negative INT modifier can
++        // drive PlayerManaManager.getMaxMana to zero or below — see PlayerStatsCharacterizationTest
++        // .negativeEndAndIntModifiersProduceNegativeStaminaAndManaBonuses.
++        ResourceQueryResult result = ManaResourceAdapter.normalize(ID, 0, 0, 1);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void negativeMaximumProducesMalformedOwnerStateFailure() {
++        ResourceQueryResult result = ManaResourceAdapter.normalize(ID, 0, -30, 1);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void negativeCurrentOtherThanTheUninitializedSentinelProducesMalformedOwnerStateFailure() {
++        // PlayerResourceComponent.isManaInitialized() itself treats every negative value as
++        // "uninitialized" (its own `mana >= 0` contract), so normalize's only real caller (resolve)
++        // never passes a negative current — tested defensively here anyway, the same way
++        // BreathResourceAdapterTest tests values no real Player would produce.
++        ResourceQueryResult result = ManaResourceAdapter.normalize(ID, -7, 100, 1);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void unitScaleIsAlwaysOne() {
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 50, 100, 1));
++        assertEquals(1L, snapshot.unitScale());
++    }
++
++    @Test
++    void resultIsAnExactIntegerNoFloatConversion() {
++        // Mana is an int-native legacy quantity end to end (PlayerResourceComponent.mana is an int)
++        // — the normalization core must never round-trip through float/double.
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 63, 100, 1));
++        assertEquals(63L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void resourceIdIsPreservedOnTheSnapshot() {
++        ResourceSnapshot snapshot = successSnapshot(ManaResourceAdapter.normalize(ID, 50, 100, 1));
++        assertEquals(ID, snapshot.resourceId());
++    }
++}
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapterTest.java b/src/test/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapterTest.java
+new file mode 100644
+index 0000000..93dc358
+--- /dev/null
++++ b/src/test/java/zcylas/totality/api/rpg/resources/external/StaminaResourceAdapterTest.java
+@@ -0,0 +1,197 @@
++package zcylas.totality.api.rpg.resources.external;
++
++import net.minecraft.resources.Identifier;
++import org.junit.jupiter.api.Test;
++import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
++import zcylas.totality.api.rpg.resources.ResourceSnapshot;
++import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
++
++import java.util.concurrent.atomic.AtomicInteger;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++/**
++ * Pure logic for Stamina, tested directly against {@link StaminaResourceAdapter#resolve}/{@link StaminaResourceAdapter#normalize}.
++ * Mirrors {@link ManaResourceAdapterTest} exactly — see that class's Javadoc for the full rationale
++ * behind each test.
++ */
++class StaminaResourceAdapterTest {
++
++    private static final Identifier ID = Identifier.fromNamespaceAndPath("totality", "stamina");
++
++    private static ResourceSnapshot successSnapshot(ResourceQueryResult result) {
++        assertInstanceOf(ResourceQueryResult.Success.class, result);
++        return ((ResourceQueryResult.Success) result).snapshot();
++    }
++
++    private static ResourceQueryFailureReason failureReason(ResourceQueryResult result) {
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        return ((ResourceQueryResult.Failure) result).reason();
++    }
++
++    @Test
++    void staminaAdapterSupportsOnlyQuery() {
++        assertTrue(StaminaResourceAdapter.INSTANCE.supportedOperations().contains(ExternalResourceOperationSupport.QUERY));
++        assertEquals(1, StaminaResourceAdapter.INSTANCE.supportedOperations().size(),
++                "Stamina is query-only in Phase 2C — no RESTORE/DRAIN/SPEND/SET support");
++        assertEquals(ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION,
++                StaminaResourceAdapter.INSTANCE.clientMirrorMode());
++    }
++
++    @Test
++    void adapterIdMatchesTheStaminaResourceId() {
++        assertEquals(ID, StaminaResourceAdapter.INSTANCE.id());
++        assertEquals(ID, StaminaResourceAdapter.ID);
++    }
++
++    @Test
++    void baseMaxStaminaIsOneHundred() {
++        assertEquals(100, PlayerStaminaManager.BASE_MAX_STAMINA);
++    }
++
++    // ── resolve(): initialized-check-before-maximum-calculation ordering ───────────────────
++
++    @Test
++    void resolveNeverInvokesTheMaximumSupplierWhenUninitialized() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        assertFalse(component.isStaminaInitialized(), "sanity: a fresh component starts uninitialized");
++        AtomicInteger invocations = new AtomicInteger();
++
++        ResourceQueryResult result = StaminaResourceAdapter.resolve(ID, component, () -> {
++            invocations.incrementAndGet();
++            return 100;
++        }, 1);
++
++        assertEquals(ResourceQueryFailureReason.STATE_UNINITIALIZED, failureReason(result));
++        assertEquals(ID, ((ResourceQueryResult.Failure) result).resourceId());
++        assertEquals(0, invocations.get(), "the maximum supplier must not be invoked for uninitialized state");
++    }
++
++    @Test
++    void resolveInvokesTheMaximumSupplierExactlyOnceWhenInitialized() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        component.setStamina(41);
++        assertTrue(component.isStaminaInitialized());
++        AtomicInteger invocations = new AtomicInteger();
++
++        ResourceQueryResult result = StaminaResourceAdapter.resolve(ID, component, () -> {
++            invocations.incrementAndGet();
++            return 100;
++        }, 1);
++
++        assertEquals(1, invocations.get(), "the maximum supplier must be invoked exactly once for initialized state");
++        ResourceSnapshot snapshot = successSnapshot(result);
++        assertEquals(41L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void resolvePreservesCurrentAndDynamicMaximumForInitializedState() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        component.setStamina(140);
++
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.resolve(ID, component, () -> 170, 1));
++
++        assertEquals(140L, snapshot.currentUnits());
++        assertEquals(170L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void resolveDoesNotMutateTheComponent() {
++        PlayerResourceComponent component = new PlayerResourceComponent(null);
++        component.setStamina(41);
++
++        StaminaResourceAdapter.resolve(ID, component, () -> 100, 1);
++        PlayerResourceComponent freshComponent = new PlayerResourceComponent(null);
++        StaminaResourceAdapter.resolve(ID, freshComponent, () -> 100, 1);
++
++        assertEquals(41, component.getStamina(), "resolve must never write the component it read");
++        assertFalse(freshComponent.isStaminaInitialized(), "resolve must never initialize an uninitialized component");
++        assertEquals(-1, freshComponent.getStamina());
++    }
++
++    // ── normalize(): pure clamp/validate core ───────────────────────────────────────────────
++
++    @Test
++    void fullStaminaNormalizesToCurrentEqualsMaximum() {
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 100, 100, 1));
++        assertEquals(100L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void partialStaminaNormalizesUnchanged() {
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 41, 100, 1));
++        assertEquals(41L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void zeroStaminaNormalizesToZero() {
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 0, 100, 1));
++        assertEquals(0L, snapshot.currentUnits());
++    }
++
++    @Test
++    void dynamicBonusMaximumIsRespected() {
++        // A stat/equipment/effect-bumped maximum (e.g. base 100 + 20 END bonus + armor bonus).
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 140, 170, 1));
++        assertEquals(140L, snapshot.currentUnits());
++        assertEquals(170L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void currentAboveMaximumPassesThroughUnclampedMatchingExistingOwnerPermissiveness() {
++        // PlayerResourceRecalculator / StaminaServerTick both intentionally allow current to
++        // transiently exceed maximum until their own next clamping pass — the adapter must not
++        // silently "repair" that existing, accepted behavior.
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 115, 100, 1));
++        assertEquals(115L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void zeroMaximumProducesMalformedOwnerStateFailure() {
++        // Reachable in practice: a sufficiently negative END modifier can drive
++        // PlayerStaminaManager.getMaxStamina to zero or below.
++        ResourceQueryResult result = StaminaResourceAdapter.normalize(ID, 0, 0, 1);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void negativeMaximumProducesMalformedOwnerStateFailure() {
++        ResourceQueryResult result = StaminaResourceAdapter.normalize(ID, 0, -30, 1);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void negativeCurrentOtherThanTheUninitializedSentinelProducesMalformedOwnerStateFailure() {
++        // PlayerResourceComponent.isStaminaInitialized() itself treats every negative value as
++        // "uninitialized" (its own `stamina >= 0` contract), so normalize's only real caller
++        // (resolve) never passes a negative current — tested defensively here anyway, matching
++        // BreathResourceAdapterTest's precedent for values no real Player would produce.
++        ResourceQueryResult result = StaminaResourceAdapter.normalize(ID, -3, 100, 1);
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void unitScaleIsAlwaysOne() {
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 50, 100, 1));
++        assertEquals(1L, snapshot.unitScale());
++    }
++
++    @Test
++    void resultIsAnExactIntegerNoFloatConversion() {
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 77, 100, 1));
++        assertEquals(77L, snapshot.currentUnits());
++        assertEquals(100L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void resourceIdIsPreservedOnTheSnapshot() {
++        ResourceSnapshot snapshot = successSnapshot(StaminaResourceAdapter.normalize(ID, 50, 100, 1));
++        assertEquals(ID, snapshot.resourceId());
++    }
++}

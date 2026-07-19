@@ -4,6 +4,8 @@ import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
 import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
 import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
 import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType;
 import zcylas.totality.api.rpg.resources.presentation.ResourceHudRole;
@@ -30,6 +32,21 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
  * count, ...) is defined anywhere yet. Inventing one here would be a speculative formatter the
  * Phase 2B task explicitly forbids; that decision is deferred to a future HUD-presentation phase.
  * Breath remains contextually visible today through vanilla's own unmodified air-bubble HUD.
+ *
+ * <p>Phase 2C adds {@code totality:mana} and {@code totality:stamina} — also {@code EXTERNAL_ADAPTER}-
+ * authority and query-only, but <b>transitionally</b> so: both wrap the legacy-authoritative
+ * {@link PlayerResourceComponent} store via {@link ManaResourceAdapter}/{@link StaminaResourceAdapter}
+ * rather than a truly independent system the way vanilla owns Health/Food/Breath. Both are
+ * registered at {@code definitionVersion = 1}; a future migration to {@code GENERIC_COMPONENT}
+ * authority requires an explicit version increase and a real migration step, never a silent
+ * structural hot-swap of what these two ids mean. Both use {@link ResourceDisplayConversion#IDENTITY}
+ * (their legacy storage is already a plain integer, unlike Health's fixed-point float conversion),
+ * unlike Health/Food they declare no formatter dependency on each other, and unlike Breath they do
+ * declare a full {@link ResourcePresentationDefinition} (canonical §19.8 already treats Mana/Stamina
+ * as constant HUD elements, matching Health/Food/Hunger) — but the existing Totality-drawn HUD bars
+ * are left completely untouched by this phase; see {@code TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md}
+ * for why (no generic synchronization exists yet for either resource, so nothing could safely
+ * consume this presentation metadata client-side today regardless).
  */
 public final class ProductionResourceDefinitions {
 
@@ -43,6 +60,8 @@ public final class ProductionResourceDefinitions {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(HealthResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(FoodResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(BreathResourceAdapter.INSTANCE);
+        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(ManaResourceAdapter.INSTANCE);
+        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StaminaResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
     }
 
@@ -102,6 +121,44 @@ public final class ProductionResourceDefinitions {
                         .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
                         .build());
 
+        // Mana/Stamina: transitional EXTERNAL_ADAPTER over the legacy PlayerResourceComponent store
+        // (see the class Javadoc). definitionVersion is explicit at 1 — a future GENERIC_COMPONENT
+        // migration must bump it, never silently redefine what totality:mana/totality:stamina mean.
+        // The authored maximum below is each legacy manager's own BASE_MAX_* constant — purely
+        // descriptive, exactly like Health/Food/Breath's authoredBaseMaximum; the live query path
+        // (ManaResourceAdapter/StaminaResourceAdapter#snapshot) always reads the manager's actual,
+        // bonus-inclusive PlayerManaManager.getMaxMana/PlayerStaminaManager.getMaxStamina and never
+        // consults this value. No SPENDABLE/RESTORABLE/DIRECT_DRAIN capability — query-only.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.MANA, ResourceModel.SCALAR)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .externalAdapter(PlayerResourceIds.MANA_ADAPTER)
+                        .unitScale(1)
+                        .absoluteMinimum(0)
+                        .authoredBaseMaximum(zcylas.totality.api.rpg.mana.PlayerManaManager.BASE_MAX_MANA)
+                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                        .presentation(new ResourcePresentationDefinition(
+                                ResourceDisplayConversion.IDENTITY,
+                                ResourceDisplayType.BAR,
+                                ResourceHudRole.CORE_CONSTANT))
+                        .definitionVersion(1)
+                        .build());
+
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.STAMINA, ResourceModel.SCALAR)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .externalAdapter(PlayerResourceIds.STAMINA_ADAPTER)
+                        .unitScale(1)
+                        .absoluteMinimum(0)
+                        .authoredBaseMaximum(zcylas.totality.api.rpg.stamina.PlayerStaminaManager.BASE_MAX_STAMINA)
+                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                        .presentation(new ResourcePresentationDefinition(
+                                ResourceDisplayConversion.IDENTITY,
+                                ResourceDisplayType.BAR,
+                                ResourceHudRole.CORE_CONSTANT))
+                        .definitionVersion(1)
+                        .build());
+
         PlayerResourceRegistry.INSTANCE.freeze(ExternalPlayerResourceAdapterRegistry.INSTANCE);
     }
 
@@ -110,6 +167,10 @@ public final class ProductionResourceDefinitions {
                 ResourceValueFormatter.ofConversion(PlayerResourceIds.HEALTH, ResourceDisplayConversion.HEALTH_FOOD));
         ResourceValueFormatterRegistry.INSTANCE.register(
                 ResourceValueFormatter.ofConversion(PlayerResourceIds.FOOD, ResourceDisplayConversion.HEALTH_FOOD));
+        ResourceValueFormatterRegistry.INSTANCE.register(
+                ResourceValueFormatter.ofConversion(PlayerResourceIds.MANA, ResourceDisplayConversion.IDENTITY));
+        ResourceValueFormatterRegistry.INSTANCE.register(
+                ResourceValueFormatter.ofConversion(PlayerResourceIds.STAMINA, ResourceDisplayConversion.IDENTITY));
         ResourceValueFormatterRegistry.INSTANCE.freeze();
     }
 

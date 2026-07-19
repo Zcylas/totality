@@ -85,4 +85,19 @@ class ResourceValueFormatterRegistryTest {
 
         assertTrue(ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.BREATH).isEmpty());
     }
+
+    @Test
+    void productionRegistryHasManaAndStaminaBothOnIdentity() {
+        // Unlike Breath, Mana/Stamina's legacy storage is already a plain integer — an identity
+        // (1/1) conversion is lossless and non-speculative, so both declare a formatter unlike Breath.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceValueFormatter mana = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
+        ResourceValueFormatter stamina = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
+
+        assertEquals(63L, mana.toDisplayValue(63, 1));
+        assertEquals(41L, stamina.toDisplayValue(41, 1));
+        assertEquals(1L, mana.toDisplayDelta(1, 1));
+        assertEquals(1L, stamina.toDisplayDelta(1, 1));
+    }
 }

@@ -45,8 +45,8 @@ class PlayerResourceStateComponentTest {
     void queryingUngrantedResourceDoesNotInstantiateIt() {
         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
 
-        assertTrue(component.getScalar(id("mana")).isEmpty());
-        assertFalse(component.hasState(id("mana")));
+        assertTrue(component.getScalar(id("test_scalar_a")).isEmpty());
+        assertFalse(component.hasState(id("test_scalar_a")));
         // The query itself must not have created state as a side effect.
         assertTrue(component.instantiatedResourceIds().isEmpty());
     }
@@ -70,12 +70,12 @@ class PlayerResourceStateComponentTest {
     void instantiateScalarCreatesStateExactlyOnce() {
         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
 
-        ScalarResourceState first = component.instantiateScalar(id("mana"), 100);
-        ScalarResourceState second = component.instantiateScalar(id("mana"), 999);
+        ScalarResourceState first = component.instantiateScalar(id("test_scalar_a"), 100);
+        ScalarResourceState second = component.instantiateScalar(id("test_scalar_a"), 999);
 
         assertSame(first, second, "instantiating an already-instantiated resource must not reinitialize it");
         assertEquals(100, first.currentUnits(), "the second call's initial value must be ignored");
-        assertTrue(component.hasState(id("mana")));
+        assertTrue(component.hasState(id("test_scalar_a")));
     }
 
     @Test
@@ -102,42 +102,42 @@ class PlayerResourceStateComponentTest {
     @Test
     void removeStateClearsInstantiation() {
         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
-        component.instantiateScalar(id("stamina"), 100);
-        assertTrue(component.hasState(id("stamina")));
+        component.instantiateScalar(id("test_scalar_b"), 100);
+        assertTrue(component.hasState(id("test_scalar_b")));
 
-        component.removeState(id("stamina"));
-        assertFalse(component.hasState(id("stamina")));
+        component.removeState(id("test_scalar_b"));
+        assertFalse(component.hasState(id("test_scalar_b")));
     }
 
     @Test
     void copyFromDuplicatesStatesIndependently() {
         PlayerResourceStateComponent source = new PlayerResourceStateComponent(null);
-        source.instantiateScalar(id("mana"), 80);
+        source.instantiateScalar(id("test_scalar_a"), 80);
         source.instantiatePartitioned(id("spell_slots")).setCurrent(1, 3);
 
         PlayerResourceStateComponent target = new PlayerResourceStateComponent(null);
         target.copyFrom(source, null);
 
-        assertEquals(80, target.getScalar(id("mana")).orElseThrow().currentUnits());
+        assertEquals(80, target.getScalar(id("test_scalar_a")).orElseThrow().currentUnits());
         assertEquals(3, target.getPartitioned(id("spell_slots")).orElseThrow().getCurrent(1));
 
         // Independence: mutating the target must not affect the source (or vice versa).
-        target.getScalar(id("mana")).orElseThrow().setCurrentUnits(1);
-        assertEquals(80, source.getScalar(id("mana")).orElseThrow().currentUnits());
+        target.getScalar(id("test_scalar_a")).orElseThrow().setCurrentUnits(1);
+        assertEquals(80, source.getScalar(id("test_scalar_a")).orElseThrow().currentUnits());
     }
 
     @Test
     void copyFromReplacesTargetContentsRatherThanMerging() {
         PlayerResourceStateComponent source = new PlayerResourceStateComponent(null);
-        source.instantiateScalar(id("mana"), 50);
+        source.instantiateScalar(id("test_scalar_a"), 50);
 
         PlayerResourceStateComponent target = new PlayerResourceStateComponent(null);
-        target.instantiateScalar(id("stamina"), 100);
+        target.instantiateScalar(id("test_scalar_b"), 100);
 
         target.copyFrom(source, null);
 
-        assertTrue(target.hasState(id("mana")));
-        assertFalse(target.hasState(id("stamina")),
+        assertTrue(target.hasState(id("test_scalar_a")));
+        assertFalse(target.hasState(id("test_scalar_b")),
                 "copyFrom must reflect the source's exact contents, not merge with prior target state");
     }
 

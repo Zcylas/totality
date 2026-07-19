@@ -4,10 +4,10 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import org.junit.jupiter.api.Test;
 import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
 import zcylas.totality.api.rpg.resources.ResourceSnapshot;
 
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,8 +33,8 @@ class ExternalPlayerResourceAdapterRegistryTest {
             Identifier id, long current, long max, Set<ExternalResourceOperationSupport> support) {
         return new ExternalPlayerResourceAdapter() {
             @Override public Identifier id() { return id; }
-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
-                return Optional.of(new ResourceSnapshot(id, current, max, 1));
+            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+                return new ResourceQueryResult.Success(new ResourceSnapshot(id, current, max, 1));
             }
             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
                 return support;
@@ -81,7 +81,7 @@ class ExternalPlayerResourceAdapterRegistryTest {
         ExternalPlayerResourceAdapterRegistry registry = new ExternalPlayerResourceAdapterRegistry();
         ExternalPlayerResourceAdapter malformed = new ExternalPlayerResourceAdapter() {
             @Override public Identifier id() { return null; }
-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
+            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
                 throw new UnsupportedOperationException();
             }
             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
@@ -180,7 +180,7 @@ class ExternalPlayerResourceAdapterRegistryTest {
         Identifier adapterId = id("null_mirror_mode");
         ExternalPlayerResourceAdapter adapter = new ExternalPlayerResourceAdapter() {
             @Override public Identifier id() { return adapterId; }
-            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
+            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
                 throw new UnsupportedOperationException();
             }
             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {

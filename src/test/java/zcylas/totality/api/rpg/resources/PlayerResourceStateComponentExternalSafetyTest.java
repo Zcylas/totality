@@ -6,11 +6,14 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Proves {@code totality:health}/{@code totality:food}/{@code totality:breath} can never become
- * live {@link PlayerResourceStateComponent} state — the "Prevent duplicate external state"
- * requirement from the Phase 2A task, extended to Breath in Phase 2B. Uses the real production
- * registry (via {@link TestResourceBootstrap}) since the guarantee under test is specifically about
- * the real external-authority definitions.
+ * Proves {@code totality:health}/{@code totality:food}/{@code totality:breath}/{@code totality:mana}/
+ * {@code totality:stamina} can never become live {@link PlayerResourceStateComponent} state — the
+ * "Prevent duplicate external state" requirement from the Phase 2A task, extended to Breath in
+ * Phase 2B and to Mana/Stamina in Phase 2C (whose transitional {@code EXTERNAL_ADAPTER} authority
+ * over the legacy {@code PlayerResourceComponent} store gets exactly the same protection
+ * automatically — this class proves that generalization holds, not just documents it). Uses the
+ * real production registry (via {@link TestResourceBootstrap}) since the guarantee under test is
+ * specifically about the real external-authority definitions.
  */
 class PlayerResourceStateComponentExternalSafetyTest {
 
@@ -75,7 +78,47 @@ class PlayerResourceStateComponentExternalSafetyTest {
     }
 
     @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueOnlyForHealthFoodAndBreath() {
+    void instantiateScalarRejectsMana() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiateScalar(PlayerResourceIds.MANA, 100));
+        assertFalse(state.hasState(PlayerResourceIds.MANA));
+    }
+
+    @Test
+    void instantiateScalarRejectsStamina() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiateScalar(PlayerResourceIds.STAMINA, 100));
+        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
+    }
+
+    @Test
+    void instantiatePartitionedRejectsMana() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiatePartitioned(PlayerResourceIds.MANA));
+        assertFalse(state.hasState(PlayerResourceIds.MANA));
+    }
+
+    @Test
+    void instantiatePartitionedRejectsStamina() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiatePartitioned(PlayerResourceIds.STAMINA));
+        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
+    }
+
+    @Test
+    void isRegisteredExternalAdapterAuthorityIsTrueForAllFiveProductionResources() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
@@ -83,6 +126,8 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.HEALTH));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
+        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
+        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }
@@ -99,6 +144,8 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.HEALTH));
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.FOOD));
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.BREATH));
+        assertFalse(freshPlayerState.hasState(PlayerResourceIds.MANA));
+        assertFalse(freshPlayerState.hasState(PlayerResourceIds.STAMINA));
     }
 
     @Test

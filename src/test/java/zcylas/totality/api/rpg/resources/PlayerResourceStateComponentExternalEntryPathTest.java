@@ -182,6 +182,72 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
+    void nbtLoadingQuarantinesStaleGenericDataForMana() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        // Phase 2C's own analogue: totality:mana is now a transitional EXTERNAL_ADAPTER over the
+        // legacy PlayerResourceComponent store, so the same quarantine guarantee must hold for it.
+        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.MANA, 100, 0, 0);
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
+
+        assertFalse(state.hasState(PlayerResourceIds.MANA), "Mana must never become live generic state");
+        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.MANA),
+                "stale Mana data must be quarantined, not silently dropped");
+    }
+
+    @Test
+    void nbtLoadingQuarantinesStaleGenericDataForStamina() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.STAMINA, 100, 0, 0);
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
+
+        assertFalse(state.hasState(PlayerResourceIds.STAMINA), "Stamina must never become live generic state");
+        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.STAMINA),
+                "stale Stamina data must be quarantined, not silently dropped");
+    }
+
+    @Test
+    void applyingASyncPayloadCannotCreateLiveManaGenericState() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        buf.writeInt(1);
+        buf.writeUtf(PlayerResourceIds.MANA.toString());
+        buf.writeUtf("SCALAR");
+        buf.writeLong(100L); // current
+        buf.writeLong(0L);   // overflow
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.applySyncPacket(buf);
+
+        assertFalse(state.hasState(PlayerResourceIds.MANA), "Mana must never become live via a sync packet");
+        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+    }
+
+    @Test
+    void applyingASyncPayloadCannotCreateLiveStaminaGenericState() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        buf.writeInt(1);
+        buf.writeUtf(PlayerResourceIds.STAMINA.toString());
+        buf.writeUtf("SCALAR");
+        buf.writeLong(100L); // current
+        buf.writeLong(0L);   // overflow
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.applySyncPacket(buf);
+
+        assertFalse(state.hasState(PlayerResourceIds.STAMINA), "Stamina must never become live via a sync packet");
+        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+    }
+
+    @Test
     void writeDataNeverWritesALiveHealthEntryEvenIfCorruptedIntoStates() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
@@ -297,6 +363,13 @@ class PlayerResourceStateComponentExternalEntryPathTest {
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
+        // Phase 2C: Mana/Stamina are EXTERNAL_ADAPTER too (transitionally) — queryGenericState is
+        // structurally unreachable for them exactly the same way, even though their adapter reads a
+        // Totality-owned legacy store rather than a vanilla one.
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow().stateAuthority());
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().stateAuthority());
     }
 
     @Test
@@ -307,8 +380,12 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         assertFalse(state.hasState(PlayerResourceIds.HEALTH));
         assertFalse(state.hasState(PlayerResourceIds.FOOD));
         assertFalse(state.hasState(PlayerResourceIds.BREATH));
+        assertFalse(state.hasState(PlayerResourceIds.MANA));
+        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
         assertTrue(state.getScalar(PlayerResourceIds.HEALTH).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.FOOD).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.BREATH).isEmpty());
+        assertTrue(state.getScalar(PlayerResourceIds.MANA).isEmpty());
+        assertTrue(state.getScalar(PlayerResourceIds.STAMINA).isEmpty());
     }
 }

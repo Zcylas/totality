@@ -4,9 +4,10 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Player;
 import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
 import zcylas.totality.api.rpg.resources.ResourceSnapshot;
 
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -71,7 +72,7 @@ public final class BreathResourceAdapter implements ExternalPlayerResourceAdapte
     }
 
     @Override
-    public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
+    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
         return normalize(definition.id(), player.getAirSupply(), player.getMaxAirSupply(), definition.unitScale());
     }
 
@@ -81,16 +82,18 @@ public final class BreathResourceAdapter implements ExternalPlayerResourceAdapte
      * actually produce (e.g. a non-positive maximum) — without needing a real Minecraft runtime or
      * reflection.
      *
-     * @return {@link Optional#empty()} if {@code rawMaximum} is not positive (the owner's state
-     *         cannot be represented as a valid Breath snapshot); otherwise a snapshot whose
-     *         {@code currentUnits()} is {@code rawCurrent} clamped into {@code [0, rawMaximum]}.
+     * @return a {@link ResourceQueryResult.Failure} naming {@link ResourceQueryFailureReason#MALFORMED_OWNER_STATE}
+     *         if {@code rawMaximum} is not positive (the owner's state cannot be represented as a
+     *         valid Breath snapshot); otherwise a {@link ResourceQueryResult.Success} wrapping a
+     *         snapshot whose {@code currentUnits()} is {@code rawCurrent} clamped into
+     *         {@code [0, rawMaximum]}.
      */
-    static Optional<ResourceSnapshot> normalize(Identifier resourceId, int rawCurrent, int rawMaximum, long unitScale) {
+    static ResourceQueryResult normalize(Identifier resourceId, int rawCurrent, int rawMaximum, long unitScale) {
         if (rawMaximum <= 0) {
-            return Optional.empty();
+            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
         }
         long clampedCurrent = Math.max(0, Math.min(rawCurrent, rawMaximum));
-        return Optional.of(new ResourceSnapshot(resourceId, clampedCurrent, rawMaximum, unitScale));
+        return new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, clampedCurrent, rawMaximum, unitScale));
     }
 
     @Override
