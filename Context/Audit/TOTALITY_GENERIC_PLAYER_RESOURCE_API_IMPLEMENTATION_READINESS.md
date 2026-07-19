@@ -1,7 +1,7 @@
 # TOTALITY GENERIC PLAYER RESOURCE API — IMPLEMENTATION READINESS AUDIT
 
-**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section at the end of this document records an actual code change: the inert Phase 0/1 Resource API foundation, landed on this same branch immediately after the addendum.
-**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17
+**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A Implementation Record"/"Correction Pass"/"Cleanup Pass" sections near the end of this document record Health and Food external adapters, landed 2026-07-19. **Phase 2A is READY TO COMMIT as of 2026-07-19**: 214/214 automated tests pass, build succeeds, and the manual smoke test has since passed on the real 26.2 client — see "Phase 2A Final Status" at the very end of this document. **Health, Food, and Breath are no longer all-absent** — Health and Food are now real, frozen, `EXTERNAL_ADAPTER`-authority production definitions; see that section before treating any earlier "no production resources exist" or "pending manual test" statement in this document as current.
+**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19
 **Branch:** `feature/general-resource-api` (based on `master` @ `bc16cc3`, "Merge Provisioner Phase 4")
 **Scope:** `src/main/java/zcylas/totality/**` only. `/Inspiration Mods` was excluded from every search, count, and conclusion below.
 **Canonical design authority:** `Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API.md` (2026-07-13, CANONICAL/IMPLEMENTATION-READY), reconciled against `Context/Audit/TOTALITY_POST_AUDIT_DESIGN_DECISIONS.md` (later, overrides where they conflict) and `Context/Audit/TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS.txt`.
@@ -538,7 +538,7 @@ This section records what was actually built, immediately after the Oxygen-to-Br
 - `PARTITIONED_SPENDING` capability on a `SCALAR`-model definition (`IllegalArgumentException`).
 - Any registration after `freeze()` (`IllegalStateException`).
 
-`get(id)`/`isRegistered(id)` never throw for unknown IDs (return `Optional.empty()`/`false`). `PlayerResourceRegistry.INSTANCE` has zero definitions after this patch — confirmed by `PlayerResourceRegistryTest.productionSingletonHasNoDefinitionsInThisPatch`.
+`get(id)`/`isRegistered(id)` never throw for unknown IDs (return `Optional.empty()`/`false`). `PlayerResourceRegistry.INSTANCE` had zero definitions after this Phase 1 patch — confirmed at the time by `PlayerResourceRegistryTest.productionSingletonHasNoDefinitionsInThisPatch`. **SUPERSEDED as of Phase 2A (2026-07-19): `INSTANCE` now contains exactly `totality:health` and `totality:food`, frozen; that Phase 1 test was renamed to `productionSingletonContainsExactlyHealthAndFoodInPhase2A` and now asserts the current, non-empty contents. See "Phase 2A Implementation Record" below.**
 
 ### State and NBT schema
 
@@ -700,7 +700,7 @@ What *was* verified programmatically in place of the manual test: `./gradlew com
 
 ### Confirmed unchanged by this correction pass
 
-No existing resource (HP, Stamina, Mana, Rage, Food, Breath) was migrated. No gameplay behavior changed. No HUD file was touched. No production resource definition was registered (`PlayerResourceRegistry.INSTANCE.size() == 0`, still enforced by test). No synchronization replacement occurred (`sync()` is still never called anywhere in production code). No Rest or regeneration code was touched.
+**Historical, Phase 1 scope only — see "Phase 2A Implementation Record" and the Phase 2A correction-pass report below for what is actually current.** No existing resource (HP, Stamina, Mana, Rage, Food, Breath) was migrated. No gameplay behavior changed. No HUD file was touched. No production resource definition was registered (`PlayerResourceRegistry.INSTANCE.size() == 0`, still enforced by test at that time — Phase 2A later replaced that test and `INSTANCE` now holds exactly Health and Food). No synchronization replacement occurred (`sync()` is still never called anywhere in production code — still true in Phase 2A too, both Health/Food use native vanilla sync). No Rest or regeneration code was touched.
 
 ---
 
@@ -726,6 +726,54 @@ This is the actual, executed manual client smoke test for the corrected Phase 1 
 **Log messages observed and confirmed unrelated to the Resource API work** (present before this patch, or expected/deliberate): development-session Realms/profile-key authentication errors; existing missing-model or missing-texture warnings; deliberately generated Provisioner verification error cases; untranslated item-tag warnings; Gradle deprecation warnings. None of these were fixed or touched by this work, and none are claimed to be — they are noted here only to record that they were reviewed and ruled out as Resource-API-related.
 
 **Conclusion:** the inert Phase 1 foundation (`PlayerResourceStateComponent` attached to every player, schema version 2, zero registered resources) is confirmed safe end-to-end on a real client across the full join → save → close → reopen → rejoin → close cycle, with no crashes, no errors, and no observable gameplay or HUD regression. This closes the previously-open "manual smoke test" verification gap noted throughout this document; the "recommended follow-up: Fabric GameTest framework" note for *automated* in-game coverage remains open and unaffected by this manual pass.
+
+---
+
+## Phase 2A Implementation Record — Health & Food External Adapters (2026-07-19)
+
+This section records the actual code change that followed this audit's own recommended sequencing (§11 item 3: "Phase 2 — Adapters over Health and Food. Health adapter should absorb `RpgDisplayUtils.toDisplayHp` as its formatter seed."). Full detail — file list, architecture, numeric precision, test breakdown, command results — lives in the dedicated report: `Context/Audit/TOTALITY_RESOURCE_API_PHASE_2A_HEALTH_FOOD_IMPLEMENTATION_REPORT.md`. This section is a pointer/summary, not a duplicate.
+
+**What changed:** `PlayerResourceRegistry.INSTANCE` now contains exactly two production definitions, `totality:health` and `totality:food`, both `EXTERNAL_ADAPTER`-authority and frozen (previously empty per every "0 definitions" statement earlier in this document). `ExternalPlayerResourceAdapterRegistry` (new package `api/rpg/resources/external`) and `ResourceValueFormatterRegistry`/`ResourceDisplayConversion` (new package `api/rpg/resources/presentation`) were added as the minimal infrastructure this required. `RpgDisplayUtils.toDisplayHp` was refactored to delegate to the shared `5/1` conversion (predicted by this audit's §7 migration-matrix row "HP display formatting... Promote existing utility into the registered formatter") instead of being deleted or duplicated. The Hunger HUD bar and the `InventoryItemDetail` Nutrition tooltip line now display on the `×5` scale this audit's §8 "Hunger adapter plan" specified, using the exact `numerator=5, denominator=1` shape that plan called for.
+
+**What did not change:** no Stamina, Mana, Rage, or spell-slot migration; no Rest integration; no HP/Food mutation path; no generic packet for either resource (both declare `NATIVE_SYNCHRONIZATION` — vanilla's own sync remains the only wire protocol for either value); the HUD overlap defect described in §10 is untouched; Temperature was not registered (per the Stage 2 correction record's standing decision) and Breath was not registered (per this addendum's own recommendation that it wait for a dedicated later phase).
+
+**Corrections to this audit's own earlier text, now superseded by the code:**
+- §5 "Externally adapted resources" row ("Health... Food... no third external-adapter target is planned") — Health and Food are no longer merely *planned*; they are implemented, frozen, production definitions as of this record.
+- §7 migration-matrix "HP current/max" and "Hunger" rows describing the wrapper as future work — both are now built exactly as that matrix specified (wrap-only, vanilla stays authoritative, `HealthResourceAdapter`/`FoodResourceAdapter`).
+- §12 "Hunger adapter correctness" / "×5 display conversion" verification-plan bullets — now satisfied by `FoodResourceAdapterConversionTest`/`HealthResourceAdapterConversionTest`/`ResourceValueFormatterRegistryTest`, not merely planned.
+- The introductory summary line above (§1's "**Can implementation begin without reopening the closed design?**") remains **Yes** — nothing found during Phase 2A contradicted a locked canonical decision; the one deliberate, documented architectural deviation (typing `ExternalPlayerResourceAdapter` against `Player` rather than canonical's `ServerPlayer`, scoped explicitly to this query-only phase) is recorded in the dedicated Phase 2A report's §4, not silently taken here.
+
+**Test count:** 100 → 164 (64 new tests; see the dedicated report §10 for the full breakdown).
+
+**Manual verification:** ~~not executed in the Phase 2A implementation session (no GUI/display tool was available); the checklist is recorded in the dedicated report and remains open for Stefan to run on the real 26.2 client, the same way the Phase 1 "Final Manual Verification" section above was eventually closed out.~~ **SUPERSEDED (2026-07-19) — since executed by Stefan on the real 26.2 client and PASSED**, the same way the Phase 1 "Final Manual Verification" section above was eventually closed out. Confirmed: client launch, test-world load, no Resource API component/NBT/sync errors, Health display/damage/healing/bar unchanged, Hunger now on the `0–100` scale with bar fill still tracking the underlying vanilla Food level correctly, eating eligibility/behavior unchanged, Food restoration displaying correctly through the ×5 presentation, no observed regression in saturation/exhaustion/starvation/natural regeneration, Stamina/Mana/Rage unchanged, no duplicate Health/Food bars, correct persistence of partially depleted Health/Hunger across save/close/reopen, and a clean second shutdown. Full detail: the dedicated Phase 2A report's "Final Status — Ready to Commit" section.
+
+**Recommended next patch (per the dedicated report §14, unchanged from this audit's own §11 item 9 sequencing intent):** the Breath external adapter, using this same Health/Food pattern.
+
+---
+
+## Phase 2A Correction Pass (2026-07-19, same day)
+
+A focused correction pass, driven by review of the first `TOTALITY_RESOURCE_API_PHASE_2A_REVIEW_BUNDLE.zip`, fixed nine issues in the record above: an ineffective Health-conversion overflow check (replaced with `BigDecimal`-based exact rounding/overflow detection), incomplete external-state closure (`applySyncPacket`/`writeSyncPacket`/`writeData`/`copyFrom` now all defensively exclude/quarantine `EXTERNAL_ADAPTER` ids, not just the instantiate/NBT-read paths), an unenforced operation-support contract (`QUERY` is now mandatory at adapter registration and independently re-checked at query time), a fabricated generic-maximum fallback (now a structured `MAXIMUM_UNAVAILABLE` failure instead of a fabricated `0`), unvalidated adapter snapshots (now checked for null/mismatched-id/mismatched-scale/invalid-maximum before being trusted), missing `HUD_VISIBLE`/`MENU_VISIBLE` capabilities on the production definitions, one genuinely hardcoded `× 5` Health formula found and fixed in `MobHealthBarHud.java` (mob health bars now share `RpgDisplayUtils.toDisplayHp`, per canonical §6.5), an overclaimed "exhaustive" Health-conversion compatibility test (corrected to an honest "ordinary gameplay-range" claim, with a real double-rounding divergence found via a 2,000,001-sample sweep and documented rather than hidden), and several stale Phase 1 doc/Javadoc claims that the production registry is empty. Test count: 164 → **202**. Full detail: `Context/Audit/TOTALITY_RESOURCE_API_PHASE_2A_HEALTH_FOOD_IMPLEMENTATION_REPORT.md`'s "Correction Pass Addendum" section.
+
+---
+
+## Phase 2A Cleanup Pass (2026-07-19, same day)
+
+A narrowly scoped cleanup pass fixed five smaller issues left by the correction pass above: `RpgDisplayUtils.HP_DISPLAY_MULTIPLIER` was still an independently maintained literal `5` — it is now derived from `ResourceDisplayConversion.HEALTH_FOOD.numerator()` at class-init time (with a loud failure, not silent drift, if `HEALTH_FOOD` ever stops being a whole-number multiplier), and `toVanillaHp` now delegates to a new, tested `ResourceDisplayConversion.invertToMechanical(double)` instead of dividing by that field a second time. `TotalityHudRenderer`'s defensive Hunger fallback was passing raw, unconverted `hunger, 20` values — it now runs the same `totality:food` `5/1` conversion the primary query path uses, so the fallback itself also satisfies "native 20 → display 100." `ResourceDisplayConversion.roundHalfAwayFromZero`'s tie-breaking implementation negated a negative numerator via `Math.negateExact`, which itself overflows for `Long.MIN_VALUE` even though the true rounded result is representable (`Long.MIN_VALUE / 2` is well within range) — replaced with a `Math.floorDiv`/`Math.floorMod`-based implementation that never needs to negate the input and cannot overflow for any valid `(numerator, denominator > 0)` pair. Finally, two documentation/test overclaims were corrected: `PlayerResourceStateComponentExternalEntryPathTest`'s false "no reflection is used anywhere in this file" claim (it does, in exactly three defensive-path tests, now stated accurately), and the Health double-rounding divergence test/report wording, which previously claimed "no currently-used gameplay value" and "no real gameplay value" can reach a divergence zone — narrowed to the evidence actually available (the specific audited samples tested do not diverge; an unusual float near a rounding boundary legitimately may, and that remains accepted, documented behavior, not a regression). Test count: 202 → 214.
+
+---
+
+## Phase 2A Final Status (2026-07-19)
+
+**READY TO COMMIT.** Stefan manually tested the final Phase 2A implementation (post cleanup pass) on the real Minecraft 26.2 client against the existing test world, and the manual smoke test **passed** — see the dedicated report's "Final Status — Ready to Commit" section for the full checklist result. This is a manual playtest of the specific behaviors on the specific checklist, not exhaustive verification of every code path or value.
+
+- **Automated tests:** 214/214 passed.
+- **Compile:** succeeded.
+- **Datagen:** wrote 0 files.
+- **Full build:** succeeded.
+- **Manual smoke test:** passed.
+
+**Scope boundaries carried forward unchanged:** Health and Food remain vanilla-authoritative external adapters — neither owns, duplicates, or overrides vanilla authority. Food's current implementation remains mechanically vanilla `0–20`; the `5/1` conversion is presentation-only. A future *mechanical* Food `0–100` scale, dynamic Food capacity, metabolism, and Diet/Cooking integration are explicitly later scope, not designed or implied by this phase. **Breath is the recommended next Resource API slice**, using this same external-adapter pattern; Temperature remains out of Resource API scope. The canonical closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to record this status.
 
 ---
 

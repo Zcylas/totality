@@ -11,6 +11,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ShieldItem;
 import zcylas.totality.Totality;
@@ -20,6 +21,11 @@ import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.api.rpg.combat.ArmorClass;
 import zcylas.totality.api.rpg.combat.armor.VanillaArmorStats;
 import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.PlayerResourceService;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
+import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegistry;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
 import zcylas.totality.client.combat.DualWieldTracker;
@@ -134,11 +140,18 @@ public class TotalityHudRenderer {
                 hungerSmooth.tick();
             }
 
+            // Bar fill keeps using the native hp/maxHp ratio (hpSmooth, above) unchanged; only the
+            // numeric text is queried through PlayerResourceService + the shared totality:health
+            // formatter. Falls back to the pre-existing RpgDisplayUtils values (which now compute
+            // the identical result through the same shared conversion) if the resource somehow
+            // isn't queryable, so this can never regress the number shown.
+            long[] hpDisplay = resourceDisplayCurrentMax(client.player, PlayerResourceIds.HEALTH,
+                    RpgDisplayUtils.toDisplayHp(hp), RpgDisplayUtils.toDisplayHp(maxHp));
             drawBarSmooth(graphics, client, leftX, hpY,
                     TotalityGuiSprites.HUD_HEALTH_FILL,
                     hpSmooth,
-                    RpgDisplayUtils.toDisplayHp(hp),
-                    RpgDisplayUtils.toDisplayHp(maxHp));
+                    (int) hpDisplay[0],
+                    (int) hpDisplay[1]);
 
             drawBarSmooth(graphics, client, leftX, staminaY,
                     TotalityGuiSprites.HUD_STAMINA_FILL,
@@ -158,10 +171,20 @@ public class TotalityHudRenderer {
                     0xFF00CCFF, true);
 
             // ── RIGHT SIDE — Hunger ──
+            // Bar fill keeps using the native hunger/20 ratio (hungerSmooth, above) unchanged; the
+            // displayed 0-100 numbers come from PlayerResourceService + the shared totality:food
+            // formatter (canonical §19.8: Food aligns to the same 100 baseline as Health/Mana/Stamina).
             int rightX = screenW - BG_WIDTH - 6;
+            // The fallback itself must not bypass the shared conversion either — Food's unitScale
+            // is 1, so this is the same totality:food 5/1 conversion the primary (query) path
+            // uses, applied directly to the raw mechanical values rather than a hardcoded * 5.
+            long hungerFallbackCurrent = ResourceDisplayConversion.HEALTH_FOOD.convertUnitsToDisplay(hunger, 1);
+            long hungerFallbackMax = ResourceDisplayConversion.HEALTH_FOOD.convertUnitsToDisplay(20, 1);
+            long[] hungerDisplay = resourceDisplayCurrentMax(
+                    client.player, PlayerResourceIds.FOOD, hungerFallbackCurrent, hungerFallbackMax);
             drawBarMirroredSmooth(graphics, client, rightX, hpY,
                     TotalityGuiSprites.HUD_HUNGER_FILL,
-                    hungerSmooth, hunger, 20);
+                    hungerSmooth, (int) hungerDisplay[0], (int) hungerDisplay[1]);
             // ── RIGHT SIDE — Secondary Resources (below hunger bar) ──
             drawSecondaryResources(graphics, client, screenW - 6, hpY + BG_HEIGHT + BAR_SPACING);
             // TODO: Thirst aligned with Stamina
@@ -173,6 +196,29 @@ public class TotalityHudRenderer {
             // TODO: ToolContextHud.render(graphics, client, screenW, screenH);
             // TODO: TargetContextHud.render(graphics, client, screenW, screenH);
         });
+    }
+
+    /**
+     * Queries {@code resourceId} through {@link PlayerResourceService} and converts the result to
+     * display units via the shared {@link ResourceValueFormatterRegistry} formatter, returning
+     * {@code [displayCurrent, displayMax]}. Falls back to the given pre-computed values (never a
+     * fabricated zero) if the resource isn't queryable or has no registered formatter — defensive
+     * only; both {@code totality:health} and {@code totality:food} are always registered in
+     * production by {@code ProductionResourceDefinitions}.
+     */
+    private static long[] resourceDisplayCurrentMax(
+            Player player, Identifier resourceId, long fallbackCurrent, long fallbackMax) {
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(player, resourceId);
+        if (result instanceof ResourceQueryResult.Success success) {
+            var formatter = ResourceValueFormatterRegistry.INSTANCE.get(resourceId);
+            if (formatter.isPresent()) {
+                return new long[] {
+                        formatter.get().toDisplayCurrent(success.snapshot()),
+                        formatter.get().toDisplayMaximum(success.snapshot())
+                };
+            }
+        }
+        return new long[] { fallbackCurrent, fallbackMax };
     }
 
     /**

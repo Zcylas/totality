@@ -1,6 +1,7 @@
 package zcylas.totality.api.rpg.resources;
 
 import net.minecraft.resources.Identifier;
+import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
 import zcylas.totality.api.rpg.resources.integration.ResourceGrantInitialization;
 
 import java.util.Collection;
@@ -18,8 +19,11 @@ import java.util.Optional;
  * validation needs to be exercised by isolated automated tests without sharing mutable static state
  * across the whole test JVM. See the readiness audit's Stage 2 deviation notes.
  *
- * No production definitions are registered anywhere in this Phase 1 patch — {@link #INSTANCE} is
- * empty at runtime. Resource migration (Phase 2+) is what actually populates it.
+ * Phase 1 registered no production definitions ({@link #INSTANCE} was empty at runtime). As of
+ * Phase 2A, {@link #INSTANCE} contains exactly two frozen, {@code EXTERNAL_ADAPTER}-authority
+ * definitions — {@code totality:health} and {@code totality:food} — registered by
+ * {@link ProductionResourceDefinitions#register()}. No {@code GENERIC_COMPONENT} resource is
+ * registered yet; that remains later-phase migration work.
  */
 public final class PlayerResourceRegistry {
 
@@ -150,8 +154,38 @@ public final class PlayerResourceRegistry {
         return definitions.size();
     }
 
-    /** Finalizes the registry — structural fields may no longer hot-swap after this (canonical §5.3). */
+    /**
+     * Finalizes the registry — structural fields may no longer hot-swap after this (canonical §5.3).
+     * Performs no cross-registry adapter validation; prefer {@link #freeze(ExternalPlayerResourceAdapterRegistry)}
+     * whenever any {@code EXTERNAL_ADAPTER} definition might be registered. Kept as a separate
+     * overload (rather than requiring every caller to pass an adapter registry) so registries that
+     * never register an external-authority definition — including every existing Phase 1 test —
+     * are not forced to depend on {@link ExternalPlayerResourceAdapterRegistry}.
+     */
     public synchronized void freeze() {
+        frozen = true;
+    }
+
+    /**
+     * Finalizes the registry after confirming every {@code EXTERNAL_ADAPTER} definition already
+     * registered here references an adapter actually present in {@code adapterRegistry} (canonical
+     * §5.2: "Require a registered external adapter when {@code stateAuthority == EXTERNAL_ADAPTER}").
+     * Fails clearly, before freezing, when a definition references a missing adapter — the registry
+     * is left unfrozen and every definition registered so far remains untouched.
+     */
+    public synchronized void freeze(ExternalPlayerResourceAdapterRegistry adapterRegistry) {
+        Objects.requireNonNull(adapterRegistry, "adapterRegistry");
+        for (PlayerResourceDefinition definition : definitions.values()) {
+            if (definition.stateAuthority() != ResourceStateAuthority.EXTERNAL_ADAPTER) continue;
+            Identifier adapterId = definition.externalAdapterId().orElseThrow(() -> new IllegalStateException(
+                    definition.id() + ": EXTERNAL_ADAPTER definition has no externalAdapterId "
+                            + "(should have been rejected at registration time)"));
+            if (!adapterRegistry.isRegistered(adapterId)) {
+                throw new IllegalStateException(
+                        definition.id() + ": references external adapter " + adapterId
+                                + ", which is not registered in the given ExternalPlayerResourceAdapterRegistry");
+            }
+        }
         frozen = true;
     }
 

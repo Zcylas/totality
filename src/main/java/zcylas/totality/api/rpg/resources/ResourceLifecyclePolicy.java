@@ -10,11 +10,14 @@ import java.util.Objects;
  * the field shape (field name/order matches canonically) and §16.6 for the
  * {@link ResourceGrantInitialization} contract itself.
  *
- * {@link #DEFAULT} is the only instance used by this Phase 1 patch (no production resource is
- * registered yet, so no resource-specific policy exists to differentiate). Real per-resource
- * policies are chosen when each resource is actually migrated — see canonical §29.2, which
- * explicitly requires preserving each existing resource's current behavior rather than inventing
- * a new death rule during migration.
+ * {@link #DEFAULT} is still the only instance used by any production definition as of Phase 2A:
+ * {@code totality:health}/{@code totality:food} both use it (neither builder call overrides
+ * {@code .lifecycle(...)}), but it is effectively inert for either — both are
+ * {@code EXTERNAL_ADAPTER}-authority, so they never enter {@link PlayerResourceStateComponent}'s
+ * live state map at all, and this policy only governs that map's death/logout/dimension-change
+ * copy behavior. Real per-resource policies are chosen when each {@code GENERIC_COMPONENT}
+ * resource is actually migrated — see canonical §29.2, which explicitly requires preserving each
+ * existing resource's current behavior rather than inventing a new death rule during migration.
  */
 public record ResourceLifecyclePolicy(
         ResourceDeathPolicy deathPolicy,

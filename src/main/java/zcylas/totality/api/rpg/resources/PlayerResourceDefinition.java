@@ -2,6 +2,7 @@ package zcylas.totality.api.rpg.resources;
 
 import net.minecraft.resources.Identifier;
 import zcylas.totality.api.rpg.resources.integration.ResourceGrantInitialization;
+import zcylas.totality.api.rpg.resources.presentation.ResourcePresentationDefinition;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -32,7 +33,8 @@ public record PlayerResourceDefinition(
         Set<ResourceCapability> capabilities,
         Optional<ResourceTargetRange> targetRange,
         ResourceLifecyclePolicy lifecycle,
-        int definitionVersion
+        int definitionVersion,
+        Optional<ResourcePresentationDefinition> presentation
 ) {
     public PlayerResourceDefinition {
         Objects.requireNonNull(id, "id");
@@ -44,6 +46,7 @@ public record PlayerResourceDefinition(
         Objects.requireNonNull(capabilities, "capabilities");
         Objects.requireNonNull(targetRange, "targetRange");
         Objects.requireNonNull(lifecycle, "lifecycle");
+        Objects.requireNonNull(presentation, "presentation");
         capabilities = capabilities.isEmpty()
                 ? Set.of()
                 : Set.copyOf(EnumSet.copyOf(capabilities));
@@ -66,6 +69,7 @@ public record PlayerResourceDefinition(
         private Optional<ResourceTargetRange> targetRange = Optional.empty();
         private ResourceLifecyclePolicy lifecycle = ResourceLifecyclePolicy.DEFAULT;
         private int definitionVersion = 1;
+        private Optional<ResourcePresentationDefinition> presentation = Optional.empty();
 
         private Builder(Identifier id, ResourceModel model) {
             this.id = Objects.requireNonNull(id, "id");
@@ -141,11 +145,17 @@ public record PlayerResourceDefinition(
             return this;
         }
 
+        public Builder presentation(ResourcePresentationDefinition presentation) {
+            this.presentation = Optional.of(presentation);
+            return this;
+        }
+
         public PlayerResourceDefinition build() {
             return new PlayerResourceDefinition(
                     id, model, polarity, stateAuthority, externalAdapterId,
                     unitScale, absoluteMinimum, authoredBaseMaximum,
-                    capabilities, targetRange, lifecycle, definitionVersion
+                    capabilities, targetRange, lifecycle, definitionVersion,
+                    presentation
             );
         }
     }

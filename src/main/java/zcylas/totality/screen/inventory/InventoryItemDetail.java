@@ -10,6 +10,8 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.equipment.Equippable;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegistry;
 import zcylas.totality.networking.inventory.InventoryActionHandler;
 
 import java.util.ArrayList;
@@ -150,7 +152,14 @@ public final class InventoryItemDetail {
         } else if (isPotion(stack)) {
             drawStat(g, font, x, y, w, "Type", "Potion", ba); y += 11;
         } else if (food != null) {
-            drawStat(g, font, x, y, w, "Nutrition",  String.valueOf(food.nutrition()), ba); y += 11;
+            // Nutrition is primary Food restoration — routed through the shared totality:food
+            // delta formatter so it displays on the same ×5 scale as the HUD hunger bar (canonical
+            // §19.9: "Bread restoring 6 mechanical Food displays +30 Food"). Saturation is
+            // owner-specific metadata and is intentionally never converted.
+            long displayNutrition = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.FOOD)
+                    .map(formatter -> formatter.toDisplayDelta(food.nutrition(), 1L))
+                    .orElse((long) food.nutrition());
+            drawStat(g, font, x, y, w, "Nutrition",  String.valueOf(displayNutrition), ba); y += 11;
             drawStat(g, font, x, y, w, "Saturation", String.format("%.1f", food.saturation()), ba); y += 11;
         } else if (isTool(stack)) {
             if (tool != null) {

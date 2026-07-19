@@ -163,6 +163,7 @@ public class Totality implements ModInitializer {
 		OriginRegistry.init();
 		TotalityClasses.register();
 		zcylas.totality.api.item.TotalityItemComponents.register();
+		zcylas.totality.api.rpg.resources.ProductionResourceDefinitions.register();
 	}
 
 	private void registerCombatApi(){

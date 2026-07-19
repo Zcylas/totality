@@ -161,7 +161,8 @@ class PlayerResourceRegistryTest {
                 java.util.Optional.empty(),
                 1, 0, java.util.OptionalLong.of(100),
                 java.util.Set.of(), java.util.Optional.empty(),
-                ResourceLifecyclePolicy.DEFAULT, 1
+                ResourceLifecyclePolicy.DEFAULT, 1,
+                java.util.Optional.empty()
         );
 
         assertThrows(IllegalArgumentException.class, () -> registry.register(def));
@@ -178,7 +179,8 @@ class PlayerResourceRegistryTest {
                 java.util.Optional.of(id("some_adapter")),
                 1, 0, java.util.OptionalLong.of(100),
                 java.util.Set.of(), java.util.Optional.empty(),
-                ResourceLifecyclePolicy.DEFAULT, 1
+                ResourceLifecyclePolicy.DEFAULT, 1,
+                java.util.Optional.empty()
         );
 
         assertThrows(IllegalArgumentException.class, () -> registry.register(def));
@@ -243,9 +245,74 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonHasNoDefinitionsInThisPatch() {
-        // This Phase 1 patch registers no production resources — INSTANCE must remain empty.
-        assertEquals(0, PlayerResourceRegistry.INSTANCE.size());
+    void productionSingletonContainsExactlyHealthAndFoodInPhase2A() {
+        // Phase 1 registered zero production resources; Phase 2A registers exactly Health and
+        // Food (both EXTERNAL_ADAPTER-authority, query-only) — see ProductionResourceDefinitions.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertEquals(2, PlayerResourceRegistry.INSTANCE.size());
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.HEALTH));
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.FOOD));
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().stateAuthority());
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
+        assertTrue(PlayerResourceRegistry.INSTANCE.isFrozen());
+    }
+
+    @Test
+    void productionSingletonHasNoTemperatureOrBreathDefinition() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("temperature")).isEmpty(),
+                "Temperature must not be registered as a Resource API resource (current decision, see readiness audit)");
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("breath")).isEmpty(),
+                "Breath is a later, separate adapter slice — not registered by Phase 2A");
+    }
+
+    @Test
+    void productionHealthAndFoodDeclareExactlyHudVisibleAndMenuVisibleCapabilities() {
+        // Correction pass: player-visible constant HUD resources should declare HUD_VISIBLE/
+        // MENU_VISIBLE, and must NOT declare a mutation capability merely because their owning
+        // vanilla system (Health/Combat, Food/Hunger) can itself change the value — Phase 2A's
+        // generic adapters remain query-only.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        java.util.Set<ResourceCapability> expected = java.util.Set.of(
+                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE);
+
+        assertEquals(expected,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().capabilities());
+        assertEquals(expected,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().capabilities());
+
+        for (ResourceCapability mutationCapability : new ResourceCapability[] {
+                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN
+        }) {
+            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow()
+                    .capabilities().contains(mutationCapability));
+            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow()
+                    .capabilities().contains(mutationCapability));
+        }
+    }
+
+    @Test
+    void productionHealthAndFoodDeclareCorePresentationMetadata() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertPresentationIsCoreConstantBar(
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow());
+        assertPresentationIsCoreConstantBar(
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow());
+    }
+
+    private static void assertPresentationIsCoreConstantBar(PlayerResourceDefinition definition) {
+        var presentation = definition.presentation().orElseThrow(
+                () -> new AssertionError(definition.id() + " must declare presentation metadata"));
+        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType.BAR, presentation.displayType());
+        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceHudRole.CORE_CONSTANT, presentation.hudRole());
+        assertEquals(5, presentation.displayConversion().numerator());
+        assertEquals(1, presentation.displayConversion().denominator());
     }
 
     @Test

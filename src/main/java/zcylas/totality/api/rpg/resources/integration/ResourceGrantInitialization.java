@@ -13,8 +13,9 @@ import java.util.Objects;
  * to match the canonical package layout (§3.1), which groups grant-related types —
  * {@code ResourceGrantProvider}, {@code ResourceGrant}, {@code ResourceGrantSourceType}, etc. —
  * under {@code api/rpg/resources/integration/}. This is the only file currently in that package;
- * its siblings ({@code ResourceGrant}, {@code ResourceGrantProvider}, ...) are not implemented by
- * this Phase 1 patch.
+ * its siblings ({@code ResourceGrant}, {@code ResourceGrantProvider}, ...) are not implemented as
+ * of Phase 2A — still true after Health/Food were added, since both are {@code EXTERNAL_ADAPTER}-
+ * authority and need no grant provider.
  *
  * This remains a declaration-only value hierarchy: no {@code ResourceGrantProvider}, no
  * {@code ResourceGrant}, and no acquisition logic that would actually consume one of these values

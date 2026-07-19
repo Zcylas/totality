@@ -17,6 +17,7 @@ import zcylas.totality.api.rpg.resources.state.ScalarResourceState;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -29,16 +30,23 @@ import java.util.function.IntToLongFunction;
  * {@code totality:resources} component ({@link PlayerResourceComponent}), which remains the sole
  * authority for Stamina and Mana until an explicit later migration.
  *
- * Phase 0/1 foundation only: no production {@link PlayerResourceDefinition} is registered by this
- * patch, so {@link PlayerResourceRegistry#INSTANCE} is empty and this component holds zero
- * entries for every player. It does not affect Stamina, Mana, Rage, Health, Food, or Breath, which
- * keep using their existing storage until an explicit later migration. Nothing in production code
- * calls {@link #sync()} yet, so this component never sends a network packet during this patch.
+ * As of Phase 2A, {@link PlayerResourceRegistry#INSTANCE} contains exactly two production
+ * definitions — {@code totality:health} and {@code totality:food} — and both are
+ * {@code EXTERNAL_ADAPTER}-authority, so this component still holds zero entries for every player:
+ * {@link #instantiateScalar}/{@link #instantiatePartitioned} actively reject any id whose
+ * registered definition is {@code EXTERNAL_ADAPTER}-authority, and stale/malformed persisted data
+ * for such an id is quarantined as an orphan rather than restored live (see
+ * {@code readLiveEntry}/{@code readOrphanEntry}) — Health and Food can never gain a duplicate,
+ * out-of-sync copy of their state here. This component does not affect Stamina, Mana, Rage, or
+ * Breath, which keep using their existing storage (or, for Breath, no storage at all yet) until an
+ * explicit later migration. Nothing in production code calls {@link #sync()} yet, so this
+ * component never sends a network packet.
  *
  * Queries never auto-instantiate state (canonical §4.4: "A read-only query must not silently
  * grant or instantiate a resource"). State is only ever created via the explicit
- * {@code instantiateScalar}/{@code instantiatePartitioned} calls, which nothing in this patch
- * invokes automatically — a future grant provider is what will call them.
+ * {@code instantiateScalar}/{@code instantiatePartitioned} calls, which nothing in production code
+ * invokes automatically yet — a future grant provider is what will call them for
+ * {@code GENERIC_COMPONENT} resources.
  */
 public final class PlayerResourceStateComponent implements SyncedComponent, CopyableComponent<PlayerResourceStateComponent> {
 
@@ -86,6 +94,7 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
     // ── Explicit instantiation — nothing in this patch calls these automatically ─
 
     public ScalarResourceState instantiateScalar(Identifier id, long initialCurrentUnits) {
+        rejectExternalAuthority(id, "instantiateScalar");
         ResourceState existing = states.get(id);
         if (existing != null) {
             if (existing instanceof ScalarResourceState scalar) return scalar;
@@ -97,6 +106,7 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
     }
 
     public PartitionedResourceState instantiatePartitioned(Identifier id) {
+        rejectExternalAuthority(id, "instantiatePartitioned");
         ResourceState existing = states.get(id);
         if (existing != null) {
             if (existing instanceof PartitionedResourceState partitioned) return partitioned;
@@ -105,6 +115,36 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
         PartitionedResourceState created = new PartitionedResourceState();
         states.put(id, created);
         return created;
+    }
+
+    /**
+     * An {@code EXTERNAL_ADAPTER} definition must never become live generic component state —
+     * its authoritative owner is the adapter (vanilla Health/Food), not this component. Silently
+     * allowing instantiation here would create exactly the duplicate-authority bug the Phase 2A
+     * task's "Prevent duplicate external state" section exists to close. Unregistered ids are
+     * allowed through unchanged (a resource not yet known to {@link PlayerResourceRegistry#INSTANCE},
+     * e.g. in an isolated test registry) — this guard only fires for a definition it can actually see.
+     */
+    private static void rejectExternalAuthority(Identifier id, String methodName) {
+        if (isRegisteredExternalAdapterAuthority(id)) {
+            PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(id).orElseThrow();
+            throw new IllegalArgumentException(
+                    id + " is EXTERNAL_ADAPTER-authority (adapter " + definition.externalAdapterId().orElse(null)
+                            + ") — " + methodName + " must not create generic component state for it");
+        }
+    }
+
+    /**
+     * True only when {@code id} is registered in {@link PlayerResourceRegistry#INSTANCE} AND that
+     * definition is {@code EXTERNAL_ADAPTER}-authority. Shared by {@link #rejectExternalAuthority}
+     * and the persisted-data quarantine checks in {@link #readLiveEntry}/{@link #readOrphanEntry}
+     * so all three enforce the exact same rule. Package-visible so this one decision point can be
+     * unit-tested directly without needing to fabricate a {@code ValueInput}/{@code ValueOutput}.
+     */
+    static boolean isRegisteredExternalAdapterAuthority(Identifier id) {
+        return PlayerResourceRegistry.INSTANCE.get(id)
+                .map(definition -> definition.stateAuthority() == ResourceStateAuthority.EXTERNAL_ADAPTER)
+                .orElse(false);
     }
 
     public void removeState(Identifier id) {
@@ -121,8 +161,17 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
 
     @Override
     public void writeSyncPacket(RegistryFriendlyByteBuf buf, ServerPlayer recipient) {
-        buf.writeInt(states.size());
-        for (Map.Entry<Identifier, ResourceState> entry : states.entrySet()) {
+        // Defensive filter: `states` should never contain an EXTERNAL_ADAPTER-authority entry —
+        // every entry path (instantiateScalar/instantiatePartitioned, readLiveEntry,
+        // readOrphanEntry, copyFrom, applySyncPacket) already rejects or quarantines one — but this
+        // does not trust that invariant blindly. A future bug or corrupted in-memory state must not
+        // be able to put Health/Food on the wire as if the generic component were authoritative for
+        // them; native vanilla synchronization remains their only wire protocol.
+        List<Map.Entry<Identifier, ResourceState>> toSend = states.entrySet().stream()
+                .filter(entry -> !isRegisteredExternalAdapterAuthority(entry.getKey()))
+                .toList();
+        buf.writeInt(toSend.size());
+        for (Map.Entry<Identifier, ResourceState> entry : toSend) {
             buf.writeUtf(entry.getKey().toString());
             buf.writeUtf(entry.getValue().model().name());
             writeStatePayload(buf, entry.getValue());
@@ -136,7 +185,22 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
         for (int i = 0; i < count; i++) {
             Identifier id = Identifier.parse(buf.readUtf());
             ResourceModel model = ResourceModel.valueOf(buf.readUtf());
-            states.put(id, readStatePayload(buf, model));
+            // Always fully consume this entry's payload bytes first, regardless of what happens
+            // next — buffer alignment for every later entry in this same packet must not depend on
+            // whether this particular entry turns out to be external-authority.
+            ResourceState state = readStatePayload(buf, model);
+            if (isRegisteredExternalAdapterAuthority(id)) {
+                // A sender should never produce this (writeSyncPacket filters it too), but a stale
+                // client, a modified server, or a future bug must not be able to make Health/Food
+                // live generic state via the network path either. Sync payloads are transient
+                // (never persisted), so this is discarded outright rather than quarantined into
+                // `orphanedStates` — quarantining is reserved for data actually read from NBT.
+                Totality.LOGGER.warn(
+                        "[ResourceState] applySyncPacket received live generic state for "
+                                + "EXTERNAL_ADAPTER-authority {} — discarding rather than treating it as authoritative", id);
+                continue;
+            }
+            states.put(id, state);
         }
     }
 
@@ -176,9 +240,16 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
     @Override
     public void writeData(ValueOutput output) {
         output.putInt("SchemaVersion", SCHEMA_VERSION);
-        output.putInt("ResourceCount", states.size());
+        // Same defensive filter as writeSyncPacket: `states` should never actually contain an
+        // EXTERNAL_ADAPTER-authority entry, but persistence output does not trust that blindly
+        // either — corrupted in-memory state must not be able to write a duplicate Health/Food
+        // entry to NBT.
+        List<Map.Entry<Identifier, ResourceState>> liveToWrite = states.entrySet().stream()
+                .filter(entry -> !isRegisteredExternalAdapterAuthority(entry.getKey()))
+                .toList();
+        output.putInt("ResourceCount", liveToWrite.size());
         int i = 0;
-        for (Map.Entry<Identifier, ResourceState> entry : states.entrySet()) {
+        for (Map.Entry<Identifier, ResourceState> entry : liveToWrite) {
             writeLiveEntry(output, "Resource_" + i, entry.getKey(), entry.getValue());
             i++;
         }
@@ -264,6 +335,17 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
                 orphanedStates.put(id, readLiveFormatAsOrphan(input, prefix, persistedModel));
                 return;
             }
+            if (isRegisteredExternalAdapterAuthority(id)) {
+                // Stale/malformed generic-component NBT for a resource that is now (or always was)
+                // EXTERNAL_ADAPTER-authority — e.g. leftover data from before Health/Food were
+                // registered, or a corrupted save. It must never override the adapter as live
+                // generic state; quarantine it for diagnostics instead (canonical §5.4).
+                Totality.LOGGER.warn(
+                        "[ResourceState] {} persisted as generic component state but is now EXTERNAL_ADAPTER-authority "
+                                + "— quarantining as orphan rather than treating it as authoritative", id);
+                orphanedStates.put(id, readLiveFormatAsOrphan(input, prefix, persistedModel));
+                return;
+            }
 
             states.put(id, readLiveFormat(input, prefix, persistedModel));
         } catch (Exception ex) {
@@ -289,10 +371,19 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
             }
 
             Optional<PlayerResourceDefinition> definition = PlayerResourceRegistry.INSTANCE.get(id);
-            if (definition.isPresent() && definition.get().model() == model) {
-                // Definition returned with a compatible model — restore into live state (canonical §5.4).
+            boolean restorable = definition.isPresent()
+                    && definition.get().model() == model
+                    && !isRegisteredExternalAdapterAuthority(id);
+            if (restorable) {
+                // Definition returned with a compatible, non-external model — restore into live
+                // state (canonical §5.4).
                 states.put(id, orphanToLiveState(orphan));
             } else {
+                if (definition.isPresent() && definition.get().model() == model) {
+                    Totality.LOGGER.warn(
+                            "[ResourceState] Orphan {} matches a now-EXTERNAL_ADAPTER-authority definition "
+                                    + "— leaving quarantined rather than restoring as live generic state", id);
+                }
                 orphanedStates.put(id, orphan);
             }
         } catch (Exception ex) {
@@ -364,21 +455,36 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
 
     @Override
     public void copyFrom(PlayerResourceStateComponent other, HolderLookup.Provider registries) {
-        // No production PlayerResourceDefinition is registered by this patch, so there is
-        // currently nothing for a per-resource ResourceLifecyclePolicy.deathPolicy() to
-        // differentiate — this defaults to a full copy (equivalent to every resource using
-        // ResourceDeathPolicy.KEEP_CURRENT). Once real resources are registered, later migration
-        // work should consult each resource's own lifecycle policy here instead of this blanket
-        // copy — see the readiness audit's migration matrix.
-        states.clear();
-        for (Map.Entry<Identifier, ResourceState> entry : other.states.entrySet()) {
-            states.put(entry.getKey(), copyState(entry.getValue()));
-        }
+        // No production GENERIC_COMPONENT PlayerResourceDefinition is registered as of Phase 2A
+        // (only totality:health/totality:food exist, both EXTERNAL_ADAPTER), so there is currently
+        // nothing for a per-resource ResourceLifecyclePolicy.deathPolicy() to differentiate — this
+        // defaults to a full copy (equivalent to every resource using ResourceDeathPolicy.KEEP_CURRENT).
+        // Once real GENERIC_COMPONENT resources are registered, later migration work should consult
+        // each resource's own lifecycle policy here instead of this blanket copy — see the
+        // readiness audit's migration matrix.
         orphanedStates.clear();
-        // Deep-copy: OrphanedResourceState.copy() (not putAll, which would share the same mutable
-        // instances between this component and `other`).
+        // Deep-copy genuine orphans first: OrphanedResourceState.copy() (not putAll, which would
+        // share the same mutable instances between this component and `other`).
         for (Map.Entry<Identifier, OrphanedResourceState> entry : other.orphanedStates.entrySet()) {
             orphanedStates.put(entry.getKey(), entry.getValue().copy());
+        }
+
+        states.clear();
+        for (Map.Entry<Identifier, ResourceState> entry : other.states.entrySet()) {
+            Identifier id = entry.getKey();
+            if (isRegisteredExternalAdapterAuthority(id)) {
+                // `other.states` should never actually contain an EXTERNAL_ADAPTER-authority entry
+                // (same invariant as writeSyncPacket/writeData), but copyFrom does not trust that
+                // blindly either. Preservation is appropriate here (this is real, if corrupted,
+                // in-memory data) — quarantine it into `orphanedStates` instead of copying it as
+                // authoritative live state, exactly like the NBT-read quarantine path.
+                Totality.LOGGER.warn(
+                        "[ResourceState] copyFrom encountered live generic state for "
+                                + "EXTERNAL_ADAPTER-authority {} — quarantining rather than copying it as authoritative", id);
+                orphanedStates.put(id, stateToOrphan(entry.getValue()));
+                continue;
+            }
+            states.put(id, copyState(entry.getValue()));
         }
     }
 
@@ -386,5 +492,27 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
         if (state instanceof ScalarResourceState scalar) return scalar.copy();
         if (state instanceof PartitionedResourceState partitioned) return partitioned.copy();
         throw new IllegalStateException("Unknown ResourceState implementation: " + state.getClass());
+    }
+
+    /**
+     * Inverse of {@link #orphanToLiveState}: converts a live {@link ResourceState} into the
+     * {@link OrphanedResourceState} shape, used only by {@link #copyFrom}'s defensive quarantine
+     * path above.
+     */
+    private static OrphanedResourceState stateToOrphan(ResourceState state) {
+        OrphanedResourceState orphan = new OrphanedResourceState(state.model());
+        if (state instanceof ScalarResourceState scalar) {
+            orphan.putCurrent(0, scalar.currentUnits());
+            orphan.putOverflow(0, scalar.overflowUnits());
+            orphan.setScalarRegenerationRemainder(scalar.regenerationRemainder());
+        } else if (state instanceof PartitionedResourceState partitioned) {
+            for (int partition : partitioned.partitions()) {
+                orphan.putCurrent(partition, partitioned.getCurrent(partition));
+                orphan.putOverflow(partition, partitioned.getOverflow(partition));
+            }
+        } else {
+            throw new IllegalStateException("Unknown ResourceState implementation: " + state.getClass());
+        }
+        return orphan;
     }
 }

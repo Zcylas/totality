@@ -10,6 +10,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
 import zcylas.totality.Totality;
+import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
 import zcylas.totality.api.mob.stats.MobRank;
 import zcylas.totality.api.mob.stats.SpawnRarity;
 import zcylas.totality.api.client.util.GuiHelper;
@@ -174,8 +175,11 @@ public class MobHealthBarHud {
             }
 
             drawBarSmooth(g, barX, cy, barW, BAR_H, mobHpSmooth, COLOR_HP_FILL, COLOR_HP_BG);
-            int dispHp    = Math.round(target.getHealth() * 5);
-            int dispMaxHp = Math.round(target.getMaxHealth() * 5);
+            // Correction pass: was a hardcoded `* 5`, independent of the shared totality:health
+            // conversion — canonical §6.5 explicitly requires "mob health bars ... use the same
+            // Health formatter" as the player's own Health display.
+            int dispHp    = RpgDisplayUtils.toDisplayHp(target.getHealth());
+            int dispMaxHp = RpgDisplayUtils.toDisplayHp(target.getMaxHealth());
             String hpText = dispHp + " / " + dispMaxHp;
             g.text(mc.font, net.minecraft.network.chat.Component.literal(hpText),
                     screenW / 2 - mc.font.width(hpText) / 2,
