@@ -148,6 +148,40 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
+    void nbtLoadingQuarantinesStaleGenericDataForBreath() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        // Simulates stale/malformed data: totality:breath persisted in the ordinary
+        // GENERIC_COMPONENT scalar shape — Phase 2B's own analogue of the Health/Food cases above.
+        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.BREATH, 300, 0, 0);
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
+
+        assertFalse(state.hasState(PlayerResourceIds.BREATH), "Breath must never become live generic state");
+        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.BREATH),
+                "stale Breath data must be quarantined, not silently dropped");
+    }
+
+    @Test
+    void applyingASyncPayloadCannotCreateLiveBreathGenericState() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        buf.writeInt(1);
+        buf.writeUtf(PlayerResourceIds.BREATH.toString());
+        buf.writeUtf("SCALAR");
+        buf.writeLong(300L); // current
+        buf.writeLong(0L);   // overflow
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.applySyncPacket(buf);
+
+        assertFalse(state.hasState(PlayerResourceIds.BREATH), "Breath must never become live via a sync packet");
+        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+    }
+
+    @Test
     void writeDataNeverWritesALiveHealthEntryEvenIfCorruptedIntoStates() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
@@ -261,6 +295,8 @@ class PlayerResourceStateComponentExternalEntryPathTest {
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().stateAuthority());
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
     }
 
     @Test
@@ -270,7 +306,9 @@ class PlayerResourceStateComponentExternalEntryPathTest {
 
         assertFalse(state.hasState(PlayerResourceIds.HEALTH));
         assertFalse(state.hasState(PlayerResourceIds.FOOD));
+        assertFalse(state.hasState(PlayerResourceIds.BREATH));
         assertTrue(state.getScalar(PlayerResourceIds.HEALTH).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.FOOD).isEmpty());
+        assertTrue(state.getScalar(PlayerResourceIds.BREATH).isEmpty());
     }
 }

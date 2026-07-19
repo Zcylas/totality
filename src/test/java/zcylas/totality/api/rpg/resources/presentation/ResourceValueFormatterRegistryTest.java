@@ -75,4 +75,14 @@ class ResourceValueFormatterRegistryTest {
 
         assertEquals(30L, food.toDisplayDelta(6, 1));
     }
+
+    @Test
+    void productionRegistryHasNoBreathFormatter() {
+        // Deliberate: Breath's final presentation unit (seconds/percentage/pips) is deferred to a
+        // future HUD-presentation phase — see BreathResourceAdapter's class Javadoc and the Phase
+        // 2B report. Registering a formatter now would invent a unit prematurely.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.BREATH).isEmpty());
+    }
 }

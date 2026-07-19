@@ -60,12 +60,26 @@ public enum ResourceQueryFailureReason {
     MAXIMUM_UNAVAILABLE,
 
     /**
-     * An {@code EXTERNAL_ADAPTER}'s {@code snapshot(...)} returned a structurally invalid result —
-     * null, a mismatched resource id, a mismatched unit scale, or a maximum below the definition's
-     * {@code absoluteMinimum}. The query never silently rewrites a malformed snapshot to "fix" it
-     * or reattributes it to a different resource; it fails structurally and names the adapter at
-     * fault so the bug is visible instead of silently corrupting a display or a future decision
-     * made from the snapshot.
+     * An {@code EXTERNAL_ADAPTER}'s {@code snapshot(...)} returned a present but structurally
+     * invalid result — a mismatched resource id, a mismatched unit scale, or a maximum below the
+     * definition's {@code absoluteMinimum}. The query never silently rewrites a malformed snapshot
+     * to "fix" it or reattributes it to a different resource; it fails structurally and names the
+     * adapter at fault so the bug is visible instead of silently corrupting a display or a future
+     * decision made from the snapshot. Distinct from {@link #MALFORMED_OWNER_STATE}: this reason
+     * means the adapter tried to answer and got it wrong; that one means the adapter looked at its
+     * owner and correctly declined to answer at all.
      */
-    CORRUPT_ADAPTER_SNAPSHOT
+    CORRUPT_ADAPTER_SNAPSHOT,
+
+    /**
+     * An {@code EXTERNAL_ADAPTER} inspected its authoritative owner and found a state it cannot
+     * represent as a valid snapshot (e.g. vanilla reporting a non-positive maximum for a resource
+     * that requires a positive one) — introduced in Phase 2B for {@code BreathResourceAdapter},
+     * whose owner's maximum ({@code Entity.getMaxAirSupply()}) is a virtual method future entity
+     * types could theoretically override into something degenerate. The adapter returns
+     * {@link java.util.Optional#empty()} from {@code snapshot(...)} rather than fabricating a
+     * clamped-to-nothing or otherwise invented value; this reason is never used as ordinary control
+     * flow — it fires only when the owner's actual state is genuinely unrepresentable.
+     */
+    MALFORMED_OWNER_STATE
 }

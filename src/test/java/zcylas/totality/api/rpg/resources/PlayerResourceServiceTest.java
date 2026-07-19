@@ -10,6 +10,7 @@ import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSuppo
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -42,9 +43,9 @@ class PlayerResourceServiceTest {
 
         @Override public Identifier id() { return id; }
 
-        @Override public ResourceSnapshot snapshot(Player player, PlayerResourceDefinition definition) {
+        @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
             snapshotCalls.incrementAndGet();
-            return new ResourceSnapshot(definition.id(), current, max, definition.unitScale());
+            return Optional.of(new ResourceSnapshot(definition.id(), current, max, definition.unitScale()));
         }
 
         @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
@@ -56,20 +57,24 @@ class PlayerResourceServiceTest {
         }
     }
 
-    /** An adapter that always returns a fixed, potentially-malformed {@link ResourceSnapshot} (or {@code null}). */
+    /**
+     * An adapter that always returns a fixed, potentially-malformed {@code Optional<ResourceSnapshot>}
+     * — including, deliberately, a literal {@code null} reference for one defensive test (a
+     * misbehaving adapter returning null instead of {@code Optional.empty()}).
+     */
     private static final class FixedSnapshotAdapter implements ExternalPlayerResourceAdapter {
         private final Identifier id;
-        private final ResourceSnapshot fixedSnapshot;
+        private final Optional<ResourceSnapshot> fixedResult;
         private final Set<ExternalResourceOperationSupport> support;
 
-        FixedSnapshotAdapter(Identifier id, ResourceSnapshot fixedSnapshot, Set<ExternalResourceOperationSupport> support) {
+        FixedSnapshotAdapter(Identifier id, Optional<ResourceSnapshot> fixedResult, Set<ExternalResourceOperationSupport> support) {
             this.id = id;
-            this.fixedSnapshot = fixedSnapshot;
+            this.fixedResult = fixedResult;
             this.support = support;
         }
 
         @Override public Identifier id() { return id; }
-        @Override public ResourceSnapshot snapshot(Player player, PlayerResourceDefinition definition) { return fixedSnapshot; }
+        @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) { return fixedResult; }
         @Override public Set<ExternalResourceOperationSupport> supportedOperations() { return support; }
         @Override public ExternalResourceClientMirrorMode clientMirrorMode() { return ExternalResourceClientMirrorMode.NATIVE_SYNCHRONIZATION; }
     }
@@ -79,10 +84,11 @@ class PlayerResourceServiceTest {
                 builder -> builder.authoredBaseMaximum(100));
     }
 
+    /** {@code fixedSnapshotOrNull == null} constructs the adapter with {@code Optional.empty()} (a legitimate decline). */
     private static PlayerResourceService serviceWithFixedSnapshot(
-            Identifier resourceId, ResourceSnapshot fixedSnapshot, long absoluteMinimum) {
+            Identifier resourceId, ResourceSnapshot fixedSnapshotOrNull, long absoluteMinimum) {
         FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(
-                resourceId, fixedSnapshot, Set.of(ExternalResourceOperationSupport.QUERY));
+                resourceId, Optional.ofNullable(fixedSnapshotOrNull), Set.of(ExternalResourceOperationSupport.QUERY));
         return serviceWithDefinitionBuilder(resourceId, adapter,
                 builder -> builder.absoluteMinimum(absoluteMinimum).authoredBaseMaximum(absoluteMinimum + 100));
     }
@@ -297,10 +303,30 @@ class PlayerResourceServiceTest {
     // ── Correction pass: adapter snapshot validation ────────────────────────────────────────
 
     @Test
-    void nullAdapterSnapshotProducesCorruptAdapterSnapshotFailure() {
-        PlayerResourceService service = serviceWithFixedSnapshot(id("null_snapshot"), null, 0);
+    void emptyAdapterSnapshotProducesMalformedOwnerStateFailure() {
+        // The adapter legitimately declines (Optional.empty()) — e.g. BreathResourceAdapter when
+        // the owner's maximum is non-positive. Distinct from a misbehaving null Optional reference
+        // (see nullOptionalReferenceFromAdapterProducesCorruptAdapterSnapshotFailure below).
+        PlayerResourceService service = serviceWithFixedSnapshot(id("declined_snapshot"), null, 0);
 
-        ResourceQueryResult result = service.query(null, id("null_snapshot"));
+        ResourceQueryResult result = service.query(null, id("declined_snapshot"));
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void nullOptionalReferenceFromAdapterProducesCorruptAdapterSnapshotFailure() {
+        // A misbehaving adapter returns a literal null instead of Optional.empty()/Optional.of(...).
+        // Constructed directly (bypassing serviceWithFixedSnapshot's Optional.ofNullable wrapping)
+        // specifically to exercise PlayerResourceService's defensive null-Optional guard.
+        Identifier resourceId = id("null_optional_reference");
+        FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(resourceId, null, Set.of(ExternalResourceOperationSupport.QUERY));
+        PlayerResourceService service = serviceWithDefinitionBuilder(resourceId, adapter,
+                builder -> builder.authoredBaseMaximum(100));
+
+        ResourceQueryResult result = service.query(null, resourceId);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
@@ -371,7 +397,7 @@ class PlayerResourceServiceTest {
     void serviceRejectsQueryWhenAdapterDoesNotDeclareQuerySupport() {
         Identifier resourceId = id("no_query_support");
         ExternalPlayerResourceAdapter noQueryAdapter = new FixedSnapshotAdapter(
-                resourceId, new ResourceSnapshot(resourceId, 1, 2, 1),
+                resourceId, Optional.of(new ResourceSnapshot(resourceId, 1, 2, 1)),
                 Set.of(ExternalResourceOperationSupport.RESTORE));
 
         PlayerResourceRegistry registry = new PlayerResourceRegistry();

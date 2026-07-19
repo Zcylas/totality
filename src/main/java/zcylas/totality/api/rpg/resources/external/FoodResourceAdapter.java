@@ -6,6 +6,7 @@ import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.resources.ResourceSnapshot;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -33,9 +34,9 @@ public final class FoodResourceAdapter implements ExternalPlayerResourceAdapter 
     }
 
     @Override
-    public ResourceSnapshot snapshot(Player player, PlayerResourceDefinition definition) {
+    public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
         int level = player.getFoodData().getFoodLevel();
-        return new ResourceSnapshot(definition.id(), level, NATIVE_MAXIMUM, definition.unitScale());
+        return Optional.of(new ResourceSnapshot(definition.id(), level, NATIVE_MAXIMUM, definition.unitScale()));
     }
 
     @Override

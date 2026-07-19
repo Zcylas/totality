@@ -97,8 +97,19 @@ public final class PlayerResourceService {
             return new ResourceQueryResult.Failure(ResourceQueryFailureReason.OPERATION_UNSUPPORTED, definition.id());
         }
 
-        ResourceSnapshot snapshot = adapter.snapshot(player, definition);
-        return validateExternalSnapshot(snapshot, definition);
+        Optional<ResourceSnapshot> snapshot = adapter.snapshot(player, definition);
+        if (snapshot == null) {
+            // A misbehaving adapter returned a null Optional reference instead of a real one —
+            // distinct from the adapter correctly returning Optional.empty() below. Guarded
+            // defensively (never expected from a well-formed adapter) rather than trusted blindly.
+            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+        }
+        if (snapshot.isEmpty()) {
+            // The adapter inspected its owner and explicitly declined — a typed signal, not a
+            // null-as-control-flow shortcut. See ExternalPlayerResourceAdapter#snapshot's Javadoc.
+            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, definition.id());
+        }
+        return validateExternalSnapshot(snapshot.get(), definition);
     }
 
     /**
@@ -108,9 +119,6 @@ public final class PlayerResourceService {
      * the resource whose adapter produced it.
      */
     private static ResourceQueryResult validateExternalSnapshot(ResourceSnapshot snapshot, PlayerResourceDefinition definition) {
-        if (snapshot == null) {
-            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
-        }
         if (!snapshot.resourceId().equals(definition.id())) {
             return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
         }

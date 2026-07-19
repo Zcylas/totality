@@ -245,29 +245,47 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthAndFoodInPhase2A() {
-        // Phase 1 registered zero production resources; Phase 2A registers exactly Health and
-        // Food (both EXTERNAL_ADAPTER-authority, query-only) — see ProductionResourceDefinitions.
+    void productionSingletonContainsExactlyHealthFoodAndBreath() {
+        // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
+        // adds Breath — all three EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(2, PlayerResourceRegistry.INSTANCE.size());
+        assertEquals(3, PlayerResourceRegistry.INSTANCE.size());
         assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.HEALTH));
         assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.FOOD));
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.BREATH));
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().stateAuthority());
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
         assertTrue(PlayerResourceRegistry.INSTANCE.isFrozen());
     }
 
     @Test
-    void productionSingletonHasNoTemperatureOrBreathDefinition() {
+    void allThreeProductionDefinitionsAreExternalScalarResources() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        for (Identifier resourceId : new Identifier[] {PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH}) {
+            PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
+            assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
+            assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority(), () -> resourceId + " must be EXTERNAL_ADAPTER");
+            assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), () -> resourceId + " must be HIGH_IS_GOOD");
+            assertEquals(0L, definition.absoluteMinimum(), () -> resourceId + " must have absoluteMinimum 0");
+        }
+    }
+
+    @Test
+    void productionSingletonHasNoOxygenAirOrTemperatureDefinition() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertTrue(PlayerResourceRegistry.INSTANCE.get(id("temperature")).isEmpty(),
                 "Temperature must not be registered as a Resource API resource (current decision, see readiness audit)");
-        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("breath")).isEmpty(),
-                "Breath is a later, separate adapter slice — not registered by Phase 2A");
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("oxygen")).isEmpty(),
+                "The canonical name is totality:breath, not totality:oxygen");
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("air")).isEmpty(),
+                "The canonical name is totality:breath, not totality:air");
     }
 
     @Test
@@ -294,6 +312,37 @@ class PlayerResourceRegistryTest {
             assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow()
                     .capabilities().contains(mutationCapability));
         }
+    }
+
+    @Test
+    void productionBreathDeclaresExactlyHudVisibleAndMenuVisibleCapabilities() {
+        // Phase 2B: Breath is query-only, same capability contract as Health/Food — HUD/MENU
+        // visibility without any mutation capability.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        java.util.Set<ResourceCapability> expected = java.util.Set.of(
+                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE);
+
+        assertEquals(expected,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().capabilities());
+
+        for (ResourceCapability mutationCapability : new ResourceCapability[] {
+                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN
+        }) {
+            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow()
+                    .capabilities().contains(mutationCapability));
+        }
+    }
+
+    @Test
+    void productionBreathDeclaresAuditedVanillaBaselineMaximum() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition breath = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow();
+        assertEquals(1L, breath.unitScale());
+        assertEquals(0L, breath.absoluteMinimum());
+        assertEquals(300L, breath.authoredBaseMaximum().orElseThrow(),
+                "authored baseline is descriptive only — the live query path never consults it");
     }
 
     @Test

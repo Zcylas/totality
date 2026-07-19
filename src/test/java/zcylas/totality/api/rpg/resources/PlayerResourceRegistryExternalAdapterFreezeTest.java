@@ -9,7 +9,9 @@ import zcylas.totality.api.rpg.resources.external.ExternalResourceClientMirrorMo
 import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSupport;
 import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,8 +31,8 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     private static ExternalPlayerResourceAdapter fakeAdapter(Identifier id) {
         return new ExternalPlayerResourceAdapter() {
             @Override public Identifier id() { return id; }
-            @Override public ResourceSnapshot snapshot(Player player, PlayerResourceDefinition definition) {
-                return new ResourceSnapshot(id, 1, 2, 1);
+            @Override public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
+                return Optional.of(new ResourceSnapshot(id, 1, 2, 1));
             }
             @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
                 return Set.of(ExternalResourceOperationSupport.QUERY);
@@ -103,5 +105,28 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
         assertEquals(FoodResourceAdapter.ID, food.externalAdapterId().orElseThrow());
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(health.externalAdapterId().orElseThrow()));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(food.externalAdapterId().orElseThrow()));
+    }
+
+    @Test
+    void productionBreathDefinitionResolvesItsRegisteredAdapter() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition breath = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow();
+
+        assertEquals(BreathResourceAdapter.ID, breath.externalAdapterId().orElseThrow());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(breath.externalAdapterId().orElseThrow()));
+        assertSame(BreathResourceAdapter.INSTANCE,
+                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(breath.externalAdapterId().orElseThrow()).orElseThrow());
+    }
+
+    @Test
+    void productionAdapterRegistryContainsExactlyHealthFoodAndBreath() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertEquals(3, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(HealthResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(BreathResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isFrozen());
     }
 }

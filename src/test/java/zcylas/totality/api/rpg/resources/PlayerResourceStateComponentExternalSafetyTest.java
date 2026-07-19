@@ -6,10 +6,11 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Proves {@code totality:health}/{@code totality:food} can never become live
- * {@link PlayerResourceStateComponent} state — the "Prevent duplicate external state" requirement
- * from the Phase 2A task. Uses the real production registry (via {@link TestResourceBootstrap})
- * since the guarantee under test is specifically about the two real external-authority definitions.
+ * Proves {@code totality:health}/{@code totality:food}/{@code totality:breath} can never become
+ * live {@link PlayerResourceStateComponent} state — the "Prevent duplicate external state"
+ * requirement from the Phase 2A task, extended to Breath in Phase 2B. Uses the real production
+ * registry (via {@link TestResourceBootstrap}) since the guarantee under test is specifically about
+ * the real external-authority definitions.
  */
 class PlayerResourceStateComponentExternalSafetyTest {
 
@@ -54,13 +55,34 @@ class PlayerResourceStateComponentExternalSafetyTest {
     }
 
     @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueOnlyForHealthAndFood() {
+    void instantiateScalarRejectsBreath() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiateScalar(PlayerResourceIds.BREATH, 300));
+        assertFalse(state.hasState(PlayerResourceIds.BREATH));
+    }
+
+    @Test
+    void instantiatePartitionedRejectsBreath() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiatePartitioned(PlayerResourceIds.BREATH));
+        assertFalse(state.hasState(PlayerResourceIds.BREATH));
+    }
+
+    @Test
+    void isRegisteredExternalAdapterAuthorityIsTrueOnlyForHealthFoodAndBreath() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.HEALTH));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
+        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }
@@ -76,6 +98,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertTrue(freshPlayerState.orphanedResourceIds().isEmpty());
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.HEALTH));
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.FOOD));
+        assertFalse(freshPlayerState.hasState(PlayerResourceIds.BREATH));
     }
 
     @Test

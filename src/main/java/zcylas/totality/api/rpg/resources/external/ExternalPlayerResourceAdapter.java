@@ -5,6 +5,7 @@ import net.minecraft.world.entity.player.Player;
 import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
 import zcylas.totality.api.rpg.resources.ResourceSnapshot;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -33,8 +34,15 @@ public interface ExternalPlayerResourceAdapter {
     /**
      * Builds a read-only snapshot from the authoritative owner's current state. Must never mutate
      * the owner's state, instantiate any Resource API player state, or send a packet.
+     *
+     * <p>Returns {@link Optional#empty()} — never {@code null}, and never a fabricated/clamped
+     * placeholder — when the owner's actual state cannot be represented as a valid snapshot (e.g.
+     * a non-positive maximum). {@link zcylas.totality.api.rpg.resources.PlayerResourceService}
+     * turns an empty result into a structured {@link zcylas.totality.api.rpg.resources.ResourceQueryFailureReason#MALFORMED_OWNER_STATE}
+     * failure. This is a real, typed "I cannot answer" signal (introduced in Phase 2B for
+     * {@code BreathResourceAdapter}), not {@code null} used as ordinary control flow.
      */
-    ResourceSnapshot snapshot(Player player, PlayerResourceDefinition definition);
+    Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition);
 
     Set<ExternalResourceOperationSupport> supportedOperations();
 

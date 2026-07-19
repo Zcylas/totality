@@ -1,5 +1,6 @@
 package zcylas.totality.api.rpg.resources;
 
+import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
 import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
@@ -11,17 +12,24 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatter;
 import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegistry;
 
 /**
- * Registers the Generic Player Resource API's Phase 2A production content — exactly
- * {@code totality:health} and {@code totality:food}, both {@code EXTERNAL_ADAPTER}-authority
- * query-only resources — and freezes every registry involved at a deterministic point during mod
- * initialization, before any player can join. See {@code Totality.registerApi()}, which calls
- * {@link #register()} once, after every other Phase 1 foundation class has had a chance to load.
+ * Registers the Generic Player Resource API's production content — {@code totality:health},
+ * {@code totality:food} (Phase 2A), and {@code totality:breath} (Phase 2B), all
+ * {@code EXTERNAL_ADAPTER}-authority query-only resources — and freezes every registry involved at
+ * a deterministic point during mod initialization, before any player can join. See
+ * {@code Totality.registerApi()}, which calls {@link #register()} once, after every other Phase 1
+ * foundation class has had a chance to load.
  *
  * Nothing here creates player state: registering a definition and its adapter is pure metadata
  * registration (canonical §4.4 — a definition existing does not mean any player owns it), and
- * Health/Food never gain {@link PlayerResourceStateComponent} entries because their authority is
- * {@code EXTERNAL_ADAPTER}, not {@code GENERIC_COMPONENT} (see {@link PlayerResourceStateComponent#instantiateScalar}'s
- * rejection of external definitions).
+ * Health/Food/Breath never gain {@link PlayerResourceStateComponent} entries because their
+ * authority is {@code EXTERNAL_ADAPTER}, not {@code GENERIC_COMPONENT} (see
+ * {@link PlayerResourceStateComponent#instantiateScalar}'s rejection of external definitions).
+ *
+ * Breath deliberately declares no {@link ResourcePresentationDefinition} — unlike Health/Food's
+ * shared {@code 5/1} formatter, no canonical Breath presentation unit (seconds, percentage, pip
+ * count, ...) is defined anywhere yet. Inventing one here would be a speculative formatter the
+ * Phase 2B task explicitly forbids; that decision is deferred to a future HUD-presentation phase.
+ * Breath remains contextually visible today through vanilla's own unmodified air-bubble HUD.
  */
 public final class ProductionResourceDefinitions {
 
@@ -34,6 +42,7 @@ public final class ProductionResourceDefinitions {
     private static void registerAdapters() {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(HealthResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(FoodResourceAdapter.INSTANCE);
+        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(BreathResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
     }
 
@@ -75,6 +84,22 @@ public final class ProductionResourceDefinitions {
                                 ResourceDisplayConversion.HEALTH_FOOD,
                                 ResourceDisplayType.BAR,
                                 ResourceHudRole.CORE_CONSTANT))
+                        .build());
+
+        // Breath: HUD_VISIBLE/MENU_VISIBLE only, no mutation capability, and deliberately no
+        // .presentation(...) — see the class Javadoc for why. The authored maximum below is the
+        // audited vanilla baseline (Entity.TOTAL_AIR_SUPPLY = 300); the live query path
+        // (BreathResourceAdapter.snapshot) always reads the player's actual, dynamically-resolved
+        // player.getMaxAirSupply() and never consults this descriptive value, exactly like Health's
+        // authoredBaseMaximum never being consulted by the live query path.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.BREATH, ResourceModel.SCALAR)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .externalAdapter(PlayerResourceIds.BREATH_ADAPTER)
+                        .unitScale(1)
+                        .absoluteMinimum(0)
+                        .authoredBaseMaximum(BreathResourceAdapter.VANILLA_BASELINE_MAXIMUM)
+                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
                         .build());
 
         PlayerResourceRegistry.INSTANCE.freeze(ExternalPlayerResourceAdapterRegistry.INSTANCE);

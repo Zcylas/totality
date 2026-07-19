@@ -8,6 +8,7 @@ import zcylas.totality.api.rpg.resources.ResourceSnapshot;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -52,10 +53,10 @@ public final class HealthResourceAdapter implements ExternalPlayerResourceAdapte
     }
 
     @Override
-    public ResourceSnapshot snapshot(Player player, PlayerResourceDefinition definition) {
+    public Optional<ResourceSnapshot> snapshot(Player player, PlayerResourceDefinition definition) {
         long current = toUnits(player.getHealth(), definition.unitScale());
         long maximum = toUnits(player.getMaxHealth(), definition.unitScale());
-        return new ResourceSnapshot(definition.id(), current, maximum, definition.unitScale());
+        return Optional.of(new ResourceSnapshot(definition.id(), current, maximum, definition.unitScale()));
     }
 
     @Override
