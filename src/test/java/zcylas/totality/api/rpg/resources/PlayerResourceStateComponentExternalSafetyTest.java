@@ -143,7 +143,29 @@ class PlayerResourceStateComponentExternalSafetyTest {
     }
 
     @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueForAllSixProductionResources() {
+    void instantiateScalarRejectsRage() {
+        // totality:rage is EXTERNAL_ADAPTER-authority (Phase 2E) — instantiateScalar must reject it
+        // exactly like every other external-authority resource.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiateScalar(PlayerResourceIds.RAGE, 2));
+        assertFalse(state.hasState(PlayerResourceIds.RAGE));
+    }
+
+    @Test
+    void instantiatePartitionedRejectsRage() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiatePartitioned(PlayerResourceIds.RAGE));
+        assertFalse(state.hasState(PlayerResourceIds.RAGE));
+    }
+
+    @Test
+    void isRegisteredExternalAdapterAuthorityIsTrueForAllSevenProductionResources() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
@@ -154,6 +176,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
+        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.RAGE));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }
@@ -173,6 +196,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.MANA));
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.STAMINA));
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.SPELL_SLOTS));
+        assertFalse(freshPlayerState.hasState(PlayerResourceIds.RAGE));
     }
 
     @Test

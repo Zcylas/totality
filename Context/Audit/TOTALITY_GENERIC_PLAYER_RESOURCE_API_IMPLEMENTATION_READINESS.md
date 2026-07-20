@@ -1,7 +1,7 @@
 # TOTALITY GENERIC PLAYER RESOURCE API — IMPLEMENTATION READINESS AUDIT
 
-**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A"/"Phase 2B"/"Phase 2C"/"Phase 2D" Implementation Records (Health/Food, then Breath, then Mana/Stamina, then standard spell slots) all reached READY TO COMMIT with a passed manual smoke test. The "Phase 2D Implementation Record" section (2026-07-20) records the standard spell-slot **transitional, query-only, legacy-store** external adapter — the Resource API's first `PARTITIONED_POOL` production resource, and the first phase to extend `PlayerResourceService`'s query routing/`ResourceQueryResult` beyond scalar shapes. A narrow Phase 2D review-correction pass (2026-07-20, same day) made the spell-slot unit scale adapter-owned (a new `StandardSpellSlotsResourceAdapter.UNIT_SCALE` constant, no longer borrowed from the queried definition), corrected a test that had not actually exercised the ordering guarantee it claimed to prove, and fixed a documentation/comment inaccuracy — no gameplay behavior changed. The registry now holds six production definitions (`totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina`, `totality:spell_slots`), **390/390** automated tests pass (301 at the end of Phase 2C → 388 after the initial Phase 2D implementation pass → 390 after the correction pass), build/datagen validation succeeds, and Stefan's manual smoke test on the real 26.2 client **passed** for every currently applicable scenario (one multiclass scenario was not yet applicable — no second real caster class exists yet — and is not a blocker; one unrelated Rest-animation log warning was observed and classified as non-blocking) — see "Phase 2D Final Status" at the very end of this document for the full result. **Phase 2D is COMPLETE and READY TO COMMIT.** Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"Mana and Stamina not yet registered"/"spell slots not yet registered"/"Phase 2D manual smoke testing has not yet been executed" statement anywhere in this document as current.
-**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19; Phase 2C record added 2026-07-19; Phase 2D record added 2026-07-20
+**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A"/"Phase 2B"/"Phase 2C"/"Phase 2D"/"Phase 2E" Implementation Records (Health/Food, then Breath, then Mana/Stamina, then standard spell slots, then Rage) all reached READY TO COMMIT with a passed manual smoke test. The "Phase 2E Implementation Record" section (2026-07-20) records the Rage **transitional, query-only, legacy-charge-pool** external adapter — `totality:rage`, a `SCALAR`-model resource (canonical §6.1/§6.3/§25.6) reading one entry (`BarbarianRageAbility.CHARGE_ID = totality:barbarian_rage`) of the legacy, generically `Identifier`-keyed `PlayerChargesComponent` charge-pool map. This section also corrects a pre-existing documentation inaccuracy: an earlier version of this document's §2.4 described Rage as a future `PARTITIONED_POOL` reference precedent — Rage is scalar, not partitioned; only `PlayerChargesComponent`'s multi-pool *map* is genuinely generic, not any individual pool's own shape. The registry now holds seven production definitions (`totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina`, `totality:spell_slots`, `totality:rage`), **428/428** automated tests pass, build/datagen validation succeeds. **Manual smoke testing for Phase 2E PASSED (2026-07-20)** for every currently practical scenario — see "Phase 2E Implementation Record" and "Phase 2E Final Status" for the full itemized result; two Strength-advantage mechanics were not practically testable in the current manual environment and are classified as such, not as failures or blockers. Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"Mana and Stamina not yet registered"/"spell slots not yet registered"/"Rage not yet registered" statement, nor the pre-Phase-2E §2.4 `PARTITIONED_POOL` description of Rage, anywhere in this document as current.
+**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19; Phase 2C record added 2026-07-19; Phase 2D record added 2026-07-20; Phase 2E record added 2026-07-20
 **Branch:** `feature/general-resource-api` (based on `master` @ `bc16cc3`, "Merge Provisioner Phase 4")
 **Scope:** `src/main/java/zcylas/totality/**` only. `/Inspiration Mods` was excluded from every search, count, and conclusion below.
 **Canonical design authority:** `Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API.md` (2026-07-13, CANONICAL/IMPLEMENTATION-READY), reconciled against `Context/Audit/TOTALITY_POST_AUDIT_DESIGN_DECISIONS.md` (later, overrides where they conflict) and `Context/Audit/TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS.txt`.
@@ -58,7 +58,7 @@ The canonical design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) is complete, in
 1. **HP, Stamina, Mana, and Rage are four genuinely different architectures today**, not four instances of one pattern:
    - **HP** has no manager at all — every consumer calls vanilla `getHealth()/setHealth()/getMaxHealth()` directly. No component. No resource-shaped abstraction exists yet.
    - **Stamina and Mana** already share one real component (`PlayerResourceComponent`) via near-duplicate manager classes (`PlayerStaminaManager`, `PlayerManaManager`) — the closest thing to "generic" in the repo, but it is a fixed two-field class (`stamina`, `mana`), not a keyed/extensible pool.
-   - **Rage** already lives in a genuinely generic, `Identifier`-keyed, multi-pool component (`PlayerChargesComponent`) with its own Rest, sync, and persistence wiring — this is architecturally closer to the canonical design's `PARTITIONED_POOL`/`GENERIC_COMPONENT` shape than anything called "Resource" in the repo.
+   - **Rage** already lives in a genuinely generic, `Identifier`-keyed, multi-pool component (`PlayerChargesComponent`) with its own Rest, sync, and persistence wiring. `PlayerChargesComponent` is a useful generic `Identifier`-keyed multi-pool *owner* pattern — architecturally closer to the canonical design's `GENERIC_COMPONENT` owner shape than anything else called "Resource" in the repo. But each individual pool it holds, including Rage's, is `SCALAR` (canonical §6.1/§6.3/§25.6): the component's generic map shape is not evidence that each contained resource is itself partitioned. *(Corrected Phase 2E, 2026-07-20 — an earlier version of this bullet read as if Rage itself were `PARTITIONED_POOL`-shaped; it is not.)*
 2. **Hunger is clean.** Vanilla `FoodData` is untouched and undupli­cated; access is concentrated in ~5 call sites, not scattered. Vanilla's hunger bar is already hidden (`VanillaHudElements.FOOD_BAR` replaced with a no-op) and a Totality-drawn hunger bar already exists on the HUD's right side, but it renders the raw `0–20` value with **no ×5 conversion applied anywhere** — this is the one concrete, low-risk piece of the ×5 requirement that is not yet done.
 3. **Long Rest currently restores none of HP, Stamina, or Mana.** Only Rage (via `PlayerChargesComponent.onRest`), Abilities, and standard spell slots are wired into `RestEventBus`. This is a real, pre-existing gap the canonical design explicitly expects to close (Phase 7/Phase 2B), not something this audit invented.
 4. **Death/respawn behavior is inconsistent per-resource today**, independent of the Resource API: HP is preserved via a disconnect-only NBT snapshot (`PlayerStatsComponent.savedHp`) that does *not* fire on death, so death currently always respawns at full HP; Stamina/Mana are unconditionally reset to "uninitialized" on every `copyFrom` (death **and** ordinary dimension change alike); Rage charges are copied through unmodified on any respawn including death. None of this is broken *for current gameplay*, but a naive generic `RespawnStrategy.ALWAYS_COPY` applied uniformly would silently change at least two of these behaviors — the design's per-resource `ResourceLifecyclePolicy` concept exists specifically to prevent that, and this audit confirms it is *necessary*, not just cautious.
@@ -138,7 +138,7 @@ The canonical design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) is complete, in
 | HUD rendering | `client/hud/resource/SecondaryResourceHud.java` + an `ISecondaryResource` anonymous implementation registered in `TotalityClient.registerRenderers()` (`:127-153`) reads `ChargeComponents` directly and gates visibility on primary class == Barbarian. Renders flat-color pip rectangles — the intended sprite hooks (`TotalityGuiSprites.HUD_RAGE_PIP`/`HUD_RAGE_PIP_SPENT`) are wired but never actually invoked by the renderer (dead cosmetic code, separate from the resource-architecture question). |
 | Rest integration | `PlayerChargesComponent.onRest` (`:82-96`) implements `RestListener`: Short Rest → `+1` (registered `rechargeAmount=1`), Long Rest → full. Confirmed wired via inline lambdas in `PlayerConnectionEvents.java:76-77` (join) and `:129-131` (respawn) — **not** via `PlayerChargesComponent.registerWithRestBus()`, which is a confirmed dead no-op method, called from nowhere. |
 | Dependencies | `BarbarianClass`, `SelectClassHandler`, `ClassComponents`, `RestEventBus`/`RestManager`, `TotalityClient` HUD registration. |
-| **Status** | **Implemented and verified** — Rage is the most complete, most correctly Rest-integrated, and most architecturally "generic-shaped" resource in the current codebase, despite predating any Resource API design. It is the best existing reference pattern for the new `PARTITIONED_POOL`/keyed-charge shape, not a legacy system to be flattened. |
+| **Status** | **Implemented and verified** — Rage is the most complete, most correctly Rest-integrated, and most architecturally "generic-shaped" resource in the current codebase, despite predating any Resource API design. **Correction (Phase 2E, 2026-07-20):** this row previously described Rage as "the best existing reference pattern for the new `PARTITIONED_POOL`/keyed-charge shape" — that was inaccurate and has been corrected. `PlayerChargesComponent` is a useful, generically `Identifier`-keyed *owner* pattern (a shared map that may hold several independently identified pools at once), but each individual pool — including Rage's — is a plain `SCALAR` current/maximum resource; canonical §6.1/§6.3/§25.6 are explicit that Rage is scalar, not partitioned. Rage charges themselves have no partition identities, no partition-specific spending or restoration, and no partial-fill segments. Standard spell slots (Phase 2D) and future Hit Dice remain the true `PARTITIONED_POOL` examples in this codebase — Rage is not one. See the Phase 2E report for the full resource-model analysis and `RageResourceAdapter`'s implementation. |
 
 ### 2.5 Hunger (adapter target, vanilla-authoritative)
 
@@ -190,7 +190,7 @@ Paths are relative to `src/main/java/zcylas/totality/`.
 Structurally identical file set to Stamina: `PlayerManaManager.java`, `base/ManaItem.java`, `base/ManaRegenItem.java`, `base/ManaSource.java`, `base/ManaEvents.java`, `base/MaxManaCalcEvent.java`, `base/ManaRegenCalcEvent.java`, `networking/mana/ManaServerTick.java`, `networking/mana/SyncManaPayload.java`, `networking/mana/ClientManaManager.java`. Relevant for the same reason — and relevant as the clearest evidence of the "duplicated infrastructure" the canonical design's Purpose section (§1) exists to eliminate: these two packages are near-line-for-line copies of each other.
 
 ### 3.5 Rage / class charges (`api/rpg/classes/`, `api/ability/impl/barbarian/`)
-`PlayerChargesComponent.java`, `ChargeComponents.java`, `BarbarianClass.java`, `BarbarianRageAbility.java`, `RageEffect.java`. Relevant as the **reference implementation** to generalize from (§24.6 of the canonical design explicitly frames it this way) — its `Map<Identifier, ChargePool>` shape, its clean single-sync-path, and its correct Rest wiring are all worth preserving structurally in the new `PARTITIONED_POOL`/`ScalarResourceState` design.
+`PlayerChargesComponent.java`, `ChargeComponents.java`, `BarbarianClass.java`, `BarbarianRageAbility.java`, `RageEffect.java`. Relevant as the **reference implementation** to generalize from (§24.6 of the canonical design explicitly frames it this way) — its `Identifier`-keyed *owner* pattern, its clean single-sync-path, and its correct Rest wiring are all worth preserving structurally where useful in the new design. **Correction (Phase 2E, 2026-07-20):** Rage itself maps to `ScalarResourceState`, not `PARTITIONED_POOL` — standard spell slots and future Hit Dice are the true `PARTITIONED_POOL` examples in this codebase.
 
 ### 3.6 Spell slots (`api/magic/spell/`)
 `SpellSlotComponent.java` (parallel `int[10]` arrays, not `Identifier`-keyed — a different, less general pattern than `PlayerChargesComponent`), `SpellSlotRecalculator.java` (sums Full/Half/Third caster levels; Warlock explicitly no-op'd with a comment flagging Pact Magic as unimplemented). Relevant to Phase 6 of the migration and directly confirms the design's §14.4 statement that Pact Magic "must not be merged into standard multiclass slots" — it isn't merged today only because it doesn't exist at all yet.
@@ -336,7 +336,7 @@ This section restates the canonical document's own boundary assignments (§3, §
 | Stamina/Mana storage | `PlayerResourceComponent` (`totality:resources`) | `PlayerResourceStateComponent` (`GENERIC_COMPONENT`, new identifier) | NBT import per canonical §24.4 steps 2-3; keep old component temporarily registered under its existing ID as a read fallback | `PlayerStaminaManager`/`PlayerManaManager` become thin facades over `PlayerResourceService`, exactly as canonical §24.3 illustrates | `WeaponStaminaHandler`, `BowStaminaHandler`, `FormulaResolver`, movement handlers, `ExhaustionManager` (reads Stamina only, no change needed to its own logic) | After one full verified migration cycle (canonical §24.4 step 10-11 — no indefinite dual-write) | **Medium** — two independent tick loops and two sync paths must be collapsed carefully to avoid a transitional double-regen or double-sync bug |
 | Stamina/Mana sync | `SyncStaminaPayload`/`SyncManaPayload` + unused `ComponentSync` mirror | Generic `ResourceSyncManager` delta/full snapshot | Switch `ClientStaminaManager`/`ClientManaManager` (or their HUD consumers) to read the new `ClientResourceManager`; keep old payloads registered until HUD fully migrates (canonical §24.8) | Old payload handlers remain until no callers reference `ClientStaminaManager`/`ClientManaManager` | `TotalityHudRenderer` | After HUD migration confirmed in a playtest | **Low-Medium** |
 | Stamina/Mana Rest recovery | None (absent) | Stamina module + (future) Mana module register `RestListener`s that call `PlayerResourceService.restore` | New code, not a migration — canonical explicitly leaves the exact restore rule (full vs. partial) to be decided at implementation time, consistent with "preserve current behavior" since there is no current behavior to preserve here | N/A | `RestManager`/`RestEventBus` registration list | N/A (net-new) | **Low** (additive, no existing behavior to break) — but requires one explicit design confirmation: does Long Rest fully restore Stamina/Mana, matching the canonical example in §25.4/§25.5? |
-| Rage charge pool | `PlayerChargesComponent` (`Map<Identifier, ChargePool>`) | Same shape, adopted directly as (or adapted into) the new `PARTITIONED_POOL`/keyed-scalar state, preserving `CHARGE_ID` exactly | Import by exact ID per canonical §24.6; **do not rename** `totality:barbarian_rage` | `BarbarianRageAbility` keeps calling through `ChargeComponents`/new service | `BarbarianClass`, `SelectClassHandler`, `TotalityClient` HUD registration | After HUD pip rendering confirmed unchanged in playtest | **Low** — this is the cleanest migration of the four, since the source shape already matches the target shape closely |
+| Rage charge pool | `PlayerChargesComponent` (`Map<Identifier, ChargePool>`); canonical Resource API identity is already `totality:rage` (Phase 2E, `SCALAR`, `EXTERNAL_ADAPTER`) | Future migration would import the exact stored current/maximum into `ScalarResourceState`, preserving `CHARGE_ID` exactly. **Correction (Phase 2E, 2026-07-20):** Rage's model is `SCALAR`, not `PARTITIONED_POOL`/keyed-scalar — `PlayerChargesComponent`'s generic map shape is an owner pattern, not evidence Rage itself is partitioned | Import by exact ID per canonical §24.6; **do not rename** `totality:barbarian_rage` — it remains the compatibility/migration source identifier until a separately reviewed migration retires it. This migration is not designed or implemented in this correction pass | `BarbarianRageAbility` keeps calling through `ChargeComponents`/new service | `BarbarianClass`, `SelectClassHandler`, `TotalityClient` HUD registration | After HUD pip rendering confirmed unchanged in playtest | **Low** — this is the cleanest migration of the four, since the source shape already matches the target shape closely |
 | Rage Rest wiring | Inline lambda in `PlayerConnectionEvents.java` | Same event, routed through the generic Resource Rest integration (canonical §22.6) | Preserve exact `+1`/full behavior; remove dead `registerWithRestBus()` rather than migrate it | N/A | `PlayerConnectionEvents.java:76-81,129-131` | Immediate — dead code removal is safe any time | **Low** |
 | Standard spell slots | `SpellSlotComponent` (parallel `int[10]` arrays) | `totality:spell_slots` `PARTITIONED_POOL` | Import every tier exactly (canonical §24.5, §24.4 step 4); keep `SpellSlotComponent` as compatibility facade until the D&D Spell API's callers move | `SpellSlotRecalculator` keeps computing max via existing multiclass logic, writes through the new service instead of the array directly | Spell casting code (wherever it calls `useSlot`), spell UI | After D&D Spell API migration is independently verified (not required for the Resource API's own foundation work) | **Medium** — array-to-map shape change touches active spellcasting gameplay; must not be bundled with unrelated Resource API foundation work per canonical §27 Phase 6 being separate from Phase 1-3 |
 | Hunger | Vanilla `FoodData` | `totality:food` `EXTERNAL_ADAPTER` | Wrap only — add adapter + formatter, do not touch vanilla storage or eating rules | `FoodResourceAdapter` delegating to vanilla; new `totality:food` formatter (`×5`, mirroring `RpgDisplayUtils.toDisplayHp`) | `TotalityHudRenderer.java:109-114,160-164` (switch to formatter + adapter query), `InventoryItemDetail.java:152-154` (tooltip formatting, if item-restoration display is added later) | N/A — vanilla stays authoritative indefinitely | **Low** (smallest, cleanest migration of the whole set) |
@@ -1006,6 +1006,9 @@ and the future cast-commitment-vs-combat-outcome distinction for the eventual ge
 transitional-adapter pattern (and, if Rage's charge-pool shape also needs `PARTITIONED_POOL`, reusing
 this phase's now-general partitioned query-result extension rather than inventing a second one). Only
 after all existing-store adapters are accepted should generic synchronization/client presentation begin.
+*(Superseded by the Phase 2E audit, 2026-07-20: Rage was confirmed `SCALAR`, not `PARTITIONED_POOL` —
+it required no partitioned query-result extension. This conditional is preserved here only as the
+historical planning note that preceded that confirmation.)*
 
 ---
 
@@ -1031,6 +1034,168 @@ Resource API can now query it on the authoritative server through
 `PARTITIONED_POOL` production resource. Pact Magic remains unimplemented and unaffected. The canonical
 closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to record this
 status.
+
+---
+
+## Phase 2E Implementation Record — Rage Legacy Charge Adapter (2026-07-20)
+
+This section records the seventh external-adapter slice — the first to read a single entry out of a
+shared, generically `Identifier`-keyed legacy store (`PlayerChargesComponent`) rather than a
+dedicated single-resource component. Full detail lives in the dedicated report:
+`Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md`. A dedicated
+read-only audit preceded implementation in an earlier session; its findings are the factual basis
+for every decision below and are not repeated here — see the dedicated report's own audit-recap
+section for the re-verified citations.
+
+**Resource model — `SCALAR`, not `PARTITIONED_POOL`:** canonical §6.1 lists Rage explicitly under
+`SCALAR` examples, and §6.3 states verbatim that "Rage `3/5`... [is a] scalar integer resource
+presented as pips." Rage charges are fully mechanically interchangeable — no individual charge has a
+stable identity, nothing spends or restores a specific charge, and there are no partial-fill
+segments. `totality:rage` is registered accordingly: `SCALAR`-model, `EXTERNAL_ADAPTER`-authority,
+`definitionVersion = 1`, `unitScale = RageResourceAdapter.UNIT_SCALE (1)`, `authoredBaseMaximum = 2`
+(the level-1 baseline from `BarbarianRageAbility.RAGE_CHARGES`, purely descriptive, never consulted
+by the live query path), capabilities `HUD_VISIBLE`/`MENU_VISIBLE` only (not `SPENDABLE`/
+`RESTORABLE`/`MAXIMUM_MODIFIERS` — deferred to a future generic-mutation phase, matching every prior
+transitional adapter's precedent), presentation `PIPS`/`CONTEXTUAL_ACCESS`.
+
+**Resource id vs. legacy backing key — deliberately different, both preserved:** the Resource API
+resource id (`totality:rage`) and the legacy `PlayerChargesComponent` pool key
+(`BarbarianRageAbility.CHARGE_ID = totality:barbarian_rage`) are two different, independent
+identifiers by design — unlike Phase 2D's spell-slot component/resource-id overlap (which was
+coincidental), this overlap-avoidance is intentional. Neither identifier was renamed, migrated, or
+duplicated.
+
+**What changed:** `RageResourceAdapter` (new, `api/rpg/resources/external/`) wraps one entry
+(`BarbarianRageAbility.CHARGE_ID`) of the legacy-authoritative `PlayerChargesComponent` charge-pool
+map (`PlayerChargesComponent`/`BarbarianRageAbility`/`RageEffect` remain the sole owners of every
+Rage gameplay operation), query-only, never mutating. A new `ChargeComponents.maybeGet(ServerPlayer)`
+was added, mirroring `SpellSlotComponents.maybeGet`'s Phase 2D precedent — no other change to
+`PlayerChargesComponent` was needed, since its existing `getAllPools()` already returns a safe,
+unmodifiable/read-only, presence-aware `Map` view (`Collections.unmodifiableMap` around the live
+backing map, not a defensive copy — callers cannot mutate the pool set through the returned `Map`,
+though a later legitimate component mutation would still be reflected by it; `.get(id)` distinguishes
+a present entry from a genuinely absent one without any new accessor). **A missing `barbarian_rage` entry** (the common case for any
+non-Barbarian) reports `STATE_UNINITIALIZED` — the first adapter in this series to ground that reason
+in "sparse map key absent" rather than "sentinel value present but marked unset" — never a fabricated
+0/0 success and never `MALFORMED_OWNER_STATE`. **A missing `PlayerChargesComponent` itself** on a real
+server player reports `MALFORMED_OWNER_STATE` (the component is unconditionally attached at
+construction, so its absence indicates a broken owner). **A present pool with current > maximum,
+negative current, or negative maximum** is `MALFORMED_OWNER_STATE` with no clamping/repair — unlike
+Mana/Stamina, Rage has no live-recomputed maximum at query time, so this can only arise from
+corrupted persisted data.
+
+**What did not change:** no `PlayerChargesComponent` storage migration, no change to Rage activation/
+consumption/toggle behavior, no change to Rage maximum progression (`RAGE_CHARGES`, still a 25-entry
+table with levels 25–30 clamped to the level-25 value), no change to Short Rest (+1, clamped) or Long
+Rest (full) recovery, no change to persistence, death/respawn (`ALWAYS_COPY`), or synchronization
+behavior, no change to the Rage HUD pip renderer or the Class-tab "CLASS RESOURCE" panel (both
+continue reading `PlayerChargesComponent` directly, exactly as before), no change to the Rage status
+effect, its bonuses, resistances, restrictions, or ending conditions, and no generic mutation support
+added for Rage (`supportedOperations()` remains `QUERY`-only). No other `PlayerChargesComponent` pool
+exists in production — Rage remains its sole real consumer; this phase does not generalize every
+pool into a resource or implement Ki/Solar Charge/Pact Magic/Sorcery Points/item charges.
+
+**Documentation correction (this record's own correction, and the dedicated report's):** §2.4 above
+previously described Rage as "the best existing reference pattern for the new
+`PARTITIONED_POOL`/keyed-charge shape" — corrected in place (see that row) to state Rage is `SCALAR`;
+`PlayerChargesComponent`'s generic `Identifier`-keyed *map* is the reusable pattern, not any
+individual pool's own shape. `PlayerChargesRageCharacterizationTest`'s class Javadoc carried the same
+inaccuracy and was corrected identically in the same pass.
+
+**Correction pass (2026-07-20, before manual smoke testing):** a narrow review-correction pass found
+three further stale/ambiguous Rage/`PARTITIONED_POOL` passages beyond the §2.4 row above (the
+Executive Summary's Rage bullet, §3.5's file-map paragraph, and the Migration Matrix's Rage row — all
+now corrected in place) and one superseded-but-preserved Phase 2D conditional (marked, not rewritten).
+It also corrected imprecise "immutable map view" wording (§27.2 of the dedicated report) to
+"unmodifiable/read-only view," and corrected the dedicated report's test-coverage description to
+distinguish the directly-automated missing-pool-entry case from the implemented-but-not-directly-tested
+missing-owner-component case. **No production code required architectural correction** — see the
+dedicated report's §27 for the full record.
+
+**Test count:** 390 (end of Phase 2D correction pass) → **428** (38 new/net-changed tests: the new
+adapter's characterization/purity/malformed-state tests, registry/service/external-safety coverage
+for the seventh resource, and expanded `PlayerChargesComponent` characterization — `updatePoolMax`,
+persistence round-trip, sync round-trip, `copyFrom`, unrelated-pool preservation, and the
+levels-25–30 clamp). One pre-existing Phase 1 test (`PlayerResourceStateComponentTest.instantiatingWithModelMismatchThrows`)
+required an incidental fix — it used the literal placeholder id `"rage"` for an arbitrary unregistered
+example, which collided with the newly registered production resource of the same name; renamed to a
+non-colliding placeholder with no change to test intent (the same category of fix Phase 2D's
+correction pass made for `"spell_slots"`).
+
+**Manual verification:** ~~**Not yet executed.** An 18-item manual smoke-test checklist is recorded in
+the dedicated report, prepared for Stefan to run on the real 26.2 client. Phase 2E is not considered
+closed until that checklist passes.~~ **SUPERSEDED (2026-07-20) — since executed by Stefan on the real
+26.2 client and PASSED for every currently practical scenario.** Confirmed: existing Rage HUD pips
+unchanged; Character/Class-tab Rage charge display unchanged; activating Rage consumed exactly one
+charge; the Rage effect icon/name/duration appeared normally; the existing Rage damage bonus remained
+functional; physical damage resistance remained functional; spellcasting remained blocked while Rage
+was active; toggling Rage off spent no additional charge and refunded none; spending all charges and
+attempting Rage again produced the existing rejection behavior; Rage charges did not go negative; Short
+Rest restored exactly one charge, clamped correctly to the maximum; Long Rest restored charges fully;
+remaining charges persisted correctly across logout/relog; death while raging ended the active Rage
+effect; death and respawn preserved the remaining charge count rather than resetting or refilling it;
+HUD and Class-tab displays remained correct after respawn; and no new Resource API, Rage adapter,
+owner-state, snapshot, synchronization, Rest, or Rage error, nor any visible gameplay/HUD/Class-tab/
+effect/persistence/recovery/synchronization regression, was observed. **Two mechanics — Strength-check
+advantage while raging and Strength-save advantage while raging — were not practically testable with
+the currently available in-game tools/content.** These are classified as not practically testable in
+the current manual environment, not as failures, and not as Phase 2E blockers: the relevant
+`RageEffect`/`RollModifierRegistry` production integration was untouched by Phase 2E, and the existing
+automated/code-characterization evidence remains the available verification for those two mechanics. No
+new commands, encounters, debug tools, or test content were built to exercise them. Full detail: the
+dedicated report's "Final Status — Ready to Commit" section (§29).
+
+**Build/test/datagen results (this phase):** `compileJava`/`compileTestJava` succeeded; `test` passed
+428/428; `runDatagen` wrote 0 files (`written: 0`, confirmed byte-identical `git status` before/after);
+`build -x runDatagen` succeeded; `git diff --check` exit code 0 (only pre-existing LF/CRLF advisories).
+`git diff --cached` remained empty throughout — nothing staged or committed.
+
+**Deferred issues carried forward (documented, not fixed in this phase):** the 25-entry
+`RAGE_CHARGES` table's levels-25–30 clamp (no distinct authored Totality extension, unlike
+`SpellSlotTable`'s full 1–30 authoring); `PlayerChargesComponent`'s indirect join-time synchronization
+(via the `ClassLevelUpRegistry` re-fire cascade, not an explicit line in `PlayerConnectionEvents.JOIN`'s
+sync block); the absence of any class-removal/respec path (future Rage-pool revocation behavior is
+unresolved); `PlayerChargesComponent.readData`'s lax parsing (silently drops hard-parse failures,
+accepts semantically invalid values without validation — the adapter rejects visible malformed state
+but does not repair legacy persistence); `registerWithRestBus()` remaining confirmed dead/no-op code;
+`SPENDABLE`/`RESTORABLE`/`MAXIMUM_MODIFIERS` capabilities deferred to a future generic-mutation phase;
+active-effect detailed hover descriptions as future HUD/effect work; Rage activation being
+synchronous but not a formal rollback-capable transaction (an unexpected exception after `consume()`
+succeeds could theoretically leave a spent charge without full activation — a future Ability API
+transaction/commit robustness note, not changed here); and client-side Generic Resource API querying
+remaining unavailable despite the legacy component's own client-side mirror.
+
+**Recommended next patch:** no further transitional legacy-store adapter is currently queued —
+Health/Food/Breath/Mana/Stamina/spell slots/Rage now cover every real production resource identified
+across Phases 2A–2E. Future work is generic synchronization/client presentation, or a new resource
+only if/when a currently-planned system (Ki, Solar Charge, Pact Magic, Sorcery Points, item charges)
+is actually implemented.
+
+---
+
+## Phase 2E Final Status (2026-07-20)
+
+**READY TO COMMIT.** Stefan manually tested the final Phase 2E implementation (428/428 automated
+tests) on the real Minecraft 26.2 client against the existing test world, and the manual smoke test
+**passed** for every currently practical scenario — see the dedicated report's §29 and "Final Status —
+Ready to Commit" section for the full itemized result.
+
+- **Automated tests:** 428/428 passed.
+- **Compile:** succeeded.
+- **Datagen:** wrote 0 files.
+- **Full build:** succeeded.
+- **Manual smoke test:** PASSED (20 itemized scenarios confirmed; 2 Strength-advantage-while-raging
+  scenarios not practically testable with currently available in-game tools/content — classified as
+  not practically testable, not failures, not blockers, since the relevant `RageEffect`/
+  `RollModifierRegistry` integration was untouched by Phase 2E and existing automated/code-
+  characterization evidence remains the available verification for them).
+
+**Scope boundaries carried forward unchanged:** `PlayerChargesComponent` remains the sole authoritative
+owner of Rage gameplay state — nothing about its current gameplay behavior changed. The Resource API
+can now query it on the authoritative server through `RageResourceAdapter`, transitionally, at
+`definitionVersion = 1`, as a `SCALAR` resource. No further Resource API phase is currently queued. The
+canonical closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to
+record this status.
 
 ---
 

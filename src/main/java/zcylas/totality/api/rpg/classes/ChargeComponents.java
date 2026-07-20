@@ -4,6 +4,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.core.component.*;
 
+import java.util.Optional;
+
 public final class ChargeComponents {
 
     public static final ComponentKey<PlayerChargesComponent> PLAYER_CHARGES =
@@ -29,5 +31,16 @@ public final class ChargeComponents {
 
     public static PlayerChargesComponent get(ServerPlayer player) {
         return PLAYER_CHARGES.get((ComponentProvider) player);
+    }
+
+    /**
+     * Gets the component without throwing if it is absent — the safe, read-only lookup path a
+     * generic Resource API query must use instead of {@link #get}, which throws
+     * {@code IllegalStateException} for a player the component was never attached to. Mirrors
+     * {@code ResourceComponents.maybeGet(ServerPlayer)}/{@code SpellSlotComponents.maybeGet(ServerPlayer)}'s
+     * established precedent, added here for the Rage external adapter (Phase 2E).
+     */
+    public static Optional<PlayerChargesComponent> maybeGet(ServerPlayer player) {
+        return PLAYER_CHARGES.maybeGet((ComponentProvider) player);
     }
 }

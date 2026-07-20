@@ -100,4 +100,16 @@ class ResourceValueFormatterRegistryTest {
         assertEquals(1L, mana.toDisplayDelta(1, 1));
         assertEquals(1L, stamina.toDisplayDelta(1, 1));
     }
+
+    @Test
+    void productionRegistryHasRageOnIdentity() {
+        // Rage's legacy storage (PlayerChargesComponent's ChargePool) is already a plain discrete
+        // integer count — an identity (1/1) conversion is lossless, matching Mana/Stamina's precedent.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceValueFormatter rage = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
+
+        assertEquals(3L, rage.toDisplayValue(3, 1));
+        assertEquals(1L, rage.toDisplayDelta(1, 1));
+    }
 }

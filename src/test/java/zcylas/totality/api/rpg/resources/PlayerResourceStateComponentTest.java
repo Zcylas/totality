@@ -93,10 +93,10 @@ class PlayerResourceStateComponentTest {
     @Test
     void instantiatingWithModelMismatchThrows() {
         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
-        component.instantiateScalar(id("rage"), 5);
+        component.instantiateScalar(id("test_model_mismatch_resource"), 5);
 
         assertThrows(IllegalStateException.class,
-                () -> component.instantiatePartitioned(id("rage")));
+                () -> component.instantiatePartitioned(id("test_model_mismatch_resource")));
     }
 
     @Test

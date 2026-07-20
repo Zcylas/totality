@@ -31,6 +31,15 @@ import zcylas.totality.Totality;
  * this Resource API resource id are deliberately allowed to share the same literal namespaced string
  * — they live in entirely separate registries ({@code ComponentRegistry} vs {@code
  * PlayerResourceRegistry}) and are never looked up interchangeably, so no rename of either is needed.
+ *
+ * <p>Phase 2E adds {@code totality:rage} — a transitional, {@code SCALAR}-model, {@code
+ * EXTERNAL_ADAPTER}-authority identifier over one entry of the legacy-authoritative, generically
+ * {@code Identifier}-keyed {@code PlayerChargesComponent} charge-pool map (see {@code RageResourceAdapter}).
+ * Deliberately <b>not</b> the same literal string as its legacy backing key: the existing charge pool
+ * is keyed by {@code BarbarianRageAbility.CHARGE_ID = totality:barbarian_rage}, which is preserved
+ * exactly, unrenamed — the Resource API resource id and the legacy pool key are two different,
+ * independent identifiers by design (unlike Phase 2D's spell-slot component/resource id overlap,
+ * which was coincidental, not deliberate).
  */
 public final class PlayerResourceIds {
 
@@ -40,6 +49,7 @@ public final class PlayerResourceIds {
     public static final Identifier MANA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "mana");
     public static final Identifier STAMINA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "stamina");
     public static final Identifier SPELL_SLOTS = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "spell_slots");
+    public static final Identifier RAGE = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "rage");
 
     public static final Identifier HEALTH_ADAPTER = HEALTH;
     public static final Identifier FOOD_ADAPTER = FOOD;
@@ -47,6 +57,7 @@ public final class PlayerResourceIds {
     public static final Identifier MANA_ADAPTER = MANA;
     public static final Identifier STAMINA_ADAPTER = STAMINA;
     public static final Identifier SPELL_SLOTS_ADAPTER = SPELL_SLOTS;
+    public static final Identifier RAGE_ADAPTER = RAGE;
 
     private PlayerResourceIds() {}
 }

@@ -1,0 +1,1966 @@
+diff --git a/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md b/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+index b0efc1d..44da2fb 100644
+--- a/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
++++ b/Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+@@ -1,7 +1,7 @@
+ # TOTALITY GENERIC PLAYER RESOURCE API — IMPLEMENTATION READINESS AUDIT
+ 
+-**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A"/"Phase 2B"/"Phase 2C"/"Phase 2D" Implementation Records (Health/Food, then Breath, then Mana/Stamina, then standard spell slots) all reached READY TO COMMIT with a passed manual smoke test. The "Phase 2D Implementation Record" section (2026-07-20) records the standard spell-slot **transitional, query-only, legacy-store** external adapter — the Resource API's first `PARTITIONED_POOL` production resource, and the first phase to extend `PlayerResourceService`'s query routing/`ResourceQueryResult` beyond scalar shapes. A narrow Phase 2D review-correction pass (2026-07-20, same day) made the spell-slot unit scale adapter-owned (a new `StandardSpellSlotsResourceAdapter.UNIT_SCALE` constant, no longer borrowed from the queried definition), corrected a test that had not actually exercised the ordering guarantee it claimed to prove, and fixed a documentation/comment inaccuracy — no gameplay behavior changed. The registry now holds six production definitions (`totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina`, `totality:spell_slots`), **390/390** automated tests pass (301 at the end of Phase 2C → 388 after the initial Phase 2D implementation pass → 390 after the correction pass), build/datagen validation succeeds, and Stefan's manual smoke test on the real 26.2 client **passed** for every currently applicable scenario (one multiclass scenario was not yet applicable — no second real caster class exists yet — and is not a blocker; one unrelated Rest-animation log warning was observed and classified as non-blocking) — see "Phase 2D Final Status" at the very end of this document for the full result. **Phase 2D is COMPLETE and READY TO COMMIT.** Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"Mana and Stamina not yet registered"/"spell slots not yet registered"/"Phase 2D manual smoke testing has not yet been executed" statement anywhere in this document as current.
+-**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19; Phase 2C record added 2026-07-19; Phase 2D record added 2026-07-20
++**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A"/"Phase 2B"/"Phase 2C"/"Phase 2D"/"Phase 2E" Implementation Records (Health/Food, then Breath, then Mana/Stamina, then standard spell slots, then Rage) all reached READY TO COMMIT with a passed manual smoke test. The "Phase 2E Implementation Record" section (2026-07-20) records the Rage **transitional, query-only, legacy-charge-pool** external adapter — `totality:rage`, a `SCALAR`-model resource (canonical §6.1/§6.3/§25.6) reading one entry (`BarbarianRageAbility.CHARGE_ID = totality:barbarian_rage`) of the legacy, generically `Identifier`-keyed `PlayerChargesComponent` charge-pool map. This section also corrects a pre-existing documentation inaccuracy: an earlier version of this document's §2.4 described Rage as a future `PARTITIONED_POOL` reference precedent — Rage is scalar, not partitioned; only `PlayerChargesComponent`'s multi-pool *map* is genuinely generic, not any individual pool's own shape. The registry now holds seven production definitions (`totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina`, `totality:spell_slots`, `totality:rage`), **428/428** automated tests pass, build/datagen validation succeeds. **Manual smoke testing for Phase 2E PASSED (2026-07-20)** for every currently practical scenario — see "Phase 2E Implementation Record" and "Phase 2E Final Status" for the full itemized result; two Strength-advantage mechanics were not practically testable in the current manual environment and are classified as such, not as failures or blockers. Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"Mana and Stamina not yet registered"/"spell slots not yet registered"/"Rage not yet registered" statement, nor the pre-Phase-2E §2.4 `PARTITIONED_POOL` description of Rage, anywhere in this document as current.
++**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19; Phase 2C record added 2026-07-19; Phase 2D record added 2026-07-20; Phase 2E record added 2026-07-20
+ **Branch:** `feature/general-resource-api` (based on `master` @ `bc16cc3`, "Merge Provisioner Phase 4")
+ **Scope:** `src/main/java/zcylas/totality/**` only. `/Inspiration Mods` was excluded from every search, count, and conclusion below.
+ **Canonical design authority:** `Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API.md` (2026-07-13, CANONICAL/IMPLEMENTATION-READY), reconciled against `Context/Audit/TOTALITY_POST_AUDIT_DESIGN_DECISIONS.md` (later, overrides where they conflict) and `Context/Audit/TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS.txt`.
+@@ -58,7 +58,7 @@ The canonical design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) is complete, in
+ 1. **HP, Stamina, Mana, and Rage are four genuinely different architectures today**, not four instances of one pattern:
+    - **HP** has no manager at all — every consumer calls vanilla `getHealth()/setHealth()/getMaxHealth()` directly. No component. No resource-shaped abstraction exists yet.
+    - **Stamina and Mana** already share one real component (`PlayerResourceComponent`) via near-duplicate manager classes (`PlayerStaminaManager`, `PlayerManaManager`) — the closest thing to "generic" in the repo, but it is a fixed two-field class (`stamina`, `mana`), not a keyed/extensible pool.
+-   - **Rage** already lives in a genuinely generic, `Identifier`-keyed, multi-pool component (`PlayerChargesComponent`) with its own Rest, sync, and persistence wiring — this is architecturally closer to the canonical design's `PARTITIONED_POOL`/`GENERIC_COMPONENT` shape than anything called "Resource" in the repo.
++   - **Rage** already lives in a genuinely generic, `Identifier`-keyed, multi-pool component (`PlayerChargesComponent`) with its own Rest, sync, and persistence wiring. `PlayerChargesComponent` is a useful generic `Identifier`-keyed multi-pool *owner* pattern — architecturally closer to the canonical design's `GENERIC_COMPONENT` owner shape than anything else called "Resource" in the repo. But each individual pool it holds, including Rage's, is `SCALAR` (canonical §6.1/§6.3/§25.6): the component's generic map shape is not evidence that each contained resource is itself partitioned. *(Corrected Phase 2E, 2026-07-20 — an earlier version of this bullet read as if Rage itself were `PARTITIONED_POOL`-shaped; it is not.)*
+ 2. **Hunger is clean.** Vanilla `FoodData` is untouched and undupli­cated; access is concentrated in ~5 call sites, not scattered. Vanilla's hunger bar is already hidden (`VanillaHudElements.FOOD_BAR` replaced with a no-op) and a Totality-drawn hunger bar already exists on the HUD's right side, but it renders the raw `0–20` value with **no ×5 conversion applied anywhere** — this is the one concrete, low-risk piece of the ×5 requirement that is not yet done.
+ 3. **Long Rest currently restores none of HP, Stamina, or Mana.** Only Rage (via `PlayerChargesComponent.onRest`), Abilities, and standard spell slots are wired into `RestEventBus`. This is a real, pre-existing gap the canonical design explicitly expects to close (Phase 7/Phase 2B), not something this audit invented.
+ 4. **Death/respawn behavior is inconsistent per-resource today**, independent of the Resource API: HP is preserved via a disconnect-only NBT snapshot (`PlayerStatsComponent.savedHp`) that does *not* fire on death, so death currently always respawns at full HP; Stamina/Mana are unconditionally reset to "uninitialized" on every `copyFrom` (death **and** ordinary dimension change alike); Rage charges are copied through unmodified on any respawn including death. None of this is broken *for current gameplay*, but a naive generic `RespawnStrategy.ALWAYS_COPY` applied uniformly would silently change at least two of these behaviors — the design's per-resource `ResourceLifecyclePolicy` concept exists specifically to prevent that, and this audit confirms it is *necessary*, not just cautious.
+@@ -138,7 +138,7 @@ The canonical design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) is complete, in
+ | HUD rendering | `client/hud/resource/SecondaryResourceHud.java` + an `ISecondaryResource` anonymous implementation registered in `TotalityClient.registerRenderers()` (`:127-153`) reads `ChargeComponents` directly and gates visibility on primary class == Barbarian. Renders flat-color pip rectangles — the intended sprite hooks (`TotalityGuiSprites.HUD_RAGE_PIP`/`HUD_RAGE_PIP_SPENT`) are wired but never actually invoked by the renderer (dead cosmetic code, separate from the resource-architecture question). |
+ | Rest integration | `PlayerChargesComponent.onRest` (`:82-96`) implements `RestListener`: Short Rest → `+1` (registered `rechargeAmount=1`), Long Rest → full. Confirmed wired via inline lambdas in `PlayerConnectionEvents.java:76-77` (join) and `:129-131` (respawn) — **not** via `PlayerChargesComponent.registerWithRestBus()`, which is a confirmed dead no-op method, called from nowhere. |
+ | Dependencies | `BarbarianClass`, `SelectClassHandler`, `ClassComponents`, `RestEventBus`/`RestManager`, `TotalityClient` HUD registration. |
+-| **Status** | **Implemented and verified** — Rage is the most complete, most correctly Rest-integrated, and most architecturally "generic-shaped" resource in the current codebase, despite predating any Resource API design. It is the best existing reference pattern for the new `PARTITIONED_POOL`/keyed-charge shape, not a legacy system to be flattened. |
++| **Status** | **Implemented and verified** — Rage is the most complete, most correctly Rest-integrated, and most architecturally "generic-shaped" resource in the current codebase, despite predating any Resource API design. **Correction (Phase 2E, 2026-07-20):** this row previously described Rage as "the best existing reference pattern for the new `PARTITIONED_POOL`/keyed-charge shape" — that was inaccurate and has been corrected. `PlayerChargesComponent` is a useful, generically `Identifier`-keyed *owner* pattern (a shared map that may hold several independently identified pools at once), but each individual pool — including Rage's — is a plain `SCALAR` current/maximum resource; canonical §6.1/§6.3/§25.6 are explicit that Rage is scalar, not partitioned. Rage charges themselves have no partition identities, no partition-specific spending or restoration, and no partial-fill segments. Standard spell slots (Phase 2D) and future Hit Dice remain the true `PARTITIONED_POOL` examples in this codebase — Rage is not one. See the Phase 2E report for the full resource-model analysis and `RageResourceAdapter`'s implementation. |
+ 
+ ### 2.5 Hunger (adapter target, vanilla-authoritative)
+ 
+@@ -190,7 +190,7 @@ Paths are relative to `src/main/java/zcylas/totality/`.
+ Structurally identical file set to Stamina: `PlayerManaManager.java`, `base/ManaItem.java`, `base/ManaRegenItem.java`, `base/ManaSource.java`, `base/ManaEvents.java`, `base/MaxManaCalcEvent.java`, `base/ManaRegenCalcEvent.java`, `networking/mana/ManaServerTick.java`, `networking/mana/SyncManaPayload.java`, `networking/mana/ClientManaManager.java`. Relevant for the same reason — and relevant as the clearest evidence of the "duplicated infrastructure" the canonical design's Purpose section (§1) exists to eliminate: these two packages are near-line-for-line copies of each other.
+ 
+ ### 3.5 Rage / class charges (`api/rpg/classes/`, `api/ability/impl/barbarian/`)
+-`PlayerChargesComponent.java`, `ChargeComponents.java`, `BarbarianClass.java`, `BarbarianRageAbility.java`, `RageEffect.java`. Relevant as the **reference implementation** to generalize from (§24.6 of the canonical design explicitly frames it this way) — its `Map<Identifier, ChargePool>` shape, its clean single-sync-path, and its correct Rest wiring are all worth preserving structurally in the new `PARTITIONED_POOL`/`ScalarResourceState` design.
++`PlayerChargesComponent.java`, `ChargeComponents.java`, `BarbarianClass.java`, `BarbarianRageAbility.java`, `RageEffect.java`. Relevant as the **reference implementation** to generalize from (§24.6 of the canonical design explicitly frames it this way) — its `Identifier`-keyed *owner* pattern, its clean single-sync-path, and its correct Rest wiring are all worth preserving structurally where useful in the new design. **Correction (Phase 2E, 2026-07-20):** Rage itself maps to `ScalarResourceState`, not `PARTITIONED_POOL` — standard spell slots and future Hit Dice are the true `PARTITIONED_POOL` examples in this codebase.
+ 
+ ### 3.6 Spell slots (`api/magic/spell/`)
+ `SpellSlotComponent.java` (parallel `int[10]` arrays, not `Identifier`-keyed — a different, less general pattern than `PlayerChargesComponent`), `SpellSlotRecalculator.java` (sums Full/Half/Third caster levels; Warlock explicitly no-op'd with a comment flagging Pact Magic as unimplemented). Relevant to Phase 6 of the migration and directly confirms the design's §14.4 statement that Pact Magic "must not be merged into standard multiclass slots" — it isn't merged today only because it doesn't exist at all yet.
+@@ -336,7 +336,7 @@ This section restates the canonical document's own boundary assignments (§3, §
+ | Stamina/Mana storage | `PlayerResourceComponent` (`totality:resources`) | `PlayerResourceStateComponent` (`GENERIC_COMPONENT`, new identifier) | NBT import per canonical §24.4 steps 2-3; keep old component temporarily registered under its existing ID as a read fallback | `PlayerStaminaManager`/`PlayerManaManager` become thin facades over `PlayerResourceService`, exactly as canonical §24.3 illustrates | `WeaponStaminaHandler`, `BowStaminaHandler`, `FormulaResolver`, movement handlers, `ExhaustionManager` (reads Stamina only, no change needed to its own logic) | After one full verified migration cycle (canonical §24.4 step 10-11 — no indefinite dual-write) | **Medium** — two independent tick loops and two sync paths must be collapsed carefully to avoid a transitional double-regen or double-sync bug |
+ | Stamina/Mana sync | `SyncStaminaPayload`/`SyncManaPayload` + unused `ComponentSync` mirror | Generic `ResourceSyncManager` delta/full snapshot | Switch `ClientStaminaManager`/`ClientManaManager` (or their HUD consumers) to read the new `ClientResourceManager`; keep old payloads registered until HUD fully migrates (canonical §24.8) | Old payload handlers remain until no callers reference `ClientStaminaManager`/`ClientManaManager` | `TotalityHudRenderer` | After HUD migration confirmed in a playtest | **Low-Medium** |
+ | Stamina/Mana Rest recovery | None (absent) | Stamina module + (future) Mana module register `RestListener`s that call `PlayerResourceService.restore` | New code, not a migration — canonical explicitly leaves the exact restore rule (full vs. partial) to be decided at implementation time, consistent with "preserve current behavior" since there is no current behavior to preserve here | N/A | `RestManager`/`RestEventBus` registration list | N/A (net-new) | **Low** (additive, no existing behavior to break) — but requires one explicit design confirmation: does Long Rest fully restore Stamina/Mana, matching the canonical example in §25.4/§25.5? |
+-| Rage charge pool | `PlayerChargesComponent` (`Map<Identifier, ChargePool>`) | Same shape, adopted directly as (or adapted into) the new `PARTITIONED_POOL`/keyed-scalar state, preserving `CHARGE_ID` exactly | Import by exact ID per canonical §24.6; **do not rename** `totality:barbarian_rage` | `BarbarianRageAbility` keeps calling through `ChargeComponents`/new service | `BarbarianClass`, `SelectClassHandler`, `TotalityClient` HUD registration | After HUD pip rendering confirmed unchanged in playtest | **Low** — this is the cleanest migration of the four, since the source shape already matches the target shape closely |
++| Rage charge pool | `PlayerChargesComponent` (`Map<Identifier, ChargePool>`); canonical Resource API identity is already `totality:rage` (Phase 2E, `SCALAR`, `EXTERNAL_ADAPTER`) | Future migration would import the exact stored current/maximum into `ScalarResourceState`, preserving `CHARGE_ID` exactly. **Correction (Phase 2E, 2026-07-20):** Rage's model is `SCALAR`, not `PARTITIONED_POOL`/keyed-scalar — `PlayerChargesComponent`'s generic map shape is an owner pattern, not evidence Rage itself is partitioned | Import by exact ID per canonical §24.6; **do not rename** `totality:barbarian_rage` — it remains the compatibility/migration source identifier until a separately reviewed migration retires it. This migration is not designed or implemented in this correction pass | `BarbarianRageAbility` keeps calling through `ChargeComponents`/new service | `BarbarianClass`, `SelectClassHandler`, `TotalityClient` HUD registration | After HUD pip rendering confirmed unchanged in playtest | **Low** — this is the cleanest migration of the four, since the source shape already matches the target shape closely |
+ | Rage Rest wiring | Inline lambda in `PlayerConnectionEvents.java` | Same event, routed through the generic Resource Rest integration (canonical §22.6) | Preserve exact `+1`/full behavior; remove dead `registerWithRestBus()` rather than migrate it | N/A | `PlayerConnectionEvents.java:76-81,129-131` | Immediate — dead code removal is safe any time | **Low** |
+ | Standard spell slots | `SpellSlotComponent` (parallel `int[10]` arrays) | `totality:spell_slots` `PARTITIONED_POOL` | Import every tier exactly (canonical §24.5, §24.4 step 4); keep `SpellSlotComponent` as compatibility facade until the D&D Spell API's callers move | `SpellSlotRecalculator` keeps computing max via existing multiclass logic, writes through the new service instead of the array directly | Spell casting code (wherever it calls `useSlot`), spell UI | After D&D Spell API migration is independently verified (not required for the Resource API's own foundation work) | **Medium** — array-to-map shape change touches active spellcasting gameplay; must not be bundled with unrelated Resource API foundation work per canonical §27 Phase 6 being separate from Phase 1-3 |
+ | Hunger | Vanilla `FoodData` | `totality:food` `EXTERNAL_ADAPTER` | Wrap only — add adapter + formatter, do not touch vanilla storage or eating rules | `FoodResourceAdapter` delegating to vanilla; new `totality:food` formatter (`×5`, mirroring `RpgDisplayUtils.toDisplayHp`) | `TotalityHudRenderer.java:109-114,160-164` (switch to formatter + adapter query), `InventoryItemDetail.java:152-154` (tooltip formatting, if item-restoration display is added later) | N/A — vanilla stays authoritative indefinitely | **Low** (smallest, cleanest migration of the whole set) |
+@@ -1006,6 +1006,9 @@ and the future cast-commitment-vs-combat-outcome distinction for the eventual ge
+ transitional-adapter pattern (and, if Rage's charge-pool shape also needs `PARTITIONED_POOL`, reusing
+ this phase's now-general partitioned query-result extension rather than inventing a second one). Only
+ after all existing-store adapters are accepted should generic synchronization/client presentation begin.
++*(Superseded by the Phase 2E audit, 2026-07-20: Rage was confirmed `SCALAR`, not `PARTITIONED_POOL` —
++it required no partitioned query-result extension. This conditional is preserved here only as the
++historical planning note that preceded that confirmation.)*
+ 
+ ---
+ 
+@@ -1034,4 +1037,166 @@ status.
+ 
+ ---
+ 
++## Phase 2E Implementation Record — Rage Legacy Charge Adapter (2026-07-20)
++
++This section records the seventh external-adapter slice — the first to read a single entry out of a
++shared, generically `Identifier`-keyed legacy store (`PlayerChargesComponent`) rather than a
++dedicated single-resource component. Full detail lives in the dedicated report:
++`Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md`. A dedicated
++read-only audit preceded implementation in an earlier session; its findings are the factual basis
++for every decision below and are not repeated here — see the dedicated report's own audit-recap
++section for the re-verified citations.
++
++**Resource model — `SCALAR`, not `PARTITIONED_POOL`:** canonical §6.1 lists Rage explicitly under
++`SCALAR` examples, and §6.3 states verbatim that "Rage `3/5`... [is a] scalar integer resource
++presented as pips." Rage charges are fully mechanically interchangeable — no individual charge has a
++stable identity, nothing spends or restores a specific charge, and there are no partial-fill
++segments. `totality:rage` is registered accordingly: `SCALAR`-model, `EXTERNAL_ADAPTER`-authority,
++`definitionVersion = 1`, `unitScale = RageResourceAdapter.UNIT_SCALE (1)`, `authoredBaseMaximum = 2`
++(the level-1 baseline from `BarbarianRageAbility.RAGE_CHARGES`, purely descriptive, never consulted
++by the live query path), capabilities `HUD_VISIBLE`/`MENU_VISIBLE` only (not `SPENDABLE`/
++`RESTORABLE`/`MAXIMUM_MODIFIERS` — deferred to a future generic-mutation phase, matching every prior
++transitional adapter's precedent), presentation `PIPS`/`CONTEXTUAL_ACCESS`.
++
++**Resource id vs. legacy backing key — deliberately different, both preserved:** the Resource API
++resource id (`totality:rage`) and the legacy `PlayerChargesComponent` pool key
++(`BarbarianRageAbility.CHARGE_ID = totality:barbarian_rage`) are two different, independent
++identifiers by design — unlike Phase 2D's spell-slot component/resource-id overlap (which was
++coincidental), this overlap-avoidance is intentional. Neither identifier was renamed, migrated, or
++duplicated.
++
++**What changed:** `RageResourceAdapter` (new, `api/rpg/resources/external/`) wraps one entry
++(`BarbarianRageAbility.CHARGE_ID`) of the legacy-authoritative `PlayerChargesComponent` charge-pool
++map (`PlayerChargesComponent`/`BarbarianRageAbility`/`RageEffect` remain the sole owners of every
++Rage gameplay operation), query-only, never mutating. A new `ChargeComponents.maybeGet(ServerPlayer)`
++was added, mirroring `SpellSlotComponents.maybeGet`'s Phase 2D precedent — no other change to
++`PlayerChargesComponent` was needed, since its existing `getAllPools()` already returns a safe,
++unmodifiable/read-only, presence-aware `Map` view (`Collections.unmodifiableMap` around the live
++backing map, not a defensive copy — callers cannot mutate the pool set through the returned `Map`,
++though a later legitimate component mutation would still be reflected by it; `.get(id)` distinguishes
++a present entry from a genuinely absent one without any new accessor). **A missing `barbarian_rage` entry** (the common case for any
++non-Barbarian) reports `STATE_UNINITIALIZED` — the first adapter in this series to ground that reason
++in "sparse map key absent" rather than "sentinel value present but marked unset" — never a fabricated
++0/0 success and never `MALFORMED_OWNER_STATE`. **A missing `PlayerChargesComponent` itself** on a real
++server player reports `MALFORMED_OWNER_STATE` (the component is unconditionally attached at
++construction, so its absence indicates a broken owner). **A present pool with current > maximum,
++negative current, or negative maximum** is `MALFORMED_OWNER_STATE` with no clamping/repair — unlike
++Mana/Stamina, Rage has no live-recomputed maximum at query time, so this can only arise from
++corrupted persisted data.
++
++**What did not change:** no `PlayerChargesComponent` storage migration, no change to Rage activation/
++consumption/toggle behavior, no change to Rage maximum progression (`RAGE_CHARGES`, still a 25-entry
++table with levels 25–30 clamped to the level-25 value), no change to Short Rest (+1, clamped) or Long
++Rest (full) recovery, no change to persistence, death/respawn (`ALWAYS_COPY`), or synchronization
++behavior, no change to the Rage HUD pip renderer or the Class-tab "CLASS RESOURCE" panel (both
++continue reading `PlayerChargesComponent` directly, exactly as before), no change to the Rage status
++effect, its bonuses, resistances, restrictions, or ending conditions, and no generic mutation support
++added for Rage (`supportedOperations()` remains `QUERY`-only). No other `PlayerChargesComponent` pool
++exists in production — Rage remains its sole real consumer; this phase does not generalize every
++pool into a resource or implement Ki/Solar Charge/Pact Magic/Sorcery Points/item charges.
++
++**Documentation correction (this record's own correction, and the dedicated report's):** §2.4 above
++previously described Rage as "the best existing reference pattern for the new
++`PARTITIONED_POOL`/keyed-charge shape" — corrected in place (see that row) to state Rage is `SCALAR`;
++`PlayerChargesComponent`'s generic `Identifier`-keyed *map* is the reusable pattern, not any
++individual pool's own shape. `PlayerChargesRageCharacterizationTest`'s class Javadoc carried the same
++inaccuracy and was corrected identically in the same pass.
++
++**Correction pass (2026-07-20, before manual smoke testing):** a narrow review-correction pass found
++three further stale/ambiguous Rage/`PARTITIONED_POOL` passages beyond the §2.4 row above (the
++Executive Summary's Rage bullet, §3.5's file-map paragraph, and the Migration Matrix's Rage row — all
++now corrected in place) and one superseded-but-preserved Phase 2D conditional (marked, not rewritten).
++It also corrected imprecise "immutable map view" wording (§27.2 of the dedicated report) to
++"unmodifiable/read-only view," and corrected the dedicated report's test-coverage description to
++distinguish the directly-automated missing-pool-entry case from the implemented-but-not-directly-tested
++missing-owner-component case. **No production code required architectural correction** — see the
++dedicated report's §27 for the full record.
++
++**Test count:** 390 (end of Phase 2D correction pass) → **428** (38 new/net-changed tests: the new
++adapter's characterization/purity/malformed-state tests, registry/service/external-safety coverage
++for the seventh resource, and expanded `PlayerChargesComponent` characterization — `updatePoolMax`,
++persistence round-trip, sync round-trip, `copyFrom`, unrelated-pool preservation, and the
++levels-25–30 clamp). One pre-existing Phase 1 test (`PlayerResourceStateComponentTest.instantiatingWithModelMismatchThrows`)
++required an incidental fix — it used the literal placeholder id `"rage"` for an arbitrary unregistered
++example, which collided with the newly registered production resource of the same name; renamed to a
++non-colliding placeholder with no change to test intent (the same category of fix Phase 2D's
++correction pass made for `"spell_slots"`).
++
++**Manual verification:** ~~**Not yet executed.** An 18-item manual smoke-test checklist is recorded in
++the dedicated report, prepared for Stefan to run on the real 26.2 client. Phase 2E is not considered
++closed until that checklist passes.~~ **SUPERSEDED (2026-07-20) — since executed by Stefan on the real
++26.2 client and PASSED for every currently practical scenario.** Confirmed: existing Rage HUD pips
++unchanged; Character/Class-tab Rage charge display unchanged; activating Rage consumed exactly one
++charge; the Rage effect icon/name/duration appeared normally; the existing Rage damage bonus remained
++functional; physical damage resistance remained functional; spellcasting remained blocked while Rage
++was active; toggling Rage off spent no additional charge and refunded none; spending all charges and
++attempting Rage again produced the existing rejection behavior; Rage charges did not go negative; Short
++Rest restored exactly one charge, clamped correctly to the maximum; Long Rest restored charges fully;
++remaining charges persisted correctly across logout/relog; death while raging ended the active Rage
++effect; death and respawn preserved the remaining charge count rather than resetting or refilling it;
++HUD and Class-tab displays remained correct after respawn; and no new Resource API, Rage adapter,
++owner-state, snapshot, synchronization, Rest, or Rage error, nor any visible gameplay/HUD/Class-tab/
++effect/persistence/recovery/synchronization regression, was observed. **Two mechanics — Strength-check
++advantage while raging and Strength-save advantage while raging — were not practically testable with
++the currently available in-game tools/content.** These are classified as not practically testable in
++the current manual environment, not as failures, and not as Phase 2E blockers: the relevant
++`RageEffect`/`RollModifierRegistry` production integration was untouched by Phase 2E, and the existing
++automated/code-characterization evidence remains the available verification for those two mechanics. No
++new commands, encounters, debug tools, or test content were built to exercise them. Full detail: the
++dedicated report's "Final Status — Ready to Commit" section (§29).
++
++**Build/test/datagen results (this phase):** `compileJava`/`compileTestJava` succeeded; `test` passed
++428/428; `runDatagen` wrote 0 files (`written: 0`, confirmed byte-identical `git status` before/after);
++`build -x runDatagen` succeeded; `git diff --check` exit code 0 (only pre-existing LF/CRLF advisories).
++`git diff --cached` remained empty throughout — nothing staged or committed.
++
++**Deferred issues carried forward (documented, not fixed in this phase):** the 25-entry
++`RAGE_CHARGES` table's levels-25–30 clamp (no distinct authored Totality extension, unlike
++`SpellSlotTable`'s full 1–30 authoring); `PlayerChargesComponent`'s indirect join-time synchronization
++(via the `ClassLevelUpRegistry` re-fire cascade, not an explicit line in `PlayerConnectionEvents.JOIN`'s
++sync block); the absence of any class-removal/respec path (future Rage-pool revocation behavior is
++unresolved); `PlayerChargesComponent.readData`'s lax parsing (silently drops hard-parse failures,
++accepts semantically invalid values without validation — the adapter rejects visible malformed state
++but does not repair legacy persistence); `registerWithRestBus()` remaining confirmed dead/no-op code;
++`SPENDABLE`/`RESTORABLE`/`MAXIMUM_MODIFIERS` capabilities deferred to a future generic-mutation phase;
++active-effect detailed hover descriptions as future HUD/effect work; Rage activation being
++synchronous but not a formal rollback-capable transaction (an unexpected exception after `consume()`
++succeeds could theoretically leave a spent charge without full activation — a future Ability API
++transaction/commit robustness note, not changed here); and client-side Generic Resource API querying
++remaining unavailable despite the legacy component's own client-side mirror.
++
++**Recommended next patch:** no further transitional legacy-store adapter is currently queued —
++Health/Food/Breath/Mana/Stamina/spell slots/Rage now cover every real production resource identified
++across Phases 2A–2E. Future work is generic synchronization/client presentation, or a new resource
++only if/when a currently-planned system (Ki, Solar Charge, Pact Magic, Sorcery Points, item charges)
++is actually implemented.
++
++---
++
++## Phase 2E Final Status (2026-07-20)
++
++**READY TO COMMIT.** Stefan manually tested the final Phase 2E implementation (428/428 automated
++tests) on the real Minecraft 26.2 client against the existing test world, and the manual smoke test
++**passed** for every currently practical scenario — see the dedicated report's §29 and "Final Status —
++Ready to Commit" section for the full itemized result.
++
++- **Automated tests:** 428/428 passed.
++- **Compile:** succeeded.
++- **Datagen:** wrote 0 files.
++- **Full build:** succeeded.
++- **Manual smoke test:** PASSED (20 itemized scenarios confirmed; 2 Strength-advantage-while-raging
++  scenarios not practically testable with currently available in-game tools/content — classified as
++  not practically testable, not failures, not blockers, since the relevant `RageEffect`/
++  `RollModifierRegistry` integration was untouched by Phase 2E and existing automated/code-
++  characterization evidence remains the available verification for them).
++
++**Scope boundaries carried forward unchanged:** `PlayerChargesComponent` remains the sole authoritative
++owner of Rage gameplay state — nothing about its current gameplay behavior changed. The Resource API
++can now query it on the authoritative server through `RageResourceAdapter`, transitionally, at
++`definitionVersion = 1`, as a `SCALAR` resource. No further Resource API phase is currently queued. The
++canonical closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to
++record this status.
++
++---
++
+ **END OF AUDIT**
+diff --git a/src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java b/src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java
+index e345956..3f10fb3 100644
+--- a/src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java
++++ b/src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java
+@@ -4,6 +4,8 @@ import net.minecraft.resources.Identifier;
+ import net.minecraft.server.level.ServerPlayer;
+ import zcylas.totality.api.core.component.*;
+ 
++import java.util.Optional;
++
+ public final class ChargeComponents {
+ 
+     public static final ComponentKey<PlayerChargesComponent> PLAYER_CHARGES =
+@@ -30,4 +32,15 @@ public final class ChargeComponents {
+     public static PlayerChargesComponent get(ServerPlayer player) {
+         return PLAYER_CHARGES.get((ComponentProvider) player);
+     }
++
++    /**
++     * Gets the component without throwing if it is absent — the safe, read-only lookup path a
++     * generic Resource API query must use instead of {@link #get}, which throws
++     * {@code IllegalStateException} for a player the component was never attached to. Mirrors
++     * {@code ResourceComponents.maybeGet(ServerPlayer)}/{@code SpellSlotComponents.maybeGet(ServerPlayer)}'s
++     * established precedent, added here for the Rage external adapter (Phase 2E).
++     */
++    public static Optional<PlayerChargesComponent> maybeGet(ServerPlayer player) {
++        return PLAYER_CHARGES.maybeGet((ComponentProvider) player);
++    }
+ }
+\ No newline at end of file
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java b/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+index ad1b472..f378482 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+@@ -31,6 +31,15 @@ import zcylas.totality.Totality;
+  * this Resource API resource id are deliberately allowed to share the same literal namespaced string
+  * — they live in entirely separate registries ({@code ComponentRegistry} vs {@code
+  * PlayerResourceRegistry}) and are never looked up interchangeably, so no rename of either is needed.
++ *
++ * <p>Phase 2E adds {@code totality:rage} — a transitional, {@code SCALAR}-model, {@code
++ * EXTERNAL_ADAPTER}-authority identifier over one entry of the legacy-authoritative, generically
++ * {@code Identifier}-keyed {@code PlayerChargesComponent} charge-pool map (see {@code RageResourceAdapter}).
++ * Deliberately <b>not</b> the same literal string as its legacy backing key: the existing charge pool
++ * is keyed by {@code BarbarianRageAbility.CHARGE_ID = totality:barbarian_rage}, which is preserved
++ * exactly, unrenamed — the Resource API resource id and the legacy pool key are two different,
++ * independent identifiers by design (unlike Phase 2D's spell-slot component/resource id overlap,
++ * which was coincidental, not deliberate).
+  */
+ public final class PlayerResourceIds {
+ 
+@@ -40,6 +49,7 @@ public final class PlayerResourceIds {
+     public static final Identifier MANA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "mana");
+     public static final Identifier STAMINA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "stamina");
+     public static final Identifier SPELL_SLOTS = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "spell_slots");
++    public static final Identifier RAGE = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "rage");
+ 
+     public static final Identifier HEALTH_ADAPTER = HEALTH;
+     public static final Identifier FOOD_ADAPTER = FOOD;
+@@ -47,6 +57,7 @@ public final class PlayerResourceIds {
+     public static final Identifier MANA_ADAPTER = MANA;
+     public static final Identifier STAMINA_ADAPTER = STAMINA;
+     public static final Identifier SPELL_SLOTS_ADAPTER = SPELL_SLOTS;
++    public static final Identifier RAGE_ADAPTER = RAGE;
+ 
+     private PlayerResourceIds() {}
+ }
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java b/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+index a7e47b3..a9e7ea3 100644
+--- a/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
++++ b/src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+@@ -5,6 +5,7 @@ import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterR
+ import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
++import zcylas.totality.api.rpg.resources.external.RageResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter;
+ import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
+@@ -67,6 +68,23 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
+  * zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatter} is registered for it, since
+  * that interface's {@code toDisplayCurrent}/{@code toDisplayMaximum} methods take a single scalar
+  * {@code ResourceSnapshot} and have no partitioned counterpart yet.
++ *
++ * <p>Phase 2E adds {@code totality:rage} — {@code SCALAR}-model (canonical §6.1/§6.3/§25.6 are
++ * explicit that Rage is scalar, not partitioned), {@code EXTERNAL_ADAPTER}-authority, query-only,
++ * transitionally wrapping one entry ({@code BarbarianRageAbility.CHARGE_ID}) of the legacy
++ * generically-keyed {@code PlayerChargesComponent} charge-pool map via {@link RageResourceAdapter}.
++ * Registered at {@code definitionVersion = 1}. Declares {@code authoredBaseMaximum = 2} — the level-1
++ * baseline from {@code BarbarianRageAbility.RAGE_CHARGES}, purely descriptive like every other
++ * adapter's baseline; the live query path never consults it. Declares only {@link
++ * ResourceCapability#HUD_VISIBLE}/{@link ResourceCapability#MENU_VISIBLE} — not {@code SPENDABLE}/
++ * {@code RESTORABLE}/{@code MAXIMUM_MODIFIERS} (canonical §25.6's eventual full capability set),
++ * matching every prior transitional adapter's precedent of declaring no mutation capability while
++ * {@code supportedOperations()} remains {@code QUERY}-only; those three are deferred to a future
++ * phase that actually implements generic mutation and authoritative maximum resolution. Presentation
++ * is {@code ResourceDisplayType.PIPS}/{@code ResourceHudRole.CONTEXTUAL_ACCESS} (canonical's own
++ * described role for Rage/Ki/Solar Charge — "may appear whenever the player can access it"), declared
++ * for definition-shape completeness; the existing bespoke Rage HUD pip renderer and Class-tab panel
++ * are left completely untouched by this phase, exactly like Mana/Stamina/spell slots before it.
+  */
+ public final class ProductionResourceDefinitions {
+ 
+@@ -83,6 +101,7 @@ public final class ProductionResourceDefinitions {
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(ManaResourceAdapter.INSTANCE);
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StaminaResourceAdapter.INSTANCE);
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StandardSpellSlotsResourceAdapter.INSTANCE);
++        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(RageResourceAdapter.INSTANCE);
+         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
+     }
+ 
+@@ -203,6 +222,30 @@ public final class ProductionResourceDefinitions {
+                         .definitionVersion(1)
+                         .build());
+ 
++        // Rage: transitional EXTERNAL_ADAPTER over one entry of the legacy PlayerChargesComponent
++        // charge-pool map (see the class Javadoc). SCALAR model — canonical §6.1/§6.3/§25.6 are
++        // explicit Rage is scalar, not partitioned. authoredBaseMaximum = 2 is the level-1 baseline
++        // from BarbarianRageAbility.RAGE_CHARGES — purely descriptive, never consulted by the live
++        // query path. No SPENDABLE/RESTORABLE/MAXIMUM_MODIFIERS capability — query-only, exactly like
++        // every other Phase 2A-2D adapter. unitScale uses the adapter's own canonical
++        // RageResourceAdapter.UNIT_SCALE constant rather than a second, independently-maintained
++        // literal — the adapter always produces a snapshot at that scale regardless of what this
++        // definition declares, so the two must stay in lockstep.
++        PlayerResourceRegistry.INSTANCE.register(
++                PlayerResourceDefinition.builder(PlayerResourceIds.RAGE, ResourceModel.SCALAR)
++                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
++                        .externalAdapter(PlayerResourceIds.RAGE_ADAPTER)
++                        .unitScale(RageResourceAdapter.UNIT_SCALE)
++                        .absoluteMinimum(0)
++                        .authoredBaseMaximum(2)
++                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
++                        .presentation(new ResourcePresentationDefinition(
++                                ResourceDisplayConversion.IDENTITY,
++                                ResourceDisplayType.PIPS,
++                                ResourceHudRole.CONTEXTUAL_ACCESS))
++                        .definitionVersion(1)
++                        .build());
++
+         PlayerResourceRegistry.INSTANCE.freeze(ExternalPlayerResourceAdapterRegistry.INSTANCE);
+     }
+ 
+@@ -216,6 +259,8 @@ public final class ProductionResourceDefinitions {
+         ResourceValueFormatterRegistry.INSTANCE.register(
+                 ResourceValueFormatter.ofConversion(PlayerResourceIds.STAMINA, ResourceDisplayConversion.IDENTITY));
+         // totality:spell_slots deliberately has no registered formatter — see the class Javadoc.
++        ResourceValueFormatterRegistry.INSTANCE.register(
++                ResourceValueFormatter.ofConversion(PlayerResourceIds.RAGE, ResourceDisplayConversion.IDENTITY));
+         ResourceValueFormatterRegistry.INSTANCE.freeze();
+     }
+ 
+diff --git a/src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java b/src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java
+index 9652f21..c9cee26 100644
+--- a/src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java
+@@ -1,19 +1,32 @@
+ package zcylas.totality.api.rpg.classes;
+ 
++import net.minecraft.core.HolderLookup;
++import net.minecraft.network.RegistryFriendlyByteBuf;
+ import net.minecraft.resources.Identifier;
++import net.minecraft.util.ProblemReporter;
++import net.minecraft.world.level.storage.TagValueInput;
++import net.minecraft.world.level.storage.TagValueOutput;
++import io.netty.buffer.Unpooled;
+ import org.junit.jupiter.api.Test;
+ import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
+ import zcylas.totality.api.rpg.rest.RestType;
+ 
+ import java.lang.reflect.Field;
++import java.util.stream.Stream;
+ 
+ import static org.junit.jupiter.api.Assertions.*;
+ 
+ /**
+  * Pins Barbarian Rage's current, already-correctly-generic behavior (readiness audit §2.4) —
+- * {@code PlayerChargesComponent} is a genuine {@code Map<Identifier, ChargePool>} and is used
+- * here as the reference precedent the Resource API's own PARTITIONED_POOL/keyed-scalar shape
+- * should generalize from, not as something this Phase 1 patch migrates.
++ * {@code PlayerChargesComponent} is a genuine {@code Map<Identifier, ChargePool>}: a useful,
++ * generically {@code Identifier}-keyed owner pattern that may hold several independently
++ * identified pools at once. Each individual pool, including Rage's, is a plain {@code SCALAR}
++ * current/maximum resource — Rage charges themselves have no partition identities, no
++ * partition-specific spending, and no partial-fill segments (canonical §6.1/§6.3/§25.6). This is
++ * <b>not</b> a {@code PARTITIONED_POOL} precedent; standard spell slots and future Hit Dice remain
++ * the true {@code PARTITIONED_POOL} examples in this codebase. (Corrected in Phase 2E — an earlier
++ * version of this Javadoc incorrectly described this class as a future {@code PARTITIONED_POOL}/
++ * keyed-partition reference; see the Phase 2E report's "Documentation corrections" section.)
+  *
+  * {@code new PlayerChargesComponent(null)} is safe here: {@code onRest}'s body never dereferences
+  * its {@code ServerPlayer player} parameter (only {@code sync()}, called on the instance field,
+@@ -24,6 +37,10 @@ class PlayerChargesRageCharacterizationTest {
+ 
+     private static final Identifier RAGE_ID = Identifier.fromNamespaceAndPath("totality", "barbarian_rage");
+ 
++    private static HolderLookup.Provider emptyRegistries() {
++        return HolderLookup.Provider.create(Stream.of());
++    }
++
+     @Test
+     void chargeIdIsUnchanged() {
+         assertEquals(RAGE_ID, BarbarianRageAbility.CHARGE_ID);
+@@ -108,6 +125,127 @@ class PlayerChargesRageCharacterizationTest {
+         assertEquals(5, component.getMax(RAGE_ID));
+     }
+ 
++    // ── Phase 2E additions: updatePoolMax, persistence, sync, copyFrom, unrelated pools ─────
++
++    @Test
++    void updatePoolMaxPreservesCurrentWhenBelowTheNewMaximum() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(RAGE_ID, 3, RestType.SHORT, 1);
++        component.consume(RAGE_ID);
++        assertEquals(2, component.getCurrent(RAGE_ID));
++
++        // Simulates BarbarianClass's ClassLevelUpRegistry callback -> BarbarianRageAbility.updateChargePool.
++        component.updatePoolMax(RAGE_ID, 5);
++
++        assertEquals(2, component.getCurrent(RAGE_ID), "current must be preserved when it is already below the new maximum");
++        assertEquals(5, component.getMax(RAGE_ID));
++    }
++
++    @Test
++    void updatePoolMaxClampsCurrentWhenMaximumDecreases() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(RAGE_ID, 6, RestType.SHORT, 1);
++        assertEquals(6, component.getCurrent(RAGE_ID));
++
++        component.updatePoolMax(RAGE_ID, 2);
++
++        assertEquals(2, component.getCurrent(RAGE_ID), "current must clamp down to the new, lower maximum");
++        assertEquals(2, component.getMax(RAGE_ID));
++    }
++
++    @Test
++    void updatePoolMaxOnAMissingPoolIsANoOp() {
++        // BarbarianRageAbility.updateChargePool itself guards classLevel <= 0 before calling this,
++        // but updatePoolMax's own no-op-on-missing-pool behavior is worth pinning directly.
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.updatePoolMax(RAGE_ID, 5);
++
++        assertTrue(component.getAllPools().isEmpty(), "updatePoolMax must not create a pool that did not exist");
++    }
++
++    @Test
++    void copyFromPreservesAllPoolsIndependently() {
++        // Characterizes RespawnStrategy.ALWAYS_COPY's underlying mechanism: death/respawn preserves
++        // Rage charges (and any other pool) exactly, via a straight pools.putAll.
++        PlayerChargesComponent source = new PlayerChargesComponent(null);
++        source.registerPool(RAGE_ID, 6, RestType.SHORT, 1);
++        source.consume(RAGE_ID);
++        source.consume(RAGE_ID);
++        Identifier otherId = Identifier.fromNamespaceAndPath("totality", "some_other_pool");
++        source.registerPool(otherId, 10, RestType.LONG, -1);
++        source.consume(otherId);
++
++        PlayerChargesComponent target = new PlayerChargesComponent(null);
++        target.copyFrom(source, emptyRegistries());
++
++        assertEquals(4, target.getCurrent(RAGE_ID), "Rage charges must be preserved exactly through copyFrom");
++        assertEquals(6, target.getMax(RAGE_ID));
++        assertEquals(9, target.getCurrent(otherId), "an unrelated pool must be preserved exactly too");
++        assertEquals(10, target.getMax(otherId));
++
++        // Independence: mutating the target must not affect the source.
++        target.consume(RAGE_ID);
++        assertEquals(3, target.getCurrent(RAGE_ID));
++        assertEquals(4, source.getCurrent(RAGE_ID), "source must be unaffected by mutating the copy's target");
++    }
++
++    @Test
++    void persistenceRoundTripsCurrentMaxRechargeTypeAndAmount() {
++        PlayerChargesComponent original = new PlayerChargesComponent(null);
++        original.registerPool(RAGE_ID, 5, RestType.SHORT, 1);
++        original.consume(RAGE_ID);
++        original.consume(RAGE_ID);
++
++        TagValueOutput out = TagValueOutput.createWithoutContext(ProblemReporter.DISCARDING);
++        original.writeData(out);
++
++        PlayerChargesComponent restored = new PlayerChargesComponent(null);
++        restored.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), out.buildResult()));
++
++        assertEquals(3, restored.getCurrent(RAGE_ID));
++        assertEquals(5, restored.getMax(RAGE_ID));
++        assertEquals(RestType.SHORT, restored.getAllPools().get(RAGE_ID).rechargeType());
++        assertEquals(1, restored.getAllPools().get(RAGE_ID).rechargeAmount());
++    }
++
++    @Test
++    void persistenceRoundTripsMultipleIndependentPoolsByIdentifier() {
++        PlayerChargesComponent original = new PlayerChargesComponent(null);
++        original.registerPool(RAGE_ID, 4, RestType.SHORT, 1);
++        Identifier otherId = Identifier.fromNamespaceAndPath("totality", "some_other_pool");
++        original.registerPool(otherId, 8, RestType.LONG, -1);
++        original.consume(RAGE_ID);
++
++        TagValueOutput out = TagValueOutput.createWithoutContext(ProblemReporter.DISCARDING);
++        original.writeData(out);
++
++        PlayerChargesComponent restored = new PlayerChargesComponent(null);
++        restored.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), out.buildResult()));
++
++        assertEquals(3, restored.getCurrent(RAGE_ID));
++        assertEquals(4, restored.getMax(RAGE_ID));
++        assertEquals(8, restored.getCurrent(otherId), "the unrelated pool's value must round-trip unchanged");
++        assertEquals(8, restored.getMax(otherId));
++    }
++
++    @Test
++    void synchronizationRoundTripsCurrentAndMaximum() {
++        PlayerChargesComponent server = new PlayerChargesComponent(null);
++        server.registerPool(RAGE_ID, 6, RestType.SHORT, 1);
++        server.consume(RAGE_ID);
++        server.consume(RAGE_ID);
++
++        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
++        server.writeSyncPacket(buf, null);
++
++        PlayerChargesComponent client = new PlayerChargesComponent(null);
++        client.applySyncPacket(buf);
++
++        assertEquals(4, client.getCurrent(RAGE_ID));
++        assertEquals(6, client.getMax(RAGE_ID));
++        assertEquals(0, buf.readableBytes(), "the entire sync payload must be consumed");
++    }
++
+     /**
+      * Reflection is used deliberately instead of widening the field's visibility, so this
+      * characterization test adds zero footprint to production code (the task's Stage 2 scope
+@@ -124,4 +262,23 @@ class PlayerChargesRageCharacterizationTest {
+                 table
+         );
+     }
++
++    @Test
++    void classLevelsAboveTheTwentyFifthEntryRemainClampedToTheFinalValue() throws Exception {
++        // Characterizes the exact clamp expression BarbarianRageAbility.registerChargePool/
++        // updateChargePool both use (Math.min(classLevel - 1, RAGE_CHARGES.length - 1)) against the
++        // real table, without needing a real ServerPlayer/ClassComponents — proving levels 25-30
++        // currently produce the same value (6) as level 25 itself, per the Phase 2E audit's finding
++        // that (unlike SpellSlotTable) there is no distinct authored value beyond the 25th entry.
++        Field field = BarbarianRageAbility.class.getDeclaredField("RAGE_CHARGES");
++        field.setAccessible(true);
++        int[] table = (int[]) field.get(null);
++
++        int level25Value = table[Math.min(25 - 1, table.length - 1)];
++        assertEquals(6, level25Value);
++        for (int classLevel = 25; classLevel <= 30; classLevel++) {
++            int clampedValue = table[Math.min(classLevel - 1, table.length - 1)];
++            assertEquals(level25Value, clampedValue, "class level " + classLevel + " must clamp to the level-25 value");
++        }
++    }
+ }
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+index 585fee1..c31752b 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+@@ -11,6 +11,7 @@ import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
++import zcylas.totality.api.rpg.resources.external.RageResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
+ import zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter;
+ 
+@@ -139,19 +140,48 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
+     }
+ 
+     @Test
+-    void productionAdapterRegistryContainsExactlySixAdapters() {
++    void productionAdapterRegistryContainsExactlySevenAdapters() {
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+ 
+-        assertEquals(6, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
++        assertEquals(7, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(HealthResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(BreathResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(ManaResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StaminaResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StandardSpellSlotsResourceAdapter.ID));
++        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(RageResourceAdapter.ID));
+         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isFrozen());
+     }
+ 
++    @Test
++    void productionRageDefinitionResolvesItsRegisteredAdapter() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        PlayerResourceDefinition rage = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
++
++        assertEquals(RageResourceAdapter.ID, rage.externalAdapterId().orElseThrow());
++        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(rage.externalAdapterId().orElseThrow()));
++        assertSame(RageResourceAdapter.INSTANCE,
++                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(rage.externalAdapterId().orElseThrow()).orElseThrow());
++        assertEquals(1, rage.definitionVersion(), "transitional legacy-adapter representation must be explicit at version 1");
++    }
++
++    @Test
++    void productionRageQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
++        // Exercises the FULL production query path end to end — PlayerResourceService.query ->
++        // queryExternal -> the real registered RageResourceAdapter.snapshot, using `null` as the
++        // player, exactly like the Mana/Stamina/SpellSlots tests above/below.
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.RAGE);
++
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
++                ((ResourceQueryResult.Failure) result).reason());
++        assertEquals(PlayerResourceIds.RAGE, ((ResourceQueryResult.Failure) result).resourceId());
++    }
++
+     @Test
+     void productionSpellSlotsDefinitionResolvesItsRegisteredAdapter() {
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+index 29f4725..747e14c 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+@@ -245,18 +245,20 @@ class PlayerResourceRegistryTest {
+     }
+ 
+     @Test
+-    void productionSingletonContainsExactlyHealthFoodBreathManaStaminaAndSpellSlots() {
++    void productionSingletonContainsExactlyHealthFoodBreathManaStaminaSpellSlotsAndRage() {
+         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
+-        // added Breath; Phase 2C added Mana and Stamina; Phase 2D adds totality:spell_slots — all
+-        // six EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
+-        // Mana/Stamina/SpellSlots are transitional adapters over pre-existing Totality-owned legacy
+-        // stores, unlike Health/Food/Breath which wrap vanilla directly.
++        // added Breath; Phase 2C added Mana and Stamina; Phase 2D added totality:spell_slots; Phase
++        // 2E adds totality:rage — all seven EXTERNAL_ADAPTER-authority, query-only (see
++        // ProductionResourceDefinitions). Mana/Stamina/SpellSlots/Rage are transitional adapters over
++        // pre-existing Totality-owned legacy stores, unlike Health/Food/Breath which wrap vanilla
++        // directly.
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+ 
+-        assertEquals(6, PlayerResourceRegistry.INSTANCE.size());
++        assertEquals(7, PlayerResourceRegistry.INSTANCE.size());
+         for (Identifier resourceId : new Identifier[] {
+                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
+-                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS
++                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS,
++                PlayerResourceIds.RAGE
+         }) {
+             assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
+             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+@@ -267,15 +269,15 @@ class PlayerResourceRegistryTest {
+     }
+ 
+     @Test
+-    void allFiveScalarProductionDefinitionsAreExternalScalarResources() {
++    void allSixScalarProductionDefinitionsAreExternalScalarResources() {
+         // Deliberately excludes totality:spell_slots (Phase 2D): it is PARTITIONED_POOL-model, not
+         // SCALAR — see spellSlotsDefinitionIsPartitionedPoolExternalAdapter below for its own shape
+-        // assertions.
++        // assertions. totality:rage (Phase 2E) IS scalar and is included here.
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+ 
+         for (Identifier resourceId : new Identifier[] {
+                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
+-                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA
++                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.RAGE
+         }) {
+             PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
+             assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
+@@ -285,6 +287,51 @@ class PlayerResourceRegistryTest {
+         }
+     }
+ 
++    @Test
++    void rageDefinitionIsScalarExternalAdapter() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
++        assertEquals(ResourceModel.SCALAR, definition.model());
++        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority());
++        assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity());
++        assertEquals(zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE, definition.unitScale(),
++                "the definition's unitScale must stay in lockstep with the adapter's own canonical constant");
++        assertEquals(1L, zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE);
++        assertEquals(0L, definition.absoluteMinimum());
++        assertEquals(2L, definition.authoredBaseMaximum().orElseThrow(),
++                "authored baseline is descriptive only — the live query path never consults it");
++        assertEquals(1, definition.definitionVersion());
++        assertEquals(zcylas.totality.api.rpg.resources.external.RageResourceAdapter.ID,
++                definition.externalAdapterId().orElseThrow());
++    }
++
++    @Test
++    void rageDeclaresOnlyHudVisibleAndMenuVisibleCapabilities() {
++        // Query-only, exactly like every other Phase 2A-2D adapter — no SPENDABLE/RESTORABLE/
++        // MAXIMUM_MODIFIERS/PARTITIONED_SPENDING, deferred to a future generic-mutation phase.
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        var capabilities = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow().capabilities();
++        assertEquals(java.util.Set.of(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE), capabilities);
++        assertFalse(capabilities.contains(ResourceCapability.SPENDABLE));
++        assertFalse(capabilities.contains(ResourceCapability.RESTORABLE));
++        assertFalse(capabilities.contains(ResourceCapability.MAXIMUM_MODIFIERS));
++        assertFalse(capabilities.contains(ResourceCapability.PARTITIONED_SPENDING));
++    }
++
++    @Test
++    void rageDeclaresContextualAccessPipsPresentation() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        var presentation = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow()
++                .presentation().orElseThrow(() -> new AssertionError("totality:rage must declare presentation metadata"));
++        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType.PIPS, presentation.displayType());
++        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceHudRole.CONTEXTUAL_ACCESS, presentation.hudRole());
++        assertEquals(1, presentation.displayConversion().numerator());
++        assertEquals(1, presentation.displayConversion().denominator());
++    }
++
+     @Test
+     void spellSlotsDefinitionIsPartitionedPoolExternalAdapter() {
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+@@ -343,15 +390,16 @@ class PlayerResourceRegistryTest {
+     }
+ 
+     @Test
+-    void productionSingletonHasNoRageDefinitionYet() {
+-        // Phase 2C's own scope exclusion: only existing-store adapters land in Phase 2C/2D/2E; Rage
+-        // is explicitly a later phase (Phase 2E, per the Phase 2C/2D reports' "next recommended
+-        // slice"). Spell slots WERE this exclusion's other named example prior to Phase 2D — see
+-        // productionSingletonContainsExactlyHealthFoodBreathManaStaminaAndSpellSlots above, which now
+-        // asserts totality:spell_slots IS registered.
++    void productionSingletonHasNoBarbarianRageLegacyKeyAsAResourceId() {
++        // totality:rage IS now registered (Phase 2E) — see
++        // productionSingletonContainsExactlyHealthFoodBreathManaStaminaSpellSlotsAndRage above. But
++        // the legacy PlayerChargesComponent backing key, totality:barbarian_rage, is a different,
++        // deliberately distinct identifier that must never itself become a registered
++        // PlayerResourceDefinition id — the Resource API resource id and the legacy pool key are not
++        // interchangeable (see RageResourceAdapter's class Javadoc).
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+ 
+-        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("rage")).isEmpty());
++        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.RAGE));
+         assertTrue(PlayerResourceRegistry.INSTANCE.get(id("barbarian_rage")).isEmpty());
+     }
+ 
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+index 91799e6..349aa65 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+@@ -248,6 +248,39 @@ class PlayerResourceStateComponentExternalEntryPathTest {
+                 "stale spell-slot data must be quarantined, not silently dropped");
+     }
+ 
++    @Test
++    void nbtLoadingQuarantinesStaleGenericDataForRage() {
++        // Phase 2E's own analogue of the SCALAR quarantine tests above.
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.RAGE, 2, 0, 0);
++
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
++
++        assertFalse(state.hasState(PlayerResourceIds.RAGE), "Rage must never become live generic state");
++        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.RAGE),
++                "stale Rage data must be quarantined, not silently dropped");
++    }
++
++    @Test
++    void applyingASyncPayloadCannotCreateLiveRageGenericState() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
++        buf.writeInt(1);
++        buf.writeUtf(PlayerResourceIds.RAGE.toString());
++        buf.writeUtf("SCALAR");
++        buf.writeLong(2L); // current
++        buf.writeLong(0L); // overflow
++
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++        state.applySyncPacket(buf);
++
++        assertFalse(state.hasState(PlayerResourceIds.RAGE), "Rage must never become live via a sync packet");
++        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
++    }
++
+     @Test
+     void applyingASyncPayloadCannotCreateLiveManaGenericState() {
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+@@ -411,6 +444,10 @@ class PlayerResourceStateComponentExternalEntryPathTest {
+         // rather than SCALAR — queryGenericState is structurally unreachable for it the same way.
+         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow().stateAuthority());
++        // Phase 2E: totality:rage is EXTERNAL_ADAPTER too, transitionally wrapping one entry of the
++        // legacy PlayerChargesComponent charge-pool map.
++        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
++                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow().stateAuthority());
+     }
+ 
+     @Test
+@@ -424,11 +461,13 @@ class PlayerResourceStateComponentExternalEntryPathTest {
+         assertFalse(state.hasState(PlayerResourceIds.MANA));
+         assertFalse(state.hasState(PlayerResourceIds.STAMINA));
+         assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
++        assertFalse(state.hasState(PlayerResourceIds.RAGE));
+         assertTrue(state.getScalar(PlayerResourceIds.HEALTH).isEmpty());
+         assertTrue(state.getScalar(PlayerResourceIds.FOOD).isEmpty());
+         assertTrue(state.getScalar(PlayerResourceIds.BREATH).isEmpty());
+         assertTrue(state.getScalar(PlayerResourceIds.MANA).isEmpty());
+         assertTrue(state.getScalar(PlayerResourceIds.STAMINA).isEmpty());
++        assertTrue(state.getScalar(PlayerResourceIds.RAGE).isEmpty());
+         assertTrue(state.getPartitioned(PlayerResourceIds.SPELL_SLOTS).isEmpty());
+     }
+ }
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+index b036c43..e234cc2 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+@@ -143,7 +143,29 @@ class PlayerResourceStateComponentExternalSafetyTest {
+     }
+ 
+     @Test
+-    void isRegisteredExternalAdapterAuthorityIsTrueForAllSixProductionResources() {
++    void instantiateScalarRejectsRage() {
++        // totality:rage is EXTERNAL_ADAPTER-authority (Phase 2E) — instantiateScalar must reject it
++        // exactly like every other external-authority resource.
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++
++        assertThrows(IllegalArgumentException.class,
++                () -> state.instantiateScalar(PlayerResourceIds.RAGE, 2));
++        assertFalse(state.hasState(PlayerResourceIds.RAGE));
++    }
++
++    @Test
++    void instantiatePartitionedRejectsRage() {
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
++
++        assertThrows(IllegalArgumentException.class,
++                () -> state.instantiatePartitioned(PlayerResourceIds.RAGE));
++        assertFalse(state.hasState(PlayerResourceIds.RAGE));
++    }
++
++    @Test
++    void isRegisteredExternalAdapterAuthorityIsTrueForAllSevenProductionResources() {
+         // Same-package access to the package-visible predicate — the exact decision point both
+         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
+         TestResourceBootstrap.ensureProductionResourcesRegistered();
+@@ -154,6 +176,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
+         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
+         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
+         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
++        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.RAGE));
+         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
+                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
+     }
+@@ -173,6 +196,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
+         assertFalse(freshPlayerState.hasState(PlayerResourceIds.MANA));
+         assertFalse(freshPlayerState.hasState(PlayerResourceIds.STAMINA));
+         assertFalse(freshPlayerState.hasState(PlayerResourceIds.SPELL_SLOTS));
++        assertFalse(freshPlayerState.hasState(PlayerResourceIds.RAGE));
+     }
+ 
+     @Test
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+index 5b5ba09..5cf7f52 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+@@ -93,10 +93,10 @@ class PlayerResourceStateComponentTest {
+     @Test
+     void instantiatingWithModelMismatchThrows() {
+         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
+-        component.instantiateScalar(id("rage"), 5);
++        component.instantiateScalar(id("test_model_mismatch_resource"), 5);
+ 
+         assertThrows(IllegalStateException.class,
+-                () -> component.instantiatePartitioned(id("rage")));
++                () -> component.instantiatePartitioned(id("test_model_mismatch_resource")));
+     }
+ 
+     @Test
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java b/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+index 4ea1ed8..c3489cc 100644
+--- a/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
++++ b/src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+@@ -100,4 +100,16 @@ class ResourceValueFormatterRegistryTest {
+         assertEquals(1L, mana.toDisplayDelta(1, 1));
+         assertEquals(1L, stamina.toDisplayDelta(1, 1));
+     }
++
++    @Test
++    void productionRegistryHasRageOnIdentity() {
++        // Rage's legacy storage (PlayerChargesComponent's ChargePool) is already a plain discrete
++        // integer count — an identity (1/1) conversion is lossless, matching Mana/Stamina's precedent.
++        TestResourceBootstrap.ensureProductionResourcesRegistered();
++
++        ResourceValueFormatter rage = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
++
++        assertEquals(3L, rage.toDisplayValue(3, 1));
++        assertEquals(1L, rage.toDisplayDelta(1, 1));
++    }
+ }
+diff --git a/src/main/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapter.java b/src/main/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapter.java
+new file mode 100644
+index 0000000..e0fe86b
+--- /dev/null
++++ b/src/main/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapter.java
+@@ -0,0 +1,177 @@
++package zcylas.totality.api.rpg.resources.external;
++
++import net.minecraft.resources.Identifier;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.entity.player.Player;
++import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
++import zcylas.totality.api.rpg.classes.ChargeComponents;
++import zcylas.totality.api.rpg.classes.PlayerChargesComponent;
++import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
++import zcylas.totality.api.rpg.resources.PlayerResourceIds;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
++import zcylas.totality.api.rpg.resources.ResourceSnapshot;
++
++import java.util.Optional;
++import java.util.Set;
++
++/**
++ * <b>Transitional, query-only</b> adapter over one entry of the legacy-authoritative, generically
++ * {@code Identifier}-keyed charge-pool store, {@link PlayerChargesComponent}, via {@link
++ * ChargeComponents}. {@link PlayerChargesComponent} remains the sole authoritative owner of every
++ * Rage charge gameplay operation (consumption on activation, Short/Long Rest recovery, maximum
++ * recalculation on Barbarian class selection/level-up, persistence, its own bespoke sync packet) —
++ * this adapter changes none of that; it only ever reads, for exactly as long as this transitional
++ * phase lasts. See the Phase 2E report's "Legacy Rage characterization findings" section for the
++ * full audit this class is built from.
++ *
++ * <h2>Why {@code SCALAR}, not {@code PARTITIONED_POOL}</h2>
++ * Rage charges are fully mechanically interchangeable: no individual charge has a stable identity,
++ * nothing spends or restores a specific charge, and there are no partial-fill segments. Canonical
++ * design (§6.1, §6.3, §25.6) is explicit that Rage is a {@code SCALAR} current/maximum resource
++ * presented as pips — inventing an artificial per-charge partition would contradict that design for
++ * no representational benefit. {@code totality:rage} is registered as {@code SCALAR}-model, {@code
++ * EXTERNAL_ADAPTER}-authority, {@code definitionVersion = 1}.
++ *
++ * <h2>Resource id vs. legacy backing key</h2>
++ * The Resource API resource id ({@link PlayerResourceIds#RAGE}, {@code totality:rage}) and the
++ * legacy charge-pool key this adapter reads ({@link BarbarianRageAbility#CHARGE_ID}, {@code
++ * totality:barbarian_rage}) are two deliberately different identifiers living in two different
++ * concepts — the Resource API's own resource identity, and {@link PlayerChargesComponent}'s internal
++ * {@code Map<Identifier, ChargePool>} key. Neither is renamed, migrated, or duplicated; this adapter
++ * is simply the bridge between them.
++ *
++ * <h2>Why the legacy component's own {@code get(ServerPlayer)} is not called here</h2>
++ * {@link ChargeComponents#get(ServerPlayer)} throws {@code IllegalStateException} if the component
++ * was never attached — a real, intentional behavior for ordinary gameplay callers (every real
++ * {@code ServerPlayer} always has it attached, so this should never fire in practice), but exactly
++ * the kind of crash this adapter's read-only query contract must never risk. This adapter instead
++ * reads {@link ChargeComponents#maybeGet(ServerPlayer)} (a genuinely side-effect-free, non-throwing
++ * lookup added in Phase 2E specifically for this purpose, mirroring {@code SpellSlotComponents.maybeGet}'s
++ * Phase 2D precedent) and reports {@link ResourceQueryFailureReason#MALFORMED_OWNER_STATE} — not
++ * {@code STATE_UNAVAILABLE_ON_THIS_SIDE} — when it is absent for a real server player, exactly like
++ * {@code StandardSpellSlotsResourceAdapter}'s reasoning: the component is unconditionally attached at
++ * construction, so its absence indicates a broken owner, not an ordinary transitional state.
++ *
++ * <h2>Presence-aware pool lookup — the genuinely new question this adapter introduces</h2>
++ * Unlike {@code SpellSlotComponent}'s fixed ten-entry array (where every player, caster or not, has
++ * an identical shape and "all zero" is always a valid non-caster success), {@link
++ * PlayerChargesComponent}'s backing map is <b>sparse</b>: a non-Barbarian's map genuinely never
++ * receives a {@code barbarian_rage} entry at all, since nothing ever calls {@code registerPool}/
++ * {@code ensurePool} for that key unless the player is or becomes a Barbarian. This adapter therefore
++ * reads {@link PlayerChargesComponent#getAllPools()} — already a safe, unmodifiable/read-only {@code
++ * Map} view ({@code Collections.unmodifiableMap} around the component's live backing map, not a
++ * defensive copy: callers cannot mutate the pool set through the returned {@code Map}, though a later
++ * legitimate {@code PlayerChargesComponent} mutation would still be reflected by it) — and looks up
++ * the key directly,
++ * so a present-with-value entry is distinguishable from a genuinely absent one. No new accessor was
++ * added to {@link PlayerChargesComponent} for this: {@code getAllPools().get(id)} already returns
++ * {@code null} for an absent key exactly as a presence-aware lookup requires, so adding a redundant
++ * {@code Optional}-returning method would only duplicate what the existing safe read-only view
++ * already provides. A missing entry reports {@link ResourceQueryFailureReason#STATE_UNINITIALIZED} —
++ * canonically documented as the correct shape for a source-specific resource "not yet granted" (see
++ * the Phase 2E report) — never a fabricated 0/0 success and never {@code MALFORMED_OWNER_STATE}. This
++ * is query-time classification only: it says nothing about whether the player could receive Rage
++ * later, and this adapter never infers Barbarian ownership or grants anything itself.
++ *
++ * <h2>Server/client query boundary</h2>
++ * Rage charges have no vanilla-native synchronization and no generic Resource API synchronization
++ * yet — only a legacy bespoke packet ({@link PlayerChargesComponent#writeSyncPacket}/{@code
++ * applySyncPacket}) and the client-side mirror is simply another instance of {@code
++ * PlayerChargesComponent} itself, read directly by {@code TotalityClient}'s {@code ISecondaryResource}
++ * HUD registration and by {@code ClassTab}'s "CLASS RESOURCE" panel, both left completely untouched
++ * by this phase. See {@link ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION}. This
++ * adapter is deliberately never given a code path that reads the client-side component instance for
++ * generic-query purposes — a client-side query returns a structured {@link
++ * ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE} failure instead.
++ */
++public final class RageResourceAdapter implements ExternalPlayerResourceAdapter {
++
++    public static final Identifier ID = PlayerResourceIds.RAGE_ADAPTER;
++
++    /**
++     * The canonical, adapter-owned unit scale for Rage charges: the legacy owner ({@link
++     * PlayerChargesComponent}'s {@code ChargePool}) stores discrete charge counts, which are already
++     * whole numbers with no fixed-point scaling. This is a property of the legacy store itself, not
++     * of whatever a {@link PlayerResourceDefinition} happens to declare — the adapter always
++     * produces a snapshot at this scale regardless of the queried definition's own {@code
++     * unitScale()}, so a definition accidentally misconfigured with a different scale cannot cause
++     * this adapter to silently relabel unconverted charge counts as if they were expressed in that
++     * scale. Keeping the two independent is exactly what lets {@link
++     * zcylas.totality.api.rpg.resources.PlayerResourceService}'s unit-scale mismatch validation
++     * remain a meaningful check rather than a tautology — the same reasoning
++     * {@code StandardSpellSlotsResourceAdapter.UNIT_SCALE} already established in Phase 2D.
++     */
++    public static final long UNIT_SCALE = 1L;
++
++    @Override
++    public Identifier id() {
++        return ID;
++    }
++
++    @Override
++    public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
++        if (!(player instanceof ServerPlayer serverPlayer)) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, definition.id());
++        }
++        Optional<PlayerChargesComponent> component = ChargeComponents.maybeGet(serverPlayer);
++        if (component.isEmpty()) {
++            // See the class Javadoc's "Why the legacy component's own get(ServerPlayer) is not
++            // called here" section for why this is MALFORMED_OWNER_STATE rather than
++            // STATE_UNAVAILABLE_ON_THIS_SIDE.
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, definition.id());
++        }
++        return resolve(definition.id(), component.get());
++    }
++
++    /**
++     * Builds the scalar snapshot from the component's already-stored {@code ChargePool} for {@link
++     * BarbarianRageAbility#CHARGE_ID}, package-visible so a test can prove it never invokes
++     * consumption, restoration, recalculation, or synchronization — using a real {@link
++     * PlayerChargesComponent} (constructible with a {@code null} {@code ServerPlayer}, matching
++     * every prior legacy-component adapter's precedent) rather than requiring the Minecraft runtime
++     * just to exercise this logic.
++     *
++     * <p>Reads only {@link PlayerChargesComponent#getAllPools()} — a pure, already-safe read-only
++     * map view — and never calls {@code registerPool}, {@code ensurePool}, {@code updatePoolMax},
++     * {@code setMax}, {@code consume}, {@code restore}, {@code restoreAll}, or {@code onRest}. Never
++     * inspects {@code rechargeType}/{@code rechargeAmount} (Rest-recovery metadata, not part of this
++     * resource's current/maximum shape), the active Rage duration, status-effect amplifier, ability
++     * toggle state, combat timer, or Barbarian class level — none of those are read anywhere in this
++     * method.
++     *
++     * @return a {@link ResourceQueryResult.Failure} naming {@link ResourceQueryFailureReason#STATE_UNINITIALIZED}
++     *         if no {@code barbarian_rage} entry exists in the pool map at all (Rage not yet granted
++     *         for this player — see the class Javadoc); {@link ResourceQueryFailureReason#MALFORMED_OWNER_STATE}
++     *         if a present entry's stored current is negative, stored maximum is negative, or current
++     *         exceeds maximum — malformed legacy owner state (e.g. corrupted persisted NBT) is never
++     *         silently clamped or repaired; otherwise a {@link ResourceQueryResult.Success} wrapping
++     *         a {@link ResourceSnapshot} with the pool's current/maximum exactly as stored (including
++     *         a present {@code 0}/{@code 0} entry, which is a valid success — see the class Javadoc),
++     *         always expressed at {@link #UNIT_SCALE}.
++     */
++    static ResourceQueryResult resolve(Identifier resourceId, PlayerChargesComponent component) {
++        PlayerChargesComponent.ChargePool pool = component.getAllPools().get(BarbarianRageAbility.CHARGE_ID);
++        if (pool == null) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNINITIALIZED, resourceId);
++        }
++        int current = pool.current();
++        int maximum = pool.max();
++        if (current < 0 || maximum < 0 || current > maximum) {
++            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId);
++        }
++        return new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, current, maximum, UNIT_SCALE));
++    }
++
++    @Override
++    public Set<ExternalResourceOperationSupport> supportedOperations() {
++        return Set.of(ExternalResourceOperationSupport.QUERY);
++    }
++
++    @Override
++    public ExternalResourceClientMirrorMode clientMirrorMode() {
++        return ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION;
++    }
++
++    public static final RageResourceAdapter INSTANCE = new RageResourceAdapter();
++}
+diff --git a/src/test/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapterTest.java b/src/test/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapterTest.java
+new file mode 100644
+index 0000000..bc86e04
+--- /dev/null
++++ b/src/test/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapterTest.java
+@@ -0,0 +1,292 @@
++package zcylas.totality.api.rpg.resources.external;
++
++import net.minecraft.resources.Identifier;
++import org.junit.jupiter.api.Test;
++import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
++import zcylas.totality.api.rpg.classes.PlayerChargesComponent;
++import zcylas.totality.api.rpg.rest.RestType;
++import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
++import zcylas.totality.api.rpg.resources.ResourceModel;
++import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
++import zcylas.totality.api.rpg.resources.ResourceQueryResult;
++import zcylas.totality.api.rpg.resources.ResourceSnapshot;
++
++import java.lang.reflect.Field;
++import java.util.Map;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++/**
++ * Pure logic for Rage, tested directly against {@link RageResourceAdapter#resolve} rather than
++ * through a real {@code ServerPlayer} (constructing one outside the Minecraft runtime is
++ * impractical — matching {@code ManaResourceAdapterTest}/{@code StandardSpellSlotsResourceAdapterTest}'s
++ * established precedent). {@link RageResourceAdapter#snapshot} itself (including the client/server
++ * routing it adds on top) is exercised end-to-end only by the manual smoke-test checklist in the
++ * Phase 2E report, plus the production client-side routing test in {@code
++ * PlayerResourceRegistryExternalAdapterFreezeTest}.
++ */
++class RageResourceAdapterTest {
++
++    private static final Identifier ID = Identifier.fromNamespaceAndPath("totality", "rage");
++    private static final Identifier CHARGE_ID = BarbarianRageAbility.CHARGE_ID;
++
++    private static ResourceSnapshot successSnapshot(ResourceQueryResult result) {
++        assertInstanceOf(ResourceQueryResult.Success.class, result);
++        return ((ResourceQueryResult.Success) result).snapshot();
++    }
++
++    private static ResourceQueryFailureReason failureReason(ResourceQueryResult result) {
++        assertInstanceOf(ResourceQueryResult.Failure.class, result);
++        return ((ResourceQueryResult.Failure) result).reason();
++    }
++
++    @Test
++    void adapterSupportsOnlyQuery() {
++        assertTrue(RageResourceAdapter.INSTANCE.supportedOperations().contains(ExternalResourceOperationSupport.QUERY));
++        assertEquals(1, RageResourceAdapter.INSTANCE.supportedOperations().size(),
++                "Rage is query-only in Phase 2E — no RESTORE/DRAIN/SET support");
++        assertEquals(ExternalResourceClientMirrorMode.LEGACY_BESPOKE_SYNCHRONIZATION,
++                RageResourceAdapter.INSTANCE.clientMirrorMode());
++    }
++
++    @Test
++    void adapterIdMatchesTheRageResourceId() {
++        assertEquals(ID, RageResourceAdapter.INSTANCE.id());
++        assertEquals(ID, RageResourceAdapter.ID);
++    }
++
++    @Test
++    void unitScaleConstantIsExactlyOne() {
++        assertEquals(1L, RageResourceAdapter.UNIT_SCALE);
++    }
++
++    @Test
++    void legacyBackingKeyIsUnchangedAndDistinctFromTheResourceId() {
++        // The Resource API resource id and the legacy charge-pool key are deliberately different,
++        // independent identifiers — neither is renamed by this phase.
++        assertEquals(Identifier.fromNamespaceAndPath("totality", "barbarian_rage"), CHARGE_ID);
++        assertNotEquals(ID, CHARGE_ID);
++    }
++
++    // ── resolve(): missing Rage pool entry semantics (missing-component is not directly ────────
++    // ── unit-tested here — see RageResourceAdapter's class Javadoc and the Phase 2E report §17) ─
++
++    @Test
++    void freshComponentWithNoRagePoolReturnsStateUninitialized() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        assertTrue(component.getAllPools().isEmpty(), "sanity: a fresh component has no pools at all");
++
++        ResourceQueryResult result = RageResourceAdapter.resolve(ID, component);
++
++        assertEquals(ResourceQueryFailureReason.STATE_UNINITIALIZED, failureReason(result));
++    }
++
++    @Test
++    void anUnrelatedPoolAloneStillReturnsStateUninitializedForRage() {
++        // A charge map that has some other pool, but no barbarian_rage entry, must still report
++        // Rage as not-yet-granted — presence of an unrelated pool must not be mistaken for presence
++        // of Rage's own pool.
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(Identifier.fromNamespaceAndPath("totality", "some_other_pool"), 5, RestType.LONG, -1);
++
++        ResourceQueryResult result = RageResourceAdapter.resolve(ID, component);
++
++        assertEquals(ResourceQueryFailureReason.STATE_UNINITIALIZED, failureReason(result));
++    }
++
++    // ── resolve(): valid present states ──────────────────────────────────────────────────────
++
++    @Test
++    void presentZeroZeroPoolIsAValidSuccess() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 0, RestType.SHORT, 1);
++
++        ResourceSnapshot snapshot = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(0L, snapshot.currentUnits());
++        assertEquals(0L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void fullPoolIsAValidSuccess() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 4, RestType.SHORT, 1);
++
++        ResourceSnapshot snapshot = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(4L, snapshot.currentUnits());
++        assertEquals(4L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void partiallySpentPoolIsAValidSuccess() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 5, RestType.SHORT, 1);
++        component.consume(CHARGE_ID);
++        component.consume(CHARGE_ID);
++
++        ResourceSnapshot snapshot = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(3L, snapshot.currentUnits());
++        assertEquals(5L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void zeroCurrentPositiveMaximumIsAValidSuccessRepresentingFullySpentCharges() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 2, RestType.SHORT, 1);
++        component.consume(CHARGE_ID);
++        component.consume(CHARGE_ID);
++
++        ResourceSnapshot snapshot = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(0L, snapshot.currentUnits());
++        assertEquals(2L, snapshot.maximumUnits());
++    }
++
++    // ── resolve(): malformed owner state ──────────────────────────────────────────────────────
++
++    /**
++     * Reflection is unavoidable here: every public {@link PlayerChargesComponent} mutator
++     * ({@code registerPool}, {@code ensurePool}, {@code consume}, {@code restore}, {@code
++     * updatePoolMax}, {@code setMax}) already enforces internally-consistent values, so the only way
++     * to construct the malformed-owner-state scenarios below (corrupted persisted NBT, essentially)
++     * is to write a malformed {@code ChargePool} directly into the private backing map.
++     */
++    @SuppressWarnings("unchecked")
++    private static void injectMalformedPoolDirectly(PlayerChargesComponent component, Identifier id, int current, int max) throws Exception {
++        Field poolsField = PlayerChargesComponent.class.getDeclaredField("pools");
++        poolsField.setAccessible(true);
++        Map<Identifier, PlayerChargesComponent.ChargePool> pools =
++                (Map<Identifier, PlayerChargesComponent.ChargePool>) poolsField.get(component);
++        pools.put(id, new PlayerChargesComponent.ChargePool(current, max, RestType.SHORT, 1));
++    }
++
++    @Test
++    void negativeCurrentProducesMalformedOwnerStateFailure() throws Exception {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        injectMalformedPoolDirectly(component, CHARGE_ID, -1, 4);
++
++        ResourceQueryResult result = RageResourceAdapter.resolve(ID, component);
++
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void negativeMaximumProducesMalformedOwnerStateFailure() throws Exception {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        injectMalformedPoolDirectly(component, CHARGE_ID, 0, -1);
++
++        ResourceQueryResult result = RageResourceAdapter.resolve(ID, component);
++
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    @Test
++    void currentGreaterThanMaximumProducesMalformedOwnerStateFailureWithNoException() throws Exception {
++        // Unlike Mana/Stamina's adapters (which permit a transient current > live-recomputed
++        // maximum), Rage has no live maximum computation at query time — normal legacy behavior
++        // cannot produce this without corrupted data, so it is always rejected.
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        injectMalformedPoolDirectly(component, CHARGE_ID, 9, 4);
++
++        ResourceQueryResult result = RageResourceAdapter.resolve(ID, component);
++
++        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, failureReason(result));
++    }
++
++    // ── resolve(): purity and exactness ──────────────────────────────────────────────────────
++
++    @Test
++    void resolveDoesNotMutateTheComponent() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 5, RestType.SHORT, 1);
++        component.consume(CHARGE_ID);
++
++        RageResourceAdapter.resolve(ID, component);
++
++        assertEquals(4, component.getCurrent(CHARGE_ID), "resolve must never write the component it read");
++        assertEquals(5, component.getMax(CHARGE_ID));
++    }
++
++    @Test
++    void repeatedResolveCallsProduceIdenticalResults() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 6, RestType.SHORT, 1);
++        component.consume(CHARGE_ID);
++
++        ResourceSnapshot first = successSnapshot(RageResourceAdapter.resolve(ID, component));
++        ResourceSnapshot second = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(first.currentUnits(), second.currentUnits());
++        assertEquals(first.maximumUnits(), second.maximumUnits());
++    }
++
++    @Test
++    void resourceIdAndUnitScaleArePreservedOnTheSnapshot() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 3, RestType.SHORT, 1);
++
++        ResourceSnapshot snapshot = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(ID, snapshot.resourceId());
++        assertEquals(RageResourceAdapter.UNIT_SCALE, snapshot.unitScale());
++    }
++
++    @Test
++    void currentAndMaximumValuesArePreservedExactly() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 6, RestType.SHORT, 1);
++        component.consume(CHARGE_ID);
++        component.consume(CHARGE_ID);
++        component.consume(CHARGE_ID);
++
++        ResourceSnapshot snapshot = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(3L, snapshot.currentUnits());
++        assertEquals(6L, snapshot.maximumUnits());
++    }
++
++    // ── boundaries: unrelated pools, recharge metadata, no active-state leakage ─────────────
++
++    @Test
++    void unrelatedChargePoolsAreIgnoredAndNeverAffectTheRageSnapshot() {
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(CHARGE_ID, 4, RestType.SHORT, 1);
++        component.registerPool(Identifier.fromNamespaceAndPath("totality", "some_future_pool"), 99, RestType.LONG, -1);
++        component.consume(CHARGE_ID);
++
++        ResourceSnapshot snapshot = successSnapshot(RageResourceAdapter.resolve(ID, component));
++
++        assertEquals(3L, snapshot.currentUnits());
++        assertEquals(4L, snapshot.maximumUnits());
++    }
++
++    @Test
++    void onlyBarbarianRageChargeIdIsEverRead() {
++        // A pool registered under any id other than BarbarianRageAbility.CHARGE_ID must never be
++        // mistaken for Rage's own pool, even if it is the only pool present.
++        PlayerChargesComponent component = new PlayerChargesComponent(null);
++        component.registerPool(Identifier.fromNamespaceAndPath("totality", "not_rage"), 4, RestType.SHORT, 1);
++
++        ResourceQueryResult result = RageResourceAdapter.resolve(ID, component);
++
++        assertEquals(ResourceQueryFailureReason.STATE_UNINITIALIZED, failureReason(result));
++    }
++
++    // ── snapshot(): client-side routing (no real Player construction needed here) ───────────
++
++    @Test
++    void nullPlayerIsTreatedAsNotAServerPlayerAndReturnsStateUnavailableOnThisSide() {
++        PlayerResourceDefinition definition = PlayerResourceDefinition
++                .builder(ID, ResourceModel.SCALAR)
++                .externalAdapter(ID)
++                .unitScale(1)
++                .authoredBaseMaximum(2)
++                .build();
++
++        ResourceQueryResult result = RageResourceAdapter.INSTANCE.snapshot(null, definition);
++
++        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, failureReason(result));
++    }
++}
+diff --git a/Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md b/Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md
+new file mode 100644
+index 0000000..8ba8909
+--- /dev/null
++++ b/Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md
+@@ -0,0 +1,551 @@
++# TOTALITY RESOURCE API — PHASE 2E: RAGE LEGACY CHARGE ADAPTER — IMPLEMENTATION REPORT
++
++Branch: `feature/general-resource-api`
++Starting commit: `1bc199f62c8fa510942df769f4775bbcac33f845` ("Add standard spell-slot resource adapter")
++Status at report time: **READY TO COMMIT** — manual smoke testing PASSED (§29). Uncommitted working-tree
++content; nothing staged, nothing committed.
++
++---
++
++## 1. Purpose and scope
++
++Expose the existing Barbarian Rage charge pool through the Generic Player Resource API as one
++query-only external `SCALAR` resource, `totality:rage`, reading one entry
++(`BarbarianRageAbility.CHARGE_ID = totality:barbarian_rage`) of the legacy-authoritative,
++generically `Identifier`-keyed `PlayerChargesComponent` charge-pool map. `PlayerChargesComponent`
++remains the sole authoritative owner of every Rage gameplay operation. No casting/activation,
++consumption, rest, persistence, synchronization, HUD, Class-tab, or effect behavior was changed. The
++intended (and, at the automated level, verified) observable result is no gameplay change.
++
++## 2. Executive result
++
++**Implemented as scoped and READY TO COMMIT.** `RageResourceAdapter`, `ChargeComponents.maybeGet`,
++production registration, and focused characterization/safety tests are complete. 428/428 automated
++tests pass (up from 390 at the end of Phase 2D's correction pass). Clean `compileJava`/
++`compileTestJava`/`build -x runDatagen`, zero new `runDatagen` output, clean `git diff --check`.
++**Manual smoke testing PASSED (2026-07-20)** for every currently practical scenario — see §29. Two
++Strength-advantage mechanics were not practically testable in the current manual environment; this is
++not a failure and not a Phase 2E blocker (§29).
++
++## 3. Files added
++
++- `src/main/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapter.java`
++- `src/test/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapterTest.java`
++- `Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md` (this file)
++
++## 4. Files modified
++
++- `src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java` — added `maybeGet(ServerPlayer)`.
++- `src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java` — added `RAGE`/`RAGE_ADAPTER`.
++- `src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java` — registers the adapter, definition, and formatter.
++- `src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java` — corrected stale `PARTITIONED_POOL` doc comment; added `updatePoolMax`/persistence/sync/`copyFrom`/unrelated-pool/level-clamp coverage.
++- `src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java` — count 6→7; new Rage shape/capability/presentation assertions; fixed the stale "no Rage definition yet" test.
++- `src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java` — adapter count 6→7; new Rage adapter-resolution/client-query tests.
++- `src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java` — Rage external-authority-rejection coverage.
++- `src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java` — Rage stale-NBT/sync-payload quarantine tests.
++- `src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java` — Rage formatter test.
++- `src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java` — **incidental fix**: one pre-existing (Phase 1) test used the literal placeholder id `"rage"` for an arbitrary unregistered example. Now that `totality:rage` is real, that placeholder collided with production state and the test began throwing. Renamed to `"test_model_mismatch_resource"` — no behavioral or intent change. Same category of fix Phase 2D's correction pass made for `"spell_slots"`.
++
++**Untouched, as required:** `PlayerChargesComponent.java` (its existing `getAllPools()` already
++provided a safe, presence-aware read-only view — no new accessor was needed, per the task's own
++"do not add redundant production API" instruction); `BarbarianRageAbility.java`; `RageEffect.java`;
++`PlayerConnectionEvents.java`; `StatsServerEvents.java`; `TotalityClient.java`; `ClassTab.java`;
++`PlayerResourceService.java`; `ResourceQueryResult.java`; `ResourceSnapshot.java`;
++`PartitionedResourceSnapshot.java`; `ResourceQueryFailureReason.java`;
++`ExternalPlayerResourceAdapter.java`'s method signature (only referenced, not modified — its existing
++contract already fully supports Rage's scalar shape); Health/Food/Breath/Mana/Stamina/spell-slot
++adapters and their tests.
++
++## 5. Exact resource definition
++
++```
++ID:                totality:rage
++Model:              SCALAR
++Authority:           EXTERNAL_ADAPTER
++Polarity:            HIGH_IS_GOOD
++Unit scale:          RageResourceAdapter.UNIT_SCALE (1)
++Absolute minimum:    0
++Authored baseline:   2 (descriptive only — level-1 RAGE_CHARGES entry; never consulted live)
++External adapter:    RageResourceAdapter.ID (= totality:rage)
++Definition version:  1
++Capabilities:        HUD_VISIBLE, MENU_VISIBLE
++Presentation:        IDENTITY conversion, PIPS display, CONTEXTUAL_ACCESS HUD role
++Client mirror mode:  LEGACY_BESPOKE_SYNCHRONIZATION
++```
++
++Registered in `ProductionResourceDefinitions.registerAdapters()`/`registerDefinitions()`/
++`registerFormatters()`, in that order, exactly like every prior resource. Deliberately does **not**
++declare `SPENDABLE`/`RESTORABLE`/`MAXIMUM_MODIFIERS`/`PARTITIONED_SPENDING` — matching every prior
++transitional adapter's precedent (Health/Food/Breath/Mana/Stamina/spell slots all declare zero
++mutation capability regardless of what their legacy owner can itself do), since
++`supportedOperations()` is `QUERY`-only. A formatter (`ResourceDisplayConversion.IDENTITY`) is
++registered, matching Mana/Stamina's precedent for an already-plain-integer legacy store.
++
++## 6. Exact adapter behaviour
++
++`RageResourceAdapter.snapshot(player, definition)`:
++1. Non-`ServerPlayer` → `STATE_UNAVAILABLE_ON_THIS_SIDE`.
++2. `ChargeComponents.maybeGet(serverPlayer)` empty → `MALFORMED_OWNER_STATE`.
++3. Otherwise delegates to package-visible `resolve(Identifier, PlayerChargesComponent)`.
++
++`resolve(resourceId, component)`:
++1. `component.getAllPools().get(BarbarianRageAbility.CHARGE_ID)` — a pure, already-safe read on the
++   component's existing unmodifiable/read-only map view (`Collections.unmodifiableMap` around the
++   live backing map, not a defensive copy — callers cannot mutate the pool set through the returned
++   `Map`, though a later legitimate component mutation would still be reflected by it). No new
++   accessor was added to `PlayerChargesComponent`.
++2. `pool == null` → `STATE_UNINITIALIZED` (Rage not yet granted for this player).
++3. Otherwise validates `current >= 0`, `maximum >= 0`, `current <= maximum` → any violation is
++   `MALFORMED_OWNER_STATE`, no clamping, no partial success.
++4. Otherwise returns `ResourceQueryResult.Success` wrapping a `ResourceSnapshot(resourceId, current,
++   maximum, RageResourceAdapter.UNIT_SCALE)`.
++
++Never calls `registerPool`, `ensurePool`, `updatePoolMax`, `setMax`, `consume`, `restore`,
++`restoreAll`, `onRest`, `BarbarianRageAbility.registerChargePool`/`updateChargePool`, any class-level
++lookup, or any status-effect/toggle method. Never inspects `rechargeType`, `rechargeAmount`, active
++Rage duration, status-effect amplifier, toggle state, or combat timer — none of those fields are read
++anywhere in `resolve`.
++
++## 7. Exact legacy backing-key mapping
++
++Resource API resource id: `totality:rage` (`PlayerResourceIds.RAGE`).
++Legacy `PlayerChargesComponent` pool key: `totality:barbarian_rage` (`BarbarianRageAbility.CHARGE_ID`,
++referenced directly, never duplicated as a literal string in the adapter).
++These are two deliberately different, independent identifiers — neither was renamed, migrated, or
++merged. `RageResourceAdapterTest.legacyBackingKeyIsUnchangedAndDistinctFromTheResourceId` pins both
++facts directly.
++
++## 8. Missing component behaviour
++
++A real `ServerPlayer` without an attached `PlayerChargesComponent` → `MALFORMED_OWNER_STATE`. The
++component is unconditionally attached at construction (`MixinServerPlayer` →
++`PlayerComponentEvents.attachComponentsTo`); its absence indicates a broken owner, not an ordinary
++transitional state — matching Phase 2D's `SpellSlotComponent` precedent exactly.
++
++## 9. Missing pool behaviour
++
++A present component with no `barbarian_rage` entry (the ordinary case for any non-Barbarian, or a
++Barbarian who has not yet had `registerChargePool` called for them) → `STATE_UNINITIALIZED`. This is
++query-time classification only — it does not mean the player can never receive Rage, and the adapter
++never infers Barbarian ownership or grants anything itself. This is the first adapter in this series
++to ground `STATE_UNINITIALIZED` in "sparse map key genuinely absent" rather than "sentinel value
++present but marked unset" (Mana/Stamina's `-1` sentinel). Confirmed distinct from an unrelated pool's
++mere presence: `RageResourceAdapterTest.anUnrelatedPoolAloneStillReturnsStateUninitializedForRage` and
++`.onlyBarbarianRageChargeIdIsEverRead` both prove an unrelated pool cannot be mistaken for Rage's own.
++
++## 10. Present 0/0 behaviour
++
++A present pool with `current = 0, maximum = 0` is a valid `Success` (a hypothetical zero-maximum
++Rage grant — not reachable via current production paths, since `registerChargePool` always uses
++`Math.max(1, classLevel)`, but the adapter does not reject it either). A present pool with `current =
++0, maximum > 0` (fully spent charges) is likewise a valid `Success`. Both are directly tested
++(`presentZeroZeroPoolIsAValidSuccess`, `zeroCurrentPositiveMaximumIsAValidSuccessRepresentingFullySpentCharges`).
++
++## 11. Malformed owner-state behaviour
++
++`current < 0`, `maximum < 0`, or `current > maximum` → `MALFORMED_OWNER_STATE`, no clamping, no
++partial success. Unlike Mana/Stamina (whose adapters permit a transient `current > maximum` against a
++live-recomputed maximum), Rage has **no live maximum computation at query time** — `pool.max()` is
++already a stored, cached value, so normal legacy behavior cannot produce any of these three without
++corrupted persisted data (see §14, deferred issue 4). All three malformed scenarios are constructed
++in tests only via direct reflection into `PlayerChargesComponent`'s private backing map — no
++production mutator can produce them, matching the task's explicit instruction not to weaken the
++component's normal invariants for testing.
++
++## 12. Unit-scale ownership
++
++`RageResourceAdapter.UNIT_SCALE = 1L` — canonical, adapter-owned, never taken from
++`definition.unitScale()`. `resolve(...)` always constructs its snapshot at this constant.
++`ProductionResourceDefinitions` declares `.unitScale(RageResourceAdapter.UNIT_SCALE)` rather than an
++independent literal, so the definition and the adapter cannot drift apart — the same boundary
++established in Phase 2D's correction pass for `StandardSpellSlotsResourceAdapter.UNIT_SCALE`. Tested
++directly: `unitScaleConstantIsExactlyOne`, `resourceIdAndUnitScaleArePreservedOnTheSnapshot`, and
++`PlayerResourceRegistryTest.rageDefinitionIsScalarExternalAdapter`'s
++`RageResourceAdapter.UNIT_SCALE == definition.unitScale()` assertion.
++
++## 13. Client/server authority behaviour
++
++Server-authoritative. `clientMirrorMode()` = `LEGACY_BESPOKE_SYNCHRONIZATION`: unlike every prior
++adapter, Rage's "client mirror" is not a separate manager class — it is simply another instance of
++`PlayerChargesComponent` itself (`ChargeComponents.registerClientComponent`), populated by
++`applySyncPacket` and read directly by `TotalityClient`'s `ISecondaryResource` HUD registration and
++`ClassTab`'s "CLASS RESOURCE" panel. The adapter is deliberately never given a code path that reads
++that client-side instance for generic-query purposes. A client-side generic query returns
++`STATE_UNAVAILABLE_ON_THIS_SIDE` (`nullPlayerIsTreatedAsNotAServerPlayerAndReturnsStateUnavailableOnThisSide`,
++plus the full production-path
++`productionRageQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException`). No new
++synchronization was added.
++
++## 14. Rage active-state boundary
++
++`RageEffect` (the Minecraft `MobEffect` marking active Rage), its duration, amplifier, damage bonus,
++STR advantage, resistances, casting restriction, and ending conditions are entirely untouched and
++entirely unread by this adapter. The adapter reads only `PlayerChargesComponent`'s stored
++current/maximum for one key — it never touches `AbilityComponent`'s toggle state, combat timer, or
++`RageEffect` in any way. This boundary was already clean in production code before this phase (the
++only prior coupling point, `BarbarianRageAbility.onActivate`'s single `consume(CHARGE_ID)` call, is
++untouched); this phase adds a second, entirely separate read-only path alongside it.
++
++**Activation robustness note (documentation correction per instruction):** Rage activation is
++**synchronous**, not a formal transaction: `consume(CHARGE_ID)` succeeds, and the Rage effect/toggle
++are applied in the same synchronous server call with no ordinary false/failure-return path after
++consumption. This is **not** the same as "atomic" in the transactional sense — an unexpected
++exception after `consume()` returns `true` but before `onToggleOn`/`activateToggle` complete could
++theoretically leave a spent charge without full activation. This is recorded here only as a future
++Ability API transaction/commit robustness note (§22, deferred issue 8); activation ordering and
++rollback logic were not changed in Phase 2E.
++
++## 15. Legacy Rage characterization findings
++
++`PlayerChargesRageCharacterizationTest` previously covered: `CHARGE_ID` stability, fresh-component
++baseline, register+consume, consume-fails-when-empty, Short Rest +1 clamped, Long Rest full, rest
++priority, and `ensurePool` preserving current across a max increase. This phase adds: `updatePoolMax`
++preserving current below the new maximum and clamping it when the maximum decreases (distinct from
++`ensurePool`, previously untested); a no-op-on-missing-pool check for `updatePoolMax`; `copyFrom`
++preserving multiple independent pools (death/respawn characterization); full NBT persistence
++round-trip for current/maximum/rechargeType/rechargeAmount, and for multiple independent pools by
++identifier, using the established `TagValueOutput`/`TagValueInput` real-serialization harness; full
++sync-packet round-trip; and a pure-table test proving Barbarian class levels 25–30 clamp to the
++level-25 `RAGE_CHARGES` value (the exact clamp expression `BarbarianRageAbility` itself uses),
++confirming the audit's finding that no distinct authored value exists beyond entry 25. Not directly
++testable without excessive scaffolding (documented, not built): `BarbarianRageAbility.canActivate`/
++`onActivate`'s full activation sequence and `RageEffect.onEffectAdded`/`onEffectRemoved` — both
++require a real `ServerPlayer`/`LivingEntity`/`MobEffectInstance` and multiple other component
++systems.
++
++## 16. Documentation corrections
++
++- **`Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md` §2.4**: the
++  "Status" row previously described Rage as "the best existing reference pattern for the new
++  `PARTITIONED_POOL`/keyed-charge shape" — corrected in place to state Rage is `SCALAR` per canonical
++  §6.1/§6.3/§25.6; `PlayerChargesComponent`'s generic `Identifier`-keyed map is the reusable pattern,
++  not any individual pool's shape. A new "Phase 2E Implementation Record" section was also added,
++  restating this correction and recording the phase's full scope.
++- **`PlayerChargesRageCharacterizationTest`'s class Javadoc**: carried the identical inaccuracy
++  ("used here as the reference precedent the Resource API's own `PARTITIONED_POOL`/keyed-scalar shape
++  should generalize from") — corrected to the same accurate wording: `PlayerChargesComponent` is a
++  useful generic owner pattern; each pool, including Rage's, is `SCALAR`; spell slots and future Hit
++  Dice remain the true `PARTITIONED_POOL` examples.
++
++No other historical section was rewritten. The legacy backing key `totality:barbarian_rage` was
++preserved exactly in both corrections.
++
++## 17. Tests added/updated
++
++New: `RageResourceAdapterTest` (20 tests: id/scale/legacy-key identity, missing-Rage-pool-entry
++semantics (directly automated — `freshComponentWithNoRagePoolReturnsStateUninitialized`,
++`anUnrelatedPoolAloneStillReturnsStateUninitializedForRage`, `onlyBarbarianRageChargeIdIsEverRead`),
++valid-state variations, malformed-state rejection via reflection, purity/exactness,
++boundary/unrelated-pool isolation, client-query routing. **Not included:** a real `ServerPlayer` with
++a genuinely missing `PlayerChargesComponent`. The production branch that reports
++`MALFORMED_OWNER_STATE` for that case (`RageResourceAdapter.snapshot`, §8) is implemented but not
++directly unit-tested — every test here calls `resolve(Identifier, PlayerChargesComponent)` with a real
++component instance; constructing a real `ServerPlayer`/component-attachment state that is genuinely
++broken outside the Minecraft runtime would require disproportionate scaffolding for a branch that
++cannot occur through any production code path, since the component is unconditionally attached at
++construction. `StandardSpellSlotsResourceAdapterTest`'s own `MALFORMED_OWNER_STATE` tests are the
++same kind of limitation in spirit but cover a different case (malformed stored data via reflection,
++not a genuinely missing `SpellSlotComponent`) — no adapter test in this codebase directly constructs
++a real owner-component-missing `ServerPlayer` for any resource.).
++Updated: `PlayerChargesRageCharacterizationTest` (+8 new tests, 1 doc correction, 9 pre-existing tests
++unchanged and green); `PlayerResourceRegistryTest` (+5 new, 1 renamed/expanded, 1 corrected);
++`PlayerResourceRegistryExternalAdapterFreezeTest` (+2 new, 1 count update);
++`PlayerResourceStateComponentExternalSafetyTest` (+2 new, 1 count update);
++`PlayerResourceStateComponentExternalEntryPathTest` (+2 new, 2 broad assertions extended);
++`ResourceValueFormatterRegistryTest` (+1 new); `PlayerResourceStateComponentTest` (1 test fixed, see
++§4). `ExternalPlayerResourceAdapterRegistryTest` required **no change** — every test in it constructs
++isolated registries with no production-count assumption.
++
++## 18. Exact final test count
++
++**428 tests, 428 passed, 0 failed, 0 errors** (`./gradlew test --rerun-tasks`, aggregated from
++`build/test-results/test/*.xml`: `tests="428"`, `failures="0"`, `errors="0"`, `skipped="0"`).
++
++One failure was found and fixed during this pass: `PlayerResourceStateComponentTest.instantiatingWithModelMismatchThrows`
++used the literal placeholder id `"rage"` for an arbitrary unregistered example — colliding with the
++newly registered production `totality:rage`. Fixed by renaming the placeholder (§4); no test was
++weakened or deleted.
++
++## 19. Compile result
++
++`compileJava`/`compileTestJava`: **BUILD SUCCESSFUL** (only a pre-existing deprecated-API note,
++unrelated to this phase).
++
++## 20. Datagen result and before/after status comparison
++
++`git status --short` recorded immediately before and immediately after `./gradlew runDatagen`: the
++two snapshots are byte-identical (`diff` produced no output). Datagen log: `Caching: total files:
++349, old count: 349, new count: 349, removed stale: 0, written: 0`. **No new generated file was
++written or modified.**
++
++## 21. Full build result
++
++`./gradlew build -x runDatagen`: **BUILD SUCCESSFUL**. `git diff --check`: exit code 0 — output
++consisted only of pre-existing `LF will be replaced by CRLF` advisory notices (the repository's own
++`core.autocrlf` behavior, present for the unrelated datagen files too) — no actual whitespace-error
++or conflict-marker finding. `git diff --cached`: empty throughout.
++
++## 22. Manual smoke-test result — PASSED (2026-07-20)
++
++Stefan executed the manual smoke-test plan on the real Minecraft 26.2 client. **Result: PASSED for
++every currently practical scenario.**
++
++1. Existing Rage HUD pips remained visually unchanged.
++2. The existing Character/Class-tab Rage charge display remained unchanged.
++3. Activating Rage consumed exactly one charge.
++4. The Rage effect icon, name, and duration appeared normally.
++5. The existing Rage damage bonus remained functional.
++6. Physical damage resistance remained functional.
++7. Spellcasting remained blocked while Rage was active.
++8. Toggling Rage off did not spend an additional charge.
++9. Toggling Rage off did not refund the spent charge.
++10. Spending all charges and attempting Rage again produced the existing rejection behavior.
++11. Rage charges did not become negative.
++12. Short Rest restored exactly one Rage charge.
++13. Short Rest recovery remained clamped to the maximum.
++14. Long Rest restored Rage charges fully.
++15. Remaining Rage charges persisted correctly across logout and relog.
++16. Death while raging ended the active Rage effect.
++17. Death and respawn preserved the remaining Rage charge count rather than resetting or refilling it.
++18. HUD and Class-tab charge displays remained correct after respawn.
++19. No new Resource API, Rage adapter, owner-state, snapshot, synchronization, Rest, or Rage errors
++    were observed.
++20. No visible gameplay, HUD, Class-tab, effect, persistence, recovery, or synchronization regression
++    occurred.
++
++**Not practically testable in the current manual environment — not a failure, not a Phase 2E
++blocker:** Strength-check advantage while raging, and Strength-save advantage while raging. The
++relevant `RageEffect`/`RollModifierRegistry` production integration was untouched by Phase 2E, and the
++existing automated/code-characterization evidence remains the available verification for these two
++mechanics. No new commands, encounters, debug tools, or test content were built to exercise them during
++Phase 2E.
++
++**Phase 2E is COMPLETE and READY TO COMMIT.**
++
++## 23. Deferred issues (documented, not fixed, per explicit task instruction)
++
++1. `RAGE_CHARGES` is a 25-entry table; Barbarian class levels 25–30 currently remain clamped to the
++   level-25 value (6) — no distinct authored Totality extension exists, unlike `SpellSlotTable`'s full
++   1–30 authoring. Preserved now; revisit during a future Barbarian/class progression review.
++2. `PlayerChargesComponent`'s join-time synchronization happens indirectly, through the
++   `ClassLevelUpRegistry` re-fire cascade (`StatsServerEvents`'s JOIN handler → `BarbarianClass`'s
++   callback → `updatePoolMax` → `sync()`), rather than an explicit unconditional line in
++   `PlayerConnectionEvents.JOIN`'s own sync block. Not changed here.
++3. No class-removal/respec path exists in the codebase today, so future Rage-pool revocation behavior
++   is genuinely unresolved — not designed around an assumed future behavior in this phase.
++4. `PlayerChargesComponent.readData` silently drops hard-parse failures (`try/catch Exception
++   ignored`) and accepts semantically invalid integer values (negative, or current > maximum)
++   without validation. The adapter rejects any visible instance of this as `MALFORMED_OWNER_STATE`
++   but does not repair the legacy component's own lax parsing.
++5. `PlayerChargesComponent.registerWithRestBus()` remains confirmed dead/no-op code (rest listening is
++   actually wired via inline lambdas in `PlayerConnectionEvents`). Not removed in this query-adapter
++   phase.
++6. `SPENDABLE`, `RESTORABLE`, and `MAXIMUM_MODIFIERS` capabilities remain deferred to a future phase
++   that implements generic mutation and authoritative maximum resolution.
++7. Active-effect detailed hover descriptions remain future HUD/effect work, unrelated to this phase.
++8. Rage ability activation is synchronous but not a formal rollback-capable transaction — see §14's
++   activation robustness note. Not changed here; recorded for a future Ability API review.
++9. Client-side Generic Resource API querying for Rage remains unavailable
++   (`STATE_UNAVAILABLE_ON_THIS_SIDE`) despite `PlayerChargesComponent`'s own legacy client-side
++   mirror — no new synchronization was added, per instruction.
++
++## 24. `git diff --check` result
++
++Exit code 0. Only pre-existing LF→CRLF advisory notices (also present for unrelated datagen files) —
++no whitespace-error or conflict-marker finding.
++
++## 25. `git status --short` (final, after the correction pass, before staging)
++
++```
++ M Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
++ M src/main/generated/data/minecraft/worldgen/noise_settings/overworld.json
++ M src/main/generated/data/totality/loot_table/blocks/apothecary_table.json
++ M src/main/generated/data/totality/loot_table/blocks/copper_cable.json
++ M src/main/generated/data/totality/loot_table/blocks/deepslate_graphite_ore.json
++ M src/main/generated/data/totality/loot_table/blocks/deepslate_ruby_ore.json
++ M src/main/generated/data/totality/loot_table/blocks/electric_furnace.json
++ M src/main/generated/data/totality/loot_table/blocks/flecked_whitestone.json
++ M src/main/generated/data/totality/loot_table/blocks/generator.json
++ M src/main/generated/data/totality/loot_table/blocks/graphite_ore.json
++ M src/main/generated/data/totality/loot_table/blocks/limestone.json
++ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone.json
++ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone_bricks.json
++ M src/main/generated/data/totality/loot_table/blocks/ritual_altar.json
++ M src/main/generated/data/totality/loot_table/blocks/ritual_dais.json
++ M src/main/generated/data/totality/loot_table/blocks/ruby_ore.json
++ M src/main/generated/data/totality/loot_table/blocks/tin_ore.json
++ M src/main/generated/data/totality/loot_table/blocks/true_wheat_crop.json
++ M src/main/generated/data/totality/loot_table/blocks/whitestone.json
++ M src/main/generated/data/totality/recipe/copper_gear.json
++ M src/main/generated/data/totality/recipe/diamond_gear.json
++ M src/main/generated/data/totality/recipe/gold_gear.json
++ M src/main/generated/data/totality/recipe/iron_gear.json
++ M src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java
++ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
++ M src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
++ M src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java
++ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
++ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
++ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
++ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
++ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
++ M src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
++?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E.patch"
++?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_IMPLEMENTATION_REPORT.md"
++?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_MANIFEST.txt"
++?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_REVIEW_BUNDLE.zip"
++?? "Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md"
++?? "Context/Trading Test/trade_screen2.png"
++?? "Context/Trading Test/trade_screen3.png"
++?? "Context/Trading Test/trade_screen4.png"
++?? "Context/Trading Test/trade_screen5.png"
++?? logs/
++?? src/main/generated/.cache/
++?? src/main/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapter.java
++?? src/test/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapterTest.java
++```
++
++This is the complete, current status as of the end of the correction pass (§27). The four
++`Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E.*` artifacts and the readiness-doc
++modification are now present and reflected above; nothing is staged and nothing is committed. The
++known unrelated files (`src/main/generated/data/**` JSON, the four `Context/Trading Test/trade_screen*.png`
++screenshots, `logs/`, `src/main/generated/.cache/`) remain untouched throughout, exactly as at the
++start of this session.
++
++## 26. Explicit confirmations
++
++- Nothing was staged (`git diff --cached` empty throughout, both the original implementation pass and
++  this correction pass).
++- Nothing was committed.
++- No unrelated working-tree file was modified, discarded, restored, or cleaned — the pre-existing
++  datagen JSON diffs, Trading Test screenshots, `logs/`, and `src/main/generated/.cache/` are
++  byte-identical to their state at the start of this session.
++- `/Inspiration Mods` was excluded from every search, decision, and artifact in this phase, including
++  the correction pass.
++- **No production gameplay behavior changed** in the correction pass — see §27. `RageResourceAdapter`'s
++  one edit was Javadoc wording only (unmodifiable/read-only map-view terminology, §27.2); no method
++  body, return value, or control flow changed.
++
++## 27. Correction pass (2026-07-20)
++
++A narrow review-correction pass was performed after Phase 2E's initial implementation, before manual
++smoke testing, addressing four documentation-precision findings. **No architectural correction to
++production code was required or made** — the correction pass is documentation-only plus one Javadoc
++wording fix in `RageResourceAdapter.java` (§27.2), which does not change any method body, return
++value, branch, or control flow.
++
++### 27.1 Stale Rage/`PARTITIONED_POOL` statements corrected
++
++Four passages in `TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md` that could still
++be read as assigning `PARTITIONED_POOL` shape to Rage itself (beyond the §2.4 Status-row correction
++already made during the initial Phase 2E pass, §16 above) were corrected in place:
++
++1. **Executive Summary, Major Finding 1's Rage bullet** — previously read as if `PlayerChargesComponent`'s
++   generic map shape made Rage itself architecturally `PARTITIONED_POOL`-like. Corrected to state:
++   `PlayerChargesComponent` is a useful generic `Identifier`-keyed multi-pool *owner* pattern; each
++   individual pool, including Rage, is `SCALAR`; the component's generic map shape is not evidence
++   that each contained resource is partitioned.
++2. **§3.5 Rage/class-charges file-map paragraph** — previously said this file set's structure "should be
++   preserved in the new `PARTITIONED_POOL`/`ScalarResourceState` design." Corrected to: the
++   `Identifier`-keyed *owner* pattern is worth preserving where useful; Rage itself maps to
++   `ScalarResourceState`; standard spell slots and future Hit Dice are the true `PARTITIONED_POOL`
++   examples.
++3. **Migration Matrix, Rage charge-pool row** — previously said the future Rage owner is
++   "`PARTITIONED_POOL`/keyed-scalar state." Corrected to state the canonical Resource API identity is
++   already `totality:rage` (`SCALAR`, `EXTERNAL_ADAPTER`, Phase 2E); a future *storage* migration would
++   import the exact stored current/maximum into `ScalarResourceState`; the legacy key
++   `totality:barbarian_rage` remains the compatibility/migration source identifier until a separately
++   reviewed migration retires it; that migration is explicitly not designed or implemented by this
++   correction pass.
++4. **Phase 2D's "Recommended next patch" conditional** — "if Rage's charge-pool shape also needs
++   `PARTITIONED_POOL`..." — preserved verbatim as historical planning context, with an added note
++   marking it superseded by the Phase 2E audit: Rage was confirmed `SCALAR` and required no
++   partitioned query-result extension.
++
++A full-document search for `PARTITIONED_POOL`, `partitioned`, `keyed-scalar`, and `keyed-charge` near
++every Rage occurrence found no other genuinely contradictory or ambiguous statement; no unrelated
++historical section was rewritten.
++
++### 27.2 Read-only map-view terminology corrected
++
++`PlayerChargesComponent.getAllPools()` was inspected directly:
++`Collections.unmodifiableMap(pools)` — an unmodifiable *wrapper* around the component's live backing
++`Map`, not a defensive copy. Three places called this an "immutable map view," which overstates it:
++
++- `RageResourceAdapter.java`'s class Javadoc (the "Presence-aware pool lookup" section) — corrected to
++  "unmodifiable/read-only," with an explicit note that callers cannot mutate the pool set through the
++  returned `Map`, but a later legitimate `PlayerChargesComponent` mutation would still be reflected
++  through the same view.
++- This report's §6 (`resolve(resourceId, component)` step 1) — corrected identically.
++- The readiness doc's Phase 2E Implementation Record ("What changed" paragraph) — corrected identically.
++
++No genuine safety problem was found — `PlayerChargesComponent` was not modified, per instruction.
++
++### 27.3 Test-coverage description corrected
++
++§17 above previously described `RageResourceAdapterTest`'s 20 tests as including
++"missing-entry/missing-component semantics." Verified directly against the test file: all 20 tests are
++present and green, but none constructs a real `ServerPlayer` with a genuinely missing
++`PlayerChargesComponent` — every test calls `resolve(Identifier, PlayerChargesComponent)` directly with
++a real component instance. §17 was corrected to distinguish: missing Rage pool entry (directly
++automated, three tests named) vs. missing owner component (production branch implemented as
++`MALFORMED_OWNER_STATE` in `snapshot()`, §8, but not directly unit-tested, since constructing a
++genuinely broken `ServerPlayer`/component-attachment state outside the Minecraft runtime would require
++disproportionate scaffolding for a branch unreachable through any production code path). No Mockito or
++fake-`ServerPlayer` framework was added — a repo-wide check confirmed no existing Resource API test
++file already has such scaffolding, so building one for this single branch would not be "genuinely small
++and trustworthy" per instruction. `RageResourceAdapterTest`'s own section-comment header was corrected
++to match. The manual smoke-test plan (§22) is not claimed to exercise this state either — it is not
++reachable through ordinary gameplay.
++
++### 27.4 This report made self-contained and final
++
++§25's git-status section previously recorded a pre-review-artifact snapshot with a forward-reference
++placeholder ("appear once those steps complete"). Replaced with the final, current status (§25 above),
++reflecting the four now-regenerated `Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E.*` files and this
++report's own correction-pass edits. §28 (new) records review-artifact integrity results for the
++regenerated bundle.
++
++## 28. Review-artifact integrity (this correction pass)
++
++The four `Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E.*` artifacts were regenerated
++after every correction in §27 was applied and validated (§6 below repeats the build/test results for
++this pass). Exact byte sizes and SHA-256 digests for the patch, manifest, and ZIP are recorded in
++`Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_MANIFEST.txt` and in the correction pass's
++final structured chat response — **not restated as literal hash strings inside this report**, for the
++same self-referential reason the manifest documents about its own hash (§ "MANIFEST" row): this report
++is itself embedded as a created file inside the regenerated patch (via `git diff --no-index /dev/null`),
++so this report's own bytes cannot contain the exact hash of a patch that embeds those same bytes
++without circularity. This mirrors, rather than works around, the manifest's own documented limitation.
++
++Verification results from the regeneration (methods and full digests in the manifest):
++
++- `git apply --check --reverse` against the working tree: **PASSED**, zero errors.
++- Manifest hash-verification (every listed file's recomputed SHA-256 against the manifest's recorded
++  value): **PASSED** for every entry.
++- ZIP integrity (`unzip -t` / archive-open self-check): **PASSED**.
++- Real-file count vs. any harmless zero-byte `Compress-Archive` directory-entry: recorded in the
++  manifest's TOTALS section; this bundle was built without `Compress-Archive`, so no directory-entry
++  padding is expected — confirmed in the manifest.
++- Canonical (`Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md`) vs.
++  bundle-local (`Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_IMPLEMENTATION_REPORT.md`)
++  byte-identity: **PASSED** — both are byte-for-byte identical copies of this file's final content.
++- No unrelated datagen JSON, screenshot, log, cache, or `/Inspiration Mods` content is included in the
++  regenerated bundle.
++
++## 29. Final Status — Ready to Commit (2026-07-20)
++
++**Manual smoke test: PASSED.** See §22 for the complete itemized result (20/20 practically testable
++scenarios passed; 2 Strength-advantage-while-raging scenarios not practically testable in the current
++manual environment, classified as such, not as failures or blockers, per §22).
++
++- **Automated tests:** 428/428 passed.
++- **Compile:** succeeded.
++- **Datagen:** wrote 0 files.
++- **Full build:** succeeded.
++- **Manual smoke test:** PASSED.
++
++**Phase 2E is COMPLETE and READY TO COMMIT.** The scope boundaries recorded throughout this report
++carry forward unchanged: `PlayerChargesComponent` remains the sole authoritative owner of Rage
++gameplay state; the adapter is query-only; no casting/activation, consumption, rest, persistence,
++synchronization, HUD, Class-tab, or effect behavior was changed.

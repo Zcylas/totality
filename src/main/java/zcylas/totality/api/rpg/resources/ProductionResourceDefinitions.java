@@ -5,6 +5,7 @@ import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterR
 import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.RageResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter;
 import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
@@ -67,6 +68,23 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
  * zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatter} is registered for it, since
  * that interface's {@code toDisplayCurrent}/{@code toDisplayMaximum} methods take a single scalar
  * {@code ResourceSnapshot} and have no partitioned counterpart yet.
+ *
+ * <p>Phase 2E adds {@code totality:rage} — {@code SCALAR}-model (canonical §6.1/§6.3/§25.6 are
+ * explicit that Rage is scalar, not partitioned), {@code EXTERNAL_ADAPTER}-authority, query-only,
+ * transitionally wrapping one entry ({@code BarbarianRageAbility.CHARGE_ID}) of the legacy
+ * generically-keyed {@code PlayerChargesComponent} charge-pool map via {@link RageResourceAdapter}.
+ * Registered at {@code definitionVersion = 1}. Declares {@code authoredBaseMaximum = 2} — the level-1
+ * baseline from {@code BarbarianRageAbility.RAGE_CHARGES}, purely descriptive like every other
+ * adapter's baseline; the live query path never consults it. Declares only {@link
+ * ResourceCapability#HUD_VISIBLE}/{@link ResourceCapability#MENU_VISIBLE} — not {@code SPENDABLE}/
+ * {@code RESTORABLE}/{@code MAXIMUM_MODIFIERS} (canonical §25.6's eventual full capability set),
+ * matching every prior transitional adapter's precedent of declaring no mutation capability while
+ * {@code supportedOperations()} remains {@code QUERY}-only; those three are deferred to a future
+ * phase that actually implements generic mutation and authoritative maximum resolution. Presentation
+ * is {@code ResourceDisplayType.PIPS}/{@code ResourceHudRole.CONTEXTUAL_ACCESS} (canonical's own
+ * described role for Rage/Ki/Solar Charge — "may appear whenever the player can access it"), declared
+ * for definition-shape completeness; the existing bespoke Rage HUD pip renderer and Class-tab panel
+ * are left completely untouched by this phase, exactly like Mana/Stamina/spell slots before it.
  */
 public final class ProductionResourceDefinitions {
 
@@ -83,6 +101,7 @@ public final class ProductionResourceDefinitions {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(ManaResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StaminaResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StandardSpellSlotsResourceAdapter.INSTANCE);
+        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(RageResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
     }
 
@@ -203,6 +222,30 @@ public final class ProductionResourceDefinitions {
                         .definitionVersion(1)
                         .build());
 
+        // Rage: transitional EXTERNAL_ADAPTER over one entry of the legacy PlayerChargesComponent
+        // charge-pool map (see the class Javadoc). SCALAR model — canonical §6.1/§6.3/§25.6 are
+        // explicit Rage is scalar, not partitioned. authoredBaseMaximum = 2 is the level-1 baseline
+        // from BarbarianRageAbility.RAGE_CHARGES — purely descriptive, never consulted by the live
+        // query path. No SPENDABLE/RESTORABLE/MAXIMUM_MODIFIERS capability — query-only, exactly like
+        // every other Phase 2A-2D adapter. unitScale uses the adapter's own canonical
+        // RageResourceAdapter.UNIT_SCALE constant rather than a second, independently-maintained
+        // literal — the adapter always produces a snapshot at that scale regardless of what this
+        // definition declares, so the two must stay in lockstep.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.RAGE, ResourceModel.SCALAR)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .externalAdapter(PlayerResourceIds.RAGE_ADAPTER)
+                        .unitScale(RageResourceAdapter.UNIT_SCALE)
+                        .absoluteMinimum(0)
+                        .authoredBaseMaximum(2)
+                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                        .presentation(new ResourcePresentationDefinition(
+                                ResourceDisplayConversion.IDENTITY,
+                                ResourceDisplayType.PIPS,
+                                ResourceHudRole.CONTEXTUAL_ACCESS))
+                        .definitionVersion(1)
+                        .build());
+
         PlayerResourceRegistry.INSTANCE.freeze(ExternalPlayerResourceAdapterRegistry.INSTANCE);
     }
 
@@ -216,6 +259,8 @@ public final class ProductionResourceDefinitions {
         ResourceValueFormatterRegistry.INSTANCE.register(
                 ResourceValueFormatter.ofConversion(PlayerResourceIds.STAMINA, ResourceDisplayConversion.IDENTITY));
         // totality:spell_slots deliberately has no registered formatter — see the class Javadoc.
+        ResourceValueFormatterRegistry.INSTANCE.register(
+                ResourceValueFormatter.ofConversion(PlayerResourceIds.RAGE, ResourceDisplayConversion.IDENTITY));
         ResourceValueFormatterRegistry.INSTANCE.freeze();
     }
 

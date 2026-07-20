@@ -245,18 +245,20 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthFoodBreathManaStaminaAndSpellSlots() {
+    void productionSingletonContainsExactlyHealthFoodBreathManaStaminaSpellSlotsAndRage() {
         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
-        // added Breath; Phase 2C added Mana and Stamina; Phase 2D adds totality:spell_slots — all
-        // six EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
-        // Mana/Stamina/SpellSlots are transitional adapters over pre-existing Totality-owned legacy
-        // stores, unlike Health/Food/Breath which wrap vanilla directly.
+        // added Breath; Phase 2C added Mana and Stamina; Phase 2D added totality:spell_slots; Phase
+        // 2E adds totality:rage — all seven EXTERNAL_ADAPTER-authority, query-only (see
+        // ProductionResourceDefinitions). Mana/Stamina/SpellSlots/Rage are transitional adapters over
+        // pre-existing Totality-owned legacy stores, unlike Health/Food/Breath which wrap vanilla
+        // directly.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(6, PlayerResourceRegistry.INSTANCE.size());
+        assertEquals(7, PlayerResourceRegistry.INSTANCE.size());
         for (Identifier resourceId : new Identifier[] {
                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
-                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS
+                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS,
+                PlayerResourceIds.RAGE
         }) {
             assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
@@ -267,15 +269,15 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void allFiveScalarProductionDefinitionsAreExternalScalarResources() {
+    void allSixScalarProductionDefinitionsAreExternalScalarResources() {
         // Deliberately excludes totality:spell_slots (Phase 2D): it is PARTITIONED_POOL-model, not
         // SCALAR — see spellSlotsDefinitionIsPartitionedPoolExternalAdapter below for its own shape
-        // assertions.
+        // assertions. totality:rage (Phase 2E) IS scalar and is included here.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
-                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA
+                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.RAGE
         }) {
             PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
             assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
@@ -283,6 +285,51 @@ class PlayerResourceRegistryTest {
             assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), () -> resourceId + " must be HIGH_IS_GOOD");
             assertEquals(0L, definition.absoluteMinimum(), () -> resourceId + " must have absoluteMinimum 0");
         }
+    }
+
+    @Test
+    void rageDefinitionIsScalarExternalAdapter() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
+        assertEquals(ResourceModel.SCALAR, definition.model());
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority());
+        assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity());
+        assertEquals(zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE, definition.unitScale(),
+                "the definition's unitScale must stay in lockstep with the adapter's own canonical constant");
+        assertEquals(1L, zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE);
+        assertEquals(0L, definition.absoluteMinimum());
+        assertEquals(2L, definition.authoredBaseMaximum().orElseThrow(),
+                "authored baseline is descriptive only — the live query path never consults it");
+        assertEquals(1, definition.definitionVersion());
+        assertEquals(zcylas.totality.api.rpg.resources.external.RageResourceAdapter.ID,
+                definition.externalAdapterId().orElseThrow());
+    }
+
+    @Test
+    void rageDeclaresOnlyHudVisibleAndMenuVisibleCapabilities() {
+        // Query-only, exactly like every other Phase 2A-2D adapter — no SPENDABLE/RESTORABLE/
+        // MAXIMUM_MODIFIERS/PARTITIONED_SPENDING, deferred to a future generic-mutation phase.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        var capabilities = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow().capabilities();
+        assertEquals(java.util.Set.of(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE), capabilities);
+        assertFalse(capabilities.contains(ResourceCapability.SPENDABLE));
+        assertFalse(capabilities.contains(ResourceCapability.RESTORABLE));
+        assertFalse(capabilities.contains(ResourceCapability.MAXIMUM_MODIFIERS));
+        assertFalse(capabilities.contains(ResourceCapability.PARTITIONED_SPENDING));
+    }
+
+    @Test
+    void rageDeclaresContextualAccessPipsPresentation() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        var presentation = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow()
+                .presentation().orElseThrow(() -> new AssertionError("totality:rage must declare presentation metadata"));
+        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType.PIPS, presentation.displayType());
+        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceHudRole.CONTEXTUAL_ACCESS, presentation.hudRole());
+        assertEquals(1, presentation.displayConversion().numerator());
+        assertEquals(1, presentation.displayConversion().denominator());
     }
 
     @Test
@@ -343,15 +390,16 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonHasNoRageDefinitionYet() {
-        // Phase 2C's own scope exclusion: only existing-store adapters land in Phase 2C/2D/2E; Rage
-        // is explicitly a later phase (Phase 2E, per the Phase 2C/2D reports' "next recommended
-        // slice"). Spell slots WERE this exclusion's other named example prior to Phase 2D — see
-        // productionSingletonContainsExactlyHealthFoodBreathManaStaminaAndSpellSlots above, which now
-        // asserts totality:spell_slots IS registered.
+    void productionSingletonHasNoBarbarianRageLegacyKeyAsAResourceId() {
+        // totality:rage IS now registered (Phase 2E) — see
+        // productionSingletonContainsExactlyHealthFoodBreathManaStaminaSpellSlotsAndRage above. But
+        // the legacy PlayerChargesComponent backing key, totality:barbarian_rage, is a different,
+        // deliberately distinct identifier that must never itself become a registered
+        // PlayerResourceDefinition id — the Resource API resource id and the legacy pool key are not
+        // interchangeable (see RageResourceAdapter's class Javadoc).
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("rage")).isEmpty());
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.RAGE));
         assertTrue(PlayerResourceRegistry.INSTANCE.get(id("barbarian_rage")).isEmpty());
     }
 

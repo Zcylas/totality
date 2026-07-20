@@ -249,6 +249,39 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
+    void nbtLoadingQuarantinesStaleGenericDataForRage() {
+        // Phase 2E's own analogue of the SCALAR quarantine tests above.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.RAGE, 2, 0, 0);
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
+
+        assertFalse(state.hasState(PlayerResourceIds.RAGE), "Rage must never become live generic state");
+        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.RAGE),
+                "stale Rage data must be quarantined, not silently dropped");
+    }
+
+    @Test
+    void applyingASyncPayloadCannotCreateLiveRageGenericState() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        buf.writeInt(1);
+        buf.writeUtf(PlayerResourceIds.RAGE.toString());
+        buf.writeUtf("SCALAR");
+        buf.writeLong(2L); // current
+        buf.writeLong(0L); // overflow
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.applySyncPacket(buf);
+
+        assertFalse(state.hasState(PlayerResourceIds.RAGE), "Rage must never become live via a sync packet");
+        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+    }
+
+    @Test
     void applyingASyncPayloadCannotCreateLiveManaGenericState() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
@@ -411,6 +444,10 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         // rather than SCALAR — queryGenericState is structurally unreachable for it the same way.
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow().stateAuthority());
+        // Phase 2E: totality:rage is EXTERNAL_ADAPTER too, transitionally wrapping one entry of the
+        // legacy PlayerChargesComponent charge-pool map.
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow().stateAuthority());
     }
 
     @Test
@@ -424,11 +461,13 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         assertFalse(state.hasState(PlayerResourceIds.MANA));
         assertFalse(state.hasState(PlayerResourceIds.STAMINA));
         assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
+        assertFalse(state.hasState(PlayerResourceIds.RAGE));
         assertTrue(state.getScalar(PlayerResourceIds.HEALTH).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.FOOD).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.BREATH).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.MANA).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.STAMINA).isEmpty());
+        assertTrue(state.getScalar(PlayerResourceIds.RAGE).isEmpty());
         assertTrue(state.getPartitioned(PlayerResourceIds.SPELL_SLOTS).isEmpty());
     }
 }

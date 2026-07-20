@@ -11,6 +11,7 @@ import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.RageResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter;
 
@@ -139,17 +140,46 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     }
 
     @Test
-    void productionAdapterRegistryContainsExactlySixAdapters() {
+    void productionAdapterRegistryContainsExactlySevenAdapters() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(6, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
+        assertEquals(7, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(HealthResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(BreathResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(ManaResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StaminaResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StandardSpellSlotsResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(RageResourceAdapter.ID));
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isFrozen());
+    }
+
+    @Test
+    void productionRageDefinitionResolvesItsRegisteredAdapter() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition rage = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
+
+        assertEquals(RageResourceAdapter.ID, rage.externalAdapterId().orElseThrow());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(rage.externalAdapterId().orElseThrow()));
+        assertSame(RageResourceAdapter.INSTANCE,
+                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(rage.externalAdapterId().orElseThrow()).orElseThrow());
+        assertEquals(1, rage.definitionVersion(), "transitional legacy-adapter representation must be explicit at version 1");
+    }
+
+    @Test
+    void productionRageQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
+        // Exercises the FULL production query path end to end — PlayerResourceService.query ->
+        // queryExternal -> the real registered RageResourceAdapter.snapshot, using `null` as the
+        // player, exactly like the Mana/Stamina/SpellSlots tests above/below.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.RAGE);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
+                ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(PlayerResourceIds.RAGE, ((ResourceQueryResult.Failure) result).resourceId());
     }
 
     @Test
