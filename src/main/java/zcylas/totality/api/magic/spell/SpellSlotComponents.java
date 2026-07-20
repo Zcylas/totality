@@ -8,6 +8,8 @@ import zcylas.totality.api.core.component.ComponentRegistry;
 import zcylas.totality.api.core.component.PlayerComponentEvents;
 import zcylas.totality.api.core.component.RespawnStrategy;
 
+import java.util.Optional;
+
 public final class SpellSlotComponents {
 
     public static final ComponentKey<SpellSlotComponent> SPELL_SLOTS =
@@ -32,5 +34,16 @@ public final class SpellSlotComponents {
 
     public static SpellSlotComponent get(ServerPlayer player) {
         return SPELL_SLOTS.get((ComponentProvider) player);
+    }
+
+    /**
+     * Gets the component without throwing if it is absent — the safe, read-only lookup path a
+     * generic Resource API query must use instead of {@link #get}, which throws
+     * {@code IllegalStateException} for a player the component was never attached to. Mirrors
+     * {@code ResourceComponents.maybeGet(ServerPlayer)}'s precedent for the legacy Mana/Stamina
+     * store (Phase 2C), added here for the standard spell-slot external adapter (Phase 2D).
+     */
+    public static Optional<SpellSlotComponent> maybeGet(ServerPlayer player) {
+        return SPELL_SLOTS.maybeGet((ComponentProvider) player);
     }
 }

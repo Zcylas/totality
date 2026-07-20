@@ -22,6 +22,15 @@ import zcylas.totality.Totality;
  * ids the resources will keep after a future migration to {@code GENERIC_COMPONENT} authority — only
  * the definition's {@code stateAuthority}/{@code externalAdapterId}/{@code definitionVersion} change
  * at that point, never the id.
+ *
+ * <p>Phase 2D adds {@code totality:spell_slots} — a transitional, {@code PARTITIONED_POOL}-model,
+ * {@code EXTERNAL_ADAPTER}-authority identifier over the legacy-authoritative {@code SpellSlotComponent}
+ * store (see {@code StandardSpellSlotsResourceAdapter}). This is the Resource API's first
+ * {@code PARTITIONED_POOL} production resource. Note: the legacy {@code TotalityComponent} registered
+ * under the component id {@code totality:spell_slots} ({@code SpellSlotComponents.SPELL_SLOTS}) and
+ * this Resource API resource id are deliberately allowed to share the same literal namespaced string
+ * — they live in entirely separate registries ({@code ComponentRegistry} vs {@code
+ * PlayerResourceRegistry}) and are never looked up interchangeably, so no rename of either is needed.
  */
 public final class PlayerResourceIds {
 
@@ -30,12 +39,14 @@ public final class PlayerResourceIds {
     public static final Identifier BREATH = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "breath");
     public static final Identifier MANA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "mana");
     public static final Identifier STAMINA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "stamina");
+    public static final Identifier SPELL_SLOTS = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "spell_slots");
 
     public static final Identifier HEALTH_ADAPTER = HEALTH;
     public static final Identifier FOOD_ADAPTER = FOOD;
     public static final Identifier BREATH_ADAPTER = BREATH;
     public static final Identifier MANA_ADAPTER = MANA;
     public static final Identifier STAMINA_ADAPTER = STAMINA;
+    public static final Identifier SPELL_SLOTS_ADAPTER = SPELL_SLOTS;
 
     private PlayerResourceIds() {}
 }

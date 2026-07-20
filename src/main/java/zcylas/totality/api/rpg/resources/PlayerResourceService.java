@@ -9,6 +9,7 @@ import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSuppo
 import zcylas.totality.api.rpg.resources.state.ScalarResourceState;
 
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -92,13 +93,11 @@ public final class PlayerResourceService {
     }
 
     private ResourceQueryResult queryExternal(PlayerResourceDefinition definition, Player player) {
-        // ResourceSnapshot has no partition representation — only ResourceModel.SCALAR is
-        // representable through the external query path (mirrors queryGenericState's own
-        // UNSUPPORTED_MODEL check for the generic side).
-        if (definition.model() != ResourceModel.SCALAR) {
-            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.UNSUPPORTED_MODEL, definition.id());
-        }
-
+        // Both ResourceModel values are representable through the external query path as of Phase
+        // 2D: ResourceQueryResult.Success (ResourceSnapshot) for SCALAR, ResourceQueryResult
+        // .PartitionedSuccess (PartitionedResourceSnapshot) for PARTITIONED_POOL. Which shape the
+        // adapter actually returned is validated below, against definition.model(), only after the
+        // adapter is invoked — there is no third ResourceModel value to reject here.
         Identifier adapterId = definition.externalAdapterId().orElse(null);
         if (adapterId == null) {
             return new ResourceQueryResult.Failure(ResourceQueryFailureReason.ADAPTER_NOT_REGISTERED, definition.id());
@@ -140,8 +139,26 @@ public final class PlayerResourceService {
             }
             return failure;
         }
-        ResourceQueryResult.Success success = (ResourceQueryResult.Success) adapterResult;
-        return validateExternalSnapshot(success.snapshot(), definition);
+
+        // The adapter answered with a shape — validate it matches the model the definition actually
+        // declares before trusting it. A PARTITIONED_POOL definition whose adapter returned scalar
+        // Success (or a SCALAR definition whose adapter returned PartitionedSuccess) is exactly as
+        // malformed as any other structurally-wrong adapter response; it becomes
+        // CORRUPT_ADAPTER_SNAPSHOT rather than being coerced into the "right" shape.
+        return switch (definition.model()) {
+            case SCALAR -> {
+                if (!(adapterResult instanceof ResourceQueryResult.Success success)) {
+                    yield new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+                }
+                yield validateExternalSnapshot(success.snapshot(), definition);
+            }
+            case PARTITIONED_POOL -> {
+                if (!(adapterResult instanceof ResourceQueryResult.PartitionedSuccess partitionedSuccess)) {
+                    yield new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+                }
+                yield validatePartitionedExternalSnapshot(partitionedSuccess.snapshot(), definition);
+            }
+        };
     }
 
     /**
@@ -165,6 +182,39 @@ public final class PlayerResourceService {
         // overflow is caught earlier, at the adapter's own unit-conversion boundary (see
         // HealthResourceAdapter#toUnits), before a ResourceSnapshot can even be constructed.
         return new ResourceQueryResult.Success(snapshot);
+    }
+
+    /**
+     * The {@link ResourceModel#PARTITIONED_POOL} counterpart to {@link #validateExternalSnapshot}.
+     * Deliberately generic — it knows nothing about spell levels, Hit Dice, or any other
+     * owner-specific partition meaning, and must not hard-code {@code totality:spell_slots} or any
+     * other single resource id. A resource-specific invariant (e.g. "exactly partitions 1 through
+     * 10") is the adapter's own responsibility to enforce before ever returning a snapshot here —
+     * see {@code StandardSpellSlotsResourceAdapter}.
+     *
+     * <p>{@link PartitionedResourceSnapshot}'s own compact constructor already guarantees a non-null
+     * partitions map with no null keys/values and no duplicate partition identities (a {@code Map}
+     * structurally cannot hold a duplicate key) — this method does not re-derive those guarantees,
+     * only the cross-definition consistency and per-partition value checks that only the service
+     * (which has the definition) can determine.
+     */
+    private static ResourceQueryResult validatePartitionedExternalSnapshot(
+            PartitionedResourceSnapshot snapshot, PlayerResourceDefinition definition) {
+        if (!snapshot.resourceId().equals(definition.id())) {
+            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+        }
+        if (snapshot.unitScale() != definition.unitScale()) {
+            return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+        }
+        for (Map.Entry<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> entry : snapshot.partitions().entrySet()) {
+            PartitionedResourceSnapshot.ResourcePartitionSnapshot partition = entry.getValue();
+            if (partition.currentUnits() < 0
+                    || partition.maximumUnits() < 0
+                    || partition.currentUnits() > partition.maximumUnits()) {
+                return new ResourceQueryResult.Failure(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, definition.id());
+            }
+        }
+        return new ResourceQueryResult.PartitionedSuccess(snapshot);
     }
 
     private ResourceQueryResult queryGeneric(PlayerResourceDefinition definition, Player player) {

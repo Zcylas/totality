@@ -1,7 +1,7 @@
 # TOTALITY GENERIC PLAYER RESOURCE API — IMPLEMENTATION READINESS AUDIT
 
-**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A"/"Phase 2B"/"Phase 2C" Implementation Records (Health/Food, then Breath, then Mana/Stamina) all reached READY TO COMMIT with a passed manual smoke test. The "Phase 2C Implementation Record" section (2026-07-19) records the Mana and Stamina **transitional, query-only, legacy-store** external adapters, and the "Phase 2C Correction Pass" section (same day) fixed two issues found on review — an unnecessary maximum-calculation event dispatch for uninitialized queries, and an unconstrained adapter-returned-failure-reason trust boundary in `PlayerResourceService`. The registry now holds five production definitions (`totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina`), 301/301 automated tests pass, build/datagen validation succeeds, and Stefan's manual smoke test on the real 26.2 client passed ("Mana and Stamina behaved exactly as before, with no visible gameplay changes or regressions") — see "Phase 2C Final Status" at the very end of this document for the full result. Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"Mana and Stamina not yet registered" statement anywhere in this document as current.
-**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19; Phase 2C record added 2026-07-19
+**Status:** Original audit (2026-07-17) was read-only. The Oxygen-to-Breath addendum below was also read-only. The "Stage 2 Implementation Record" section records the inert Phase 0/1 Resource API foundation. The "Phase 2A"/"Phase 2B"/"Phase 2C"/"Phase 2D" Implementation Records (Health/Food, then Breath, then Mana/Stamina, then standard spell slots) all reached READY TO COMMIT with a passed manual smoke test. The "Phase 2D Implementation Record" section (2026-07-20) records the standard spell-slot **transitional, query-only, legacy-store** external adapter — the Resource API's first `PARTITIONED_POOL` production resource, and the first phase to extend `PlayerResourceService`'s query routing/`ResourceQueryResult` beyond scalar shapes. A narrow Phase 2D review-correction pass (2026-07-20, same day) made the spell-slot unit scale adapter-owned (a new `StandardSpellSlotsResourceAdapter.UNIT_SCALE` constant, no longer borrowed from the queried definition), corrected a test that had not actually exercised the ordering guarantee it claimed to prove, and fixed a documentation/comment inaccuracy — no gameplay behavior changed. The registry now holds six production definitions (`totality:health`, `totality:food`, `totality:breath`, `totality:mana`, `totality:stamina`, `totality:spell_slots`), **390/390** automated tests pass (301 at the end of Phase 2C → 388 after the initial Phase 2D implementation pass → 390 after the correction pass), build/datagen validation succeeds, and Stefan's manual smoke test on the real 26.2 client **passed** for every currently applicable scenario (one multiclass scenario was not yet applicable — no second real caster class exists yet — and is not a blocker; one unrelated Rest-animation log warning was observed and classified as non-blocking) — see "Phase 2D Final Status" at the very end of this document for the full result. **Phase 2D is COMPLETE and READY TO COMMIT.** Do not treat any earlier "no production resources exist"/"Breath not yet registered"/"Mana and Stamina not yet registered"/"spell slots not yet registered"/"Phase 2D manual smoke testing has not yet been executed" statement anywhere in this document as current.
+**Date:** 2026-07-17 (original audit); Oxygen-to-Breath addendum and Stage 2 foundation added 2026-07-17; Phase 2A record added 2026-07-19; Phase 2B record added 2026-07-19; Phase 2C record added 2026-07-19; Phase 2D record added 2026-07-20
 **Branch:** `feature/general-resource-api` (based on `master` @ `bc16cc3`, "Merge Provisioner Phase 4")
 **Scope:** `src/main/java/zcylas/totality/**` only. `/Inspiration Mods` was excluded from every search, count, and conclusion below.
 **Canonical design authority:** `Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API.md` (2026-07-13, CANONICAL/IMPLEMENTATION-READY), reconciled against `Context/Audit/TOTALITY_POST_AUDIT_DESIGN_DECISIONS.md` (later, overrides where they conflict) and `Context/Audit/TOTALITY_SHARED_CROSS_SYSTEM_FOUNDATIONS.txt`.
@@ -861,6 +861,176 @@ A narrowly scoped correction pass fixed two issues in the record above:
 - **Manual smoke test:** passed (general confirmation; see above).
 
 **Scope boundaries carried forward unchanged:** Mana and Stamina remain owned by their existing legacy managers/component/packets/HUD readers — nothing about their current gameplay behavior changed. The Resource API can now query both on the authoritative server through `ManaResourceAdapter`/`StaminaResourceAdapter`, transitionally, at `definitionVersion = 1`. The canonical closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to record this status.
+
+---
+
+## Phase 2D Implementation Record — Standard Spell-Slot Legacy Adapter (2026-07-20)
+
+This section records the sixth external-adapter slice — the first `PARTITIONED_POOL`-model
+production resource, and the first phase that required extending the Generic Resource API's own
+query plumbing (not just adding an adapter). Full detail lives in the dedicated report:
+`Context/Audit/TOTALITY_RESOURCE_API_PHASE_2D_STANDARD_SPELL_SLOT_ADAPTER_IMPLEMENTATION_REPORT.md`.
+A dedicated read-only audit preceded implementation in the same session; its findings (legacy
+storage/authority model, no initialization sentinel, no live maximum computation, exact casting/rest
+characterization) are the factual basis for every decision below and are not repeated here — see the
+dedicated report's §2/§13 for the re-verified citations.
+
+**Partitioned query-result extension (the "narrow Generic Resource API extension" the audit
+predicted would be required, confirmed and implemented):** `PlayerResourceService.queryExternal`
+previously rejected every non-`SCALAR` model unconditionally — `ResourceQueryResult` had only a
+scalar `Success` case, and `ExternalPlayerResourceAdapter.snapshot(...)` had no way to return
+per-partition data at all. A new `PartitionedResourceSnapshot` type (generic — one ordered,
+defensively-copied, immutable `NavigableMap<Integer, ResourcePartitionSnapshot>` of complete
+current/maximum pairs, no owner-specific knowledge) and a new `ResourceQueryResult.PartitionedSuccess`
+case were added; `queryExternal` now routes on `definition.model()` (`SCALAR` → `Success` validated by
+the existing, unchanged `validateExternalSnapshot`; `PARTITIONED_POOL` → `PartitionedSuccess` validated
+by a new, equally generic `validatePartitionedExternalSnapshot`), and a shape mismatch in either
+direction becomes `CORRUPT_ADAPTER_SNAPSHOT`. `queryGenericState`'s own `PARTITIONED_POOL` rejection
+(for `GENERIC_COMPONENT`-authority resources) was deliberately **not** touched — that remains a
+documented future gap, re-confirmed by a new regression-guard test. `snapshot(...)`'s signature is
+unchanged (still one method); every existing scalar adapter (Health, Food, Breath, Mana, Stamina)
+required zero changes.
+
+**What changed:** `PlayerResourceRegistry.INSTANCE` now contains exactly six production definitions —
+adding `totality:spell_slots` (`PARTITIONED_POOL`, `EXTERNAL_ADAPTER`, ten stable partitions for spell
+levels 1–10, `definitionVersion = 1`, no `authoredBaseMaximum` since that field is inherently
+scalar-shaped, `MENU_VISIBLE` capability only — not `HUD_VISIBLE`, and not `SPENDABLE`/`RESTORABLE`/
+`PARTITIONED_SPENDING`, since this adapter is query-only exactly like every prior one — presentation
+`SLOTS`/`MENU_ONLY`/`IDENTITY`). `StandardSpellSlotsResourceAdapter` (new,
+`api/rpg/resources/external/`) wraps the legacy-authoritative `SpellSlotComponent` array store
+(`SpellSlotComponent`/`SpellSlotRecalculator` remain the sole owners of every standard spell-slot
+gameplay operation), reading only the already-stored `maxSlots`/`usedSlots` via a new, non-throwing
+`SpellSlotComponents.maybeGet(ServerPlayer)` (mirroring `ResourceComponents.maybeGet`'s Phase 2C
+precedent). Two deliberate divergences from the Mana/Stamina precedent, both canonically instructed
+and documented in the adapter's own Javadoc: a missing component on a real server player is
+`MALFORMED_OWNER_STATE` (not `STATE_UNAVAILABLE_ON_THIS_SIDE` — `SpellSlotComponent` is
+unconditionally attached to every `ServerPlayer`, unlike Mana/Stamina's legacy component, so its
+absence indicates a broken owner, not an ordinary transitional state), and `current > maximum` is
+rejected as `MALFORMED_OWNER_STATE` rather than passed through unclamped (spell slots have no
+live-recomputed maximum at query time the way Mana/Stamina do, so normal legacy behavior cannot
+produce this without corrupted data). `SpellSlotComponent` has no initialization sentinel (confirmed
+by the preceding audit and re-confirmed here) — an all-zero attached component is therefore a valid
+successful snapshot, never `STATE_UNINITIALIZED`.
+
+**What did not change:** no spell-slot storage migration, no replacement of `SpellSlotComponent`'s
+persistence/`ALWAYS_COPY` respawn strategy/bespoke sync packet/`ClientSpellSlotManager`, no casting
+behavior change, no upcasting added, no change to slot consumption
+(`ActivateAbilityHandler`/`Spell.markNoEffect()`/`didCastSucceed()` untouched), no Long Rest change, no
+Short Rest wiring (`restoreSome` remains unused dead code — not to be read as Pact Magic ownership;
+Pact Magic is not implemented anywhere), no Pact Magic implementation, no spell-radial/HUD/menu change,
+and no generic mutation support for spell slots (`supportedOperations()` = `QUERY` only). Multiclass
+progression (`SpellSlotTable`, `SpellcastingProgressionRegistry`) was read extensively but not
+modified — see the dedicated report's characterization-test section.
+
+**Legacy characterization coverage (new — the audit found zero prior automated coverage for this
+system):** `SpellSlotTableTest` (17 tests: table dimensions, D&D 5e level-1/level-20 exact values, the
+authored epic 10th-level-slot unlock at level 25/second unlock at level 30, half-caster values,
+Warlock's permanent 5th-tier cap, multiclass floor-division pooling and the 30-level cap, and the
+structural absence of a Warlock parameter in `combinedCasterLevel`), `SpellSlotComponentTest` (13
+tests: default all-zero, recalculate/clamp-on-shrink, consume/reject, Long Rest restoration, Short
+Rest **not** restoring standard slots, invalid external levels, full real-NBT persistence round-trip,
+`copyFrom`), and `SpellSlotRecalculatorCharacterizationTest` (7 tests characterizing the registry
+mapping and the combining composition — `recalculate(ServerPlayer)` itself is not directly unit
+tested, since it requires a real component-attached `ServerPlayer`; see the dedicated report for why
+this was judged the correct call rather than building excessive test scaffolding).
+
+**Test count:** 301 (end of Phase 2C) → **388** (87 new/net-changed tests: partitioned query-result
+contract, the new adapter, registry/service/external-safety coverage for the sixth resource, and the
+three new legacy-characterization test files above). One pre-existing Phase 1 test file
+(`PlayerResourceStateComponentTest`) required an incidental fix — two tests used the literal
+placeholder id `"spell_slots"` for an arbitrary unregistered example, which collided with the newly
+registered production resource of the same name; both were renamed to a non-colliding placeholder
+with no change to test intent. Full failure/fix record in the dedicated report's §14.
+
+**Manual verification:** ~~**Not yet executed.** A 9-item manual smoke-test checklist is recorded in
+the dedicated report, prepared for Stefan to run on the real 26.2 client. Phase 2D is not considered
+closed until that checklist passes.~~ **SUPERSEDED (2026-07-20) — since executed by Stefan on the real
+26.2 client and PASSED for every currently applicable scenario.** Confirmed: existing spell-slot
+display unchanged, `/totality spellslots` showing sensible max/used/remaining values, a leveled cast
+consuming exactly one correct standard slot, an unavailable-slot cast producing the existing rejection
+behavior, cantrips consuming no slot, Long Rest restoring standard slots exactly as before, spent
+slot state persisting correctly across logout/relog, death/respawn preserving the existing lifecycle
+behavior, and no new Resource API/partitioned-snapshot/adapter-registration/spell-slot error in the
+logs. The planned standard-spellcasting multiclass scenario was **not applicable** with the currently
+implemented classes (Warlock is the only other currently relevant arcane class, and Warlock Pact Magic
+is not implemented yet, separate from the standard pool in any case) — not a failure or blocker; the
+existing `SpellSlotTableTest` characterization tests remain the evidence for pooled
+full/half/third-caster calculations. One log warning, `Received passengers for unknown entity`, was
+observed once during the Long Rest test — classified as unrelated to Phase 2D, non-blocking, and
+associated with the existing Rest animation/passenger synchronization mechanism (not investigated or
+fixed here, per instruction; no visible stuck pose/mount/dismount/movement problem was observed
+alongside it). Full detail: the dedicated report's §21 and "Final Status — Ready to Commit" section.
+
+**Build/test/datagen results (this phase):** `compileJava`/`compileTestJava` succeeded; `test` passed
+388/388; `runDatagen` wrote 0 files (`written: 0`, confirmed byte-identical `git status` before/after);
+`build -x runDatagen` succeeded; `git diff --check` exit code 0 (only pre-existing LF/CRLF advisories).
+`git diff --cached` remained empty throughout — nothing staged or committed.
+
+**Correction pass (2026-07-20, same day):** a narrow, architecturally-approved review-correction pass
+made three fixes, none changing gameplay behavior — full detail in the dedicated report's own
+"Correction Pass" section:
+1. **Unit scale made adapter-owned:** `StandardSpellSlotsResourceAdapter.UNIT_SCALE = 1L` is now the
+   canonical scale; `resolve(...)` no longer accepts (and therefore cannot be swayed by) a definition's
+   own `unitScale()`, and `ProductionResourceDefinitions` now references the same constant rather than
+   an independent literal — so a definition misconfigured with a different scale can no longer cause
+   the adapter to relabel unconverted slot counts, and the generic service's unit-scale mismatch
+   validation remains a meaningful check rather than a tautology.
+2. **Ordering test corrected:** `PartitionedResourceSnapshotTest.enforcesDeterministicAscendingOrderRegardlessOfInsertionOrder`
+   previously built its "out of order" input via a natural-ordering `TreeMap`, which itself re-sorts to
+   ascending before the snapshot constructor ever saw it — the test proved nothing. It now uses a
+   `Comparator.reverseOrder()` `TreeMap`, confirms the source genuinely iterates descending first, then
+   confirms the snapshot's own constructor produces ascending order. The production ordering
+   implementation was not changed; it already behaved correctly.
+3. **Documentation corrected:** every "~292" test-count reference is now the precise **301**; the
+   corrected transition is 301 → 388 → **390** (this correction pass added 2 net new tests). A
+   `PartitionedResourceSnapshot` comment incorrectly claiming `TreeMap#put` rejects null values was
+   corrected — the actual null-key/value rejection is the constructor's explicit
+   `Objects.requireNonNull` checks; `TreeMap` itself only independently rejects a null *key*, not a
+   null *value*. Comment-only; no runtime behavior changed.
+
+**Test count (after correction pass):** 388 → **390**. **Build/test/datagen results (correction
+pass):** `compileJava`/`compileTestJava` succeeded; `test` passed 390/390; `runDatagen` wrote 0 files
+(`written: 0`, confirmed byte-identical `git status` before/after); `build -x runDatagen` succeeded;
+`git diff --check` exit code 0; `git diff --cached` remained empty throughout.
+
+**Deferred issues carried forward (documented, not fixed in this phase):** the pre-existing possible
+`ClientSpellSlotManager` staleness after respawn (unrelated to this phase); `queryGenericState`'s
+continued `PARTITIONED_POOL` rejection for `GENERIC_COMPONENT`-authority resources (a documented
+future Resource API gap, deliberately not broadened in this phase); `ResourceStateAuthority`'s Javadoc
+still listing "spell slots" as a `GENERIC_COMPONENT` example (stale, left for a future pass); no
+`ResourceValueFormatter` registered for `totality:spell_slots` (that interface is scalar-shaped only);
+and the future cast-commitment-vs-combat-outcome distinction for the eventual generic Spell API
+(documented in full in the dedicated report — no casting/combat/damage code was touched to record it).
+
+**Recommended next patch:** **Phase 2E: Rage/charge-pool legacy adapter**, using this same
+transitional-adapter pattern (and, if Rage's charge-pool shape also needs `PARTITIONED_POOL`, reusing
+this phase's now-general partitioned query-result extension rather than inventing a second one). Only
+after all existing-store adapters are accepted should generic synchronization/client presentation begin.
+
+---
+
+## Phase 2D Final Status (2026-07-20)
+
+**READY TO COMMIT.** Stefan manually tested the final Phase 2D implementation (390/390 automated
+tests, post correction pass) on the real Minecraft 26.2 client against the existing test world, and
+the manual smoke test **passed** for every currently applicable scenario — see the dedicated report's
+§21 and "Final Status — Ready to Commit" section for the full itemized result.
+
+- **Automated tests:** 390/390 passed.
+- **Compile:** succeeded.
+- **Datagen:** wrote 0 files.
+- **Full build:** succeeded.
+- **Manual smoke test:** PASSED (10 itemized scenarios confirmed; 1 multiclass scenario not yet
+  applicable — no second real caster class exists yet — and not a blocker; 1 unrelated Rest-animation
+  log warning observed and classified as non-blocking, not investigated or fixed per instruction).
+
+**Scope boundaries carried forward unchanged:** `SpellSlotComponent` remains the sole authoritative
+owner of standard spell-slot state — nothing about its current gameplay behavior changed. The
+Resource API can now query it on the authoritative server through
+`StandardSpellSlotsResourceAdapter`, transitionally, at `definitionVersion = 1`, as the first
+`PARTITIONED_POOL` production resource. Pact Magic remains unimplemented and unaffected. The canonical
+closed design (`TOTALITY_GENERIC_PLAYER_RESOURCE_API.md`) was not reopened or modified to record this
+status.
 
 ---
 

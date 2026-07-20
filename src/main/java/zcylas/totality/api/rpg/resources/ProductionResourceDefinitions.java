@@ -6,6 +6,7 @@ import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter;
 import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
 import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType;
 import zcylas.totality.api.rpg.resources.presentation.ResourceHudRole;
@@ -47,6 +48,25 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
  * are left completely untouched by this phase; see {@code TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md}
  * for why (no generic synchronization exists yet for either resource, so nothing could safely
  * consume this presentation metadata client-side today regardless).
+ *
+ * <p>Phase 2D adds {@code totality:spell_slots} — the Resource API's first {@code PARTITIONED_POOL}
+ * production resource, also {@code EXTERNAL_ADAPTER}-authority and query-only, transitionally
+ * wrapping the legacy-authoritative {@code SpellSlotComponent} array store via {@link
+ * StandardSpellSlotsResourceAdapter} exactly the way Mana/Stamina wrap {@code PlayerResourceComponent}.
+ * Registered at {@code definitionVersion = 1}. Declares no {@code authoredBaseMaximum}: that field is
+ * a single {@code long} (inherently scalar-shaped) and cannot represent ten independent per-level
+ * maxima — see the Phase 2D report's "authoredBaseMaximum omitted" section. Declares only {@link
+ * ResourceCapability#MENU_VISIBLE}, not {@link ResourceCapability#HUD_VISIBLE}: spell slots belong in
+ * the spell radial / a future Spells app / character screens, not the ordinary resource-bar HUD.
+ * Also deliberately declares no {@code SPENDABLE}/{@code RESTORABLE}/{@code PARTITIONED_SPENDING}
+ * capability — matching every other Phase 2A/2B/2C adapter's precedent of declaring no mutation
+ * capability regardless of whether the legacy owner can itself mutate the value, since this adapter's
+ * {@code supportedOperations()} is {@code QUERY}-only; see the Phase 2D report for the full reasoning.
+ * {@code ResourceDisplayType.SLOTS}/{@code ResourceHudRole.MENU_ONLY} presentation is declared for
+ * definition-shape completeness even though nothing consumes it yet (Phase 2D adds no UI); no {@link
+ * zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatter} is registered for it, since
+ * that interface's {@code toDisplayCurrent}/{@code toDisplayMaximum} methods take a single scalar
+ * {@code ResourceSnapshot} and have no partitioned counterpart yet.
  */
 public final class ProductionResourceDefinitions {
 
@@ -62,6 +82,7 @@ public final class ProductionResourceDefinitions {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(BreathResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(ManaResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StaminaResourceAdapter.INSTANCE);
+        ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StandardSpellSlotsResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
     }
 
@@ -159,6 +180,29 @@ public final class ProductionResourceDefinitions {
                         .definitionVersion(1)
                         .build());
 
+        // Standard spell slots: transitional EXTERNAL_ADAPTER over the legacy SpellSlotComponent
+        // store (see the class Javadoc). PARTITIONED_POOL model — the Resource API's first. No
+        // .authoredBaseMaximum(...) (scalar-shaped field, cannot represent ten per-level maxima).
+        // No HUD_VISIBLE — presentation is MENU_ONLY (spell radial / future Spells app), not the
+        // ordinary resource-bar HUD. No SPENDABLE/RESTORABLE/PARTITIONED_SPENDING capability — this
+        // adapter is query-only, exactly like every other Phase 2A/2B/2C adapter. unitScale uses the
+        // adapter's own canonical StandardSpellSlotsResourceAdapter.UNIT_SCALE constant rather than a
+        // second, independently-maintained literal — the adapter always produces a snapshot at that
+        // scale regardless of what this definition declares, so the two must stay in lockstep.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.SPELL_SLOTS, ResourceModel.PARTITIONED_POOL)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .externalAdapter(PlayerResourceIds.SPELL_SLOTS_ADAPTER)
+                        .unitScale(StandardSpellSlotsResourceAdapter.UNIT_SCALE)
+                        .absoluteMinimum(0)
+                        .capabilities(ResourceCapability.MENU_VISIBLE)
+                        .presentation(new ResourcePresentationDefinition(
+                                ResourceDisplayConversion.IDENTITY,
+                                ResourceDisplayType.SLOTS,
+                                ResourceHudRole.MENU_ONLY))
+                        .definitionVersion(1)
+                        .build());
+
         PlayerResourceRegistry.INSTANCE.freeze(ExternalPlayerResourceAdapterRegistry.INSTANCE);
     }
 
@@ -171,6 +215,7 @@ public final class ProductionResourceDefinitions {
                 ResourceValueFormatter.ofConversion(PlayerResourceIds.MANA, ResourceDisplayConversion.IDENTITY));
         ResourceValueFormatterRegistry.INSTANCE.register(
                 ResourceValueFormatter.ofConversion(PlayerResourceIds.STAMINA, ResourceDisplayConversion.IDENTITY));
+        // totality:spell_slots deliberately has no registered formatter — see the class Javadoc.
         ResourceValueFormatterRegistry.INSTANCE.freeze();
     }
 

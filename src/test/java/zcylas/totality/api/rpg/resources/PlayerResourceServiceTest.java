@@ -11,6 +11,7 @@ import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSuppo
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -552,5 +553,205 @@ class PlayerResourceServiceTest {
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.OPERATION_UNSUPPORTED,
                 ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    // ── Phase 2D: PARTITIONED_POOL external routing ─────────────────────────────────────────
+
+    /** A fixed-result adapter used for both scalar and partitioned routing/validation tests. */
+    private static final class FixedResultAdapter implements ExternalPlayerResourceAdapter {
+        private final Identifier id;
+        private final ResourceQueryResult fixedResult;
+
+        FixedResultAdapter(Identifier id, ResourceQueryResult fixedResult) {
+            this.id = id;
+            this.fixedResult = fixedResult;
+        }
+
+        @Override public Identifier id() { return id; }
+        @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) { return fixedResult; }
+        @Override public Set<ExternalResourceOperationSupport> supportedOperations() { return Set.of(ExternalResourceOperationSupport.QUERY); }
+        @Override public ExternalResourceClientMirrorMode clientMirrorMode() { return ExternalResourceClientMirrorMode.NATIVE_SYNCHRONIZATION; }
+    }
+
+    private static PartitionedResourceSnapshot partitionedSnapshot(Identifier resourceId, long unitScale, int... levelsWithSingleSlot) {
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        for (int level : levelsWithSingleSlot) {
+            partitions.put(level, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(1, 1));
+        }
+        return new PartitionedResourceSnapshot(resourceId, partitions, unitScale);
+    }
+
+    private static PlayerResourceService serviceWithPartitionedAdapter(Identifier resourceId, ResourceQueryResult fixedResult) {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        FixedResultAdapter adapter = new FixedResultAdapter(resourceId, fixedResult);
+        adapters.register(adapter);
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.PARTITIONED_POOL)
+                .externalAdapter(resourceId)
+                .unitScale(1)
+                .build());
+        registry.freeze(adapters);
+        return new PlayerResourceService(registry, adapters);
+    }
+
+    @Test
+    void partitionedPoolDefinitionWithValidPartitionedSuccessSucceeds() {
+        Identifier resourceId = id("valid_partitioned");
+        PartitionedResourceSnapshot snapshot = partitionedSnapshot(resourceId, 1, 1, 2, 3);
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.PartitionedSuccess.class, result);
+        assertEquals(3, ((ResourceQueryResult.PartitionedSuccess) result).snapshot().partitions().size());
+    }
+
+    @Test
+    void partitionedPoolDefinitionReceivingScalarSuccessBecomesCorruptAdapterSnapshot() {
+        Identifier resourceId = id("partitioned_but_scalar_returned");
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, 1, 2, 1)));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void scalarDefinitionReceivingPartitionedSuccessBecomesCorruptAdapterSnapshot() {
+        Identifier resourceId = id("scalar_but_partitioned_returned");
+        PartitionedResourceSnapshot snapshot = partitionedSnapshot(resourceId, 1, 1);
+        FixedResultAdapter adapter = new FixedResultAdapter(resourceId, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        adapters.register(adapter);
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR)
+                .externalAdapter(resourceId)
+                .unitScale(1)
+                .authoredBaseMaximum(10)
+                .build());
+        registry.freeze(adapters);
+        PlayerResourceService service = new PlayerResourceService(registry, adapters);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedResourceIdMismatchBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_id_mismatch");
+        PartitionedResourceSnapshot wrongId = partitionedSnapshot(id("a_totally_different_resource"), 1, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(wrongId));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedUnitScaleMismatchBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_scale_mismatch");
+        PartitionedResourceSnapshot wrongScale = partitionedSnapshot(queried, 1000, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(wrongScale));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedNegativeCurrentBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_negative_current");
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        partitions.put(1, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(-1, 5));
+        PartitionedResourceSnapshot snapshot = new PartitionedResourceSnapshot(queried, partitions, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedNegativeMaximumBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_negative_maximum");
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        partitions.put(1, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(0, -5));
+        PartitionedResourceSnapshot snapshot = new PartitionedResourceSnapshot(queried, partitions, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedCurrentGreaterThanMaximumBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_current_over_maximum");
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        partitions.put(1, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(9, 5));
+        PartitionedResourceSnapshot snapshot = new PartitionedResourceSnapshot(queried, partitions, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedAllowedAdapterFailuresStillPropagate() {
+        Identifier resourceId = id("partitioned_allowed_failure");
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedUnexpectedAdapterFailureReasonBecomesCorrupt() {
+        Identifier resourceId = id("partitioned_unexpected_failure");
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.Failure(ResourceQueryFailureReason.MAXIMUM_UNAVAILABLE, resourceId));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void queryGenericStateStillRejectsPartitionedPoolAfterThePhase2DExternalExtension() {
+        // Phase 2D deliberately extends only the EXTERNAL_ADAPTER routing path (queryExternal).
+        // queryGenericState's PARTITIONED_POOL rejection (partitionedGenericDefinitionsProduceAnExplicitUnsupportedModelFailure,
+        // above) is unchanged and remains a documented future gap — this test re-confirms it wasn't
+        // silently altered as a side effect of the external-path work.
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(id("still_unsupported_generic_partitioned"), ResourceModel.PARTITIONED_POOL)
+                .build();
+        registry.register(definition);
+
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        ResourceQueryResult result = service.queryGenericState(definition, state);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.UNSUPPORTED_MODEL, ((ResourceQueryResult.Failure) result).reason());
     }
 }

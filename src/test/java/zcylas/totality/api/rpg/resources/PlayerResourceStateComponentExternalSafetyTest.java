@@ -118,7 +118,32 @@ class PlayerResourceStateComponentExternalSafetyTest {
     }
 
     @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueForAllFiveProductionResources() {
+    void instantiateScalarRejectsSpellSlots() {
+        // totality:spell_slots is EXTERNAL_ADAPTER-authority (Phase 2D) — instantiateScalar must
+        // reject it exactly like every other external-authority resource, even though its own model
+        // is PARTITIONED_POOL, not SCALAR (rejectExternalAuthority checks authority, not model).
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiateScalar(PlayerResourceIds.SPELL_SLOTS, 5));
+        assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
+    }
+
+    @Test
+    void instantiatePartitionedRejectsSpellSlots() {
+        // The more natural-looking call for a PARTITIONED_POOL resource — still rejected, since
+        // authority (not model) is what generic instantiation cares about.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> state.instantiatePartitioned(PlayerResourceIds.SPELL_SLOTS));
+        assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
+    }
+
+    @Test
+    void isRegisteredExternalAdapterAuthorityIsTrueForAllSixProductionResources() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
@@ -128,6 +153,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
+        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }
@@ -146,6 +172,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.BREATH));
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.MANA));
         assertFalse(freshPlayerState.hasState(PlayerResourceIds.STAMINA));
+        assertFalse(freshPlayerState.hasState(PlayerResourceIds.SPELL_SLOTS));
     }
 
     @Test

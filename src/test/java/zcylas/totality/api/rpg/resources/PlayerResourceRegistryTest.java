@@ -245,17 +245,18 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthFoodBreathManaAndStamina() {
+    void productionSingletonContainsExactlyHealthFoodBreathManaStaminaAndSpellSlots() {
         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
-        // added Breath; Phase 2C adds Mana and Stamina — all five EXTERNAL_ADAPTER-authority,
-        // query-only (see ProductionResourceDefinitions). Mana/Stamina are transitional adapters
-        // over the legacy PlayerResourceComponent store, unlike the other three which wrap vanilla.
+        // added Breath; Phase 2C added Mana and Stamina; Phase 2D adds totality:spell_slots — all
+        // six EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
+        // Mana/Stamina/SpellSlots are transitional adapters over pre-existing Totality-owned legacy
+        // stores, unlike Health/Food/Breath which wrap vanilla directly.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(5, PlayerResourceRegistry.INSTANCE.size());
+        assertEquals(6, PlayerResourceRegistry.INSTANCE.size());
         for (Identifier resourceId : new Identifier[] {
                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
-                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA
+                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS
         }) {
             assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
@@ -266,7 +267,10 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void allFiveProductionDefinitionsAreExternalScalarResources() {
+    void allFiveScalarProductionDefinitionsAreExternalScalarResources() {
+        // Deliberately excludes totality:spell_slots (Phase 2D): it is PARTITIONED_POOL-model, not
+        // SCALAR — see spellSlotsDefinitionIsPartitionedPoolExternalAdapter below for its own shape
+        // assertions.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
@@ -282,6 +286,51 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
+    void spellSlotsDefinitionIsPartitionedPoolExternalAdapter() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow();
+        assertEquals(ResourceModel.PARTITIONED_POOL, definition.model());
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority());
+        assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity());
+        assertEquals(zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter.UNIT_SCALE, definition.unitScale(),
+                "the definition's unitScale must stay in lockstep with the adapter's own canonical constant");
+        assertEquals(0L, definition.absoluteMinimum());
+        assertTrue(definition.authoredBaseMaximum().isEmpty(),
+                "authoredBaseMaximum is scalar-shaped and must not be declared for a 10-partition resource");
+        assertEquals(1, definition.definitionVersion());
+        assertEquals(zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter.ID,
+                definition.externalAdapterId().orElseThrow());
+    }
+
+    @Test
+    void spellSlotsDeclaresOnlyMenuVisibleNotHudVisibleOrAnyMutationCapability() {
+        // Spell slots belong in the spell radial / a future Spells app / character screens, not the
+        // ordinary resource-bar HUD — and this adapter is query-only, exactly like every other
+        // Phase 2A/2B/2C adapter, so no SPENDABLE/RESTORABLE/PARTITIONED_SPENDING is declared either.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        var capabilities = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow().capabilities();
+        assertEquals(java.util.Set.of(ResourceCapability.MENU_VISIBLE), capabilities);
+        assertFalse(capabilities.contains(ResourceCapability.HUD_VISIBLE));
+        assertFalse(capabilities.contains(ResourceCapability.SPENDABLE));
+        assertFalse(capabilities.contains(ResourceCapability.RESTORABLE));
+        assertFalse(capabilities.contains(ResourceCapability.PARTITIONED_SPENDING));
+    }
+
+    @Test
+    void spellSlotsDeclaresMenuOnlySlotsPresentation() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        var presentation = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow()
+                .presentation().orElseThrow(() -> new AssertionError("totality:spell_slots must declare presentation metadata"));
+        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType.SLOTS, presentation.displayType());
+        assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceHudRole.MENU_ONLY, presentation.hudRole());
+        assertEquals(1, presentation.displayConversion().numerator());
+        assertEquals(1, presentation.displayConversion().denominator());
+    }
+
+    @Test
     void productionSingletonHasNoOxygenAirOrTemperatureDefinition() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
@@ -294,16 +343,16 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonHasNoRageOrSpellSlotDefinitionYet() {
-        // Phase 2C's own scope exclusion: only existing-store adapters land in Phase 2C/2D/2E;
-        // Rage/spell-slot legacy adapters are explicitly later phases (see the Phase 2C report's
-        // "next recommended slice").
+    void productionSingletonHasNoRageDefinitionYet() {
+        // Phase 2C's own scope exclusion: only existing-store adapters land in Phase 2C/2D/2E; Rage
+        // is explicitly a later phase (Phase 2E, per the Phase 2C/2D reports' "next recommended
+        // slice"). Spell slots WERE this exclusion's other named example prior to Phase 2D — see
+        // productionSingletonContainsExactlyHealthFoodBreathManaStaminaAndSpellSlots above, which now
+        // asserts totality:spell_slots IS registered.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertTrue(PlayerResourceRegistry.INSTANCE.get(id("rage")).isEmpty());
         assertTrue(PlayerResourceRegistry.INSTANCE.get(id("barbarian_rage")).isEmpty());
-        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("spell_slots")).isEmpty());
-        assertTrue(PlayerResourceRegistry.INSTANCE.get(id("spell_slot")).isEmpty());
     }
 
     @Test

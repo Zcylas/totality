@@ -95,6 +95,26 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         return out.buildResult();
     }
 
+    /**
+     * Builds the exact NBT shape {@code writeData}'s private {@code writeLiveEntry}/{@code
+     * writePartitionMap} would produce for one PARTITIONED_POOL entry — Phase 2D's own analogue of
+     * {@link #buildStaleGenericScalarNbt}, needed because {@code totality:spell_slots} is the first
+     * production resource whose model is PARTITIONED_POOL rather than SCALAR.
+     */
+    private static CompoundTag buildStaleGenericPartitionedNbt(Identifier resourceId, int partitionKey, long current, long overflow) {
+        TagValueOutput out = TagValueOutput.createWithoutContext(ProblemReporter.DISCARDING);
+        out.putInt("SchemaVersion", 2);
+        out.putInt("ResourceCount", 1);
+        out.putString("Resource_0_id", resourceId.toString());
+        out.putString("Resource_0_model", "PARTITIONED_POOL");
+        out.putInt("Resource_0_partitionCount", 1);
+        out.putInt("Resource_0_partition_0_key", partitionKey);
+        out.putLong("Resource_0_partition_0_current", current);
+        out.putLong("Resource_0_partition_0_overflow", overflow);
+        out.putInt("OrphanedCount", 0);
+        return out.buildResult();
+    }
+
     @Test
     void sanityCheckOwnNbtHarnessRoundTripsAnOrdinaryGenericResource() {
         // Proves the test harness itself (TagValueOutput/TagValueInput/empty registries) reads
@@ -209,6 +229,23 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         assertFalse(state.hasState(PlayerResourceIds.STAMINA), "Stamina must never become live generic state");
         assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.STAMINA),
                 "stale Stamina data must be quarantined, not silently dropped");
+    }
+
+    @Test
+    void nbtLoadingQuarantinesStaleGenericPartitionedDataForSpellSlots() {
+        // Phase 2D's own analogue of the SCALAR quarantine tests above, but for the first
+        // PARTITIONED_POOL production resource — proves readLiveEntry's authority guard also
+        // protects a partitioned-shaped stale entry, not only scalar ones.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        CompoundTag tag = buildStaleGenericPartitionedNbt(PlayerResourceIds.SPELL_SLOTS, 1, 4, 0);
+
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
+
+        assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS), "spell slots must never become live generic state");
+        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.SPELL_SLOTS),
+                "stale spell-slot data must be quarantined, not silently dropped");
     }
 
     @Test
@@ -370,6 +407,10 @@ class PlayerResourceStateComponentExternalEntryPathTest {
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow().stateAuthority());
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().stateAuthority());
+        // Phase 2D: totality:spell_slots is EXTERNAL_ADAPTER too, despite being PARTITIONED_POOL
+        // rather than SCALAR — queryGenericState is structurally unreachable for it the same way.
+        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow().stateAuthority());
     }
 
     @Test
@@ -382,10 +423,12 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         assertFalse(state.hasState(PlayerResourceIds.BREATH));
         assertFalse(state.hasState(PlayerResourceIds.MANA));
         assertFalse(state.hasState(PlayerResourceIds.STAMINA));
+        assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
         assertTrue(state.getScalar(PlayerResourceIds.HEALTH).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.FOOD).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.BREATH).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.MANA).isEmpty());
         assertTrue(state.getScalar(PlayerResourceIds.STAMINA).isEmpty());
+        assertTrue(state.getPartitioned(PlayerResourceIds.SPELL_SLOTS).isEmpty());
     }
 }

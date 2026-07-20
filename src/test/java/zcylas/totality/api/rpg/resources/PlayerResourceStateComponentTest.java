@@ -82,9 +82,9 @@ class PlayerResourceStateComponentTest {
     void instantiatePartitionedCreatesStateExactlyOnce() {
         PlayerResourceStateComponent component = new PlayerResourceStateComponent(null);
 
-        PartitionedResourceState first = component.instantiatePartitioned(id("spell_slots"));
+        PartitionedResourceState first = component.instantiatePartitioned(id("test_partitioned_resource"));
         first.setCurrent(1, 4);
-        PartitionedResourceState second = component.instantiatePartitioned(id("spell_slots"));
+        PartitionedResourceState second = component.instantiatePartitioned(id("test_partitioned_resource"));
 
         assertSame(first, second);
         assertEquals(4, second.getCurrent(1));
@@ -113,13 +113,13 @@ class PlayerResourceStateComponentTest {
     void copyFromDuplicatesStatesIndependently() {
         PlayerResourceStateComponent source = new PlayerResourceStateComponent(null);
         source.instantiateScalar(id("test_scalar_a"), 80);
-        source.instantiatePartitioned(id("spell_slots")).setCurrent(1, 3);
+        source.instantiatePartitioned(id("test_partitioned_resource")).setCurrent(1, 3);
 
         PlayerResourceStateComponent target = new PlayerResourceStateComponent(null);
         target.copyFrom(source, null);
 
         assertEquals(80, target.getScalar(id("test_scalar_a")).orElseThrow().currentUnits());
-        assertEquals(3, target.getPartitioned(id("spell_slots")).orElseThrow().getCurrent(1));
+        assertEquals(3, target.getPartitioned(id("test_partitioned_resource")).orElseThrow().getCurrent(1));
 
         // Independence: mutating the target must not affect the source (or vice versa).
         target.getScalar(id("test_scalar_a")).orElseThrow().setCurrentUnits(1);

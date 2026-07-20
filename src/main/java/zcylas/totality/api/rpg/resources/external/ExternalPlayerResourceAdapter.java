@@ -51,10 +51,25 @@ public interface ExternalPlayerResourceAdapter {
      * Builds a read-only snapshot from the authoritative owner's current state. Must never mutate
      * the owner's state, instantiate any Resource API player state, or send a packet.
      *
-     * <p>Returns a {@link ResourceQueryResult.Success} wrapping the snapshot, or a
-     * {@link ResourceQueryResult.Failure} — never {@code null}, and never a fabricated/clamped
-     * placeholder — when the owner's actual state cannot be represented as a valid snapshot right
-     * now. {@link zcylas.totality.api.rpg.resources.PlayerResourceService} trusts a returned
+     * <p><b>Result shape depends on the queried {@code definition}'s {@link
+     * zcylas.totality.api.rpg.resources.ResourceModel}</b> (introduced in Phase 2D, alongside the
+     * first {@code PARTITIONED_POOL} production resource, {@code totality:spell_slots}): a
+     * {@link zcylas.totality.api.rpg.resources.ResourceModel#SCALAR} definition expects a
+     * {@link ResourceQueryResult.Success} wrapping a scalar {@code ResourceSnapshot} (one
+     * current/maximum pair); a {@link zcylas.totality.api.rpg.resources.ResourceModel#PARTITIONED_POOL}
+     * definition expects a {@link ResourceQueryResult.PartitionedSuccess} wrapping a
+     * {@code PartitionedResourceSnapshot} (one current/maximum pair per integer partition). An
+     * adapter that only ever serves one model only ever needs to construct the one matching shape —
+     * every existing Phase 2A/2B/2C adapter (Health, Food, Breath, Mana, Stamina) is {@code SCALAR}-only
+     * and requires no change. {@link zcylas.totality.api.rpg.resources.PlayerResourceService} treats a
+     * shape that does not match the definition's declared model (a {@code PARTITIONED_POOL} definition
+     * whose adapter returned scalar {@code Success}, or vice versa) as {@code CORRUPT_ADAPTER_SNAPSHOT}
+     * — it never coerces one shape into the other.
+     *
+     * <p>Returns a {@link ResourceQueryResult.Success} or {@link ResourceQueryResult.PartitionedSuccess}
+     * wrapping the snapshot, or a {@link ResourceQueryResult.Failure} — never {@code null}, and never a
+     * fabricated/clamped placeholder — when the owner's actual state cannot be represented as a valid
+     * snapshot right now. {@link zcylas.totality.api.rpg.resources.PlayerResourceService} trusts a returned
      * {@code Failure}'s reason directly only after confirming <b>both</b> (a) its
      * {@code resourceId} matches the definition actually queried, and (b) its
      * {@link ResourceQueryFailureReason} is one of the three an adapter is actually permitted to
