@@ -128,6 +128,8 @@ public class TotalityPackets {
                 zcylas.totality.networking.rest.CancelRestPayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.rest.ResumeRestPayload.TYPE,
                 zcylas.totality.networking.rest.ResumeRestPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.resource.ResourceResyncRequestPayload.TYPE,
+                zcylas.totality.networking.resource.ResourceResyncRequestPayload.CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
@@ -160,6 +162,10 @@ public class TotalityPackets {
                 zcylas.totality.networking.rest.OpenRestChoicePayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.rest.RestTimeSyncPayload.TYPE,
                 zcylas.totality.networking.rest.RestTimeSyncPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.resource.ResourceFullSyncPayload.TYPE,
+                zcylas.totality.networking.resource.ResourceFullSyncPayload.CODEC);
+        registry.register(zcylas.totality.networking.resource.ResourceDeltaSyncPayload.TYPE,
+                zcylas.totality.networking.resource.ResourceDeltaSyncPayload.CODEC);
     }
 
     private TotalityPackets() {}

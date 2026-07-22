@@ -1,6 +1,7 @@
 package zcylas.totality;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLevelEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -98,6 +99,38 @@ public class TotalityClient implements ClientModInitializer {
         // over from a previous world/session would otherwise be stuck forever.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
                 zcylas.totality.client.rest.ClientRestManager.reset());
+
+        // Phase 3A generic Resource sync state must never leak between sessions/worlds — clear on
+        // both ends of the connection lifecycle (a fresh JOIN never gets an explicit "cleared"
+        // packet from the server, matching the ClientRestManager precedent immediately above).
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+                zcylas.totality.networking.resource.ClientResourceSyncManager.clear());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+                zcylas.totality.networking.resource.ClientResourceSyncManager.clear());
+
+        // Connection JOIN/DISCONNECT alone misses one case: a dimension change (Nether portal,
+        // /execute in, respawn anchor, ...) replaces the client's ClientLevel while the same play
+        // connection stays open — no JOIN/DISCONNECT fires for that. ClientLevelEvents.
+        // AFTER_CLIENT_LEVEL_CHANGE fires whenever Minecraft.setLevel(...) installs a new non-null
+        // ClientLevel (both the very first level on join and every subsequent dimension change),
+        // never when the level is torn down to null on disconnect — that half is already covered by
+        // DISCONNECT above. Ordering is safe: on a dimension change, the server only schedules its
+        // fresh full snapshot via ResourceSyncLifecycleEvents' AFTER_PLAYER_CHANGE_LEVEL listener,
+        // which is not sent until that server's next tick flush — strictly after this client-side
+        // level swap has already happened — so clearing here can never race ahead of and erase a
+        // full snapshot that arrives afterward.
+        ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, world) ->
+                zcylas.totality.networking.resource.ClientResourceSyncManager.clear());
+
+        // Drives ClientResyncRequestGate's bounded retry (external-review correction, 2026-07-22):
+        // the server's own resync-request rate limiter silently drops anything more frequent than
+        // once per 100 ticks, so a request dropped that way needs this tick-driven retry to avoid
+        // permanently stranding the client's single-flight gate — see ClientResourceSyncManager.tick()
+        // and ClientResyncRequestGate.tick(). Reuses the existing END_CLIENT_TICK event already
+        // registered twice above (FluidTankScrollHandler, MobHealthBarHud) rather than adding a new
+        // tick-loop mechanism.
+        ClientTickEvents.END_CLIENT_TICK.register(client ->
+                zcylas.totality.networking.resource.ClientResourceSyncManager.tick());
     }
 
     private void registerRenderers(){

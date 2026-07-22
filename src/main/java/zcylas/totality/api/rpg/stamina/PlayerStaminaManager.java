@@ -7,8 +7,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.combat.CombatStateManager;
 import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.resources.ResourceComponents;
 import zcylas.totality.api.rpg.stamina.base.*;
+import zcylas.totality.networking.resource.ResourceSyncManager;
 
 
 public class PlayerStaminaManager {
@@ -45,6 +47,9 @@ public class PlayerStaminaManager {
         if (!(player instanceof ServerPlayer sp)) return;
         int max = getMaxStamina(player);
         ResourceComponents.get(sp).setStamina(Math.clamp(amount, 0, max));
+        // Non-authoritative dirty notification for the parallel Phase 3A generic Resource sync
+        // path — does not change Stamina's own gameplay behavior or its existing bespoke sync.
+        ResourceSyncManager.markDirty(sp.getUUID(), PlayerResourceIds.STAMINA);
     }
 
     public static void addStamina(Player player, int amount) {

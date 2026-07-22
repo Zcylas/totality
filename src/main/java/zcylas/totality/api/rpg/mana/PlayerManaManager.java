@@ -7,7 +7,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.mana.base.*;
 import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.resources.ResourceComponents;
+import zcylas.totality.networking.resource.ResourceSyncManager;
 
 
 public class PlayerManaManager {
@@ -29,6 +31,9 @@ public class PlayerManaManager {
         if (!(player instanceof ServerPlayer sp)) return;
         int max = getMaxMana(player);
         ResourceComponents.get(sp).setMana(Math.clamp(amount, 0, max));
+        // Non-authoritative dirty notification for the parallel Phase 3A generic Resource sync
+        // path — does not change Mana's own gameplay behavior or its existing bespoke sync.
+        ResourceSyncManager.markDirty(sp.getUUID(), PlayerResourceIds.MANA);
     }
 
     public static void addMana(Player player, int amount) {

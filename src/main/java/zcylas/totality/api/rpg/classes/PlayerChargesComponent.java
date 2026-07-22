@@ -8,9 +8,11 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.rest.RestEventBus;
 import zcylas.totality.api.rpg.rest.RestListener;
 import zcylas.totality.api.rpg.rest.RestType;
+import zcylas.totality.networking.resource.ResourceSyncManager;
 
 import java.util.*;
 
@@ -167,6 +169,14 @@ public class PlayerChargesComponent implements SyncedComponent, CopyableComponen
         if (player != null && !player.level().isClientSide()) {
             ChargeComponents.PLAYER_CHARGES.sync(
                     (zcylas.totality.api.core.component.ComponentProvider) player);
+            // Non-authoritative dirty notification for the parallel Phase 3A generic Resource sync
+            // path. This component is a generic multi-pool owner, but only its Rage pool is
+            // currently resource-registered (RageResourceAdapter) — marking totality:rage dirty on
+            // every pool change is a harmless, self-correcting over-notification (an unrelated
+            // pool's change requeries an unchanged Rage value, which the diff engine drops without
+            // sending a packet) rather than requiring this component to know which specific pool id
+            // maps to which Resource id.
+            ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.RAGE);
         }
     }
 

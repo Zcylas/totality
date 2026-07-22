@@ -8,8 +8,10 @@ import net.minecraft.world.level.storage.ValueOutput;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.rest.RestListener;
 import zcylas.totality.api.rpg.rest.RestType;
+import zcylas.totality.networking.resource.ResourceSyncManager;
 
 /**
  * Tracks spell slot availability for a player.
@@ -128,6 +130,9 @@ public final class SpellSlotComponent implements SyncedComponent, CopyableCompon
     private void sync() {
         if (player != null && !player.level().isClientSide()) {
             SpellSlotComponents.SPELL_SLOTS.sync((ComponentProvider) player);
+            // Non-authoritative dirty notification for the parallel Phase 3A generic Resource sync
+            // path — does not change spell slots' own gameplay behavior or existing sync.
+            ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.SPELL_SLOTS);
         }
     }
 

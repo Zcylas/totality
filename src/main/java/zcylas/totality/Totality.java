@@ -148,6 +148,7 @@ public class Totality implements ModInitializer {
 		ConditionServerTick.register();
 		ServerScheduler.register();
 		zcylas.totality.api.rpg.rest.RestSessionManager.register();
+		zcylas.totality.networking.resource.ResourceSyncServerTick.register();
 		registerPassiveTicker();
 	}
 
@@ -226,6 +227,7 @@ public class Totality implements ModInitializer {
 		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
 				zcylas.totality.networking.equipment.OpenInventoryPayload.TYPE,
 				(payload, ctx) -> ctx.server().execute(() -> ctx.player().doCloseContainer()));
+		zcylas.totality.networking.resource.ResourceResyncRequestHandler.register();
 	}
 
 	private void registerPassiveTicker() {

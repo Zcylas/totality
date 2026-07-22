@@ -162,6 +162,16 @@ public class TotalityClientPacketHandlers {
                 zcylas.totality.networking.rest.RestTimeSyncPayload.TYPE,
                 (payload, ctx) -> zcylas.totality.client.rest.ClientRestManager.handle(payload)
         );
+        // Phase 3A generic Resource sync — parallel to every existing resource packet above;
+        // ClientResourceSyncManager is not read by gameplay/HUD code yet (see its class Javadoc).
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.resource.ResourceFullSyncPayload.TYPE,
+                (payload, ctx) -> zcylas.totality.networking.resource.ClientResourceSyncManager.applyFull(payload)
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+                zcylas.totality.networking.resource.ResourceDeltaSyncPayload.TYPE,
+                (payload, ctx) -> zcylas.totality.networking.resource.ClientResourceSyncManager.applyDelta(payload)
+        );
     }
 
     private TotalityClientPacketHandlers() {}

@@ -28,6 +28,9 @@ public class ModEvents {
         });
         VanillaDamageInterceptor.register();
         RestBedInteraction.register();
+        // Registered last so its JOIN/AFTER_RESPAWN listeners fire after every other listener above
+        // has already settled that lifecycle event's authoritative state — see the class Javadoc.
+        zcylas.totality.networking.resource.ResourceSyncLifecycleEvents.register();
     }
 
     private ModEvents() {}
