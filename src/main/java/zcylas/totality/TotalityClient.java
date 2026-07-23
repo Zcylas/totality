@@ -131,6 +131,11 @@ public class TotalityClient implements ClientModInitializer {
         // tick-loop mechanism.
         ClientTickEvents.END_CLIENT_TICK.register(client ->
                 zcylas.totality.networking.resource.ClientResourceSyncManager.tick());
+
+        // Phase 3B-1: registers the presentation-only client Resource query façade's reader
+        // strategies. Registration only — no production consumer reads ClientResourceService yet
+        // (see TOTALITY_RESOURCE_API_PHASE_3B_CLIENT_VIEW_AND_PARITY_READINESS.md).
+        zcylas.totality.client.resource.TotalityClientResourceReaders.register();
     }
 
     private void registerRenderers(){

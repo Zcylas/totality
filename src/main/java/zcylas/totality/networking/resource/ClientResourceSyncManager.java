@@ -2,6 +2,7 @@ package zcylas.totality.networking.resource;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import zcylas.totality.Totality;
+import zcylas.totality.api.rpg.resources.sync.ClientResourceSyncRejectionDiagnostics;
 import zcylas.totality.api.rpg.resources.sync.ClientResourceSyncState;
 import zcylas.totality.api.rpg.resources.sync.ClientResyncRequestGate;
 
@@ -37,23 +38,47 @@ public final class ClientResourceSyncManager {
         return STATE;
     }
 
+    /**
+     * Package-private read-only accessor for {@link ClientResourceSyncBridge} — the Phase 3B client
+     * façade's narrow bridge into this class's package-private {@link #state()}. Never made public:
+     * only code in this package may read it directly; {@link ClientResourceSyncBridge} is the one
+     * class outside this manager permitted to do so.
+     */
+    static boolean isResyncPending() {
+        return RESYNC_GATE.isPending();
+    }
+
     public static void applyFull(ResourceFullSyncPayload payload) {
+        long revisionBeforeApply = STATE.revision();
         ClientResourceSyncState.ApplyResult result = STATE.applyFull(payload);
         // Only a genuinely accepted full snapshot resolves the outstanding gap — a stale, malformed,
         // or incompatible-schema full leaves the pending flag (and the retry timer) untouched, so a
         // still-unresolved gap keeps retrying on schedule via tick() rather than silently stopping.
         if (result == ClientResourceSyncState.ApplyResult.APPLIED_FULL) {
             RESYNC_GATE.clear();
+        } else if (result == ClientResourceSyncState.ApplyResult.MALFORMED
+                || result == ClientResourceSyncState.ApplyResult.INCOMPATIBLE_SCHEMA) {
+            // Diagnostics only (Phase 3B-1): a malformed/incompatible-schema full from a legitimate
+            // server almost certainly indicates a real bug (schema drift, corrupted state), unlike
+            // ordinary STALE_IGNORED/REVISION_GAP reordering — bounded metadata only, never full
+            // payload contents, and this never mutates STATE/RESYNC_GATE itself.
+            Totality.LOGGER.debug(ClientResourceSyncRejectionDiagnostics.describeFull(
+                    payload.schemaVersion(), payload.revision(), revisionBeforeApply, result));
         }
     }
 
     public static void applyDelta(ResourceDeltaSyncPayload payload) {
+        long revisionBeforeApply = STATE.revision();
         ClientResourceSyncState.ApplyResult result = STATE.applyDelta(payload);
         if (result == ClientResourceSyncState.ApplyResult.REVISION_GAP) {
             if (RESYNC_GATE.requestIfNotPending()) {
                 Totality.LOGGER.debug("Resource sync revision gap detected, requesting resync");
                 ClientPlayNetworking.send(new ResourceResyncRequestPayload());
             }
+        } else if (result == ClientResourceSyncState.ApplyResult.MALFORMED
+                || result == ClientResourceSyncState.ApplyResult.INCOMPATIBLE_SCHEMA) {
+            Totality.LOGGER.debug(ClientResourceSyncRejectionDiagnostics.describeDelta(
+                    payload.schemaVersion(), payload.baseRevision(), payload.revision(), revisionBeforeApply, result));
         }
     }
 
