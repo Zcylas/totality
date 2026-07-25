@@ -106,4 +106,33 @@ class ClientRageParityPolicyTest {
         var outcome = ClientRageParityPolicy.compare(false, NOT_AVAILABLE, legacyWithOverflow);
         assertEquals(ClientResourceParityOutcome.MISMATCH, outcome);
     }
+
+    // ── External-review correction 2 (2026-07-25): legacy-Unavailable handling ─────────────────
+
+    @Test
+    void legacyUnavailableIsAlwaysModelMismatch() {
+        var legacyUnavailable = new ClientResourceParitySummary.Unavailable(ClientResourceUnavailableReason.MALFORMED_SOURCE_STATE);
+        assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
+                ClientRageParityPolicy.compare(true, scalar(5, 10), legacyUnavailable));
+        assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
+                ClientRageParityPolicy.compare(false, scalar(5, 10), legacyUnavailable));
+    }
+
+    @Test
+    void legacyUnavailableWithGenericAbsentIsStillModelMismatchNotExpectedSemanticDifference() {
+        // A structurally unavailable legacy mirror can never be treated as the documented sparse
+        // 0/0 "never granted" shape, even when the generic side also reports Rage absent.
+        var legacyUnavailable = new ClientResourceParitySummary.Unavailable(ClientResourceUnavailableReason.NO_LOCAL_PLAYER);
+        var outcome = ClientRageParityPolicy.compare(false, NOT_AVAILABLE, legacyUnavailable);
+        assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH, outcome);
+    }
+
+    @Test
+    void genericNotSynchronizedYetTakesPrecedenceOverLegacyUnavailable() {
+        var legacyUnavailable = new ClientResourceParitySummary.Unavailable(ClientResourceUnavailableReason.NO_LOCAL_PLAYER);
+        assertEquals(ClientResourceParityOutcome.GENERIC_NOT_READY,
+                ClientRageParityPolicy.compare(true, NOT_SYNCHRONIZED, legacyUnavailable));
+        assertEquals(ClientResourceParityOutcome.GENERIC_NOT_READY,
+                ClientRageParityPolicy.compare(false, NOT_SYNCHRONIZED, legacyUnavailable));
+    }
 }

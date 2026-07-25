@@ -136,6 +136,26 @@ public class TotalityClient implements ClientModInitializer {
         // strategies. Registration only — no production consumer reads ClientResourceService yet
         // (see TOTALITY_RESOURCE_API_PHASE_3B_CLIENT_VIEW_AND_PARITY_READINESS.md).
         zcylas.totality.client.resource.TotalityClientResourceReaders.register();
+
+        // Phase 3B-2B shadow-parity lifecycle reset — an independent hook alongside the
+        // ClientResourceSyncManager registrations above; ClientResourceSyncManager itself never
+        // depends on parity existing. A fresh JOIN never gets an explicit "cleared" packet, and
+        // death/respawn (a LocalPlayer identity change without JOIN/DISCONNECT) is separately
+        // caught by ClientResourceParityLifecycle's own player-identity check inside tick() below.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+                zcylas.totality.client.resource.parity.ClientResourceParityCoordinator.clear());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+                zcylas.totality.client.resource.parity.ClientResourceParityCoordinator.clear());
+        ClientLevelEvents.AFTER_CLIENT_LEVEL_CHANGE.register((client, world) ->
+                zcylas.totality.client.resource.parity.ClientResourceParityCoordinator.clear());
+
+        // Phase 3B-2B: polls all four eligible parity pairs (Mana/Stamina/spell slots/Rage) once
+        // per END_CLIENT_TICK, registered strictly after ClientResourceSyncManager's own tick/resync
+        // handling above — parity only ever observes that tick's already-settled generic and legacy
+        // state, never influences either. Purely diagnostic: no logging, no gameplay effect, and no
+        // consumer reads these observations yet (see ClientResourceParityObservations).
+        ClientTickEvents.END_CLIENT_TICK.register(client ->
+                zcylas.totality.client.resource.parity.ClientResourceParityCoordinator.tick());
     }
 
     private void registerRenderers(){

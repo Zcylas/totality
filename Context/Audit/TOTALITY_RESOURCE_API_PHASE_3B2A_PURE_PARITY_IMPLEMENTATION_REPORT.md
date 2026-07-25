@@ -507,3 +507,16 @@ inspected as part of this dated review-acceptance pass.
 **Phase 3B-2B has not started.**
 
 ---
+
+# PHASE 3B-2B INTEGRATION CORRECTION NOTE (2026-07-25)
+
+Phase 3B-2B integration exposed a genuine integration blocker requiring one small, narrow
+correction to this committed `ClientRageParityPolicy` class: a structurally unavailable legacy Rage
+summary (the legacy side itself being `ClientResourceParitySummary.Unavailable`, e.g. because no
+local player or no attached charges component exists) must be classified as `MODEL_MISMATCH` — after
+the existing `NOT_SYNCHRONIZED_YET` → `GENERIC_NOT_READY` readiness gate, which still takes
+precedence, but before any Rage-absence-expectation reasoning. See
+`TOTALITY_RESOURCE_API_PHASE_3B2B_CLIENT_PARITY_INTEGRATION_REPORT.md` §29 for the full correction
+detail. No other committed Phase 3B-2A class or semantic was changed.
+
+---

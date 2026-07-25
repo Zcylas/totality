@@ -21,6 +21,15 @@ import java.util.Objects;
  * that fallback is never suppressed as {@code EXPECTED_SEMANTIC_DIFFERENCE}; it surfaces as an
  * ordinary mismatch instead, since a legacy scale/overflow contradiction is exactly the kind of
  * structurally-wrong state this policy must not paper over.
+ *
+ * <p><b>Legacy-Unavailable handling (external-review correction, 2026-07-25):</b> Phase 3B-2B
+ * integration exposed a real integration blocker — a structurally missing legacy Rage source (no
+ * local player, no attached charges component) must never be silently skipped by the poll, so
+ * {@code legacy} can now itself be an {@link ClientResourceParitySummary.Unavailable} value. Such a
+ * value can never be meaningfully compared, so it is always classified as {@code MODEL_MISMATCH} —
+ * after the generic {@code NOT_SYNCHRONIZED_YET} readiness gate, which still takes precedence, but
+ * before any Rage-absence-expectation reasoning below (which assumes a genuine, well-formed legacy
+ * scalar to inspect).
  */
 public final class ClientRageParityPolicy {
 
@@ -33,10 +42,20 @@ public final class ClientRageParityPolicy {
         Objects.requireNonNull(generic, "generic");
         Objects.requireNonNull(legacy, "legacy");
 
+        if (generic instanceof ClientResourceParitySummary.Unavailable unavailable
+                && unavailable.reason() == ClientResourceUnavailableReason.NOT_SYNCHRONIZED_YET) {
+            // The reliable pre-full-snapshot readiness gate — takes precedence over every other
+            // check, including a structurally unavailable legacy Rage source.
+            return ClientResourceParityOutcome.GENERIC_NOT_READY;
+        }
+
+        if (legacy instanceof ClientResourceParitySummary.Unavailable) {
+            // A structurally unavailable legacy mirror can never be compared — never suppressed as
+            // EXPECTED_SEMANTIC_DIFFERENCE, an ordinary numeric mismatch, or an exact match.
+            return ClientResourceParityOutcome.MODEL_MISMATCH;
+        }
+
         if (generic instanceof ClientResourceParitySummary.Unavailable unavailable) {
-            if (unavailable.reason() == ClientResourceUnavailableReason.NOT_SYNCHRONIZED_YET) {
-                return ClientResourceParityOutcome.GENERIC_NOT_READY;
-            }
             if (unavailable.reason() == ClientResourceUnavailableReason.NOT_AVAILABLE_TO_PLAYER) {
                 if (rageExpectedForPlayer) {
                     // A player Rage should be granted to, but the generic side reports none —
