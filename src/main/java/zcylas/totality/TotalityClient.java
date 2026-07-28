@@ -156,6 +156,23 @@ public class TotalityClient implements ClientModInitializer {
         // consumer reads these observations yet (see ClientResourceParityObservations).
         ClientTickEvents.END_CLIENT_TICK.register(client ->
                 zcylas.totality.client.resource.parity.ClientResourceParityCoordinator.tick());
+
+        // Phase 3B-2C: bounded DEBUG diagnostic logging for a Resource's transition into, or
+        // recovery out of, PERSISTENT_MISMATCH — a separate observer of ClientResourceParityObservations'
+        // read-only snapshot, never a modification of the coordinator/poll/tracker above. Its own
+        // transition memory is connection-scoped (external-review correction, Phase 3B-2C correction
+        // pass): cleared only on JOIN/DISCONNECT, deliberately NOT on AFTER_CLIENT_LEVEL_CHANGE — a
+        // persistent-mismatch logging episode must survive a dimension change (and a respawn's fresh
+        // LocalPlayer) within the same connection so a mismatch that continues across the transition
+        // is never logged as a second entry, and so a later recovery within that same connection can
+        // still be correlated back to the episode that was actually reported. See
+        // ClientResourceParityLogObserver's own Javadoc for the full reasoning.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+                zcylas.totality.client.resource.parity.ClientResourceParityLogObserver.clear());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+                zcylas.totality.client.resource.parity.ClientResourceParityLogObserver.clear());
+        ClientTickEvents.END_CLIENT_TICK.register(client ->
+                zcylas.totality.client.resource.parity.ClientResourceParityLogObserver.tick());
     }
 
     private void registerRenderers(){
