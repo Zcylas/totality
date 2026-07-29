@@ -64,6 +64,14 @@ public class RageEffect extends MobEffect {
                 return score == AbilityScore.STR && current == AbilityCheckResolver.RollMode.NORMAL
                         ? AbilityCheckResolver.RollMode.ADVANTAGE : current;
             }
+
+            @Override
+            public boolean isActive() {
+                // Same general fix as BlessEffect (see RollModifier#isActive Javadoc): trust
+                // Minecraft's own active-effects state rather than only the push-based removal
+                // callback.
+                return sp.hasEffect(zcylas.totality.init.ModEffects.RAGE);
+            }
         });
 
         // Sound + particles

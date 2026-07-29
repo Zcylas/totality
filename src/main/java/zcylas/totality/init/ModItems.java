@@ -16,6 +16,7 @@ public class ModItems {
         CurrencyItems.register();
         SKIngredientItems.register();
         PotionItems.register();
+        DndPotionItems.register();
         FuelItems.register();
         ReligiousItems.register();
         RitualItems.register();

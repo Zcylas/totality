@@ -19,14 +19,45 @@ import java.util.List;
  * The dice screen (PendingDiceRollManager) is NOT used here — that's for
  * dialogue, quests, and narrative events only.
  *
- * Results are communicated via DamageRollNotification / CombatTextPayload.
+ * Results are communicated via CombatRollNotification / CombatTextPayload.
  */
 public final class AttackRoll {
 
     private AttackRoll() {}
 
-    /** Outcome plus any labeled attack-roll bonuses that were applied (e.g. Bless d4). */
-    public record Result(RollOutcome outcome, List<DiceBonus> bonuses) {}
+    /**
+     * The full retained attack-roll result — everything a presentation layer needs to describe the
+     * roll without rerolling anything.
+     *
+     * @param roll1             the first natural d20 roll
+     * @param roll2             the second natural d20 roll, or {@code -1} if {@code rollType} is
+     *                          {@link RollType#NORMAL} (no second roll was made)
+     * @param rollType          NORMAL, ADVANTAGE, or DISADVANTAGE
+     * @param usedRoll          the natural roll actually used (picked from roll1/roll2 per
+     *                          {@code rollType})
+     * @param abilityScore      the ability score this roll used (STR for melee, DEX for ranged,
+     *                          the spellcasting ability for spells)
+     * @param abilityMod        the attacker's ability modifier applied to this roll
+     * @param proficiencyBonus  the attacker's proficiency bonus applied to this roll (0 if not
+     *                          proficient)
+     * @param targetAc          the defending target's armor class at the moment of the roll
+     * @param total             {@code usedRoll + abilityMod + proficiencyBonus + sum(bonuses)}
+     * @param outcome           the resolved outcome
+     * @param bonuses           labeled attack-roll bonuses that were applied (e.g. Bless d4)
+     */
+    public record Result(
+            int roll1,
+            int roll2,
+            RollType rollType,
+            int usedRoll,
+            AbilityScore abilityScore,
+            int abilityMod,
+            int proficiencyBonus,
+            int targetAc,
+            int total,
+            RollOutcome outcome,
+            List<DiceBonus> bonuses
+    ) {}
 
     /**
      * Rolls a weapon or spell attack for any living entity attacker.
@@ -64,9 +95,12 @@ public final class AttackRoll {
         int total = used + abilityMod + profBonus + attackBonus;
 
         // Nat 20 = always a critical hit. Nat 1 = always a miss.
-        if (used == Dice.D20.getSides()) return new Result(RollOutcome.CRITICAL_SUCCESS, atkBonuses);
-        if (used == 1)                   return new Result(RollOutcome.CRITICAL_FAILURE, atkBonuses);
-        return new Result(total >= targetAc ? RollOutcome.SUCCESS : RollOutcome.FAILURE, atkBonuses);
+        RollOutcome outcome;
+        if (used == Dice.D20.getSides())    outcome = RollOutcome.CRITICAL_SUCCESS;
+        else if (used == 1)                 outcome = RollOutcome.CRITICAL_FAILURE;
+        else outcome = total >= targetAc ? RollOutcome.SUCCESS : RollOutcome.FAILURE;
+
+        return new Result(roll1, roll2, rollType, used, abilityScore, abilityMod, profBonus, targetAc, total, outcome, atkBonuses);
     }
 
     // ── Internal ──────────────────────────────────────────────────────────────

@@ -28,44 +28,59 @@ public final class RollModifierRegistry {
         default int saveBonus(AbilityScore score) {
             return getSaveBonusList(score).stream().mapToInt(DiceBonus::value).sum();
         }
+
+        /**
+         * Whether this modifier's underlying source is still actually active right now.
+         * Consulted on every {@code resolve*} call, so a modifier that has outlived its intended
+         * lifetime — e.g. because the removal callback for the effect that registered it was
+         * missed, or two independent systems both think they own removing it — is excluded from
+         * the result and lazily evicted from the registry, instead of continuing to apply
+         * indefinitely until an unrelated full reset (player disconnect).
+         *
+         * <p>A modifier backed by a Minecraft status effect should implement this by checking the
+         * entity's actual current effect state (e.g. {@code player.hasEffect(ModEffects.BLESS)}),
+         * which Minecraft itself always keeps correct the instant the effect's duration ends,
+         * independent of any callback/event wiring. Defaults to {@code true} for a modifier with no
+         * independent liveness signal of its own (e.g. one removed solely by an explicit one-shot
+         * action with no duration to outlive).
+         */
+        default boolean isActive() { return true; }
     }
 
     private static final Map<UUID, Map<Identifier, RollModifier>> MODIFIERS = new HashMap<>();
 
     public static void register(ServerPlayer player, Identifier sourceId, RollModifier modifier) {
-        MODIFIERS.computeIfAbsent(player.getUUID(), k -> new LinkedHashMap<>())
-                .put(sourceId, modifier);
+        register(player.getUUID(), sourceId, modifier);
     }
 
     public static void remove(ServerPlayer player, Identifier sourceId) {
-        Map<Identifier, RollModifier> map = MODIFIERS.get(player.getUUID());
-        if (map != null) map.remove(sourceId);
+        remove(player.getUUID(), sourceId);
     }
 
     public static RollType resolveSave(ServerPlayer player, AbilityScore score, RollType base) {
-        Map<Identifier, RollModifier> map = MODIFIERS.get(player.getUUID());
-        if (map == null || map.isEmpty()) return base;
+        Collection<RollModifier> mods = activeModifiers(player.getUUID());
+        if (mods.isEmpty()) return base;
         RollType result = base;
-        for (RollModifier mod : map.values()) result = mod.modifySave(score, result);
+        for (RollModifier mod : mods) result = mod.modifySave(score, result);
         return result;
     }
 
     public static AbilityCheckResolver.RollMode resolveCheck(ServerPlayer player,
                                                              AbilityScore score,
                                                              AbilityCheckResolver.RollMode base) {
-        Map<Identifier, RollModifier> map = MODIFIERS.get(player.getUUID());
-        if (map == null || map.isEmpty()) return base;
+        Collection<RollModifier> mods = activeModifiers(player.getUUID());
+        if (mods.isEmpty()) return base;
         AbilityCheckResolver.RollMode result = base;
-        for (RollModifier mod : map.values()) result = mod.modifyCheck(score, result);
+        for (RollModifier mod : mods) result = mod.modifyCheck(score, result);
         return result;
     }
 
-    /** Returns labeled attack bonuses from all active modifiers (dice are rolled here). */
+    /** Returns labeled attack bonuses from all currently active modifiers (dice are rolled here). */
     public static List<DiceBonus> resolveAttackBonusList(ServerPlayer player, AbilityScore score) {
-        Map<Identifier, RollModifier> map = MODIFIERS.get(player.getUUID());
-        if (map == null || map.isEmpty()) return List.of();
+        Collection<RollModifier> mods = activeModifiers(player.getUUID());
+        if (mods.isEmpty()) return List.of();
         List<DiceBonus> result = new ArrayList<>();
-        for (RollModifier mod : map.values()) result.addAll(mod.getAttackBonusList(score));
+        for (RollModifier mod : mods) result.addAll(mod.getAttackBonusList(score));
         return result;
     }
 
@@ -74,12 +89,12 @@ public final class RollModifierRegistry {
         return resolveAttackBonusList(player, score).stream().mapToInt(DiceBonus::value).sum();
     }
 
-    /** Returns labeled save bonuses from all active modifiers (dice are rolled here). */
+    /** Returns labeled save bonuses from all currently active modifiers (dice are rolled here). */
     public static List<DiceBonus> resolveSaveBonusList(ServerPlayer player, AbilityScore score) {
-        Map<Identifier, RollModifier> map = MODIFIERS.get(player.getUUID());
-        if (map == null || map.isEmpty()) return List.of();
+        Collection<RollModifier> mods = activeModifiers(player.getUUID());
+        if (mods.isEmpty()) return List.of();
         List<DiceBonus> result = new ArrayList<>();
-        for (RollModifier mod : map.values()) result.addAll(mod.getSaveBonusList(score));
+        for (RollModifier mod : mods) result.addAll(mod.getSaveBonusList(score));
         return result;
     }
 
@@ -93,5 +108,68 @@ public final class RollModifierRegistry {
         MODIFIERS.remove(playerId);
     }
 
+    // ── UUID-keyed implementation ────────────────────────────────────────────
+    // The ServerPlayer-taking public API above only ever needs the player's UUID, so the actual
+    // storage/resolution logic is UUID-keyed — this also lets it be exercised directly in tests
+    // without constructing a live ServerPlayer (which requires a bootstrapped Minecraft registry).
+
+    private static void register(UUID playerId, Identifier sourceId, RollModifier modifier) {
+        MODIFIERS.computeIfAbsent(playerId, k -> new LinkedHashMap<>()).put(sourceId, modifier);
+    }
+
+    private static void remove(UUID playerId, Identifier sourceId) {
+        Map<Identifier, RollModifier> map = MODIFIERS.get(playerId);
+        if (map != null) map.remove(sourceId);
+    }
+
+    /**
+     * Returns every currently-registered modifier for {@code playerId} whose {@link
+     * RollModifier#isActive()} is still {@code true}, lazily evicting (removing from the
+     * registry) any that report {@code false} — so a stale modifier is both excluded from this
+     * result and cleaned up, rather than being re-checked and re-excluded on every future call
+     * forever. The only source of truth for "is this modifier still active" is the modifier
+     * itself; this method never guesses.
+     */
+    private static Collection<RollModifier> activeModifiers(UUID playerId) {
+        Map<Identifier, RollModifier> map = MODIFIERS.get(playerId);
+        if (map == null || map.isEmpty()) return List.of();
+        map.entrySet().removeIf(entry -> !entry.getValue().isActive());
+        if (map.isEmpty()) {
+            MODIFIERS.remove(playerId);
+            return List.of();
+        }
+        return map.values();
+    }
+
     private RollModifierRegistry() {}
+
+    // ── Test-only hooks ──────────────────────────────────────────────────────
+    // UUID-keyed, mirroring the ServerPlayer-taking public API exactly — lets the eviction/
+    // liveness behavior be exercised with a real registered RollModifier under plain JUnit,
+    // without needing a live ServerPlayer.
+
+    static void registerForTest(UUID playerId, Identifier sourceId, RollModifier modifier) {
+        register(playerId, sourceId, modifier);
+    }
+
+    static void removeForTest(UUID playerId, Identifier sourceId) {
+        remove(playerId, sourceId);
+    }
+
+    static List<DiceBonus> resolveAttackBonusListForTest(UUID playerId, AbilityScore score) {
+        Collection<RollModifier> mods = activeModifiers(playerId);
+        if (mods.isEmpty()) return List.of();
+        List<DiceBonus> result = new ArrayList<>();
+        for (RollModifier mod : mods) result.addAll(mod.getAttackBonusList(score));
+        return result;
+    }
+
+    static int registeredCountForTest(UUID playerId) {
+        Map<Identifier, RollModifier> map = MODIFIERS.get(playerId);
+        return map == null ? 0 : map.size();
+    }
+
+    static void clearForTest() {
+        MODIFIERS.clear();
+    }
 }

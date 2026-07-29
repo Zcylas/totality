@@ -1,0 +1,12 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "totality:item/standard_potion",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": -4965830
+      }
+    ]
+  }
+}

@@ -10,6 +10,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import zcylas.totality.init.ModTags;
 import zcylas.totality.init.items.BasicWeaponItems;
+import zcylas.totality.init.items.DndPotionItems;
 import zcylas.totality.init.items.MagicItems;
 import zcylas.totality.init.items.PotionItems;
 import zcylas.totality.item.base_weapons.ShurikenItem;
@@ -139,6 +140,7 @@ public class ModItemTagProvider extends FabricTagsProvider.ItemTagsProvider {
                 .add(key(PotionItems.SOLUTION_OF_LASTING_POTENCY))
                 .add(key(PotionItems.SOLUTION_OF_REGENERATION))
                 .add(key(PotionItems.POTION_OF_WATERBREATHING))
+                .add(key(DndPotionItems.POTION_OF_HEALING))
         // add custom potions here as you make them
         ;
 

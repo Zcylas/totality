@@ -248,5 +248,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("totality.trading.reject.confirmation_required", "Confirmation required for a reduced payout");
         translationBuilder.add("totality.trading.reject.stale_confirmation", "Terms changed — please review and confirm again");
         translationBuilder.add("totality.trading.reject.generic", "That didn't work");
+
+        //D&D standalone potions (independent of the Alchemy potion ladder above)
+        translationBuilder.add("item.totality.dnd_potion_of_healing", "Potion of Healing");
     }
 }

@@ -78,7 +78,10 @@ public class ThrownShurikenEntity extends AbstractArrow {
                         weapon.modifyRollType(attacker, target, RollType.NORMAL),
                         weapon.getDiceCount(),
                         weapon.getDamageDie(),
-                        weapon.getDamageType()   // 7-param — auto-adds ability mod to damage, no bonusDamage
+                        weapon.getDamageType(),
+                        weaponName               // explicit-name overload — the projectile's stored
+                                                  // item identity is authoritative for the notification
+                                                  // label, not the attacker's current main-hand item
                 );
                 // TODO: weapon.onHit() once CombatResolver exposes hit result
             } else {

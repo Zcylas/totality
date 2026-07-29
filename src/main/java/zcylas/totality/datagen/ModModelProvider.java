@@ -590,6 +590,15 @@ public class ModModelProvider extends FabricModelProvider {
                 PotionItems.POTION_OF_ULTIMATE_STAMINA,
                 ItemModelUtils.tintedModel(ultimatePotionModel, PotionTintSource.INSTANCE)
         );
+
+        //D&D Standalone Potions (independent of the Alchemy potion ladder above)
+        // Placeholder art: reuses the existing standard-potion base/fill texture pair with a
+        // literal dark-red tint (0xB43A3A) via vanilla's built-in constant tint source — never
+        // PotionTintSource, which is Alchemy-owned — until dedicated D&D potion art exists.
+        generators.itemModelOutput.accept(
+                DndPotionItems.POTION_OF_HEALING,
+                ItemModelUtils.tintedModel(standardPotionModel, new net.minecraft.client.color.item.Constant(0xB43A3A))
+        );
     }
     //Helper Classes
     private void generateRuneItem(ItemModelGenerators generators, net.minecraft.world.item.Item item, String runeId) {
