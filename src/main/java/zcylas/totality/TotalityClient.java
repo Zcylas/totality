@@ -173,6 +173,17 @@ public class TotalityClient implements ClientModInitializer {
                 zcylas.totality.client.resource.parity.ClientResourceParityLogObserver.clear());
         ClientTickEvents.END_CLIENT_TICK.register(client ->
                 zcylas.totality.client.resource.parity.ClientResourceParityLogObserver.tick());
+
+        // Phase 3B-3: development-only on-demand parity inspection command (/totalitydebug resource
+        // parity — deliberately NOT under /totality, which is the existing server command tree's own
+        // root; a manual-validation finding confirmed a shared client-side root literal intercepts
+        // and breaks every other server-side /totality branch). No-op outside a Fabric development
+        // environment — see
+        // ClientResourceParityInspectionCommand's own Javadoc for the exact gating contract. Purely
+        // read-only: reuses the existing trusted façade (ClientResourceService) and the existing
+        // read-only parity snapshot (ClientResourceParityObservations); never mutates a Resource,
+        // never touches ClientResourceParityLogObserver's persistent-mismatch episode memory.
+        zcylas.totality.client.resource.parity.ClientResourceParityInspectionCommand.registerIfDevelopmentEnvironment();
     }
 
     private void registerRenderers(){
