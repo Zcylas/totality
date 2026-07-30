@@ -1,9 +1,7 @@
 package zcylas.totality.item.energy;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -12,18 +10,20 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 import zcylas.totality.api.industrial.energy.UEComponents;
-import zcylas.totality.api.industrial.energy.UEFormat;
 import zcylas.totality.api.industrial.energy.UEItem;
 
 import java.util.List;
-import java.util.function.Consumer;
 
+/**
+ * Tooltip presentation is contributed by
+ * {@link zcylas.totality.client.tooltip.contributor.EnergyContributor} (capability-driven off
+ * {@link UEItem}) — the old hand-written legacy vanilla-tooltip override on this class has been
+ * retired now that all five battery tiers explicitly opt into Totality tooltip presentation (see
+ * {@code EnergyItems}), rather than being left behind as dead code.
+ */
 public class BatteryItem extends Item implements UEItem {
 
     private final long capacity;
@@ -154,68 +154,4 @@ public class BatteryItem extends Item implements UEItem {
         return getEnergyBarColor(stack);
     }
 
-    // --- Tooltip ---
-
-    @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context,
-                                TooltipDisplay display, Consumer<Component> builder,
-                                TooltipFlag flag) {
-        super.appendHoverText(stack, context, display, builder, flag);
-
-        long stored = getStoredEnergy(stack);
-        long cap = getEnergyCapacity(stack);
-        int percent = cap == 0 ? 0 : (int)(stored * 100 / cap);
-
-        if (isShiftDown()) {
-            builder.accept(Component.literal("Energy: " + stored + " / " + cap + " UE")
-                    .withStyle(ChatFormatting.GRAY));
-            builder.accept(Component.literal("I/O: " + maxInput + " / " + maxOutput + " UE/t")
-                    .withStyle(ChatFormatting.DARK_GRAY));
-        } else {
-            builder.accept(Component.literal("Energy: ")
-                    .withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal(UEFormat.energy(stored) + " / " + UEFormat.energy(cap) + " UE")
-                            .withStyle(ChatFormatting.GOLD)));
-        }
-
-        // Energy bar
-        builder.accept(buildEnergyBar(stored, cap, getEnergyBarColor(stack)));
-
-        boolean active = isActive(stack);
-        builder.accept(Component.literal(active ? "▶ Active" : "◼ Inactive")
-                .withStyle(active ? ChatFormatting.GREEN : ChatFormatting.GRAY));
-
-        if (!isShiftDown()) {
-            builder.accept(Component.literal("Hold SHIFT for details")
-                    .withStyle(ChatFormatting.DARK_GRAY));
-        }
-    }
-
-    private static MutableComponent buildEnergyBar(long stored, long max, int barColor) {
-        int totalBars = 20;
-        int filledBars = max > 0 ? (int)((stored * totalBars) / max) : 0;
-
-        // Convert the int color from getEnergyBarColor to ChatFormatting-compatible hex
-        ChatFormatting filledColor;
-        float percent = max > 0 ? (float) stored / max : 0f;
-        if (percent <= 0.05f) filledColor = ChatFormatting.RED;
-        else if (percent <= 0.50f) filledColor = ChatFormatting.GOLD;
-        else filledColor = ChatFormatting.GREEN;
-
-        MutableComponent bar = Component.literal("");
-        for (int i = 0; i < totalBars; i++) {
-            if (i < filledBars) {
-                bar.append(Component.literal("█").withStyle(filledColor));
-            } else {
-                bar.append(Component.literal("█").withStyle(ChatFormatting.DARK_GRAY));
-            }
-        }
-        return bar;
-    }
-
-    private static boolean isShiftDown() {
-        long window = Minecraft.getInstance().getWindow().handle();
-        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
-    }
 }

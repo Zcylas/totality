@@ -30,6 +30,16 @@ public class HealingPotionItem extends Item {
         this.useDurationTicks = useDurationTicks;
     }
 
+    /** The reusable healing formula this stack was registered with — read by the Tooltip API. */
+    public HealingAmount getHealingAmount() {
+        return healingAmount;
+    }
+
+    /** The configured drink duration in ticks this stack was registered with. */
+    public int getUseDurationTicks() {
+        return useDurationTicks;
+    }
+
     @Override
     public int getUseDuration(ItemStack stack, LivingEntity user) {
         return useDurationTicks;

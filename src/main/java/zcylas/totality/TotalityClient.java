@@ -23,6 +23,7 @@ import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.combat.CombatTextRenderer;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
+import zcylas.totality.client.tooltip.TooltipScrollController;
 import zcylas.totality.client.hud.resource.ISecondaryResource;
 import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
 import zcylas.totality.client.renderer.ability.HeatVisionBeamRenderer;
@@ -83,6 +84,9 @@ public class TotalityClient implements ClientModInitializer {
         // ── Networking ────────────────────────────────────────────────────────
         TotalityClientPacketHandlers.register();
         TotalityClientSyncListeners.register();
+
+        // ── Tooltip API ───────────────────────────────────────────────────────
+        TooltipScrollController.registerLifecycleHooks();
 
         // ── Keybinds & tick handlers ──────────────────────────────────────────
         TotalityKeybindHandlers.register();

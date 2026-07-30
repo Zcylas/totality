@@ -12,7 +12,7 @@ import zcylas.totality.api.rpg.stats.AbilityScore;
  * Register each sword variant with a unique registry name and its own
  * {@link TotalityWeaponStats} and {@link Item.Properties} (rarity, lore, durability).
  * The Totality tooltip renderer reads weapon stats automatically via
- * {@link zcylas.totality.client.tooltip.renderer.TooltipWeaponBlock}.
+ * {@link zcylas.totality.client.tooltip.contributor.WeaponContributor}.
  *
  * Damage and attack rolls go through {@link zcylas.totality.api.rpg.combat.CombatResolver}
  * via the player attack mixin — vanilla sword damage is not used.

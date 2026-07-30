@@ -12,9 +12,30 @@ import java.util.List;
 
 public class TooltipPainter {
 
+    /**
+     * Blended toward a neutral dark ground before drawing (visual-correction pass, Finding 6):
+     * the panel background used to paint {@code theme.bgTop()}/{@code bgBottom()} at full
+     * saturation across the whole panel, which — combined with the old wider panel — read as an
+     * oversaturated colored block competing with the content on top of it. Rarity identity now
+     * lives primarily in the border, title, and badge colors (all drawn separately, still at full
+     * saturation); the background itself is desaturated toward neutral so it recedes behind
+     * content instead of dominating it. {@link TooltipTheme}'s own per-rarity palettes are
+     * untouched — this blend happens only here, at draw time, not in the theme data.
+     */
     public static void drawBackground(GuiGraphicsExtractor graphics, int x, int y, int w, int h,
                                       TooltipTheme theme) {
-        graphics.fillGradient(x, y, x + w, y + h, theme.bgTop(), theme.bgBottom());
+        int top = blendTowardNeutral(theme.bgTop(), 0.35f);
+        int bottom = blendTowardNeutral(theme.bgBottom(), 0.35f);
+        graphics.fillGradient(x, y, x + w, y + h, top, bottom);
+    }
+
+    private static final int NEUTRAL_GROUND = 0xFF19191C;
+
+    private static int blendTowardNeutral(int color, float amount) {
+        int r = (int) (((color >> 16) & 0xFF) * (1 - amount) + ((NEUTRAL_GROUND >> 16) & 0xFF) * amount);
+        int g = (int) (((color >> 8) & 0xFF) * (1 - amount) + ((NEUTRAL_GROUND >> 8) & 0xFF) * amount);
+        int b = (int) ((color & 0xFF) * (1 - amount) + (NEUTRAL_GROUND & 0xFF) * amount);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     public static void drawSeparator(GuiGraphicsExtractor graphics, int x, int y, int width, TooltipTheme theme) {
@@ -23,12 +44,6 @@ public class TooltipPainter {
         graphics.fill(x + 4, lineY, midX - 5, lineY + 1, theme.separator());
         graphics.fill(midX + 5, lineY, x + width - 4, lineY + 1, theme.separator());
         drawSmallDiamond(graphics, midX, lineY, theme.border());
-    }
-
-    public static void drawFooterDots(GuiGraphicsExtractor graphics, int cx, int y, TooltipTheme theme) {
-        drawSmallDiamond(graphics, cx - 8, y, theme.footerDot());
-        drawSmallDiamond(graphics, cx,     y, theme.footerDot());
-        drawSmallDiamond(graphics, cx + 8, y, theme.footerDot());
     }
 
     public static void drawText(GuiGraphicsExtractor graphics, Font font, String text, int x, int y, int color) {

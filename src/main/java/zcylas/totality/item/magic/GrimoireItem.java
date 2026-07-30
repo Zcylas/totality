@@ -1,6 +1,5 @@
 package zcylas.totality.item.magic;
 
-import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
@@ -19,11 +18,14 @@ import zcylas.totality.api.magic.grimoire.formula.ArcaneFormula;
 import zcylas.totality.api.magic.grimoire.formula.FormulaStats;
 import zcylas.totality.api.magic.grimoire.rune.AbstractFormRune;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
-import zcylas.totality.client.tooltip.TooltipExtension;
 
-import java.util.List;
-
-public class GrimoireItem extends Item implements TooltipExtension {
+/**
+ * Tooltip presentation (tier, selected-spell state) is contributed by
+ * {@link zcylas.totality.client.tooltip.contributor.GrimoireContributor}, not this class —
+ * migrated off the old direct {@code TooltipExtension} implementation as part of the Tooltip
+ * API foundation pass.
+ */
+public class GrimoireItem extends Item {
 
     private final int maxTier;
 
@@ -128,33 +130,6 @@ public class GrimoireItem extends Item implements TooltipExtension {
 
         return InteractionResult.SUCCESS;
     }
-
-    @Override
-    public void addTooltipLines(ItemStack stack, Font font, List<Component> lines) {
-        lines.add(Component.literal("Tier " + toRoman(maxTier))
-                .withStyle(s -> s.withColor(0x9966FF)));
-
-        GrimoireCaster caster = stack.getOrDefault(MagicComponents.GRIMOIRE_CASTER, GrimoireCaster.EMPTY);
-        if (!caster.spellName().isEmpty()) {
-            lines.add(Component.literal("Active: " + caster.spellName())
-                    .withStyle(s -> s.withColor(0xAAAAFF)));
-        } else {
-            lines.add(Component.literal("No spell active")
-                    .withStyle(s -> s.withColor(0xFF666666)));
-        }
-    }
-
-    private static String toRoman(int number) {
-        return switch (number) {
-            case 1 -> "I";
-            case 2 -> "II";
-            case 3 -> "III";
-            case 4 -> "IV";
-            case 5 -> "V";
-            default -> String.valueOf(number);
-        };
-    }
-
 
     @Override
     public InteractionResult useOn(net.minecraft.world.item.context.UseOnContext context) {

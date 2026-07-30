@@ -14,8 +14,10 @@ public class MagicItems {
             "novice_grimoire",
             properties -> new GrimoireItem(properties, 1),
             new Item.Properties()
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.RARE))
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "A simple tome given to those who have just begun to hear the whisper of the arcane. Most never open a second one."
                     ))
@@ -25,8 +27,10 @@ public class MagicItems {
             "apprentice_grimoire",
             properties -> new GrimoireItem(properties, 2),
             new Item.Properties()
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.EPIC))
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "The runes within grow more complex, more demanding. Only those who survived the first grimoire deserve to hold this one."
                     ))
@@ -36,8 +40,10 @@ public class MagicItems {
             "archmage_grimoire",
             properties -> new GrimoireItem(properties, 3),
             new Item.Properties()
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.LEGENDARY))
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "Reserved for those who have mastered the arcane arts. This grimoire unlocks the most powerful runes known to mankind, capable of reshaping reality itself."
                     ))
@@ -47,8 +53,10 @@ public class MagicItems {
             "ring_of_protection",
             props -> new RingOfProtectionItem(props),
             new Item.Properties()
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.UNCOMMON))
                     .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "A simple band of protection. Requires attunement to grant its boon."
                     ))
