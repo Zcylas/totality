@@ -11,6 +11,8 @@ import zcylas.totality.api.rpg.classes.*;
 import zcylas.totality.api.rpg.classes.covenant.CovenantData;
 import zcylas.totality.api.rpg.combat.armor.ArmorProficiency;
 import zcylas.totality.api.rpg.combat.weapon.WeaponCategory;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
 import zcylas.totality.screen.character.BaseCharacterScreen;
@@ -348,23 +350,22 @@ public class ClassTab extends CharacterScreenTab {
 
         int cx = x + w / 2;
 
-        // Read charge data
-        int currentCharges = 0;
-        int maxCharges     = 0;
+        // Read charge data.
+        // Phase 3C: presentation source migrated to the trusted Generic client Resource view,
+        // falling back to the legacy PlayerChargesComponent mirror only when the Generic query is
+        // unavailable — see ClientResourcePresentationResolver.
         String resourceName = "—";
         String rechargeNote = "";
 
-        try {
-            var chargeComp = ChargeComponents.PLAYER_CHARGES.get(
-                    (ComponentProvider) Minecraft.getInstance().player);
-            Identifier rageId = BarbarianRageAbility.CHARGE_ID;
-            currentCharges = chargeComp.getCurrent(rageId);
-            maxCharges     = chargeComp.getMax(rageId);
-            if (maxCharges > 0) {
-                resourceName = "BARBARIAN RAGE";
-                rechargeNote = "+1 Short Rest  ·  All on Long Rest";
-            }
-        } catch (Exception ignored) {}
+        ClientResourcePresentationResolver.ScalarPresentation rageView =
+                ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.RAGE,
+                        ClassTab::legacyRageCurrent, ClassTab::legacyRageMax);
+        int currentCharges = (int) rageView.current();
+        int maxCharges     = (int) rageView.maximum();
+        if (maxCharges > 0) {
+            resourceName = "BARBARIAN RAGE";
+            rechargeNote = "+1 Short Rest  ·  All on Long Rest";
+        }
 
         screen.sc(g, x + 1, y + HDR_H + 1, w - 2, h - HDR_H - 2);
         int cy = y + HDR_H + PAD - resourceScroll;
@@ -408,6 +409,24 @@ public class ClassTab extends CharacterScreenTab {
         screen.drawTinyAt(g, rechargeNote, cx - rnw2 / 2, cy, COLOR_LABEL);
 
         screen.esc(g);
+    }
+
+    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
+    private static int legacyRageCurrent() {
+        try {
+            return ChargeComponents.PLAYER_CHARGES
+                    .get((ComponentProvider) Minecraft.getInstance().player)
+                    .getCurrent(BarbarianRageAbility.CHARGE_ID);
+        } catch (Exception ignored) { return 0; }
+    }
+
+    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
+    private static int legacyRageMax() {
+        try {
+            return ChargeComponents.PLAYER_CHARGES
+                    .get((ComponentProvider) Minecraft.getInstance().player)
+                    .getMax(BarbarianRageAbility.CHARGE_ID);
+        } catch (Exception ignored) { return 0; }
     }
 
     @Override

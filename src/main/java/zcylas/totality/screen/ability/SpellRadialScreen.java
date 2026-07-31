@@ -12,6 +12,8 @@ import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.magic.spell.ClientSpellSlotManager;
 import zcylas.totality.api.magic.spell.Spell;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
 import zcylas.totality.client.spell.ClientSelectedSpellManager;
 import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.networking.ability.ClientAbilityManager;
@@ -159,9 +161,18 @@ public class SpellRadialScreen extends Screen {
             return;
         }
 
-        int max = ClientSpellSlotManager.getMax(spell.getSpellLevel());
+        // Phase 3C: presentation source migrated to the trusted Generic partitioned client Resource
+        // view (partition id = spell level, current = remaining slots, max = maximum slots), with
+        // legacy ClientSpellSlotManager fallback — see ClientResourcePresentationResolver. Display
+        // only: this never mutates or recalculates slot state, and the actual cast/spend path is
+        // unchanged.
+        int level = spell.getSpellLevel();
+        ClientResourcePresentationResolver.PartitionPresentation slotView =
+                ClientResourcePresentationResolver.INSTANCE.resolvePartition(PlayerResourceIds.SPELL_SLOTS, level,
+                        () -> ClientSpellSlotManager.getRemaining(level), () -> ClientSpellSlotManager.getMax(level));
+        int max = (int) slotView.maximum();
         if (max <= 0) return;
-        int remaining = ClientSpellSlotManager.getRemaining(spell.getSpellLevel());
+        int remaining = (int) slotView.current();
 
         int totalW = max * PIP_SIZE + (max - 1) * PIP_GAP;
         int startX = cx - totalW / 2;

@@ -9,6 +9,8 @@ import net.minecraft.world.entity.player.Player;
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
 import zcylas.totality.api.rpg.ancestry.ClientAncestryManager;
 import zcylas.totality.api.rpg.classes.ClientClassManager;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
 import zcylas.totality.networking.mana.ClientManaManager;
@@ -104,10 +106,18 @@ public class OverviewTab extends CharacterScreenTab {
 
         float hp    = player != null ? RpgDisplayUtils.toDisplayHp(player.getHealth())    : 0;
         float maxHp = player != null ? RpgDisplayUtils.toDisplayHp(player.getMaxHealth()) : 1;
-        float sta    = ClientStaminaManager.getStamina();
-        float maxSta = ClientStaminaManager.getMaxStamina();
-        float mana    = ClientManaManager.getMana();
-        float maxMana = ClientManaManager.getMaxMana();
+        // Phase 3C: presentation source migrated to the trusted Generic client Resource view, with
+        // legacy fallback — see ClientResourcePresentationResolver. Health stays native-backed.
+        ClientResourcePresentationResolver.ScalarPresentation staminaView =
+                ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.STAMINA,
+                        () -> ClientStaminaManager.getStamina(), () -> ClientStaminaManager.getMaxStamina());
+        float sta    = staminaView.current();
+        float maxSta = staminaView.maximum();
+        ClientResourcePresentationResolver.ScalarPresentation manaView =
+                ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.MANA,
+                        () -> ClientManaManager.getMana(), () -> ClientManaManager.getMaxMana());
+        float mana    = manaView.current();
+        float maxMana = manaView.maximum();
 
         // Layout — maximize bar width
         int iconW = font.width("⚡") + 3;

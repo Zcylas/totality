@@ -20,6 +20,8 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.rpg.classes.ChargeComponents;
 import zcylas.totality.api.rpg.classes.ClientClassManager;
 import zcylas.totality.api.rpg.classes.TotalityClasses;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.combat.CombatTextRenderer;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
@@ -137,8 +139,12 @@ public class TotalityClient implements ClientModInitializer {
                 zcylas.totality.networking.resource.ClientResourceSyncManager.tick());
 
         // Phase 3B-1: registers the presentation-only client Resource query façade's reader
-        // strategies. Registration only — no production consumer reads ClientResourceService yet
-        // (see TOTALITY_RESOURCE_API_PHASE_3B_CLIENT_VIEW_AND_PARITY_READINESS.md).
+        // strategies. As of Phase 3C, production presentation consumers (TotalityHudRenderer,
+        // the Rage ISecondaryResource below, ClassTab, SpellRadialScreen, OverviewTab) read
+        // ClientResourceService through ClientResourcePresentationResolver, so this registration
+        // must happen before any of those consumers render or query a value — see
+        // TOTALITY_RESOURCE_API_PHASE_3B_CLIENT_VIEW_AND_PARITY_READINESS.md and
+        // TOTALITY_GENERIC_PLAYER_RESOURCE_API_PHASE_3C_CONSUMER_MIGRATION_IMPLEMENTATION_REPORT.md.
         zcylas.totality.client.resource.TotalityClientResourceReaders.register();
 
         // Phase 3B-2B shadow-parity lifecycle reset — an independent hook alongside the
@@ -216,17 +222,18 @@ public class TotalityClient implements ClientModInitializer {
 
         SecondaryResourceRegistry.register(new ISecondaryResource() {
             @Override public String getName() { return "Rage"; }
+            // Phase 3C: presentation source migrated to the trusted Generic client Resource view,
+            // falling back to the legacy PlayerChargesComponent mirror only when the Generic query
+            // is unavailable — see ClientResourcePresentationResolver. shouldShow/getMax's existing
+            // "0 = hidden" gate below is unchanged, so a non-Barbarian or unavailable Rage resource
+            // is still never presented as a visible 0/0 pool.
             @Override public int getCurrent(Minecraft client) {
-                try { return ChargeComponents.PLAYER_CHARGES
-                        .get((ComponentProvider) client.player)
-                        .getCurrent(BarbarianRageAbility.CHARGE_ID);
-                } catch (Exception e) { return 0; }
+                return (int) ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.RAGE,
+                        () -> legacyRageCurrent(client), () -> legacyRageMax(client)).current();
             }
             @Override public int getMax(Minecraft client) {
-                try { return ChargeComponents.PLAYER_CHARGES
-                        .get((ComponentProvider) client.player)
-                        .getMax(BarbarianRageAbility.CHARGE_ID);
-                } catch (Exception e) { return 0; }
+                return (int) ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.RAGE,
+                        () -> legacyRageCurrent(client), () -> legacyRageMax(client)).maximum();
             }
             @Override public int getColor() { return 0xFFCC3333; }
             @Override public boolean shouldShow(Minecraft client) {
@@ -241,6 +248,24 @@ public class TotalityClient implements ClientModInitializer {
                 return zcylas.totality.client.gui.TotalityGuiSprites.HUD_RAGE_PIP_SPENT;
             }
         });
+    }
+
+    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
+    private static int legacyRageCurrent(Minecraft client) {
+        try {
+            return ChargeComponents.PLAYER_CHARGES
+                    .get((ComponentProvider) client.player)
+                    .getCurrent(BarbarianRageAbility.CHARGE_ID);
+        } catch (Exception e) { return 0; }
+    }
+
+    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
+    private static int legacyRageMax(Minecraft client) {
+        try {
+            return ChargeComponents.PLAYER_CHARGES
+                    .get((ComponentProvider) client.player)
+                    .getMax(BarbarianRageAbility.CHARGE_ID);
+        } catch (Exception e) { return 0; }
     }
 
     private void registerEntityRenderers(){

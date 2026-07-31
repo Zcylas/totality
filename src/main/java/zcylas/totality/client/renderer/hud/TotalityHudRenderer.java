@@ -24,6 +24,7 @@ import zcylas.totality.api.rpg.combat.weapon.TotalityMeleeWeaponItem;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.resources.PlayerResourceService;
 import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
 import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
 import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegistry;
 import zcylas.totality.api.rpg.stats.AbilityScore;
@@ -108,10 +109,20 @@ public class TotalityHudRenderer {
             // ── LEFT SIDE — HP, Stamina, Mana ──
             float hp    = client.player.getHealth();
             float maxHp = client.player.getMaxHealth();
-            int stamina    = ClientStaminaManager.getStamina();
-            int maxStamina = ClientStaminaManager.getMaxStamina();
-            int mana    = ClientManaManager.getMana();
-            int maxMana = ClientManaManager.getMaxMana();
+            // Phase 3C: presentation source migrated to the trusted Generic client Resource view,
+            // falling back to the legacy managers only when the Generic query is unavailable — see
+            // ClientResourcePresentationResolver's javadoc for the full fallback policy. Health/Food
+            // stay native-backed (unchanged) per Phase 3C scope.
+            ClientResourcePresentationResolver.ScalarPresentation staminaView =
+                    ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.STAMINA,
+                            () -> ClientStaminaManager.getStamina(), () -> ClientStaminaManager.getMaxStamina());
+            int stamina    = (int) staminaView.current();
+            int maxStamina = (int) staminaView.maximum();
+            ClientResourcePresentationResolver.ScalarPresentation manaView =
+                    ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.MANA,
+                            () -> ClientManaManager.getMana(), () -> ClientManaManager.getMaxMana());
+            int mana    = (int) manaView.current();
+            int maxMana = (int) manaView.maximum();
             int hunger  = client.player.getFoodData().getFoodLevel();
 
             double hpPct      = maxHp > 0 ? hp / maxHp : 0;
