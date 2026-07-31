@@ -86,14 +86,42 @@ class Phase3CConsumerMigrationSourceRegressionTest {
     }
 
     @Test
-    void hudRendererPreservesExistingBarGeometryConstants() throws Exception {
-        // Phase 3C is presentation-source-only; the planned HUD cleanup pass must not have started —
-        // pins down that geometry/layout constants are byte-for-byte unchanged.
+    void hudRendererGeometryReflectsTheContainedCleanupPassNotThePreCleanupConstants() throws Exception {
+        // Superseded by the contained HUD cleanup pass (see
+        // TOTALITY_SMALL_HUD_CLEANUP_IMPLEMENTATION_REPORT.md): this test previously asserted the
+        // pre-cleanup 83x8/3/2 constants as proof the cleanup pass had not started. That is no
+        // longer the current state of the repository, so asserting it here would be a stale,
+        // misleading sentinel — the active bar geometry has moved to the dedicated HudBarLayout
+        // pure helper class (HudBarLayoutTest covers its formulas with real, executing tests).
+        // This sentinel instead confirms TotalityHudRenderer's active render path was actually
+        // migrated to reference HudBarLayout rather than any hardcoded geometry of its own.
+        String source = read(HUD_RENDERER);
+        assertTrue(source.contains("HudBarLayout.leftX()"));
+        assertTrue(source.contains("HudBarLayout.staminaY(screenH)"));
+        assertTrue(source.contains("HudBarLayout.manaY(screenH)"));
+        assertTrue(source.contains("HudBarLayout.healthY(screenH)"));
+        assertTrue(source.contains("HudBarLayout.rightX(screenW)"));
+        assertTrue(source.contains("HudBarLayout.secondaryResourceY(screenH)"));
+    }
+
+    // The pre-cleanup 83x8 constants (BG_WIDTH/BG_HEIGHT/BAR_SPACING/BOTTOM_MARGIN) deliberately
+    // still exist in TotalityHudRenderer.java, unchanged — but only as dead code feeding the
+    // dormant drawBar/drawBarMirrored methods (never called in production; superseded by
+    // drawBarSmooth/drawBarMirroredSmooth), per the cleanup task's explicit "do not remove
+    // dormant code" instruction. Their continued presence is not evidence the cleanup pass hasn't
+    // happened — see the test above for the actual active-geometry proof.
+    @Test
+    void preCleanupConstantsSurviveOnlyAsDeadCodeFeedingTheDormantDrawMethods() throws Exception {
         String source = read(HUD_RENDERER);
         assertTrue(source.contains("private static final int BG_WIDTH      = 83;"));
         assertTrue(source.contains("private static final int BG_HEIGHT     = 8;"));
-        assertTrue(source.contains("private static final int BAR_SPACING   = 3;"));
-        assertTrue(source.contains("private static final int BOTTOM_MARGIN = 2;"));
+        int drawBarStart = source.indexOf("private static void drawBar(");
+        int drawBarMirroredEnd = source.indexOf("private static void drawSecondaryResources(");
+        assertTrue(drawBarStart >= 0 && drawBarMirroredEnd > drawBarStart,
+                "expected the dormant drawBar/drawBarMirrored methods to still exist between drawBarMirroredSmooth and drawSecondaryResources");
+        String dormantBlock = source.substring(drawBarStart, drawBarMirroredEnd);
+        assertTrue(dormantBlock.contains("BG_WIDTH") && dormantBlock.contains("BG_HEIGHT"),
+                "the dormant methods must be the sole remaining reference to the pre-cleanup constants");
     }
 
     // ── 11/12: OverviewTab Mana + Stamina use the Generic resolver; Health stays native ─────

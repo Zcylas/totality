@@ -36,7 +36,12 @@
 		"client.GuiExtractRenderStateMixin",
 		"client.HumanoidModelMixin",
 		"client.ItemInHandRendererMixin",
-		"client.MultiPlayerGameModeMixin"
+		"client.MultiPlayerGameModeMixin",
+		"client.chat.ChatComponentBottomMarginMixin",
+		"client.chat.ChatScreenInputBackgroundMixin",
+		"client.chat.ChatScreenInputPositionMixin",
+		"client.chat.CommandSuggestionsListPositionMixin",
+		"client.chat.CommandSuggestionsUsagePositionMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

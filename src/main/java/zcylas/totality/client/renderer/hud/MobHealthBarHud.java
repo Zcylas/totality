@@ -130,14 +130,31 @@ public class MobHealthBarHud {
 
         MobStatsClientCache.MobClientData mobData = MobStatsClientCache.get(target.getId());
 
-        boolean showBars      = inCombat || perception >= 1;
+        // Temporary testing change (contained HUD cleanup pass — see
+        // TOTALITY_SMALL_HUD_CLEANUP_IMPLEMENTATION_REPORT.md): directly crosshair-targeting any
+        // valid non-player LivingEntity now shows its HP bar unconditionally, independent of
+        // combat/hostility state — render() is only ever invoked with a non-null target that
+        // already passed getDisplayTarget()'s crosshair/combat validity rules (a LivingEntity,
+        // not a Player, within range). Review-correction: an explicit isAlive() check is only
+        // actually performed on the combatTarget branch inside getDisplayTarget() — the
+        // crosshairTarget branch above has no explicit alive check of its own and relies on
+        // whatever liveness behavior mc.crosshairPickEntity's vanilla raytrace already has, which
+        // this comment does not claim to have verified. Either way, "we are rendering at all"
+        // means "a valid direct-look or combat target exists" per those actual rules.
+        // showHealthBar is deliberately a separate
+        // boolean from every combat-information gate below: name color, rank, and AC stay exactly
+        // as combat/perception-gated as before, so a neutral directly-observed target still shows
+        // only a plain HP bar with the existing neutral name treatment — it must not be read as
+        // Perception mastery being implemented (getPerceptionMasteryLevel() is still stubbed to
+        // 0 below, unchanged). Pending the dedicated Mob Health/Mob HUD API replacing this.
+        boolean showHealthBar = true;
         boolean showNameColor = inCombat || perception >= 2;
         boolean showExtraBars = inCombat && perception >= 3;
         boolean showRank      = inCombat;
         boolean showAc        = inCombat; // testing — gate with perception mastery later
 
-        int panelW = getPanelW(mc, target, showBars, showExtraBars);
-        int panelH = getPanelH(showBars, showExtraBars, showAc);
+        int panelW = getPanelW(mc, target, showHealthBar, showExtraBars);
+        int panelH = getPanelH(showHealthBar, showExtraBars, showAc);
 
         int panelX = screenW / 2 - panelW / 2;
         int panelY = PANEL_TOP_Y;
@@ -156,7 +173,7 @@ public class MobHealthBarHud {
         cy += NAME_H;
 
         // ── HP bar — smooth drain animation ──
-        if (showBars) {
+        if (showHealthBar) {
             int barX = panelX + BAR_PAD_X;
             int barW = panelW - BAR_PAD_X * 2;
             cy += BAR_SPACING;
@@ -333,15 +350,15 @@ public class MobHealthBarHud {
     // ── Dynamic panel sizing ──────────────────────────────────────────────────
 
     private static int getPanelW(Minecraft mc, LivingEntity target,
-                                 boolean showBars, boolean showExtraBars) {
+                                 boolean showHealthBar, boolean showExtraBars) {
         int nameW = mc.font.width(buildName(target, false, null)) + 24; // less padding
-        int minW  = showExtraBars ? 180 : showBars ? 140 : 80;
-        int maxW  = showExtraBars ? 320 : showBars ? 240 : 160;
+        int minW  = showExtraBars ? 180 : showHealthBar ? 140 : 80;
+        int maxW  = showExtraBars ? 320 : showHealthBar ? 240 : 160;
         return Mth.clamp(nameW, minW, maxW);
     }
 
-    private static int getPanelH(boolean showBars, boolean showExtraBars, boolean showAc) {
-        if (!showBars) return NAME_H + PANEL_PAD_Y * 2;
+    private static int getPanelH(boolean showHealthBar, boolean showExtraBars, boolean showAc) {
+        if (!showHealthBar) return NAME_H + PANEL_PAD_Y * 2;
         int h = PANEL_PAD_Y + NAME_H + BAR_SPACING + BAR_H + PANEL_PAD_Y;
         if (showAc) h += BAR_SPACING + 9;
         if (showExtraBars) h += (BAR_SPACING + BAR_H) * 2;
