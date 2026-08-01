@@ -29,7 +29,7 @@ import zcylas.totality.api.rpg.combat.DamageBonusRegistry;
 import zcylas.totality.api.rpg.combat.PowerAttackManager;
 import zcylas.totality.api.rpg.combat.RollModifierRegistry;
 import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
-import zcylas.totality.api.rpg.combat.exhaustion.ExhaustionManager;
+import zcylas.totality.api.rpg.combat.stamina.depletion.StaminaDepletionManager;
 import zcylas.totality.api.rpg.rest.RestEventBus;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyComponents;
 import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
@@ -63,6 +63,10 @@ public class PlayerConnectionEvents {
             // Sync stamina so the client HUD shows the correct value immediately
             // rather than defaulting to 100 until the first drain/regen event.
             StaminaServerTick.syncStamina(player);
+            // Seed the Stamina depletion state now that authoritative Stamina is loaded (proven
+            // by the getStamina() read inside syncStamina() above) — without this, a player
+            // rejoining at zero/low Stamina gets a spurious transition notification on the next tick.
+            StaminaDepletionManager.onPlayerJoin(player);
             if (ClassComponents.get(player).hasClass(TotalityClasses.BARBARIAN_ID)) {
                 var abilities = AbilityComponents.ABILITIES.get((ComponentProvider) player);
                 if (!abilities.getUnlocked().contains(
@@ -152,7 +156,7 @@ public class PlayerConnectionEvents {
             RestEventBus.clearPlayer(handler.player.getUUID());
             zcylas.totality.api.rpg.rest.RestSessionManager.clearPlayer(handler.player);
             CastingRestrictionRegistry.clearPlayer(handler.player.getUUID()); // ← add
-            ExhaustionManager.onPlayerLeave(handler.player);
+            StaminaDepletionManager.onPlayerLeave(handler.player);
             BowStaminaHandler.onPlayerLeave(handler.player);
             VeinminerKeyHandler.onPlayerLeave(handler.player);
             PowerAttackManager.onPlayerLeave(handler.player);
