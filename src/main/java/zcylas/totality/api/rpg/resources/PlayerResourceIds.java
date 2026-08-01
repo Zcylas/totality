@@ -40,6 +40,14 @@ import zcylas.totality.Totality;
  * exactly, unrenamed — the Resource API resource id and the legacy pool key are two different,
  * independent identifiers by design (unlike Phase 2D's spell-slot component/resource id overlap,
  * which was coincidental, not deliberate).
+ *
+ * <p>The dormant Resource Registration pass adds {@code totality:thirst}, {@code totality:sanity},
+ * and {@code totality:ki} — the first {@code GENERIC_COMPONENT}-authority production identifiers.
+ * Unlike every id above, none of these three has an adapter constant: they are registered with no
+ * owning system, no grant provider, and no live query path yet (see
+ * {@code TOTALITY_DORMANT_RESOURCE_REGISTRATION_IMPLEMENTATION_REPORT.md}). {@code totality:fatigue}
+ * and {@code totality:temperature} are deliberately absent — see that report's Fatigue/Temperature
+ * sections for why.
  */
 public final class PlayerResourceIds {
 
@@ -50,6 +58,13 @@ public final class PlayerResourceIds {
     public static final Identifier STAMINA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "stamina");
     public static final Identifier SPELL_SLOTS = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "spell_slots");
     public static final Identifier RAGE = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "rage");
+
+    /** Dormant — registered with no owning system, no grant provider, no adapter. */
+    public static final Identifier THIRST = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "thirst");
+    /** Dormant — registered with no owning system, no grant provider, no adapter. */
+    public static final Identifier SANITY = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "sanity");
+    /** Dormant — registered with no owning system, no grant provider, no adapter, no authored maximum. */
+    public static final Identifier KI = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "ki");
 
     public static final Identifier HEALTH_ADAPTER = HEALTH;
     public static final Identifier FOOD_ADAPTER = FOOD;

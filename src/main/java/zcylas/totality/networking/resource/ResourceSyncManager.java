@@ -151,13 +151,19 @@ public final class ResourceSyncManager {
 
     /**
      * A resource participates in the generic sync packets only when nothing else already reliably
-     * mirrors it to the client. {@code GENERIC_COMPONENT} resources (none registered in production
-     * yet) always qualify; {@code EXTERNAL_ADAPTER} resources qualify unless their adapter declares
-     * {@link ExternalResourceClientMirrorMode#NATIVE_SYNCHRONIZATION}. Resources currently declaring
-     * {@link ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION} (Mana, Stamina,
-     * spell slots, Rage) DO qualify — the legacy bespoke packet remains their real client source of
-     * truth in Phase 3A, but the new generic packets are sent in parallel so the contract is
-     * exercised end-to-end ahead of the Phase 3B migration.
+     * mirrors it to the client. {@code GENERIC_COMPONENT} resources always qualify — as of the
+     * dormant Resource Registration pass, three production definitions actually use this authority
+     * ({@code totality:thirst}/{@code totality:sanity}/{@code totality:ki}), but all three remain
+     * dormant and uninstantiated (no grant provider exists for any of them yet): a definition being
+     * eligible here does not mean a value is available to synchronize — an uninstantiated
+     * {@code GENERIC_COMPONENT} resource queries to {@code STATE_NOT_INSTANTIATED}, which becomes an
+     * {@code AbsentOutcome} and is omitted from the wire entirely (see {@code PlayerResourceSyncState
+     * #applyFull}), never a fabricated snapshot. {@code EXTERNAL_ADAPTER} resources qualify unless
+     * their adapter declares {@link ExternalResourceClientMirrorMode#NATIVE_SYNCHRONIZATION}.
+     * Resources currently declaring {@link ExternalResourceClientMirrorMode#LEGACY_BESPOKE_SYNCHRONIZATION}
+     * (Mana, Stamina, spell slots, Rage) DO qualify — the legacy bespoke packet remains their real
+     * client source of truth in Phase 3A, but the new generic packets are sent in parallel so the
+     * contract is exercised end-to-end ahead of the Phase 3B migration.
      */
     private static boolean isEligibleForGenericSync(PlayerResourceDefinition definition) {
         if (definition.stateAuthority() != ResourceStateAuthority.EXTERNAL_ADAPTER) {

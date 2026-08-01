@@ -19,11 +19,14 @@ import java.util.Optional;
  * validation needs to be exercised by isolated automated tests without sharing mutable static state
  * across the whole test JVM. See the readiness audit's Stage 2 deviation notes.
  *
- * Phase 1 registered no production definitions ({@link #INSTANCE} was empty at runtime). As of
- * Phase 2A, {@link #INSTANCE} contains exactly two frozen, {@code EXTERNAL_ADAPTER}-authority
- * definitions — {@code totality:health} and {@code totality:food} — registered by
- * {@link ProductionResourceDefinitions#register()}. No {@code GENERIC_COMPONENT} resource is
- * registered yet; that remains later-phase migration work.
+ * Phase 1 registered no production definitions ({@link #INSTANCE} was empty at runtime); Phase 2A
+ * onward added the seven {@code EXTERNAL_ADAPTER}-authority resources (Health, Food, Breath, Mana,
+ * Stamina, Spell Slots, Rage), and the dormant Resource Registration pass added the first three
+ * {@code GENERIC_COMPONENT}-authority definitions (Thirst, Sanity, Ki) — all registered by
+ * {@link ProductionResourceDefinitions#register()}. A definition existing in {@link #INSTANCE} is
+ * pure registry metadata: it does not by itself grant a resource to any player or create that
+ * player's state — see {@link PlayerResourceStateComponent}'s class Javadoc for how instantiated
+ * player state is (and, for the dormant three, currently is not) created.
  */
 public final class PlayerResourceRegistry {
 

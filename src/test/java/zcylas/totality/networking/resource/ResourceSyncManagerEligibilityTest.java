@@ -45,4 +45,22 @@ class ResourceSyncManagerEligibilityTest {
         assertFalse(ResourceSyncManager.isEligibleForGenericSync(unknown),
                 "an id with no registered PlayerResourceDefinition must be discarded safely, never queried");
     }
+
+    @Test
+    void dormantGenericComponentResourcesAreEligibleButProduceNoFabricatedState() {
+        // GENERIC_COMPONENT resources always qualify for generic sync (unconditionally, per
+        // isEligibleForGenericSync's own Javadoc) — including totality:thirst/sanity/ki, which have
+        // no instantiated state for any player. This is safe, not a dormancy violation: an eligible-
+        // but-uninstantiated resource queries to STATE_NOT_INSTANTIATED -> AbsentOutcome, and
+        // PlayerResourceSyncState.applyFull's own Javadoc/behavior omits AbsentOutcome from the full
+        // view entirely ("Omitted from the full view entirely") — proven generically by
+        // PlayerResourceSyncStateTest, not re-derived here. This test only proves the eligibility
+        // gate itself does not exclude the new dormant ids by id, which would be the wrong reason for
+        // them to stay off the wire.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.THIRST));
+        assertTrue(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.SANITY));
+        assertTrue(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.KI));
+    }
 }

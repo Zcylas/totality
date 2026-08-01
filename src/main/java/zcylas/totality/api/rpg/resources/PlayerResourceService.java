@@ -73,8 +73,11 @@ public final class PlayerResourceService {
      * phase). {@code GENERIC_COMPONENT} resources can only be resolved for a {@code ServerPlayer},
      * since their state lives in a server-side component; passing a client-side player for one of
      * those returns {@link ResourceQueryFailureReason#STATE_UNAVAILABLE_ON_THIS_SIDE} rather than
-     * throwing (Phase 2A registers no {@code GENERIC_COMPONENT} resource in production, but the
-     * routing contract must still hold for future resources).
+     * throwing. Three production {@code GENERIC_COMPONENT} definitions exist as of the dormant
+     * Resource Registration pass (Thirst, Sanity, Ki), but all three remain uninstantiated for
+     * every player (no grant provider exists yet) — querying any of them returns the structured
+     * {@link ResourceQueryFailureReason#STATE_NOT_INSTANTIATED} outcome, never a fabricated
+     * default, so they remain fully inert until a future owner explicitly instantiates them.
      */
     public ResourceQueryResult query(Player player, Identifier resourceId) {
         Objects.requireNonNull(resourceId, "resourceId");

@@ -85,6 +85,22 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
  * described role for Rage/Ki/Solar Charge — "may appear whenever the player can access it"), declared
  * for definition-shape completeness; the existing bespoke Rage HUD pip renderer and Class-tab panel
  * are left completely untouched by this phase, exactly like Mana/Stamina/spell slots before it.
+ *
+ * <p>The dormant Resource Registration pass adds {@code totality:thirst}, {@code totality:sanity},
+ * and {@code totality:ki}: {@code GENERIC_COMPONENT}-authority (the builder default; no
+ * {@code .externalAdapter(...)} call), the first of their kind in production. No adapter is
+ * registered for any of the three (see {@link #registerAdapters()}, unchanged). No capabilities and
+ * no {@link ResourcePresentationDefinition} are declared for any of them: {@code HUD_VISIBLE}/
+ * {@code MENU_VISIBLE} currently have zero consumers anywhere in the codebase (nothing iterates the
+ * registry by capability to decide what to render), so declaring them would be provably inert today,
+ * but doing so would still misrepresent these three as "available for display" before any owning
+ * system, grant provider, or client reader exists. Lifecycle is left at
+ * {@link ResourceLifecyclePolicy#DEFAULT} (at-maximum initialization) for Thirst/Sanity, matching
+ * this pass's authoritative "at maximum when explicitly instantiated" intent without needing an
+ * explicit override; Ki's own future initialization policy is undecided and left to the Ki API. See
+ * {@code TOTALITY_DORMANT_RESOURCE_REGISTRATION_IMPLEMENTATION_REPORT.md} for the full readiness
+ * matrix, including why {@code totality:fatigue} and {@code totality:temperature} are deliberately
+ * absent. Nothing here grants, instantiates, persists, synchronizes, or displays any of the three.
  */
 public final class ProductionResourceDefinitions {
 
@@ -243,6 +259,61 @@ public final class ProductionResourceDefinitions {
                                 ResourceDisplayConversion.IDENTITY,
                                 ResourceDisplayType.PIPS,
                                 ResourceHudRole.CONTEXTUAL_ACCESS))
+                        .definitionVersion(1)
+                        .build());
+
+        // Thirst: dormant, GENERIC_COMPONENT-authority (builder default), no adapter, no
+        // capabilities, no presentation. absoluteMinimum 0 / authoredBaseMaximum 100 matches this
+        // pass's authoritative intent (canonical §25.11 settles SCALAR/GENERIC_COMPONENT/HIGH_IS_GOOD
+        // but not an exact numeric range; this pass's own task instructions supply 0-100). Lifecycle
+        // is left at ResourceLifecyclePolicy.DEFAULT (AtMaximum) — already exactly "at maximum when
+        // explicitly instantiated," no override needed. No owning system exists yet, so nothing ever
+        // calls instantiateScalar for this id; it stays permanently dormant until the Thirst API adds
+        // a grant provider.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.THIRST, ResourceModel.SCALAR)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .unitScale(1)
+                        .absoluteMinimum(0)
+                        .authoredBaseMaximum(100)
+                        .definitionVersion(1)
+                        .build());
+
+        // Sanity: dormant, same shape as Thirst above — GENERIC_COMPONENT-authority, no adapter, no
+        // capabilities, no presentation, default (AtMaximum) lifecycle. Canonical §25.15 hedges
+        // "likely SCALAR"/"likely HIGH_IS_GOOD" pending the future Sanity design; this pass's task
+        // instructions settle those as the registered values without inventing anything the canonical
+        // doc actively contradicts. No owning system exists yet, so this stays permanently dormant
+        // until the Sanity API adds a grant provider.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.SANITY, ResourceModel.SCALAR)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .unitScale(1)
+                        .absoluteMinimum(0)
+                        .authoredBaseMaximum(100)
+                        .definitionVersion(1)
+                        .build());
+
+        // Ki: dormant, GENERIC_COMPONENT-authority, no adapter, no capabilities, no presentation.
+        // Deliberately declares NO authoredBaseMaximum (OptionalLong.empty(), the builder default) —
+        // canonical §25.7 states Ki's maximum is set "by Monk level/features," i.e. genuinely dynamic,
+        // and no ResourceMaximumResolver framework exists yet (PlayerResourceService's own
+        // MAXIMUM_UNAVAILABLE failure reason exists precisely for this "no maximum-resolver framework
+        // exists yet" case, per its Javadoc). Hardcoding e.g. 100 here would be exactly the invented
+        // placeholder maximum this pass is required not to add; omitting it instead means any future
+        // query (once the Ki API exists and actually instantiates state) fails structurally with
+        // MAXIMUM_UNAVAILABLE rather than fabricating a maximum — see
+        // PlayerResourceServiceTest.genericScalarWithoutAnAuthoredMaximumFailsStructurallyRatherThanFabricatingOne
+        // for the exact existing, already-tested behavior this relies on, and this pass's own
+        // KiDormantRegistrationTest for the resource-specific proof. Not universally owned: since no
+        // grant provider exists for any GENERIC_COMPONENT resource yet, Ki is exactly as dormant as
+        // Thirst/Sanity above — "conditional ownership" is simply the future Ki API's own grant
+        // provider deciding who gets it, not something this definition needs to encode.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.KI, ResourceModel.SCALAR)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .unitScale(1)
+                        .absoluteMinimum(0)
                         .definitionVersion(1)
                         .build());
 

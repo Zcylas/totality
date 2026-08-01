@@ -251,10 +251,10 @@ class PlayerResourceRegistryTest {
         // 2E adds totality:rage — all seven EXTERNAL_ADAPTER-authority, query-only (see
         // ProductionResourceDefinitions). Mana/Stamina/SpellSlots/Rage are transitional adapters over
         // pre-existing Totality-owned legacy stores, unlike Health/Food/Breath which wrap vanilla
-        // directly.
+        // directly. These seven remain semantically unchanged by the later dormant-registration pass
+        // below — see productionSingletonAlsoContainsExactlyThreeDormantGenericComponentDefinitions.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(7, PlayerResourceRegistry.INSTANCE.size());
         for (Identifier resourceId : new Identifier[] {
                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
                 PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS,
@@ -266,6 +266,77 @@ class PlayerResourceRegistryTest {
                     () -> resourceId + " must be EXTERNAL_ADAPTER");
         }
         assertTrue(PlayerResourceRegistry.INSTANCE.isFrozen());
+    }
+
+    @Test
+    void productionSingletonAlsoContainsExactlyThreeDormantGenericComponentDefinitions() {
+        // The dormant Resource Registration pass adds totality:thirst, totality:sanity, and
+        // totality:ki on top of the seven EXTERNAL_ADAPTER definitions above — ten total. All three
+        // are GENERIC_COMPONENT-authority (no externalAdapterId), the first of their kind in
+        // production. totality:fatigue and totality:temperature are deliberately NOT registered —
+        // see the dormant-registration implementation report for why.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertEquals(10, PlayerResourceRegistry.INSTANCE.size());
+        for (Identifier resourceId : new Identifier[] {
+                PlayerResourceIds.THIRST, PlayerResourceIds.SANITY, PlayerResourceIds.KI
+        }) {
+            PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId)
+                    .orElseThrow(() -> new AssertionError(resourceId + " must be registered"));
+            assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(),
+                    () -> resourceId + " must be GENERIC_COMPONENT");
+            assertTrue(definition.externalAdapterId().isEmpty(), () -> resourceId + " must have no external adapter");
+            assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
+            assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), () -> resourceId + " must be HIGH_IS_GOOD");
+            assertEquals(0L, definition.absoluteMinimum(), () -> resourceId + " must have absoluteMinimum 0");
+            assertTrue(definition.capabilities().isEmpty(),
+                    () -> resourceId + " must declare no capabilities while dormant");
+            assertTrue(definition.presentation().isEmpty(),
+                    () -> resourceId + " must declare no presentation while dormant");
+        }
+    }
+
+    @Test
+    void thirstAndSanityDeclareAnAuthoredOneHundredMaximum() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertEquals(100L, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.THIRST)
+                .orElseThrow().authoredBaseMaximum().orElseThrow());
+        assertEquals(100L, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SANITY)
+                .orElseThrow().authoredBaseMaximum().orElseThrow());
+    }
+
+    @Test
+    void kiDeclaresNoAuthoredMaximumSinceItIsGenuinelyDynamic() {
+        // Canonical §25.7: Ki's maximum is set "by Monk level/features" — genuinely dynamic, not yet
+        // resolvable. No ResourceMaximumResolver framework exists (Phase 1 scope), so the only honest
+        // representation is leaving authoredBaseMaximum absent rather than inventing e.g. 100.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.KI)
+                .orElseThrow().authoredBaseMaximum().isEmpty(),
+                "Ki must declare no authored maximum — its ceiling is future class-progression-resolved");
+    }
+
+    @Test
+    void dormantDefinitionsHaveNoRegisteredExternalAdapter() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        for (Identifier resourceId : new Identifier[] {
+                PlayerResourceIds.THIRST, PlayerResourceIds.SANITY, PlayerResourceIds.KI
+        }) {
+            assertFalse(zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry.INSTANCE
+                    .isRegistered(resourceId), () -> resourceId + " must have no registered external adapter");
+        }
+    }
+
+    @Test
+    void temperatureAndFatigueAreNotRegistered() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertFalse(PlayerResourceRegistry.INSTANCE.isRegistered(id("temperature")));
+        assertFalse(PlayerResourceRegistry.INSTANCE.isRegistered(id("fatigue")));
+        assertFalse(PlayerResourceRegistry.INSTANCE.isRegistered(id("rest_need")));
     }
 
     @Test

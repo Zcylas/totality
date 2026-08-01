@@ -30,14 +30,20 @@ import java.util.function.IntToLongFunction;
  * {@code totality:resources} component ({@link PlayerResourceComponent}), which remains the sole
  * authority for Stamina and Mana until an explicit later migration.
  *
- * As of Phase 2A, {@link PlayerResourceRegistry#INSTANCE} contains exactly two production
- * definitions — {@code totality:health} and {@code totality:food} — and both are
- * {@code EXTERNAL_ADAPTER}-authority, so this component still holds zero entries for every player:
+ * {@link PlayerResourceRegistry#INSTANCE} registers two distinct authority categories of
+ * production definition. The seven {@code EXTERNAL_ADAPTER}-authority resources (Health, Food,
+ * Breath, Mana, Stamina, Spell Slots, Rage) can never gain an entry here at all:
  * {@link #instantiateScalar}/{@link #instantiatePartitioned} actively reject any id whose
  * registered definition is {@code EXTERNAL_ADAPTER}-authority, and stale/malformed persisted data
  * for such an id is quarantined as an orphan rather than restored live (see
- * {@code readLiveEntry}/{@code readOrphanEntry}) — Health and Food can never gain a duplicate,
- * out-of-sync copy of their state here. This component does not affect Stamina, Mana, Rage, or
+ * {@code readLiveEntry}/{@code readOrphanEntry}) — those seven can never gain a duplicate,
+ * out-of-sync copy of their state here, and keep using their existing storage (or, for Breath, no
+ * storage at all yet) until an explicit later migration. The three {@code GENERIC_COMPONENT}-
+ * authority resources added by the dormant Resource Registration pass (Thirst, Sanity, Ki) are, by
+ * contrast, legitimately instantiable here — but nothing in production code currently calls
+ * {@code instantiateScalar} for any of them (no grant provider exists yet), so they too remain
+ * absent from every ordinary player's state today, for a different reason than the seven above:
+ * not rejected, simply never granted. This component does not affect Stamina, Mana, Rage, or
  * Breath, which keep using their existing storage (or, for Breath, no storage at all yet) until an
  * explicit later migration. Nothing in production code calls {@link #sync()} yet, so this
  * component never sends a network packet.
@@ -46,7 +52,7 @@ import java.util.function.IntToLongFunction;
  * grant or instantiate a resource"). State is only ever created via the explicit
  * {@code instantiateScalar}/{@code instantiatePartitioned} calls, which nothing in production code
  * invokes automatically yet — a future grant provider is what will call them for
- * {@code GENERIC_COMPONENT} resources.
+ * {@code GENERIC_COMPONENT} resources (Thirst, Sanity, Ki today; more as future migrations land).
  */
 public final class PlayerResourceStateComponent implements SyncedComponent, CopyableComponent<PlayerResourceStateComponent> {
 
@@ -455,11 +461,15 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
 
     @Override
     public void copyFrom(PlayerResourceStateComponent other, HolderLookup.Provider registries) {
-        // No production GENERIC_COMPONENT PlayerResourceDefinition is registered as of Phase 2A
-        // (only totality:health/totality:food exist, both EXTERNAL_ADAPTER), so there is currently
-        // nothing for a per-resource ResourceLifecyclePolicy.deathPolicy() to differentiate — this
-        // defaults to a full copy (equivalent to every resource using ResourceDeathPolicy.KEEP_CURRENT).
-        // Once real GENERIC_COMPONENT resources are registered, later migration work should consult
+        // Three production GENERIC_COMPONENT definitions exist as of the dormant Resource
+        // Registration pass (totality:thirst/sanity/ki), but none has a grant provider yet, so
+        // `other.states` normally has no live entry for any of them to copy in the first place —
+        // registering a definition does not fabricate a live entry here. All three also currently
+        // use ResourceLifecyclePolicy.DEFAULT (ResourceDeathPolicy.KEEP_CURRENT), so even in the
+        // hypothetical case where one had been instantiated, this blanket full copy already matches
+        // what their own declared deathPolicy would ask for — there is still nothing for a
+        // per-resource ResourceLifecyclePolicy.deathPolicy() to meaningfully differentiate today.
+        // Once a resource declares a non-default deathPolicy, later migration work should consult
         // each resource's own lifecycle policy here instead of this blanket copy — see the
         // readiness audit's migration matrix.
         orphanedStates.clear();
