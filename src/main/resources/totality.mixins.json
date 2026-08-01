@@ -16,6 +16,8 @@
 		"LivingEntityHurtMixin",
 		"LivingEntityRestSleepMixin",
 		"PlayerRestSleepMixin",
+		"FoodDataNaturalRegenerationMixin",
+		"ServerPlayerPeacefulRegenerationMixin",
 		"InventoryCreditsMergeMixin",
 		"MultiNoiseBiomeSourceParameterListMixin",
 		"client.LivingEntityMixin",
