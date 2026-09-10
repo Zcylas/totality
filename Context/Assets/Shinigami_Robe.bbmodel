@@ -1,0 +1,363 @@
+{
+  "meta": {
+    "format_version": "5.0",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "Shinigami Robe Chestplate",
+  "resolution": {
+    "width": 128,
+    "height": 64
+  },
+  "elements": [
+    {
+      "name": "body_robe_shell",
+      "uuid": "defc30d4-028f-49a2-a662-ec75d20d4f76",
+      "type": "cube",
+      "from": [
+        -4.35,
+        11.65,
+        -2.35
+      ],
+      "to": [
+        4.35,
+        24.35,
+        2.35
+      ],
+      "origin": [
+        0,
+        24,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "box_uv": false,
+      "rescale": false,
+      "visibility": true,
+      "export": true,
+      "autouv": 0,
+      "faces": {
+        "north": {
+          "uv": [
+            40,
+            40,
+            56,
+            64
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            32,
+            40,
+            40,
+            64
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            64,
+            40,
+            80,
+            64
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            56,
+            40,
+            64,
+            64
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            40,
+            32,
+            56,
+            40
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            56,
+            32,
+            72,
+            40
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "right_arm_robe_shell",
+      "uuid": "eac0b7f8-0776-4aca-91c1-919ffb583b0a",
+      "type": "cube",
+      "from": [
+        -8.4,
+        11.6,
+        -2.4
+      ],
+      "to": [
+        -3.6,
+        24.4,
+        2.4
+      ],
+      "origin": [
+        -5,
+        22,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "box_uv": false,
+      "rescale": false,
+      "visibility": true,
+      "export": true,
+      "autouv": 0,
+      "faces": {
+        "north": {
+          "uv": [
+            88,
+            40,
+            96,
+            64
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            80,
+            40,
+            88,
+            64
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            104,
+            40,
+            112,
+            64
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            96,
+            40,
+            104,
+            64
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            88,
+            32,
+            96,
+            40
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            96,
+            32,
+            104,
+            40
+          ],
+          "texture": 0
+        }
+      }
+    },
+    {
+      "name": "left_arm_robe_shell",
+      "uuid": "6310cae8-ef37-4f14-a2b5-421ee778e2ba",
+      "type": "cube",
+      "from": [
+        3.6,
+        11.6,
+        -2.4
+      ],
+      "to": [
+        8.4,
+        24.4,
+        2.4
+      ],
+      "origin": [
+        5,
+        22,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "box_uv": false,
+      "rescale": false,
+      "visibility": true,
+      "export": true,
+      "autouv": 0,
+      "faces": {
+        "north": {
+          "uv": [
+            96,
+            40,
+            88,
+            64
+          ],
+          "texture": 0
+        },
+        "east": {
+          "uv": [
+            88,
+            40,
+            80,
+            64
+          ],
+          "texture": 0
+        },
+        "south": {
+          "uv": [
+            112,
+            40,
+            104,
+            64
+          ],
+          "texture": 0
+        },
+        "west": {
+          "uv": [
+            104,
+            40,
+            96,
+            64
+          ],
+          "texture": 0
+        },
+        "up": {
+          "uv": [
+            96,
+            32,
+            88,
+            40
+          ],
+          "texture": 0
+        },
+        "down": {
+          "uv": [
+            104,
+            32,
+            96,
+            40
+          ],
+          "texture": 0
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "body",
+      "uuid": "0ed62f8e-54cd-4e24-b2ff-06736f2421a1",
+      "origin": [
+        0,
+        24,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visibility": true,
+      "export": true,
+      "isOpen": false
+    },
+    {
+      "name": "right_arm",
+      "uuid": "b3f560f5-0aa1-4ca9-a52c-85e64216d171",
+      "origin": [
+        -5,
+        22,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visibility": true,
+      "export": true,
+      "isOpen": false
+    },
+    {
+      "name": "left_arm",
+      "uuid": "644ce4a5-01ed-444c-8d3d-7e0657b7a547",
+      "origin": [
+        5,
+        22,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "visibility": true,
+      "export": true,
+      "isOpen": false
+    }
+  ],
+  "outliner": [
+    {
+      "uuid": "0ed62f8e-54cd-4e24-b2ff-06736f2421a1",
+      "children": [
+        "defc30d4-028f-49a2-a662-ec75d20d4f76"
+      ],
+      "isOpen": false
+    },
+    {
+      "uuid": "b3f560f5-0aa1-4ca9-a52c-85e64216d171",
+      "children": [
+        "eac0b7f8-0776-4aca-91c1-919ffb583b0a"
+      ],
+      "isOpen": false
+    },
+    {
+      "uuid": "644ce4a5-01ed-444c-8d3d-7e0657b7a547",
+      "children": [
+        "6310cae8-ef37-4f14-a2b5-421ee778e2ba"
+      ],
+      "isOpen": false
+    }
+  ],
+  "textures": [
+    {
+      "uuid": "34884262-cbdd-4fff-940a-75dc93dbe82f",
+      "id": "0",
+      "name": "shinigami_robe_chestplate.png",
+      "mode": "bitmap",
+      "internal": true,
+      "saved": true,
+      "width": 128,
+      "height": 64,
+      "uv_width": 128,
+      "uv_height": 64,
+      "source": "data:image/png;base64,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"
+    }
+  ]
+}

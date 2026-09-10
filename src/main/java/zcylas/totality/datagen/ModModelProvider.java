@@ -418,6 +418,18 @@ public class ModModelProvider extends FabricModelProvider {
                 BleachItems.ZANPAKUTO,
                 ItemModelUtils.plainModel(
                         Identifier.fromNamespaceAndPath("totality", "item/asauchi")));
+            //Shinigami Uniform
+        // Inventory-icon placeholder only — the worn appearance is the custom ShinigamiRobeArmorRenderer.
+        // Reuses the existing entity/equipment texture as-is (no repacked/duplicated PNG).
+        ModelTemplates.FLAT_ITEM.create(
+                Identifier.fromNamespaceAndPath("totality", "item/shinigami_robe"),
+                TextureMapping.layer0(new net.minecraft.client.resources.model.sprite.Material(
+                        Identifier.fromNamespaceAndPath("totality", "entity/equipment/shinigami_robe"))),
+                generators.modelOutput);
+        generators.itemModelOutput.accept(
+                BleachItems.SHINIGAMI_ROBE,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/shinigami_robe")));
         //Magic Items
         generators.generateFlatItem(SpellComponentItems.COMPONENT_POUCH, ModelTemplates.FLAT_ITEM);
         //Tools

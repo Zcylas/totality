@@ -5,12 +5,14 @@ import zcylas.totality.api.bleach.zanpakuto.ZanpakutoType;
 import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.core.rpgutils.rarity.*;
 import zcylas.totality.api.dice.Dice;
+import zcylas.totality.api.item.TotalityArmorItem;
 import zcylas.totality.api.item.TotalityItemComponents;
 import zcylas.totality.api.rpg.combat.weapon.TotalityWeaponStats;
 import zcylas.totality.api.rpg.combat.weapon.WeaponCategory;
 import zcylas.totality.api.rpg.combat.weapon.WeaponType;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.init.TotalityRegistry;
+import zcylas.totality.item.equipment.ShinigamiRobeItem;
 import zcylas.totality.item.weapon.ZanpakutoItem;
 
 public class BleachItems {
@@ -32,6 +34,19 @@ public class BleachItems {
                     .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.WEAPON))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "A nameless Zanpakutō — an Asauchi — awaiting the soul strong enough to awaken it."
+                    ))
+    );
+
+    // ── Shinigami Uniform ─────────────────────────────────────────────────────
+
+    public static final ShinigamiRobeItem SHINIGAMI_ROBE = TotalityRegistry.registerItem(
+            "shinigami_robe",
+            ShinigamiRobeItem::new,
+            new Item.Properties()
+                    .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.ARMOR))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A plain Shinigami uniform robe — worn by every soul reaper, awakened or not."
                     ))
     );
 

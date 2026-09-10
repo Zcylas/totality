@@ -67,6 +67,7 @@ public class TotalityClient implements ClientModInitializer {
         registerRenderers();
         registerEntityRenderers();
         registerSpecialRenderers();
+        zcylas.totality.client.renderer.armor.ShinigamiRobeArmorRenderer.register();
         zcylas.totality.client.renderer.entity.npc.ProvisionerRendererVerification.runIfDev();
         SidedOverlayRenderer.register();
 

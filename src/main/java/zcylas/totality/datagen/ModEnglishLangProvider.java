@@ -89,6 +89,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         //Special Weapons
             //Zanpakutō
         translationBuilder.add("item.totality.zanpakuto", "Zanpakutō");
+            //Shinigami Uniform
+        translationBuilder.add("item.totality.shinigami_robe", "Shinigami Robe");
         //Basic Weapons
             //Shuriken
         translationBuilder.add("item.totality.copper_shuriken", "Copper Shuriken");
