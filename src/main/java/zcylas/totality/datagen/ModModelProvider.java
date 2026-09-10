@@ -413,7 +413,11 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(IngredientItems.TRUE_WHEAT_SEEDS, ModelTemplates.FLAT_ITEM);
         //Special Weapons
             //Zanpakutō
-        generators.generateFlatItem(BleachItems.ZANPAKUTO, ModelTemplates.FLAT_ITEM);
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/asauchi.json
+        generators.itemModelOutput.accept(
+                BleachItems.ZANPAKUTO,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/asauchi")));
         //Magic Items
         generators.generateFlatItem(SpellComponentItems.COMPONENT_POUCH, ModelTemplates.FLAT_ITEM);
         //Tools
