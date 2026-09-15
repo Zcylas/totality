@@ -82,9 +82,11 @@ public class PlayerConnectionEvents {
                 }
             }
 
-// Always register charge component as rest listener on join
-            RestEventBus.register(player, (p, type) ->
-                    ChargeComponents.PLAYER_CHARGES.get((ComponentProvider) p).onRest(p, type));
+            // Phase 5 Rage migration (2026-09-15): the legacy ChargeComponents.PLAYER_CHARGES
+            // .onRest registration that used to live here was removed — totality:rage is now
+            // authoritative, and keeping both registered would let the legacy mirror restore Rage
+            // independently of the Generic value (a real dual-authority hazard). See
+            // BarbarianRageAbility.onShortRest/onLongRest below for the replacement.
             RestEventBus.register(player, (p, type) ->
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
             RestEventBus.register(player, (p, type) ->
@@ -95,6 +97,15 @@ public class PlayerConnectionEvents {
             RestEventBus.register(player, (p, type) -> {
                 if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
                     zcylas.totality.api.rpg.stamina.PlayerStaminaManager.onLongRest(p);
+                }
+            });
+            // Phase 5 migration: Rage restores exactly 1 charge on Short Rest (clamped at maximum),
+            // fully restores on Long Rest (task Rest integration / canonical §25.6).
+            RestEventBus.register(player, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.SHORT) {
+                    BarbarianRageAbility.onShortRest(p);
+                } else if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    BarbarianRageAbility.onLongRest(p);
                 }
             });
 
@@ -145,8 +156,8 @@ public class PlayerConnectionEvents {
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
             DamageResistanceRecalculator.recalculate(newPlayer);
             RestEventBus.clearPlayer(newPlayer.getUUID()); // ← clear first
-            RestEventBus.register(newPlayer, (p, type) ->
-                    ChargeComponents.PLAYER_CHARGES.get((ComponentProvider) p).onRest(p, type));
+            // Phase 5 Rage migration: the legacy ChargeComponents.PLAYER_CHARGES.onRest
+            // registration was removed here too — see the JOIN handler above for why.
             RestEventBus.register(newPlayer, (p, type) ->
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
             RestEventBus.register(newPlayer, (p, type) ->
@@ -154,6 +165,13 @@ public class PlayerConnectionEvents {
             RestEventBus.register(newPlayer, (p, type) -> {
                 if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
                     zcylas.totality.api.rpg.stamina.PlayerStaminaManager.onLongRest(p);
+                }
+            });
+            RestEventBus.register(newPlayer, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.SHORT) {
+                    BarbarianRageAbility.onShortRest(p);
+                } else if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    BarbarianRageAbility.onLongRest(p);
                 }
             });
             if (ClassComponents.get(newPlayer).hasClass(TotalityClasses.BARBARIAN_ID)) {

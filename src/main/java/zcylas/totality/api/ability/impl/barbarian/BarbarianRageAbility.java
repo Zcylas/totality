@@ -10,8 +10,17 @@ import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.rpg.classes.*;
-import zcylas.totality.api.rpg.rest.RestType;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.PlayerResourceService;
+import zcylas.totality.api.rpg.resources.ResourceAmount;
+import zcylas.totality.api.rpg.resources.ResourceCause;
+import zcylas.totality.api.rpg.resources.ResourceContext;
+import zcylas.totality.api.rpg.resources.ResourceCost;
+import zcylas.totality.api.rpg.resources.ResourceOperationResult;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+import zcylas.totality.api.rpg.resources.integration.BarbarianRageResources;
 import zcylas.totality.init.ModEffects;
+import zcylas.totality.networking.resource.ResourceSyncManager;
 
 public class BarbarianRageAbility extends Ability {
 
@@ -59,8 +68,11 @@ public class BarbarianRageAbility extends Ability {
         // If already raging → can toggle off
         if (abilities.isToggleActive(ID)) return true;
 
-        // Must have a charge
-        return ChargeComponents.get(player).hasCharge(CHARGE_ID);
+        // Must have a charge — routed through the Generic Player Resource API (Phase 5 Rage
+        // migration, 2026-09-15); totality:rage is now the authoritative current value.
+        BarbarianRageResources.ensureInstantiated(player);
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(player, PlayerResourceIds.RAGE);
+        return result instanceof ResourceQueryResult.Success success && success.snapshot().currentUnits() > 0;
     }
 
     @Override
@@ -72,8 +84,14 @@ public class BarbarianRageAbility extends Ability {
             onToggleOff(player);
             abilities.deactivateToggle(ID);
         } else {
-            // Not raging → start rage if we have a charge
-            if (ChargeComponents.get(player).consume(CHARGE_ID)) {
+            // Not raging → start rage if we have a charge. trySpend is affordability-checked and
+            // all-or-nothing, matching legacy consume()'s exact contract (false, no mutation, if
+            // current <= 0) — Phase 5 Rage migration, 2026-09-15.
+            BarbarianRageResources.ensureInstantiated(player);
+            ResourceOperationResult spendResult = PlayerResourceService.INSTANCE.trySpend(player,
+                    new ResourceCost.Scalar(PlayerResourceIds.RAGE, 1),
+                    ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.ABILITY_COST)));
+            if (spendResult.isSuccess()) {
                 onToggleOn(player);
                 abilities.activateToggle(ID, RAGE_DURATION_TICKS);
             }
@@ -135,18 +153,65 @@ public class BarbarianRageAbility extends Ability {
         return RAGE_DAMAGE_BONUS[idx];
     }
 
-    /** Register the rage charge pool for a player. Called on class selection. */
-    public static void registerChargePool(ServerPlayer player) {
+    /** Pure formula: Rage's maximum for the player's current Barbarian class level. Delegated to by
+     *  {@link RageMaximumResolver} (Phase 5 Rage migration, 2026-09-15) — kept in exactly one place
+     *  so the resolver and this class can never drift apart, mirroring {@code ManaMaximumResolver}
+     *  delegating to {@code PlayerManaManager.getMaxMana}. */
+    public static int getMaxRage(ServerPlayer player) {
         int classLevel = Math.max(1, ClassComponents.get(player).getClassLevel(TotalityClasses.BARBARIAN_ID));
-        int maxCharges = RAGE_CHARGES[Math.min(classLevel - 1, RAGE_CHARGES.length - 1)];
-        ChargeComponents.get(player).ensurePool(CHARGE_ID, maxCharges, RestType.SHORT, 1);
+        return RAGE_CHARGES[Math.min(classLevel - 1, RAGE_CHARGES.length - 1)];
     }
 
-    /** Call on character level-up to update max charges for the new class level. */
+    /** Register the rage charge pool for a player. Called on class selection. Routed through the
+     *  Generic Player Resource API's grant reconciliation (Phase 5 Rage migration, 2026-09-15) —
+     *  a freshly-selected Barbarian's {@code totality:rage} grant now becomes visible to {@link
+     *  BarbarianRageResources}'s provider on this very call, instantiating state at the resolved
+     *  maximum instead of the legacy {@code ensurePool} call this replaces. */
+    public static void registerChargePool(ServerPlayer player) {
+        BarbarianRageResources.reconcile(player);
+    }
+
+    /** Call on character level-up to update max charges for the new class level. {@code
+     *  totality:rage}'s maximum is resolved live on every query via {@link RageMaximumResolver}, so
+     *  a level-up's higher maximum is reflected automatically without touching the stored current
+     *  value (RAGE_CHARGES is monotonically non-decreasing and no respec/level-down path exists in
+     *  production, so no clamp/reconcileMaximum call is needed — see the Phase 5 implementation
+     *  report's "updateChargePool" section). External-review correction (2026-09-15): a maximum-only
+     *  change is otherwise invisible to the Generic client sync path — nothing else marks
+     *  totality:rage dirty when only its resolved maximum changes (unlike current, which is always
+     *  marked dirty by whatever mutation changed it) — so the client could stay stuck at a stale
+     *  maximum (e.g. 2/2) after the server has already advanced to 2/3, until an unrelated mutation
+     *  or a full snapshot happened to catch up. Mirrors {@code PlayerResourceRecalculator.recalculate}
+     *  /{@code recalculateAndRestore}'s own "maximum-only-change seam" comment for Mana/Stamina
+     *  exactly: {@code markDirty} unconditionally requests a requery, and {@code
+     *  PlayerResourceSyncState.computeDeltaAndApply} silently suppresses the packet if the freshly
+     *  queried snapshot (current AND maximum) turns out unchanged, so this adds no packet spam. */
     public static void updateChargePool(ServerPlayer player) {
-        int classLevel = ClassComponents.get(player).getClassLevel(TotalityClasses.BARBARIAN_ID);
-        if (classLevel <= 0) return;
-        int maxCharges = RAGE_CHARGES[Math.min(classLevel - 1, RAGE_CHARGES.length - 1)];
-        ChargeComponents.get(player).updatePoolMax(CHARGE_ID, maxCharges);
+        BarbarianRageResources.ensureInstantiated(player);
+        ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.RAGE);
+    }
+
+    /** Task Rest integration: Short Rest restores exactly 1 charge, clamped at the resolved maximum
+     *  (canonical §25.6) — routed through {@link PlayerResourceService#restore}, which already
+     *  clamps at maximum, so no deficit pre-computation is needed the way Long Rest's exact-deficit
+     *  restore is (see {@link #onLongRest}). Registered as a {@code RestListener} in {@code
+     *  PlayerConnectionEvents} alongside every other Rest-integrated resource. */
+    public static void onShortRest(ServerPlayer player) {
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(player, PlayerResourceIds.RAGE);
+        if (!(result instanceof ResourceQueryResult.Success)) return;
+        PlayerResourceService.INSTANCE.restore(player, ResourceAmount.scalar(PlayerResourceIds.RAGE, 1),
+                ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.SHORT_REST)));
+    }
+
+    /** Task Rest integration: Long Rest fully restores Rage (canonical §25.6). Mirrors {@code
+     *  PlayerStaminaManager#onLongRest}'s exact-deficit pattern so the checked-arithmetic mutation
+     *  path cannot spuriously overflow-reject a legitimate full restore. */
+    public static void onLongRest(ServerPlayer player) {
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(player, PlayerResourceIds.RAGE);
+        if (!(result instanceof ResourceQueryResult.Success success)) return;
+        long deficit = success.snapshot().maximumUnits() - success.snapshot().currentUnits();
+        if (deficit <= 0) return;
+        PlayerResourceService.INSTANCE.restore(player, ResourceAmount.scalar(PlayerResourceIds.RAGE, deficit),
+                ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.LONG_REST)));
     }
 }

@@ -252,8 +252,12 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
-    void nbtLoadingQuarantinesStaleGenericDataForRage() {
-        // Phase 2E's own analogue of the SCALAR quarantine tests above.
+    void nbtLoadingRestoresLiveGenericDataForRageAfterPhase5Migration() {
+        // Phase 5 migration (2026-09-15): totality:rage is now GENERIC_COMPONENT-authority — this
+        // exact NBT shape (previously "stale" and quarantined, see git history for the removed
+        // nbtLoadingQuarantinesStaleGenericDataForRage) is now the correct, current live format, and
+        // must round-trip the persisted current value exactly (canonical §24.4: preserve current
+        // amounts, not refill them) — mirrors Phase 4's identical Mana/Stamina tests above.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.RAGE, 2, 0, 0);
@@ -261,13 +265,16 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
 
-        assertFalse(state.hasState(PlayerResourceIds.RAGE), "Rage must never become live generic state");
-        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.RAGE),
-                "stale Rage data must be quarantined, not silently dropped");
+        assertTrue(state.hasState(PlayerResourceIds.RAGE), "Rage is GENERIC_COMPONENT authority after Phase 5 — this must become live");
+        assertEquals(2, state.getScalar(PlayerResourceIds.RAGE).orElseThrow().currentUnits());
+        assertFalse(state.orphanedResourceIds().contains(PlayerResourceIds.RAGE));
     }
 
     @Test
-    void applyingASyncPayloadCannotCreateLiveRageGenericState() {
+    void applyingASyncPayloadCreatesLiveRageGenericStateAfterPhase5Migration() {
+        // Phase 5 migration (2026-09-15): totality:rage is GENERIC_COMPONENT-authority — a sync
+        // payload for it is now expected to become live, unlike the removed
+        // applyingASyncPayloadCannotCreateLiveRageGenericState test this replaces.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
@@ -280,8 +287,9 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.applySyncPacket(buf);
 
-        assertFalse(state.hasState(PlayerResourceIds.RAGE), "Rage must never become live via a sync packet");
-        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+        assertTrue(state.hasState(PlayerResourceIds.RAGE));
+        assertEquals(2L, state.getScalar(PlayerResourceIds.RAGE).orElseThrow().currentUnits());
+        assertEquals(0, buf.readableBytes());
     }
 
     @Test
@@ -450,10 +458,11 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         // rather than SCALAR — queryGenericState is structurally unreachable for it the same way.
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow().stateAuthority());
-        // Phase 2E: totality:rage is EXTERNAL_ADAPTER too, transitionally wrapping one entry of the
-        // legacy PlayerChargesComponent charge-pool map.
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow().stateAuthority());
+        // Rage was EXTERNAL_ADAPTER too (transitionally) through Phase 2E, but the Phase 5 migration
+        // (2026-09-15) redefined it as GENERIC_COMPONENT — the adapter-routing guarantee this test
+        // proves no longer applies to it; see
+        // PlayerResourceRegistryTest#productionRageIsGenericComponentAuthorityAfterPhase5Migration
+        // for its current-shape assertion instead.
     }
 
     @Test

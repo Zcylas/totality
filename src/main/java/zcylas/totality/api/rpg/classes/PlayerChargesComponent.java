@@ -184,10 +184,6 @@ public class PlayerChargesComponent implements SyncedComponent, CopyableComponen
         return playerLevel / 4;
     }
 
-    public static void registerWithRestBus() {
-        // Called once at init — RestEventBus calls each player's component via the component system
-    }
-
     public void updatePoolMax(Identifier id, int newMax) {
         ChargePool pool = pools.get(id);
         if (pool == null) return;

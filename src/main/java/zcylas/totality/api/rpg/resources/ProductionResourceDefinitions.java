@@ -70,22 +70,23 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
  * that interface's {@code toDisplayCurrent}/{@code toDisplayMaximum} methods take a single scalar
  * {@code ResourceSnapshot} and have no partitioned counterpart yet.
  *
- * <p>Phase 2E adds {@code totality:rage} — {@code SCALAR}-model (canonical §6.1/§6.3/§25.6 are
- * explicit that Rage is scalar, not partitioned), {@code EXTERNAL_ADAPTER}-authority, query-only,
- * transitionally wrapping one entry ({@code BarbarianRageAbility.CHARGE_ID}) of the legacy
- * generically-keyed {@code PlayerChargesComponent} charge-pool map via {@link RageResourceAdapter}.
- * Registered at {@code definitionVersion = 1}. Declares {@code authoredBaseMaximum = 2} — the level-1
- * baseline from {@code BarbarianRageAbility.RAGE_CHARGES}, purely descriptive like every other
- * adapter's baseline; the live query path never consults it. Declares only {@link
- * ResourceCapability#HUD_VISIBLE}/{@link ResourceCapability#MENU_VISIBLE} — not {@code SPENDABLE}/
- * {@code RESTORABLE}/{@code MAXIMUM_MODIFIERS} (canonical §25.6's eventual full capability set),
- * matching every prior transitional adapter's precedent of declaring no mutation capability while
- * {@code supportedOperations()} remains {@code QUERY}-only; those three are deferred to a future
- * phase that actually implements generic mutation and authoritative maximum resolution. Presentation
- * is {@code ResourceDisplayType.PIPS}/{@code ResourceHudRole.CONTEXTUAL_ACCESS} (canonical's own
- * described role for Rage/Ki/Solar Charge — "may appear whenever the player can access it"), declared
- * for definition-shape completeness; the existing bespoke Rage HUD pip renderer and Class-tab panel
- * are left completely untouched by this phase, exactly like Mana/Stamina/spell slots before it.
+ * <p>Phase 2E originally added {@code totality:rage} as a transitional {@code EXTERNAL_ADAPTER}-
+ * authority, query-only resource wrapping one entry ({@code BarbarianRageAbility.CHARGE_ID}) of the
+ * legacy generically-keyed {@code PlayerChargesComponent} charge-pool map via {@code
+ * RageResourceAdapter}. The Phase 5 Rage migration (2026-09-15) redefines it as {@code
+ * GENERIC_COMPONENT}-authority (the builder default; no {@code .externalAdapter(...)} call) at
+ * {@code definitionVersion = 2} — see {@link #registerMaximumResolvers}/{@link #registerGrants} for
+ * the real {@link zcylas.totality.api.ability.impl.barbarian.RageMaximumResolver}/{@link
+ * zcylas.totality.api.rpg.resources.integration.BarbarianRageResources} wiring this migration adds,
+ * and {@code TOTALITY_GENERIC_PLAYER_RESOURCE_API_PHASE5_RAGE_IMPLEMENTATION_REPORT_2026-09-15.md}
+ * for the full migration. {@code RageResourceAdapter} remains registered (see {@link
+ * #registerAdapters}'s own Javadoc) but is no longer referenced by the definition. {@code SCALAR}
+ * model unchanged (canonical §6.1/§6.3/§25.6 are explicit Rage is scalar, not partitioned).
+ * Deliberately no {@code .authoredBaseMaximum(...)} — {@link
+ * zcylas.totality.api.ability.impl.barbarian.RageMaximumResolver} (registered below) now resolves
+ * the real, class-level-dependent maximum, and keeping the old descriptive {@code 2} literal here
+ * would silently short-circuit it for SCALAR resources exactly the way Mana/Stamina's own
+ * {@code authoredBaseMaximum} would have (see that migration's own Javadoc paragraph above).
  *
  * <p>The dormant Resource Registration pass adds {@code totality:thirst}, {@code totality:sanity},
  * and {@code totality:ki}: {@code GENERIC_COMPONENT}-authority (the builder default; no
@@ -115,7 +116,8 @@ public final class ProductionResourceDefinitions {
 
     /**
      * {@code ManaResourceAdapter}/{@code StaminaResourceAdapter} remain registered here even though
-     * neither definition references them anymore as of the Phase 4 migration (2026-09-15) — a
+     * neither definition references them anymore as of the Phase 4 migration (2026-09-15), and
+     * {@code RageResourceAdapter} joins them as of the Phase 5 migration (2026-09-15, same date) — a
      * deliberate, documented deferred-cleanup decision, not an oversight. Removing them is a Phase 8
      * concern (canonical: "remove... after no callers remain," per-resource, not all at once); their
      * own unit tests still exercise their (now-unreachable-from-production) {@code resolve}/{@code
@@ -133,15 +135,20 @@ public final class ProductionResourceDefinitions {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
     }
 
-    /** Phase 4 migration: real resolvers for the first two GENERIC_COMPONENT resources that need one. */
+    /** Phase 4 migration: real resolvers for the first two GENERIC_COMPONENT resources that need one.
+     *  Phase 5 adds Rage's, delegating to {@code BarbarianRageAbility.getMaxRage} the same way Mana/
+     *  Stamina's delegate back to their own manager classes. */
     private static void registerMaximumResolvers() {
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.MANA, zcylas.totality.api.rpg.mana.ManaMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.STAMINA, zcylas.totality.api.rpg.stamina.StaminaMaximumResolver.INSTANCE);
+        ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.RAGE, zcylas.totality.api.ability.impl.barbarian.RageMaximumResolver.INSTANCE);
     }
 
-    /** Phase 4 migration: the first production grant provider — see {@code PlayerBaselineResources}. */
+    /** Phase 4 migration: the first production grant provider — see {@code PlayerBaselineResources}.
+     *  Phase 5 adds the second, Barbarian-class-gated one — see {@code BarbarianRageResources}. */
     private static void registerGrants() {
         zcylas.totality.api.rpg.resources.integration.PlayerBaselineResources.register();
+        zcylas.totality.api.rpg.resources.integration.BarbarianRageResources.register();
     }
 
     private static void registerDefinitions() {
@@ -282,28 +289,28 @@ public final class ProductionResourceDefinitions {
                         .definitionVersion(1)
                         .build());
 
-        // Rage: transitional EXTERNAL_ADAPTER over one entry of the legacy PlayerChargesComponent
-        // charge-pool map (see the class Javadoc). SCALAR model — canonical §6.1/§6.3/§25.6 are
-        // explicit Rage is scalar, not partitioned. authoredBaseMaximum = 2 is the level-1 baseline
-        // from BarbarianRageAbility.RAGE_CHARGES — purely descriptive, never consulted by the live
-        // query path. No SPENDABLE/RESTORABLE/MAXIMUM_MODIFIERS capability — query-only, exactly like
-        // every other Phase 2A-2D adapter. unitScale uses the adapter's own canonical
-        // RageResourceAdapter.UNIT_SCALE constant rather than a second, independently-maintained
-        // literal — the adapter always produces a snapshot at that scale regardless of what this
-        // definition declares, so the two must stay in lockstep.
+        // Rage: Phase 5 migration (2026-09-15) — GENERIC_COMPONENT authority (the builder default;
+        // no .externalAdapter(...) call), bumped to definitionVersion 2. SCALAR model unchanged.
+        // Deliberately NO .authoredBaseMaximum(...) — see the class Javadoc's Phase 5 paragraph.
+        // No .lifecycle(...) override: ResourceLifecyclePolicy.DEFAULT's KEEP_CURRENT death policy
+        // already matches legacy Rage's own copyFrom (blanket preserve-all-pools) exactly — unlike
+        // Mana/Stamina, which needed an explicit RESET_TO_MAXIMUM override. unitScale keeps using
+        // RageResourceAdapter.UNIT_SCALE (still 1) for continuity even though the adapter no longer
+        // backs this definition, since nothing else defines a canonical Rage unit scale.
         PlayerResourceRegistry.INSTANCE.register(
                 PlayerResourceDefinition.builder(PlayerResourceIds.RAGE, ResourceModel.SCALAR)
                         .polarity(ResourcePolarity.HIGH_IS_GOOD)
-                        .externalAdapter(PlayerResourceIds.RAGE_ADAPTER)
                         .unitScale(RageResourceAdapter.UNIT_SCALE)
                         .absoluteMinimum(0)
-                        .authoredBaseMaximum(2)
-                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                        // Canonical §25.6's exact declared capability set for totality:rage.
+                        .capabilities(ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                                ResourceCapability.MAXIMUM_MODIFIERS, ResourceCapability.HUD_VISIBLE,
+                                ResourceCapability.MENU_VISIBLE)
                         .presentation(new ResourcePresentationDefinition(
                                 ResourceDisplayConversion.IDENTITY,
                                 ResourceDisplayType.PIPS,
                                 ResourceHudRole.CONTEXTUAL_ACCESS))
-                        .definitionVersion(1)
+                        .definitionVersion(2)
                         .build());
 
         // Thirst: dormant, GENERIC_COMPONENT-authority (builder default), no adapter, no

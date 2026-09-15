@@ -157,23 +157,27 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     }
 
     @Test
-    void productionRageDefinitionResolvesItsRegisteredAdapter() {
+    void productionRageDefinitionNoLongerReferencesAnAdapterAfterPhase5Migration() {
+        // Phase 5 migration (2026-09-15): Rage is now GENERIC_COMPONENT-authority — see
+        // productionManaAndStaminaDefinitionsNoLongerReferenceAnAdapterAfterPhase4Migration above for
+        // the identical Phase 4 precedent. RageResourceAdapter itself remains registered (still
+        // counted in productionAdapterRegistryContainsExactlySevenAdapters above — see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc for why removal is deferred), but
+        // the definition no longer references it.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         PlayerResourceDefinition rage = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
 
-        assertEquals(RageResourceAdapter.ID, rage.externalAdapterId().orElseThrow());
-        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(rage.externalAdapterId().orElseThrow()));
-        assertSame(RageResourceAdapter.INSTANCE,
-                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(rage.externalAdapterId().orElseThrow()).orElseThrow());
-        assertEquals(1, rage.definitionVersion(), "transitional legacy-adapter representation must be explicit at version 1");
+        assertTrue(rage.externalAdapterId().isEmpty());
+        assertEquals(2, rage.definitionVersion(), "the Phase 5 authority migration must bump this, never silently redefine the id");
     }
 
     @Test
     void productionRageQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
-        // Exercises the FULL production query path end to end — PlayerResourceService.query ->
-        // queryExternal -> the real registered RageResourceAdapter.snapshot, using `null` as the
-        // player, exactly like the Mana/Stamina/SpellSlots tests above/below.
+        // Exercises the FULL production query path end to end — since the Phase 5 migration,
+        // PlayerResourceService.query -> queryGeneric (GENERIC_COMPONENT authority, no adapter
+        // anymore) -- using `null` as the player, exactly like the Mana/Stamina tests above. The
+        // exact same failure reason/id this test pins was already correct pre-migration too.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.RAGE);

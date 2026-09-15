@@ -136,30 +136,12 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
     }
 
-    @Test
-    void instantiateScalarRejectsRage() {
-        // totality:rage is EXTERNAL_ADAPTER-authority (Phase 2E) — instantiateScalar must reject it
-        // exactly like every other external-authority resource.
-        TestResourceBootstrap.ensureProductionResourcesRegistered();
-        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiateScalar(PlayerResourceIds.RAGE, 2));
-        assertFalse(state.hasState(PlayerResourceIds.RAGE));
-    }
+    // instantiateScalarRejectsRage/instantiatePartitionedRejectsRage removed: their premise (Rage
+    // rejects generic instantiation via authority) is no longer true after the Phase 5 migration —
+    // same removal precedent as instantiatePartitionedRejectsMana/Stamina above.
 
     @Test
-    void instantiatePartitionedRejectsRage() {
-        TestResourceBootstrap.ensureProductionResourcesRegistered();
-        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiatePartitioned(PlayerResourceIds.RAGE));
-        assertFalse(state.hasState(PlayerResourceIds.RAGE));
-    }
-
-    @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueForAllFiveRemainingExternalAdapterProductionResources() {
+    void isRegisteredExternalAdapterAuthorityIsTrueForAllFourRemainingExternalAdapterProductionResources() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
@@ -168,11 +150,12 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
-        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.RAGE));
         // Phase 4 migration (2026-09-15): Mana/Stamina are GENERIC_COMPONENT-authority now, so this
-        // predicate must be false for them — the opposite of their pre-migration behavior.
+        // predicate must be false for them — the opposite of their pre-migration behavior. Phase 5
+        // migration (2026-09-15): Rage joins them.
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
+        assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.RAGE));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }

@@ -5,8 +5,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
-import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.rpg.classes.*;
 import zcylas.totality.api.rpg.classes.covenant.CovenantData;
 import zcylas.totality.api.rpg.combat.armor.ArmorProficiency;
@@ -411,23 +409,17 @@ public class ClassTab extends CharacterScreenTab {
         screen.esc(g);
     }
 
-    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
-    private static int legacyRageCurrent() {
-        try {
-            return ChargeComponents.PLAYER_CHARGES
-                    .get((ComponentProvider) Minecraft.getInstance().player)
-                    .getCurrent(BarbarianRageAbility.CHARGE_ID);
-        } catch (Exception ignored) { return 0; }
-    }
+    /**
+     * External-review correction (Phase 5, 2026-09-15, finding 3) — see {@code
+     * TotalityClient#legacyRageCurrent}'s Javadoc for the full reasoning: reading the legacy {@code
+     * PlayerChargesComponent} mirror here is no longer safe now that Generic Rage is independently
+     * authoritative and an existing migrated Barbarian's legacy pool is frozen at a possibly-stale
+     * value. Returns 0 unconditionally so this fallback can never present a wrong nonzero number.
+     */
+    private static int legacyRageCurrent() { return 0; }
 
-    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
-    private static int legacyRageMax() {
-        try {
-            return ChargeComponents.PLAYER_CHARGES
-                    .get((ComponentProvider) Minecraft.getInstance().player)
-                    .getMax(BarbarianRageAbility.CHARGE_ID);
-        } catch (Exception ignored) { return 0; }
-    }
+    /** See {@link #legacyRageCurrent} — same correction, same reasoning, applied to the maximum. */
+    private static int legacyRageMax() { return 0; }
 
     @Override
     public void mouseClicked(int mx, int my) {

@@ -15,9 +15,6 @@ import net.minecraft.client.renderer.special.SpecialModelRenderers;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
-import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
-import zcylas.totality.api.core.component.ComponentProvider;
-import zcylas.totality.api.rpg.classes.ChargeComponents;
 import zcylas.totality.api.rpg.classes.ClientClassManager;
 import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
@@ -251,23 +248,25 @@ public class TotalityClient implements ClientModInitializer {
         });
     }
 
-    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
-    private static int legacyRageCurrent(Minecraft client) {
-        try {
-            return ChargeComponents.PLAYER_CHARGES
-                    .get((ComponentProvider) client.player)
-                    .getCurrent(BarbarianRageAbility.CHARGE_ID);
-        } catch (Exception e) { return 0; }
-    }
+    /** Legacy Rage fallback reader — External-review correction (Phase 5, 2026-09-15, finding 3):
+     * this fallback used to read the legacy {@code PlayerChargesComponent} mirror, which was safe
+     * only while that mirror and Generic Rage were guaranteed to carry the same value (true through
+     * Phase 3C, since {@code RageResourceAdapter} derived the Generic view directly from this same
+     * legacy component). Since
+     * the Phase 5 migration, Generic Rage is independently authoritative and mutated, while an
+     * existing pre-Phase-5 Barbarian's legacy pool is frozen at whatever value it held at migration
+     * time (never mutated again) — so reading it here could transiently present a stale, incorrect
+     * value (e.g. a frozen "2/4" after Generic Rage has since been spent down to "1/4") during the
+     * brief window between the legacy sync packet and the Generic full-snapshot packet on
+     * reconnect/respawn. Returning 0 unconditionally instead means the only thing this fallback can
+     * ever show, in the split-second before Generic Rage is synchronized, is the same harmless "not
+     * yet synced" 0 every other Generic-authoritative resource briefly shows — never a wrong nonzero
+     * number. Never resumed as a real fallback source; see the Phase 5 implementation report.
+     */
+    private static int legacyRageCurrent(Minecraft client) { return 0; }
 
-    /** Legacy Rage fallback reader — identical to the pre-Phase-3C inline read, unchanged. */
-    private static int legacyRageMax(Minecraft client) {
-        try {
-            return ChargeComponents.PLAYER_CHARGES
-                    .get((ComponentProvider) client.player)
-                    .getMax(BarbarianRageAbility.CHARGE_ID);
-        } catch (Exception e) { return 0; }
-    }
+    /** See {@link #legacyRageCurrent} — same correction, same reasoning, applied to the maximum. */
+    private static int legacyRageMax(Minecraft client) { return 0; }
 
     private void registerEntityRenderers(){
         EntityRenderers.register(

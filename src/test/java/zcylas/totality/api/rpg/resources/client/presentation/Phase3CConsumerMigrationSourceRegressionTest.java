@@ -222,6 +222,45 @@ class Phase3CConsumerMigrationSourceRegressionTest {
         assertFalse(migratedBlock.contains(".applyFull(") || migratedBlock.contains(".applyDelta("));
     }
 
+    // ── Phase 5 external-review correction (2026-09-15, finding 3): the Rage legacy presentation
+    // fallback must never read the legacy PlayerChargesComponent mirror again, since an existing
+    // migrated Barbarian's legacy pool is frozen at a possibly-stale value once Generic Rage becomes
+    // independently authoritative — see TotalityClient#legacyRageCurrent's Javadoc for the full
+    // reasoning. These sentinels pin that the fallback methods are hardcoded to 0 and never touch
+    // ChargeComponents/PlayerChargesComponent again. ──────────────────────────────────────────────
+
+    @Test
+    void totalityClientLegacyRageFallbackNeverReadsTheLegacyChargeComponentMirror() throws Exception {
+        String source = read(TOTALITY_CLIENT);
+        int start = source.indexOf("private static int legacyRageCurrent(Minecraft client)");
+        assertTrue(start >= 0, "expected to find legacyRageCurrent");
+        int end = source.indexOf("private static int legacyRageMax(Minecraft client)", start);
+        assertTrue(end > start, "expected to find legacyRageMax after legacyRageCurrent");
+        String fallbackBlock = source.substring(start, source.indexOf('}', end) + 1);
+
+        assertFalse(fallbackBlock.contains("ChargeComponents"),
+                "the Rage legacy fallback must no longer read PlayerChargesComponent — it can present a "
+                        + "stale value now that Generic Rage is independently authoritative");
+        assertTrue(fallbackBlock.contains("return 0;"),
+                "the Rage legacy fallback must be hardcoded to 0, never a stale legacy read");
+    }
+
+    @Test
+    void classTabLegacyRageFallbackNeverReadsTheLegacyChargeComponentMirror() throws Exception {
+        String source = read(CLASS_TAB);
+        int start = source.indexOf("private static int legacyRageCurrent()");
+        assertTrue(start >= 0, "expected to find legacyRageCurrent");
+        int end = source.indexOf("private static int legacyRageMax()", start);
+        assertTrue(end > start, "expected to find legacyRageMax after legacyRageCurrent");
+        String fallbackBlock = source.substring(start, source.indexOf('}', end) + 1);
+
+        assertFalse(fallbackBlock.contains("ChargeComponents"),
+                "the Rage legacy fallback must no longer read PlayerChargesComponent — it can present a "
+                        + "stale value now that Generic Rage is independently authoritative");
+        assertTrue(fallbackBlock.contains("return 0;"),
+                "the Rage legacy fallback must be hardcoded to 0, never a stale legacy read");
+    }
+
     // ── 33: no Resource mutation call in renderer/UI code ────────────────────────────────────
 
     @Test

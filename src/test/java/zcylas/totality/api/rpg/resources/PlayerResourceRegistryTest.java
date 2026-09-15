@@ -245,18 +245,21 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthFoodBreathSpellSlotsAndRageAsExternalAdapters() {
+    void productionSingletonContainsExactlyHealthFoodBreathAndSpellSlotsAsExternalAdapters() {
         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
-        // added Breath; Phase 2D added totality:spell_slots; Phase 2E added totality:rage — all five
-        // remain EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
+        // added Breath; Phase 2D added totality:spell_slots — all four remain EXTERNAL_ADAPTER-
+        // authority, query-only (see ProductionResourceDefinitions).
         // Phase 2C originally added Mana/Stamina as transitional EXTERNAL_ADAPTER too, but the Phase
         // 4 migration (2026-09-15) redefines both as GENERIC_COMPONENT — see
-        // productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration below.
+        // productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration below. Phase 2E
+        // originally added totality:rage the same way, but the Phase 5 migration (2026-09-15)
+        // redefines it as GENERIC_COMPONENT too — see
+        // productionRageIsGenericComponentAuthorityAfterPhase5Migration below.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
-                PlayerResourceIds.SPELL_SLOTS, PlayerResourceIds.RAGE
+                PlayerResourceIds.SPELL_SLOTS
         }) {
             assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
@@ -277,6 +280,17 @@ class PlayerResourceRegistryTest {
                     () -> resourceId + " must be GENERIC_COMPONENT after the Phase 4 migration");
             assertTrue(definition.externalAdapterId().isEmpty(), () -> resourceId + " must declare no external adapter");
         }
+    }
+
+    @Test
+    void productionRageIsGenericComponentAuthorityAfterPhase5Migration() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.RAGE));
+        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
+        assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(),
+                "totality:rage must be GENERIC_COMPONENT after the Phase 5 migration");
+        assertTrue(definition.externalAdapterId().isEmpty(), "totality:rage must declare no external adapter");
     }
 
     @Test
@@ -351,16 +365,18 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void allFourScalarExternalAdapterProductionDefinitionsAreExternalScalarResources() {
+    void allThreeScalarExternalAdapterProductionDefinitionsAreExternalScalarResources() {
         // Deliberately excludes totality:spell_slots (Phase 2D): it is PARTITIONED_POOL-model, not
         // SCALAR — see spellSlotsDefinitionIsPartitionedPoolExternalAdapter below for its own shape
-        // assertions. totality:rage (Phase 2E) IS scalar and is included here. Mana/Stamina moved to
+        // assertions. Mana/Stamina moved to
         // productionManaAndStaminaAreScalarGenericComponentResourcesAfterPhase4Migration below after
-        // the Phase 4 migration (2026-09-15) redefined them as GENERIC_COMPONENT.
+        // the Phase 4 migration (2026-09-15) redefined them as GENERIC_COMPONENT; Rage moved to
+        // productionRageIsScalarGenericComponentResourceAfterPhase5Migration below after the Phase 5
+        // migration (2026-09-15) redefined it the same way.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
-                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH, PlayerResourceIds.RAGE
+                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH
         }) {
             PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
             assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
@@ -384,35 +400,57 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void rageDefinitionIsScalarExternalAdapter() {
+    void productionRageIsScalarGenericComponentResourceAfterPhase5Migration() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
-        assertEquals(ResourceModel.SCALAR, definition.model());
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority());
-        assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity());
-        assertEquals(zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE, definition.unitScale(),
-                "the definition's unitScale must stay in lockstep with the adapter's own canonical constant");
-        assertEquals(1L, zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE);
-        assertEquals(0L, definition.absoluteMinimum());
-        assertEquals(2L, definition.authoredBaseMaximum().orElseThrow(),
-                "authored baseline is descriptive only — the live query path never consults it");
-        assertEquals(1, definition.definitionVersion());
-        assertEquals(zcylas.totality.api.rpg.resources.external.RageResourceAdapter.ID,
-                definition.externalAdapterId().orElseThrow());
+        assertEquals(ResourceModel.SCALAR, definition.model(), "totality:rage must be SCALAR");
+        assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(), "totality:rage must be GENERIC_COMPONENT");
+        assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), "totality:rage must be HIGH_IS_GOOD");
+        assertEquals(0L, definition.absoluteMinimum(), "totality:rage must have absoluteMinimum 0");
     }
 
     @Test
-    void rageDeclaresOnlyHudVisibleAndMenuVisibleCapabilities() {
-        // Query-only, exactly like every other Phase 2A-2D adapter — no SPENDABLE/RESTORABLE/
-        // MAXIMUM_MODIFIERS/PARTITIONED_SPENDING, deferred to a future generic-mutation phase.
+    void rageDeclaresNoAuthoredMaximumAndBumpedDefinitionVersionAfterPhase5Migration() {
+        // Mirrors productionManaAndStaminaDeclareNoAuthoredMaximumAndBumpedDefinitionVersionAfterPhase4Migration:
+        // an authored base wins outright over a registered resolver, so Rage must declare NO
+        // authoredBaseMaximum — otherwise RageMaximumResolver (registered in
+        // ProductionResourceDefinitions) would never actually run. definitionVersion bumped 1 -> 2:
+        // the Phase 5 migration is a real, explicit redefinition of what totality:rage means, never a
+        // silent structural hot-swap.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
+        PlayerResourceDefinition rage = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
+
+        assertEquals(zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE, rage.unitScale(),
+                "the definition's unitScale must stay in lockstep with the adapter's own canonical constant");
+        assertEquals(1L, zcylas.totality.api.rpg.resources.external.RageResourceAdapter.UNIT_SCALE);
+        assertTrue(rage.authoredBaseMaximum().isEmpty(),
+                "an authored maximum would silently short-circuit the registered RageMaximumResolver");
+        assertEquals(2, rage.definitionVersion());
+        assertTrue(rage.externalAdapterId().isEmpty(), "totality:rage must declare no external adapter after Phase 5");
+    }
+
+    @Test
+    void productionRageDeclaresExactlyItsCanonicalPhase5CapabilitySet() {
+        // Canonical §25.6's exact declared capability set for totality:rage — SPENDABLE/RESTORABLE/
+        // MAXIMUM_MODIFIERS/HUD_VISIBLE/MENU_VISIBLE, a real authoritative GENERIC_COMPONENT
+        // resource, not the query-only transitional shape Phase 2E originally declared (HUD_VISIBLE/
+        // MENU_VISIBLE only). Phase 5 Rage migration, 2026-09-15.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        java.util.Set<ResourceCapability> expected = java.util.Set.of(
+                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                ResourceCapability.MAXIMUM_MODIFIERS, ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE);
+
         var capabilities = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow().capabilities();
-        assertEquals(java.util.Set.of(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE), capabilities);
-        assertFalse(capabilities.contains(ResourceCapability.SPENDABLE));
-        assertFalse(capabilities.contains(ResourceCapability.RESTORABLE));
-        assertFalse(capabilities.contains(ResourceCapability.MAXIMUM_MODIFIERS));
+        assertEquals(expected, capabilities);
+        // Canonical §25.6 does not declare PASSIVE_REGENERATION/DIRECT_DRAIN/CLIENT_PREDICTION/
+        // PARTITIONED_SPENDING for Rage — no passive regen, no continuous drain, no client
+        // prediction, and Rage is SCALAR not partitioned.
+        assertFalse(capabilities.contains(ResourceCapability.PASSIVE_REGENERATION));
+        assertFalse(capabilities.contains(ResourceCapability.DIRECT_DRAIN));
+        assertFalse(capabilities.contains(ResourceCapability.CLIENT_PREDICTION));
         assertFalse(capabilities.contains(ResourceCapability.PARTITIONED_SPENDING));
     }
 
