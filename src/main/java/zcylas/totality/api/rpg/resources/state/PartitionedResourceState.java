@@ -22,6 +22,9 @@ public final class PartitionedResourceState implements ResourceState {
     private final Map<Integer, Long> currentByPartition = new LinkedHashMap<>();
     private final Map<Integer, Long> overflowByPartition = new LinkedHashMap<>();
 
+    /** See {@link zcylas.totality.api.rpg.resources.state.ScalarResourceState#active()}'s Javadoc — same meaning, defaults to {@code true}. */
+    private boolean active = true;
+
     @Override
     public ResourceModel model() {
         return ResourceModel.PARTITIONED_POOL;
@@ -57,10 +60,19 @@ public final class PartitionedResourceState implements ResourceState {
         return Collections.unmodifiableSet(union);
     }
 
+    public boolean active() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public PartitionedResourceState copy() {
         PartitionedResourceState copy = new PartitionedResourceState();
         copy.currentByPartition.putAll(this.currentByPartition);
         copy.overflowByPartition.putAll(this.overflowByPartition);
+        copy.active = active;
         return copy;
     }
 }

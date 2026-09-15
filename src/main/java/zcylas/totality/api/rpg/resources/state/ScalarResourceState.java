@@ -15,6 +15,15 @@ public final class ScalarResourceState implements ResourceState {
     private long overflowUnits;
     private long regenerationRemainder;
 
+    /**
+     * Whether this instance is presently granted/live (as opposed to retained after
+     * {@code ResourceRemovalPolicy.PRESERVE_DORMANT}/{@code RESET_AND_PRESERVE} removed its last
+     * grant source — canonical §16.7/§16.8). Defaults to {@code true}: every pre-existing
+     * instantiation path (direct test fixtures included) creates genuinely live state and must see
+     * no behavior change from this field's addition.
+     */
+    private boolean active = true;
+
     public ScalarResourceState(long currentUnits) {
         this(currentUnits, 0L, 0L);
     }
@@ -54,7 +63,17 @@ public final class ScalarResourceState implements ResourceState {
         this.regenerationRemainder = value;
     }
 
+    public boolean active() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
     public ScalarResourceState copy() {
-        return new ScalarResourceState(currentUnits, overflowUnits, regenerationRemainder);
+        ScalarResourceState copy = new ScalarResourceState(currentUnits, overflowUnits, regenerationRemainder);
+        copy.active = active;
+        return copy;
     }
 }

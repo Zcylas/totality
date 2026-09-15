@@ -1,10 +1,15 @@
 package zcylas.totality.api.rpg.resources.external;
 
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
+import zcylas.totality.api.rpg.resources.ResourceAmount;
+import zcylas.totality.api.rpg.resources.ResourceContext;
+import zcylas.totality.api.rpg.resources.ResourceOperationResult;
 import zcylas.totality.api.rpg.resources.ResourceQueryFailureReason;
 import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+import zcylas.totality.api.rpg.resources.ResourceTarget;
 
 import java.util.Set;
 
@@ -111,4 +116,33 @@ public interface ExternalPlayerResourceAdapter {
     Set<ExternalResourceOperationSupport> supportedOperations();
 
     ExternalResourceClientMirrorMode clientMirrorMode();
+
+    /**
+     * Added 2026-09-15 (pre-Phase-4 foundation pass) alongside {@link
+     * zcylas.totality.api.rpg.resources.PlayerResourceService}'s mutation façade — establishes the
+     * structural hook a future adapter needs to opt into {@link ExternalResourceOperationSupport#RESTORE}
+     * without an interface redesign, per the task's "the mutation architecture must... establish the
+     * canonical generic operation abstraction that can support partitioned operations [and external
+     * mutation] without redesign" instruction. {@code PlayerResourceService} only ever calls this
+     * after confirming {@code supportedOperations().contains(RESTORE)} — the default throws because
+     * every current adapter (Health/Food/Breath/Mana/Stamina/SpellSlots/Rage) declares
+     * {@link ExternalResourceOperationSupport#QUERY} only, so this default is unreachable in
+     * production today; it exists so a future opt-in adapter overrides it rather than the interface
+     * needing a new method added later. Typed against {@code ServerPlayer} (narrower than
+     * {@link #snapshot}'s {@code Player}) since only the server may authoritatively mutate — see the
+     * class Javadoc above.
+     */
+    default ResourceOperationResult restore(ServerPlayer player, PlayerResourceDefinition definition, ResourceAmount amount, ResourceContext context) {
+        throw new UnsupportedOperationException(id() + " does not implement restore() despite declaring RESTORE support");
+    }
+
+    /** See {@link #restore}'s Javadoc — the {@link ExternalResourceOperationSupport#DRAIN} counterpart. */
+    default ResourceOperationResult drain(ServerPlayer player, PlayerResourceDefinition definition, ResourceAmount amount, ResourceContext context) {
+        throw new UnsupportedOperationException(id() + " does not implement drain() despite declaring DRAIN support");
+    }
+
+    /** See {@link #restore}'s Javadoc — the {@link ExternalResourceOperationSupport#SET} counterpart. */
+    default ResourceOperationResult set(ServerPlayer player, PlayerResourceDefinition definition, ResourceTarget target, ResourceContext context) {
+        throw new UnsupportedOperationException(id() + " does not implement set() despite declaring SET support");
+    }
 }

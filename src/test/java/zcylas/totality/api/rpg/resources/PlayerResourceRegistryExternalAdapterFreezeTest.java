@@ -123,20 +123,22 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     }
 
     @Test
-    void productionManaAndStaminaDefinitionsResolveTheirRegisteredAdapters() {
+    void productionManaAndStaminaDefinitionsNoLongerReferenceAnAdapterAfterPhase4Migration() {
+        // Phase 4 migration (2026-09-15): Mana/Stamina are now GENERIC_COMPONENT-authority — see
+        // productionManaAndStaminaDefinitionsResolveTheirRegisteredAdapters's own removal note. The
+        // adapter classes/registrations themselves remain (ManaResourceAdapter/StaminaResourceAdapter
+        // are still counted in productionAdapterRegistryContainsExactlySevenAdapters below — see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc for why removal is deferred), but
+        // neither definition references either anymore.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         PlayerResourceDefinition mana = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
         PlayerResourceDefinition stamina = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
 
-        assertEquals(ManaResourceAdapter.ID, mana.externalAdapterId().orElseThrow());
-        assertEquals(StaminaResourceAdapter.ID, stamina.externalAdapterId().orElseThrow());
-        assertSame(ManaResourceAdapter.INSTANCE,
-                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(mana.externalAdapterId().orElseThrow()).orElseThrow());
-        assertSame(StaminaResourceAdapter.INSTANCE,
-                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(stamina.externalAdapterId().orElseThrow()).orElseThrow());
-        assertEquals(1, mana.definitionVersion(), "transitional legacy-adapter representation must be explicit at version 1");
-        assertEquals(1, stamina.definitionVersion());
+        assertTrue(mana.externalAdapterId().isEmpty());
+        assertTrue(stamina.externalAdapterId().isEmpty());
+        assertEquals(2, mana.definitionVersion(), "the Phase 4 authority migration must bump this, never silently redefine the id");
+        assertEquals(2, stamina.definitionVersion());
     }
 
     @Test
@@ -212,11 +214,12 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
 
     @Test
     void productionManaQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
-        // Exercises the FULL production query path end to end — PlayerResourceService.query ->
-        // queryExternal -> the real registered ManaResourceAdapter.snapshot -- using `null` as the
-        // player, which fails the `instanceof ServerPlayer` check exactly like a real client-side
-        // LocalPlayer would (neither is a ServerPlayer). No fake/mock Player construction needed:
-        // this is the real production adapter, actually invoked.
+        // Exercises the FULL production query path end to end — since the Phase 4 migration,
+        // PlayerResourceService.query -> queryGeneric (GENERIC_COMPONENT authority, no adapter
+        // anymore) -- using `null` as the player, which fails the `instanceof ServerPlayer` check
+        // exactly like a real client-side LocalPlayer would. The exact same failure reason/id this
+        // test pins was already correct pre-migration too — queryGeneric's null-player guard returns
+        // the identical STATE_UNAVAILABLE_ON_THIS_SIDE reason queryExternal's did.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.MANA);

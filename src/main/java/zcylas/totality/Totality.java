@@ -10,6 +10,7 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.shop.ShopRegistry;
 import zcylas.totality.entity.npc.BankerNpcEntity;
 import zcylas.totality.entity.npc.TotalityNpcEntity;
 import zcylas.totality.api.ability.AbilityServerTick;
@@ -42,7 +43,6 @@ import zcylas.totality.networking.ability.FavoriteAbilityHandler;
 import zcylas.totality.networking.ability.ToggleAbilityHandler;
 import zcylas.totality.networking.ability.veinminer.VeinminerKeyHandler;
 import zcylas.totality.networking.ancestry.SelectAncestryHandler;
-import zcylas.totality.networking.ancestry.SelectAncestryPayload;
 import zcylas.totality.networking.classes.SelectClassHandler;
 import zcylas.totality.networking.inventory.InventoryActionHandler;
 import zcylas.totality.networking.mana.ManaServerTick;
@@ -92,6 +92,7 @@ public class Totality implements ModInitializer {
 		ModComponents.register();
 		ModItems.register();
 		ModBlocks.register();
+		ModGroups.register();
 		zcylas.totality.worldgen.ModFeatures.register();
 		ModBlockEntities.register();
 		ModEntities.register();
@@ -111,7 +112,7 @@ public class Totality implements ModInitializer {
 				.registerReloadListener(zcylas.totality.entity.npc.NpcNameRegistry.INSTANCE);
 		ResourceManagerHelper.get(PackType.SERVER_DATA)
 				.registerReloadListener(zcylas.totality.api.quest.QuestRegistry.INSTANCE);
-		zcylas.totality.api.shop.ShopRegistry.register();
+		ShopRegistry.register();
 		zcylas.totality.api.shop.MerchantRuntimeRegistry.register();
 		zcylas.totality.api.shop.TradeSessionManager.register();
 		zcylas.totality.api.economy.value.ItemValueRegistry.register();
@@ -121,6 +122,8 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.shop.TradingScreenVerification.register();
 		zcylas.totality.api.rpg.combat.PowerAttackVerification.register();
 		zcylas.totality.networking.combat.OffhandAttackVerification.register();
+		zcylas.totality.api.rpg.resources.verification.ResourceFoundationVerification.register();
+		zcylas.totality.api.rpg.resources.verification.BaselineResourceMigrationVerification.register();
 		ModEvents.register();
 	}
 

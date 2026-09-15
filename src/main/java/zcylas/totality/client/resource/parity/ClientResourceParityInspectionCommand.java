@@ -107,7 +107,21 @@ public final class ClientResourceParityInspectionCommand {
     static final List<Identifier> NATIVE_RESOURCE_IDS = List.of(
             PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH);
 
-    /** Canonical, deterministic inspection order — Mana, Stamina, Standard Spell Slots, Rage. */
+    /**
+     * Canonical, deterministic inspection order — Mana, Stamina, Standard Spell Slots, Rage.
+     *
+     * <p>Phase 4 migration note (2026-09-15): Mana/Stamina are now {@code GENERIC_COMPONENT}-
+     * authority — the legacy bespoke packet ({@code SyncManaPayload}/{@code SyncStaminaPayload})
+     * that feeds the "shadow" (legacy) side of this comparison is now itself derived from the same
+     * authoritative {@code PlayerResourceService} query as the Generic sync channel (see {@code
+     * PlayerManaManager}/{@code PlayerStaminaManager}'s facade Javadoc), not from an independently
+     * mutated store. A mismatch here therefore no longer means "expected transitional drift between
+     * two authorities" — it means a real bug (stale packet ordering, a missed sync trigger, etc.).
+     * Left in this bucket rather than moved to {@link #NATIVE_RESOURCE_IDS} deliberately: this
+     * comparison function ({@code gatherShadow}) is still the correct one to read the legacy client
+     * mirror through, and the underlying check remains meaningful — only its failure interpretation
+     * changed. Spell Slots/Rage remain unmigrated, so their entries are unaffected by this note.
+     */
     static final List<Identifier> SHADOW_PARITY_RESOURCE_IDS = List.of(
             PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS, PlayerResourceIds.RAGE);
 

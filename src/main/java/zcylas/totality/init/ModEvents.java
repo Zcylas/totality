@@ -14,6 +14,11 @@ import zcylas.totality.init.events.VanillaDamageInterceptor;
 public class ModEvents {
     public static void register() {
         PlayerComponentEvents.init();
+        // Must run before StatsServerEvents.register() below: its JOIN/COPY_FROM handlers read
+        // Mana/Stamina current values and send an immediate legacy sync packet — they must see this
+        // class's (re)instantiation first. See BaselineResourceLifecycleEvents's own Javadoc for the
+        // full ordering rationale (this also satisfies ResourceSyncLifecycleEvents' ordering need).
+        zcylas.totality.networking.resource.BaselineResourceLifecycleEvents.register();
         StatsServerEvents.register();
         MagicServerEvents.register();
         CombatServerEvents.register();       // AttackEntityCallback

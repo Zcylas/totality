@@ -10,16 +10,18 @@ import java.util.Objects;
  * §16.6, exact names/shape: {@code TOTALITY_GENERIC_PLAYER_RESOURCE_API.md}.
  *
  * Placed under {@code .integration} rather than the top-level {@code api.rpg.resources} package
- * to match the canonical package layout (§3.1), which groups grant-related types —
- * {@code ResourceGrantProvider}, {@code ResourceGrant}, {@code ResourceGrantSourceType}, etc. —
- * under {@code api/rpg/resources/integration/}. This is the only file currently in that package;
- * its siblings ({@code ResourceGrant}, {@code ResourceGrantProvider}, ...) are not implemented as
- * of Phase 2A — still true after Health/Food were added, since both are {@code EXTERNAL_ADAPTER}-
- * authority and need no grant provider.
+ * to match the canonical package layout (§3.1), which groups grant-related types under
+ * {@code api/rpg/resources/integration/} — joined, as of the 2026-09-15 pre-Phase-4 foundation
+ * pass, by {@link ResourceGrantProvider}, {@link ResourceGrant}, {@link ResourceGrantSourceType},
+ * {@link ResourceGrantMode}, {@link ResourceGrantAggregationPolicy}, {@link ResourceRemovalPolicy},
+ * {@link ResourceVisibilityPolicy}, {@link ResourceGrantRegistry}, and the acquisition logic that
+ * actually consumes these values, {@link ResourceGrantReconciler}.
  *
- * This remains a declaration-only value hierarchy: no {@code ResourceGrantProvider}, no
- * {@code ResourceGrant}, and no acquisition logic that would actually consume one of these values
- * exists yet. Nothing in production code constructs one of these outside tests.
+ * <p>No <b>production</b> resource is granted through this mechanism yet (Mana/Stamina/Rage/Spell
+ * Slots remain {@code EXTERNAL_ADAPTER}-authority and untouched this pass; Thirst/Sanity/Ki remain
+ * registered but ungranted) — see {@code ResourceGrantReconciler}'s own class Javadoc and the
+ * pre-Phase-4 foundation implementation report for what this pass deliberately does and does not
+ * wire up.
  */
 public sealed interface ResourceGrantInitialization {
 

@@ -163,8 +163,11 @@ public class StaminaServerTick {
                                     (int)(PlayerStaminaManager.calculateRegenAmount(player)
                                             * regenMultiplier));
                             PlayerStaminaManager.addStamina(player, regenAmount);
-                            PlayerStaminaManager.setStamina(player,
-                                    PlayerStaminaManager.getStamina(player));
+                            // The re-set that used to live here was truly redundant even before
+                            // this migration (nested inside the same current<max branch that just
+                            // called addStamina, which already clamps to max) — unlike Mana's
+                            // equivalent line (kept — see ManaServerTick), it never covered a
+                            // current>max case, since nothing else here calls it unconditionally.
                             syncStamina(player);
                         }
                     }

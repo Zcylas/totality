@@ -6,14 +6,15 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Proves {@code totality:health}/{@code totality:food}/{@code totality:breath}/{@code totality:mana}/
- * {@code totality:stamina} can never become live {@link PlayerResourceStateComponent} state — the
- * "Prevent duplicate external state" requirement from the Phase 2A task, extended to Breath in
- * Phase 2B and to Mana/Stamina in Phase 2C (whose transitional {@code EXTERNAL_ADAPTER} authority
- * over the legacy {@code PlayerResourceComponent} store gets exactly the same protection
- * automatically — this class proves that generalization holds, not just documents it). Uses the
- * real production registry (via {@link TestResourceBootstrap}) since the guarantee under test is
- * specifically about the real external-authority definitions.
+ * Proves {@code totality:health}/{@code totality:food}/{@code totality:breath}/{@code
+ * totality:spell_slots}/{@code totality:rage} can never become live {@link
+ * PlayerResourceStateComponent} state — the "Prevent duplicate external state" requirement from the
+ * Phase 2A task, extended through Phase 2E. {@code totality:mana}/{@code totality:stamina} were
+ * EXTERNAL_ADAPTER-authority too through Phase 2C, but the Phase 4 migration (2026-09-15) redefined
+ * both as {@code GENERIC_COMPONENT} — see {@link #instantiateScalarAcceptsManaAfterPhase4Migration}/
+ * {@link #instantiateScalarAcceptsStaminaAfterPhase4Migration} for their current-shape proof instead.
+ * Uses the real production registry (via {@link TestResourceBootstrap}) since the guarantee under
+ * test is specifically about the real external-authority definitions.
  */
 class PlayerResourceStateComponentExternalSafetyTest {
 
@@ -78,44 +79,37 @@ class PlayerResourceStateComponentExternalSafetyTest {
     }
 
     @Test
-    void instantiateScalarRejectsMana() {
+    void instantiateScalarAcceptsManaAfterPhase4Migration() {
+        // Phase 4 migration (2026-09-15): totality:mana is now GENERIC_COMPONENT-authority — this
+        // replaces the removed instantiateScalarRejectsMana test, which pinned the pre-migration
+        // rejection.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiateScalar(PlayerResourceIds.MANA, 100));
-        assertFalse(state.hasState(PlayerResourceIds.MANA));
+        assertDoesNotThrow(() -> state.instantiateScalar(PlayerResourceIds.MANA, 100));
+        assertTrue(state.hasState(PlayerResourceIds.MANA));
     }
 
     @Test
-    void instantiateScalarRejectsStamina() {
+    void instantiateScalarAcceptsStaminaAfterPhase4Migration() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiateScalar(PlayerResourceIds.STAMINA, 100));
-        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
+        assertDoesNotThrow(() -> state.instantiateScalar(PlayerResourceIds.STAMINA, 100));
+        assertTrue(state.hasState(PlayerResourceIds.STAMINA));
     }
 
-    @Test
-    void instantiatePartitionedRejectsMana() {
-        TestResourceBootstrap.ensureProductionResourcesRegistered();
-        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiatePartitioned(PlayerResourceIds.MANA));
-        assertFalse(state.hasState(PlayerResourceIds.MANA));
-    }
-
-    @Test
-    void instantiatePartitionedRejectsStamina() {
-        TestResourceBootstrap.ensureProductionResourcesRegistered();
-        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiatePartitioned(PlayerResourceIds.STAMINA));
-        assertFalse(state.hasState(PlayerResourceIds.STAMINA));
-    }
+    // instantiatePartitionedRejectsMana/Stamina removed: their premise (Mana/Stamina reject generic
+    // instantiation via authority) is no longer true after the Phase 4 migration. Note this reveals
+    // a pre-existing, out-of-scope gap: instantiateScalar/instantiatePartitioned validate authority
+    // but never cross-check model, so instantiatePartitioned(MANA, ...) would now technically
+    // succeed and create a wrongly-shaped PartitionedResourceState under a SCALAR-model id — no
+    // production code calls it that way (this migration's own code only ever calls
+    // instantiateScalar for Mana/Stamina), so this is not exercised, and fixing it is a Phase 1
+    // foundation concern unrelated to this migration's scope, not addressed here. The
+    // "instantiatePartitioned rejects EXTERNAL_ADAPTER authority regardless of model" guarantee
+    // itself remains fully covered by instantiatePartitionedRejectsSpellSlots above (a genuinely
+    // still-external PARTITIONED_POOL resource).
 
     @Test
     void instantiateScalarRejectsSpellSlots() {
@@ -165,7 +159,7 @@ class PlayerResourceStateComponentExternalSafetyTest {
     }
 
     @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueForAllSevenProductionResources() {
+    void isRegisteredExternalAdapterAuthorityIsTrueForAllFiveRemainingExternalAdapterProductionResources() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
@@ -173,10 +167,12 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.HEALTH));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
-        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
-        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.RAGE));
+        // Phase 4 migration (2026-09-15): Mana/Stamina are GENERIC_COMPONENT-authority now, so this
+        // predicate must be false for them — the opposite of their pre-migration behavior.
+        assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
+        assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }

@@ -58,6 +58,12 @@ public class PlayerConnectionEvents {
             MasteriesComponents.PLAYER_MASTERIES.sync((ComponentProvider) player);
             StatsComponents.PLAYER_STATS.sync((ComponentProvider) player);
             SpellSlotComponents.SPELL_SLOTS.sync((ComponentProvider) player);
+            // Unlike every component above, this one was never synced on JOIN — only on
+            // AFTER_RESPAWN (Barbarian-gated, below) and on individual pool mutations. A player
+            // reconnecting with an already-granted charge pool (e.g. Rage) therefore kept a client
+            // mirror stuck at its just-created empty state until the next mutation/respawn, even
+            // though the authoritative server-side pool was already correctly loaded from NBT.
+            ChargeComponents.PLAYER_CHARGES.sync((ComponentProvider) player);
             QuestManager.onPlayerJoin(player);
             ClassComponents.PLAYER_CLASS.sync((ComponentProvider) player);
             // Sync stamina so the client HUD shows the correct value immediately
@@ -83,6 +89,14 @@ public class PlayerConnectionEvents {
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
             RestEventBus.register(player, (p, type) ->
                     SpellSlotComponents.get(p).onRest(p, type));
+            // Phase 4 migration: Stamina fully restores on Long Rest only (task §14 / canonical
+            // §24.7) — Mana deliberately gets no Rest listener, matching its own characterized
+            // absence of any current Rest behavior.
+            RestEventBus.register(player, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    zcylas.totality.api.rpg.stamina.PlayerStaminaManager.onLongRest(p);
+                }
+            });
 
             var classComp = ClassComponents.get(player);
             Identifier primaryClass = classComp.getPrimaryClassId();
@@ -137,6 +151,11 @@ public class PlayerConnectionEvents {
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
             RestEventBus.register(newPlayer, (p, type) ->
                     SpellSlotComponents.get(p).onRest(p, type));
+            RestEventBus.register(newPlayer, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    zcylas.totality.api.rpg.stamina.PlayerStaminaManager.onLongRest(p);
+                }
+            });
             if (ClassComponents.get(newPlayer).hasClass(TotalityClasses.BARBARIAN_ID)) {
                 BarbarianRageAbility.registerChargePool(newPlayer);
                 ChargeComponents.PLAYER_CHARGES.sync((ComponentProvider) newPlayer);

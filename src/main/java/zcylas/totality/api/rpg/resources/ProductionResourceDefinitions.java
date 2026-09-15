@@ -35,20 +35,21 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
  * Phase 2B task explicitly forbids; that decision is deferred to a future HUD-presentation phase.
  * Breath remains contextually visible today through vanilla's own unmodified air-bubble HUD.
  *
- * <p>Phase 2C adds {@code totality:mana} and {@code totality:stamina} — also {@code EXTERNAL_ADAPTER}-
- * authority and query-only, but <b>transitionally</b> so: both wrap the legacy-authoritative
- * {@link PlayerResourceComponent} store via {@link ManaResourceAdapter}/{@link StaminaResourceAdapter}
- * rather than a truly independent system the way vanilla owns Health/Food/Breath. Both are
- * registered at {@code definitionVersion = 1}; a future migration to {@code GENERIC_COMPONENT}
- * authority requires an explicit version increase and a real migration step, never a silent
- * structural hot-swap of what these two ids mean. Both use {@link ResourceDisplayConversion#IDENTITY}
- * (their legacy storage is already a plain integer, unlike Health's fixed-point float conversion),
- * unlike Health/Food they declare no formatter dependency on each other, and unlike Breath they do
- * declare a full {@link ResourcePresentationDefinition} (canonical §19.8 already treats Mana/Stamina
- * as constant HUD elements, matching Health/Food/Hunger) — but the existing Totality-drawn HUD bars
- * are left completely untouched by this phase; see {@code TOTALITY_RESOURCE_API_PHASE_2C_MANA_STAMINA_ADAPTERS_IMPLEMENTATION_REPORT.md}
- * for why (no generic synchronization exists yet for either resource, so nothing could safely
- * consume this presentation metadata client-side today regardless).
+ * <p>Phase 2C originally added {@code totality:mana} and {@code totality:stamina} as transitional
+ * {@code EXTERNAL_ADAPTER}-authority, query-only resources wrapping the legacy-authoritative {@link
+ * PlayerResourceComponent} store via {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}. The
+ * Phase 4 Mana/Stamina migration (2026-09-15) redefines both as {@code GENERIC_COMPONENT}-authority
+ * (the builder default; no {@code .externalAdapter(...)} call) at {@code definitionVersion = 2} —
+ * see {@link #registerMaximumResolvers}/{@link #registerGrants} for the real {@link
+ * zcylas.totality.api.rpg.resources.ResourceMaximumResolver}/{@link
+ * zcylas.totality.api.rpg.resources.integration.ResourceGrantProvider} wiring this migration adds,
+ * and {@code TOTALITY_GENERIC_PLAYER_RESOURCE_API_PHASE4_MANA_STAMINA_IMPLEMENTATION_REPORT_2026-09-15.md}
+ * for the full migration. {@code ManaResourceAdapter}/{@code StaminaResourceAdapter} remain
+ * registered (see {@link #registerAdapters}'s own Javadoc for why) but are no longer referenced by
+ * either definition. Both still use {@link ResourceDisplayConversion#IDENTITY} and a full {@link
+ * ResourcePresentationDefinition} (canonical §19.8 treats Mana/Stamina as constant HUD elements,
+ * matching Health/Food/Hunger) — the existing Totality-drawn HUD bars remain untouched; presentation
+ * metadata for these two still has no client consumer.
  *
  * <p>Phase 2D adds {@code totality:spell_slots} — the Resource API's first {@code PARTITIONED_POOL}
  * production resource, also {@code EXTERNAL_ADAPTER}-authority and query-only, transitionally
@@ -107,9 +108,20 @@ public final class ProductionResourceDefinitions {
     public static void register() {
         registerAdapters();
         registerDefinitions();
+        registerMaximumResolvers();
+        registerGrants();
         registerFormatters();
     }
 
+    /**
+     * {@code ManaResourceAdapter}/{@code StaminaResourceAdapter} remain registered here even though
+     * neither definition references them anymore as of the Phase 4 migration (2026-09-15) — a
+     * deliberate, documented deferred-cleanup decision, not an oversight. Removing them is a Phase 8
+     * concern (canonical: "remove... after no callers remain," per-resource, not all at once); their
+     * own unit tests still exercise their (now-unreachable-from-production) {@code resolve}/{@code
+     * normalize} logic directly, and leaving the registration in place costs nothing (an
+     * unreferenced adapter is simply never looked up).
+     */
     private static void registerAdapters() {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(HealthResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(FoodResourceAdapter.INSTANCE);
@@ -119,6 +131,17 @@ public final class ProductionResourceDefinitions {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(StandardSpellSlotsResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(RageResourceAdapter.INSTANCE);
         ExternalPlayerResourceAdapterRegistry.INSTANCE.freeze();
+    }
+
+    /** Phase 4 migration: real resolvers for the first two GENERIC_COMPONENT resources that need one. */
+    private static void registerMaximumResolvers() {
+        ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.MANA, zcylas.totality.api.rpg.mana.ManaMaximumResolver.INSTANCE);
+        ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.STAMINA, zcylas.totality.api.rpg.stamina.StaminaMaximumResolver.INSTANCE);
+    }
+
+    /** Phase 4 migration: the first production grant provider — see {@code PlayerBaselineResources}. */
+    private static void registerGrants() {
+        zcylas.totality.api.rpg.resources.integration.PlayerBaselineResources.register();
     }
 
     private static void registerDefinitions() {
@@ -177,42 +200,63 @@ public final class ProductionResourceDefinitions {
                         .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
                         .build());
 
-        // Mana/Stamina: transitional EXTERNAL_ADAPTER over the legacy PlayerResourceComponent store
-        // (see the class Javadoc). definitionVersion is explicit at 1 — a future GENERIC_COMPONENT
-        // migration must bump it, never silently redefine what totality:mana/totality:stamina mean.
-        // The authored maximum below is each legacy manager's own BASE_MAX_* constant — purely
-        // descriptive, exactly like Health/Food/Breath's authoredBaseMaximum; the live query path
-        // (ManaResourceAdapter/StaminaResourceAdapter#snapshot) always reads the manager's actual,
-        // bonus-inclusive PlayerManaManager.getMaxMana/PlayerStaminaManager.getMaxStamina and never
-        // consults this value. No SPENDABLE/RESTORABLE/DIRECT_DRAIN capability — query-only.
+        // Mana/Stamina: Phase 4 migration (2026-09-15) — GENERIC_COMPONENT authority (the builder
+        // default; no .externalAdapter(...) call), bumped to definitionVersion 2 (never a silent
+        // structural hot-swap of what totality:mana/totality:stamina mean). Deliberately NO
+        // .authoredBaseMaximum(...): PlayerResourceService.resolveMaximum makes an authored base win
+        // outright over any registered resolver for SCALAR resources, so keeping the old descriptive
+        // BASE_MAX_MANA/BASE_MAX_STAMINA literal here would silently short-circuit
+        // ManaMaximumResolver/StaminaMaximumResolver (registered below) and collapse the real
+        // dynamic formula (stats + equipment + effects + event hooks) down to a flat 100 — exactly
+        // the bug this migration's own task instructions warn against. RESET_TO_MAXIMUM death policy
+        // paired with AtMaximum grant initialization reproduces legacy's exact "full refill on
+        // respawn" behavior (PlayerResourceComponent.copyFrom always reset both to -1/uninitialized,
+        // and PlayerManaManager/PlayerStaminaManager's lazy-init-to-max getters did the rest) — see
+        // PlayerResourceStateComponent#copyFrom's own death-policy handling.
         PlayerResourceRegistry.INSTANCE.register(
                 PlayerResourceDefinition.builder(PlayerResourceIds.MANA, ResourceModel.SCALAR)
                         .polarity(ResourcePolarity.HIGH_IS_GOOD)
-                        .externalAdapter(PlayerResourceIds.MANA_ADAPTER)
                         .unitScale(1)
                         .absoluteMinimum(0)
-                        .authoredBaseMaximum(zcylas.totality.api.rpg.mana.PlayerManaManager.BASE_MAX_MANA)
-                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                        // Canonical §25.4's exact declared capability set for totality:mana — a real
+                        // authoritative GENERIC_COMPONENT resource, not the query-only transitional
+                        // shape Phase 2C originally declared (HUD_VISIBLE/MENU_VISIBLE only). Final
+                        // external-review correction pass, 2026-09-15.
+                        .capabilities(ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                                ResourceCapability.PASSIVE_REGENERATION, ResourceCapability.MAXIMUM_MODIFIERS,
+                                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
                         .presentation(new ResourcePresentationDefinition(
                                 ResourceDisplayConversion.IDENTITY,
                                 ResourceDisplayType.BAR,
                                 ResourceHudRole.CORE_CONSTANT))
-                        .definitionVersion(1)
+                        .lifecycle(new ResourceLifecyclePolicy(
+                                ResourceDeathPolicy.RESET_TO_MAXIMUM, true, true, false,
+                                new zcylas.totality.api.rpg.resources.integration.ResourceGrantInitialization.AtMaximum()))
+                        .definitionVersion(2)
                         .build());
 
         PlayerResourceRegistry.INSTANCE.register(
                 PlayerResourceDefinition.builder(PlayerResourceIds.STAMINA, ResourceModel.SCALAR)
                         .polarity(ResourcePolarity.HIGH_IS_GOOD)
-                        .externalAdapter(PlayerResourceIds.STAMINA_ADAPTER)
                         .unitScale(1)
                         .absoluteMinimum(0)
-                        .authoredBaseMaximum(zcylas.totality.api.rpg.stamina.PlayerStaminaManager.BASE_MAX_STAMINA)
-                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                        // Canonical §25.5's exact declared capability set for totality:stamina.
+                        // DIRECT_DRAIN reflects the ~12 continuous/environmental drain callers
+                        // (sprint, flight, bow draw, ...); CLIENT_PREDICTION reflects
+                        // TotalityMovementHandler's real, server-re-validated Power Sprint/Super Leap
+                        // gate. Final external-review correction pass, 2026-09-15.
+                        .capabilities(ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                                ResourceCapability.DIRECT_DRAIN, ResourceCapability.PASSIVE_REGENERATION,
+                                ResourceCapability.MAXIMUM_MODIFIERS, ResourceCapability.CLIENT_PREDICTION,
+                                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
                         .presentation(new ResourcePresentationDefinition(
                                 ResourceDisplayConversion.IDENTITY,
                                 ResourceDisplayType.BAR,
                                 ResourceHudRole.CORE_CONSTANT))
-                        .definitionVersion(1)
+                        .lifecycle(new ResourceLifecyclePolicy(
+                                ResourceDeathPolicy.RESET_TO_MAXIMUM, true, true, false,
+                                new zcylas.totality.api.rpg.resources.integration.ResourceGrantInitialization.AtMaximum()))
+                        .definitionVersion(2)
                         .build());
 
         // Standard spell slots: transitional EXTERNAL_ADAPTER over the legacy SpellSlotComponent

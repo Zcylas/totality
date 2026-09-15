@@ -53,7 +53,7 @@ class DormantResourceRegistrationTest {
         PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.THIRST).orElseThrow();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(definition, state);
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.STATE_NOT_INSTANTIATED, ((ResourceQueryResult.Failure) result).reason());
@@ -66,7 +66,7 @@ class DormantResourceRegistrationTest {
         PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SANITY).orElseThrow();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(definition, state);
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.STATE_NOT_INSTANTIATED, ((ResourceQueryResult.Failure) result).reason());
@@ -79,7 +79,7 @@ class DormantResourceRegistrationTest {
         PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.KI).orElseThrow();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(definition, state);
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.STATE_NOT_INSTANTIATED, ((ResourceQueryResult.Failure) result).reason());
@@ -102,7 +102,7 @@ class DormantResourceRegistrationTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.instantiateScalar(PlayerResourceIds.KI, 5); // simulates a hypothetical future grant
 
-        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(definition, state);
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.MAXIMUM_UNAVAILABLE, ((ResourceQueryResult.Failure) result).reason(),
@@ -120,7 +120,7 @@ class DormantResourceRegistrationTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.instantiateScalar(PlayerResourceIds.THIRST, 100);
 
-        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(definition, state);
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Success.class, result);
         assertEquals(100, ((ResourceQueryResult.Success) result).snapshot().maximumUnits());

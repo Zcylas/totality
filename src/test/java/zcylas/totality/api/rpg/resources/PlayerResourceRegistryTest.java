@@ -245,20 +245,18 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthFoodBreathManaStaminaSpellSlotsAndRage() {
+    void productionSingletonContainsExactlyHealthFoodBreathSpellSlotsAndRageAsExternalAdapters() {
         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
-        // added Breath; Phase 2C added Mana and Stamina; Phase 2D added totality:spell_slots; Phase
-        // 2E adds totality:rage — all seven EXTERNAL_ADAPTER-authority, query-only (see
-        // ProductionResourceDefinitions). Mana/Stamina/SpellSlots/Rage are transitional adapters over
-        // pre-existing Totality-owned legacy stores, unlike Health/Food/Breath which wrap vanilla
-        // directly. These seven remain semantically unchanged by the later dormant-registration pass
-        // below — see productionSingletonAlsoContainsExactlyThreeDormantGenericComponentDefinitions.
+        // added Breath; Phase 2D added totality:spell_slots; Phase 2E added totality:rage — all five
+        // remain EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
+        // Phase 2C originally added Mana/Stamina as transitional EXTERNAL_ADAPTER too, but the Phase
+        // 4 migration (2026-09-15) redefines both as GENERIC_COMPONENT — see
+        // productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration below.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
                 PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
-                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.SPELL_SLOTS,
-                PlayerResourceIds.RAGE
+                PlayerResourceIds.SPELL_SLOTS, PlayerResourceIds.RAGE
         }) {
             assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
@@ -266,6 +264,19 @@ class PlayerResourceRegistryTest {
                     () -> resourceId + " must be EXTERNAL_ADAPTER");
         }
         assertTrue(PlayerResourceRegistry.INSTANCE.isFrozen());
+    }
+
+    @Test
+    void productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        for (Identifier resourceId : new Identifier[] {PlayerResourceIds.MANA, PlayerResourceIds.STAMINA}) {
+            assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
+            PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
+            assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(),
+                    () -> resourceId + " must be GENERIC_COMPONENT after the Phase 4 migration");
+            assertTrue(definition.externalAdapterId().isEmpty(), () -> resourceId + " must declare no external adapter");
+        }
     }
 
     @Test
@@ -340,19 +351,33 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void allSixScalarProductionDefinitionsAreExternalScalarResources() {
+    void allFourScalarExternalAdapterProductionDefinitionsAreExternalScalarResources() {
         // Deliberately excludes totality:spell_slots (Phase 2D): it is PARTITIONED_POOL-model, not
         // SCALAR — see spellSlotsDefinitionIsPartitionedPoolExternalAdapter below for its own shape
-        // assertions. totality:rage (Phase 2E) IS scalar and is included here.
+        // assertions. totality:rage (Phase 2E) IS scalar and is included here. Mana/Stamina moved to
+        // productionManaAndStaminaAreScalarGenericComponentResourcesAfterPhase4Migration below after
+        // the Phase 4 migration (2026-09-15) redefined them as GENERIC_COMPONENT.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
-                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
-                PlayerResourceIds.MANA, PlayerResourceIds.STAMINA, PlayerResourceIds.RAGE
+                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH, PlayerResourceIds.RAGE
         }) {
             PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
             assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority(), () -> resourceId + " must be EXTERNAL_ADAPTER");
+            assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), () -> resourceId + " must be HIGH_IS_GOOD");
+            assertEquals(0L, definition.absoluteMinimum(), () -> resourceId + " must have absoluteMinimum 0");
+        }
+    }
+
+    @Test
+    void productionManaAndStaminaAreScalarGenericComponentResourcesAfterPhase4Migration() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        for (Identifier resourceId : new Identifier[] {PlayerResourceIds.MANA, PlayerResourceIds.STAMINA}) {
+            PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
+            assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
+            assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(), () -> resourceId + " must be GENERIC_COMPONENT");
             assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), () -> resourceId + " must be HIGH_IS_GOOD");
             assertEquals(0L, definition.absoluteMinimum(), () -> resourceId + " must have absoluteMinimum 0");
         }
@@ -475,27 +500,51 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionManaAndStaminaDeclareExactlyHudVisibleAndMenuVisibleCapabilities() {
+    void productionManaDeclaresExactlyItsCanonicalPhase4CapabilitySet() {
+        // Final external-review correction pass (2026-09-15): the original Phase 4 migration left
+        // Mana/Stamina's capability metadata at its old Phase 2C transitional shape (HUD_VISIBLE/
+        // MENU_VISIBLE only) even after redefining both as real, authoritative GENERIC_COMPONENT
+        // resources — this pins canonical §25.4's exact declared set instead. Replaces the removed
+        // productionManaAndStaminaDeclareExactlyHudVisibleAndMenuVisibleCapabilities, which pinned
+        // the now-corrected wrong set.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         java.util.Set<ResourceCapability> expected = java.util.Set.of(
+                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                ResourceCapability.PASSIVE_REGENERATION, ResourceCapability.MAXIMUM_MODIFIERS,
                 ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE);
 
         assertEquals(expected, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow().capabilities());
-        assertEquals(expected, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().capabilities());
-
-        for (ResourceCapability mutationCapability : new ResourceCapability[] {
-                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN
-        }) {
-            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow()
-                    .capabilities().contains(mutationCapability));
-            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow()
-                    .capabilities().contains(mutationCapability));
-        }
+        // Canonical §25.4 does not declare DIRECT_DRAIN or CLIENT_PREDICTION for Mana (those are
+        // Stamina-specific — see productionStaminaDeclaresExactlyItsCanonicalPhase4CapabilitySet).
+        assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow()
+                .capabilities().contains(ResourceCapability.DIRECT_DRAIN));
+        assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow()
+                .capabilities().contains(ResourceCapability.CLIENT_PREDICTION));
     }
 
     @Test
-    void productionManaAndStaminaDeclareAuditedLegacyBaselineMaximumsAndExplicitDefinitionVersion() {
+    void productionStaminaDeclaresExactlyItsCanonicalPhase4CapabilitySet() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        java.util.Set<ResourceCapability> expected = java.util.Set.of(
+                ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN,
+                ResourceCapability.PASSIVE_REGENERATION, ResourceCapability.MAXIMUM_MODIFIERS,
+                ResourceCapability.CLIENT_PREDICTION, ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE);
+
+        assertEquals(expected, PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().capabilities());
+    }
+
+    @Test
+    void productionManaAndStaminaDeclareNoAuthoredMaximumAndBumpedDefinitionVersionAfterPhase4Migration() {
+        // External-review-hardened precedence (see the pre-Phase-4 foundation correction pass,
+        // Issue 7): an authored base wins outright over a registered resolver, so Mana/Stamina must
+        // declare NO authoredBaseMaximum — otherwise ManaMaximumResolver/StaminaMaximumResolver
+        // (registered in ProductionResourceDefinitions) would never actually run, collapsing the
+        // real dynamic formula down to a flat, unmodified base. definitionVersion bumped 1 -> 2:
+        // the Phase 4 migration is a real, explicit redefinition of what these two ids mean, never a
+        // silent structural hot-swap (matching Ki's own no-authored-maximum precedent for a
+        // genuinely dynamic resource).
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         PlayerResourceDefinition mana = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
@@ -505,11 +554,11 @@ class PlayerResourceRegistryTest {
         assertEquals(1L, stamina.unitScale());
         assertEquals(0L, mana.absoluteMinimum());
         assertEquals(0L, stamina.absoluteMinimum());
-        assertEquals(100L, mana.authoredBaseMaximum().orElseThrow(),
-                "authored baseline is descriptive only — the live query path never consults it");
-        assertEquals(100L, stamina.authoredBaseMaximum().orElseThrow());
-        assertEquals(1, mana.definitionVersion());
-        assertEquals(1, stamina.definitionVersion());
+        assertTrue(mana.authoredBaseMaximum().isEmpty(),
+                "an authored maximum would silently short-circuit the registered ManaMaximumResolver");
+        assertTrue(stamina.authoredBaseMaximum().isEmpty());
+        assertEquals(2, mana.definitionVersion());
+        assertEquals(2, stamina.definitionVersion());
     }
 
     @Test

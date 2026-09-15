@@ -10,6 +10,7 @@ import zcylas.totality.Totality;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.rpg.resources.integration.ResourceRemovalPolicy;
 import zcylas.totality.api.rpg.resources.state.OrphanedResourceState;
 import zcylas.totality.api.rpg.resources.state.PartitionedResourceState;
 import zcylas.totality.api.rpg.resources.state.ResourceState;
@@ -17,8 +18,10 @@ import zcylas.totality.api.rpg.resources.state.ScalarResourceState;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -26,47 +29,77 @@ import java.util.function.IntToLongFunction;
 
 /**
  * Generic, registry-driven player resource state. Registered under {@code totality:resource_state}
- * (see {@link ResourceStateComponents}) — a new identifier, distinct from the legacy
- * {@code totality:resources} component ({@link PlayerResourceComponent}), which remains the sole
- * authority for Stamina and Mana until an explicit later migration.
+ * (see {@link ResourceStateComponents}) — a distinct identifier from the legacy
+ * {@code totality:resources} component ({@link PlayerResourceComponent}).
  *
- * {@link PlayerResourceRegistry#INSTANCE} registers two distinct authority categories of
- * production definition. The seven {@code EXTERNAL_ADAPTER}-authority resources (Health, Food,
- * Breath, Mana, Stamina, Spell Slots, Rage) can never gain an entry here at all:
- * {@link #instantiateScalar}/{@link #instantiatePartitioned} actively reject any id whose
- * registered definition is {@code EXTERNAL_ADAPTER}-authority, and stale/malformed persisted data
- * for such an id is quarantined as an orphan rather than restored live (see
- * {@code readLiveEntry}/{@code readOrphanEntry}) — those seven can never gain a duplicate,
- * out-of-sync copy of their state here, and keep using their existing storage (or, for Breath, no
- * storage at all yet) until an explicit later migration. The three {@code GENERIC_COMPONENT}-
- * authority resources added by the dormant Resource Registration pass (Thirst, Sanity, Ki) are, by
- * contrast, legitimately instantiable here — but nothing in production code currently calls
- * {@code instantiateScalar} for any of them (no grant provider exists yet), so they too remain
- * absent from every ordinary player's state today, for a different reason than the seven above:
- * not rejected, simply never granted. This component does not affect Stamina, Mana, Rage, or
- * Breath, which keep using their existing storage (or, for Breath, no storage at all yet) until an
- * explicit later migration. Nothing in production code calls {@link #sync()} yet, so this
- * component never sends a network packet.
+ * <p>{@link PlayerResourceRegistry#INSTANCE} registers two distinct authority categories of
+ * production definition. The five remaining {@code EXTERNAL_ADAPTER}-authority resources (Health,
+ * Food, Breath, Spell Slots, Rage) can never gain an entry here at all: {@link #instantiateScalar}/
+ * {@link #instantiatePartitioned} actively reject any id whose registered definition is
+ * {@code EXTERNAL_ADAPTER}-authority, and stale/malformed persisted data for such an id is
+ * quarantined as an orphan rather than restored live (see {@code readLiveEntry}/{@code
+ * readOrphanEntry}) — those five can never gain a duplicate, out-of-sync copy of their state here,
+ * and keep using their existing storage (or, for Breath, no storage at all yet) until their own
+ * later migration. {@code GENERIC_COMPONENT}-authority resources are, by contrast, legitimately
+ * instantiable here. As of the Phase 4 migration (2026-09-15), {@code totality:mana}/{@code
+ * totality:stamina} are the first two production resources whose state genuinely lives in this
+ * component for every ordinary player — populated by {@link
+ * zcylas.totality.api.rpg.resources.integration.PlayerBaselineResources}'s {@code
+ * totality:player_baseline} grant on join/respawn/dimension-transfer (see that class and {@code
+ * BaselineResourceLifecycleEvents}), not merely registered-but-dormant. The three
+ * {@code GENERIC_COMPONENT}-authority resources added by the dormant Resource Registration pass
+ * (Thirst, Sanity, Ki) remain dormant for a different reason: no grant provider exists for any of
+ * them yet, not rejected, simply never granted. Nothing in production code calls {@link #sync()}
+ * yet — the Phase 3A/4 sync path uses {@code ResourceSyncManager.markDirty}/{@code flush} instead,
+ * a separate mechanism from this component's own (still-unused) sync method — so this component
+ * still never sends a network packet through {@link #sync()} itself.
  *
- * Queries never auto-instantiate state (canonical §4.4: "A read-only query must not silently
+ * <p>Queries never auto-instantiate state (canonical §4.4: "A read-only query must not silently
  * grant or instantiate a resource"). State is only ever created via the explicit
- * {@code instantiateScalar}/{@code instantiatePartitioned} calls, which nothing in production code
- * invokes automatically yet — a future grant provider is what will call them for
- * {@code GENERIC_COMPONENT} resources (Thirst, Sanity, Ki today; more as future migrations land).
+ * {@code instantiateScalar}/{@code instantiatePartitioned} calls — for Mana/Stamina, called by
+ * {@code ResourceGrantReconciler} (via the baseline grant above) and, once per player, by {@code
+ * BaselineResourceLifecycleEvents}'s one-time legacy NBT import (see {@link #isLegacyMigrated}).
  */
 public final class PlayerResourceStateComponent implements SyncedComponent, CopyableComponent<PlayerResourceStateComponent> {
 
     /**
-     * Schema version 2 (bumped from 1 during the Phase 1 pre-commit correction pass): the orphan
-     * entry format ({@code Orphaned_i_*}) now also carries a scalar regeneration remainder and
-     * uses the union of the current/overflow partition key sets rather than only the current map's
-     * keys. Safe to bump without a migration path — no real resource has written Phase 1 state
-     * under schema 1 yet (this whole component is still inert; see the class Javadoc).
+     * Schema version 4 (bumped from 3 during the Phase 4 Mana/Stamina final external-review
+     * correction pass, 2026-09-15): a new persisted {@code legacyMigratedResourceIds} set records,
+     * per resource, that its one-time legacy NBT import (see {@link #isLegacyMigrated}) has already
+     * run — durable proof distinct from mere state presence, so a resource that later becomes
+     * absent from live state for any reason (quarantine, corruption) is never mistaken for "never
+     * migrated" and re-imported from a now-stale legacy value. A save written under schema 3 or
+     * earlier has no such entries; {@link #readData} defaults to an empty set, which is safe (see
+     * {@code BaselineResourceLifecycleEvents}'s self-healing guard — a schema-3 save that already
+     * has live Mana/Stamina state simply gets the marker set on its next join, without re-importing,
+     * since the import step itself is separately guarded by state presence too).
      */
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 4;
 
     private final Map<Identifier, ResourceState> states = new LinkedHashMap<>();
     private final Map<Identifier, OrphanedResourceState> orphanedStates = new LinkedHashMap<>();
+    /**
+     * The currently-winning {@link zcylas.totality.api.rpg.resources.integration.ResourceGrant}'s
+     * declared removal policy for each instantiated resource — canonical §16.2: "every grant
+     * requires... what happens when the source disappears." {@link
+     * zcylas.totality.api.rpg.resources.integration.ResourceGrantReconciler} is deliberately
+     * stateless between calls and recomputes live grants fresh every time, so by the time a
+     * resource's last grant has actually disappeared, the grant object itself (and thus its
+     * removal policy) is no longer visible anywhere — this one small per-resource field is what
+     * lets removal still apply the correct policy instead of falling back to a resource-wide
+     * default. Deliberately in-memory only (not persisted): if a grant disappears entirely between
+     * server sessions before any reconciliation runs, the per-resource {@code
+     * ResourceGrantPolicyRegistry} default is used instead of the exact grant's own policy — a
+     * documented, minor limitation (see the pre-Phase-4 foundation correction report), since real
+     * grant loss overwhelmingly happens during an active session that already holds this record.
+     */
+    private final Map<Identifier, ResourceRemovalPolicy> grantRemovalPolicies = new LinkedHashMap<>();
+    /**
+     * Canonical §24.4: "mark migration version" — durable, per-resource proof that a legacy-store
+     * import has already run, independent of whether the resource's live state currently happens to
+     * be present. See {@link #isLegacyMigrated}/{@link #markLegacyMigrated}.
+     */
+    private final Set<Identifier> legacyMigratedResourceIds = new LinkedHashSet<>();
     private final ServerPlayer player;
 
     public PlayerResourceStateComponent(ServerPlayer player) {
@@ -155,6 +188,53 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
 
     public void removeState(Identifier id) {
         states.remove(id);
+        grantRemovalPolicies.remove(id);
+    }
+
+    // ── Active/dormant flag and grant-removal-policy bookkeeping (correction pass 2026-09-15) ──
+
+    /**
+     * Whether {@code id}'s live state is currently active (granted) rather than dormant (retained
+     * after its last grant source disappeared under {@code PRESERVE_DORMANT}/{@code
+     * RESET_AND_PRESERVE} — canonical §16.7). Returns {@code true} for a resource with no state at
+     * all; callers that care about that distinction already check {@link #hasState} first.
+     */
+    public boolean isActive(Identifier id) {
+        ResourceState state = states.get(id);
+        if (state instanceof ScalarResourceState scalar) return scalar.active();
+        if (state instanceof PartitionedResourceState partitioned) return partitioned.active();
+        return true;
+    }
+
+    public void setActive(Identifier id, boolean active) {
+        ResourceState state = states.get(id);
+        if (state instanceof ScalarResourceState scalar) scalar.setActive(active);
+        else if (state instanceof PartitionedResourceState partitioned) partitioned.setActive(active);
+    }
+
+    public void setGrantRemovalPolicy(Identifier id, ResourceRemovalPolicy policy) {
+        grantRemovalPolicies.put(Objects.requireNonNull(id, "id"), Objects.requireNonNull(policy, "policy"));
+    }
+
+    public Optional<ResourceRemovalPolicy> getGrantRemovalPolicy(Identifier id) {
+        return Optional.ofNullable(grantRemovalPolicies.get(id));
+    }
+
+    public void clearGrantRemovalPolicy(Identifier id) {
+        grantRemovalPolicies.remove(id);
+    }
+
+    /**
+     * Canonical §24.4's "mark migration version" — {@code true} once {@code id}'s one-time legacy
+     * NBT import has completed, regardless of whether its live state is currently present (see the
+     * field's own Javadoc for why this must be independent of {@link #hasState}).
+     */
+    public boolean isLegacyMigrated(Identifier id) {
+        return legacyMigratedResourceIds.contains(id);
+    }
+
+    public void markLegacyMigrated(Identifier id) {
+        legacyMigratedResourceIds.add(Objects.requireNonNull(id, "id"));
     }
 
     // ── Sync — nothing in production code calls sync() during this patch ────────
@@ -265,11 +345,20 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
             writeOrphanEntry(output, "Orphaned_" + i, entry.getKey(), entry.getValue());
             i++;
         }
+        output.putInt("LegacyMigratedCount", legacyMigratedResourceIds.size());
+        i = 0;
+        for (Identifier id : legacyMigratedResourceIds) {
+            output.putString("LegacyMigrated_" + i, id.toString());
+            i++;
+        }
     }
 
     private static void writeLiveEntry(ValueOutput output, String prefix, Identifier id, ResourceState state) {
         output.putString(prefix + "_id", id.toString());
         output.putString(prefix + "_model", state.model().name());
+        boolean active = state instanceof ScalarResourceState scalarActive ? scalarActive.active()
+                : state instanceof PartitionedResourceState partitionedActive ? partitionedActive.active() : true;
+        output.putBoolean(prefix + "_active", active);
         if (state instanceof ScalarResourceState scalar) {
             output.putLong(prefix + "_current", scalar.currentUnits());
             output.putLong(prefix + "_overflow", scalar.overflowUnits());
@@ -312,6 +401,10 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
     public void readData(ValueInput input) {
         states.clear();
         orphanedStates.clear();
+        // In-memory-only bookkeeping (see the field's own Javadoc) — a fresh load starts with no
+        // known winning-grant removal policy for anything; the next reconciliation repopulates it
+        // for every resource still actually granted.
+        grantRemovalPolicies.clear();
         int resourceCount = input.getIntOr("ResourceCount", 0);
         for (int i = 0; i < resourceCount; i++) {
             readLiveEntry(input, "Resource_" + i);
@@ -319,6 +412,17 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
         int orphanedCount = input.getIntOr("OrphanedCount", 0);
         for (int i = 0; i < orphanedCount; i++) {
             readOrphanEntry(input, "Orphaned_" + i);
+        }
+        legacyMigratedResourceIds.clear();
+        // Defaults to 0 for any save written before schema 4 — safe (see the field's own Javadoc):
+        // a resource that was already live before this schema existed simply gets marked on its
+        // next join rather than treated as "never migrated."
+        int legacyMigratedCount = input.getIntOr("LegacyMigratedCount", 0);
+        for (int i = 0; i < legacyMigratedCount; i++) {
+            String raw = input.getStringOr("LegacyMigrated_" + i, "");
+            if (!raw.isEmpty()) {
+                legacyMigratedResourceIds.add(Identifier.parse(raw));
+            }
         }
     }
 
@@ -398,14 +502,20 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
     }
 
     private static ResourceState readLiveFormat(ValueInput input, String prefix, ResourceModel model) {
+        // Default true: a save written before schema 3 has no `_active` key and, by construction,
+        // never had a dormancy concept — its state was always live.
+        boolean active = input.getBooleanOr(prefix + "_active", true);
         if (model == ResourceModel.SCALAR) {
             long current = input.getLongOr(prefix + "_current", 0L);
             long overflow = input.getLongOr(prefix + "_overflow", 0L);
             long remainder = input.getLongOr(prefix + "_remainder", 0L);
-            return new ScalarResourceState(current, overflow, remainder);
+            ScalarResourceState state = new ScalarResourceState(current, overflow, remainder);
+            state.setActive(active);
+            return state;
         }
         PartitionedResourceState state = new PartitionedResourceState();
         readPartitionMapInto(input, prefix, state::setCurrent, state::setOverflow);
+        state.setActive(active);
         return state;
     }
 
@@ -461,23 +571,27 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
 
     @Override
     public void copyFrom(PlayerResourceStateComponent other, HolderLookup.Provider registries) {
-        // Three production GENERIC_COMPONENT definitions exist as of the dormant Resource
-        // Registration pass (totality:thirst/sanity/ki), but none has a grant provider yet, so
-        // `other.states` normally has no live entry for any of them to copy in the first place —
-        // registering a definition does not fabricate a live entry here. All three also currently
-        // use ResourceLifecyclePolicy.DEFAULT (ResourceDeathPolicy.KEEP_CURRENT), so even in the
-        // hypothetical case where one had been instantiated, this blanket full copy already matches
-        // what their own declared deathPolicy would ask for — there is still nothing for a
-        // per-resource ResourceLifecyclePolicy.deathPolicy() to meaningfully differentiate today.
-        // Once a resource declares a non-default deathPolicy, later migration work should consult
-        // each resource's own lifecycle policy here instead of this blanket copy — see the
-        // readiness audit's migration matrix.
+        // Phase 4 (Mana/Stamina migration): this now actually consults each resource's declared
+        // ResourceDeathPolicy instead of always blanket-copying — Mana/Stamina need it (legacy
+        // behavior is a full refill to maximum on respawn, not preservation of current value).
+        // Thirst/Sanity/Ki remain at ResourceLifecyclePolicy.DEFAULT (KEEP_CURRENT), so this change
+        // is behaviorally invisible for them — they still fall through to the same blanket copy as
+        // before.
         orphanedStates.clear();
         // Deep-copy genuine orphans first: OrphanedResourceState.copy() (not putAll, which would
         // share the same mutable instances between this component and `other`).
         for (Map.Entry<Identifier, OrphanedResourceState> entry : other.orphanedStates.entrySet()) {
             orphanedStates.put(entry.getKey(), entry.getValue().copy());
         }
+
+        grantRemovalPolicies.clear();
+        grantRemovalPolicies.putAll(other.grantRemovalPolicies);
+
+        // Migration-completion is a permanent, once-ever fact about the player, unrelated to
+        // whatever a resource's own ResourceDeathPolicy does to its value below — always carried
+        // across respawn unconditionally, exactly like grantRemovalPolicies above.
+        legacyMigratedResourceIds.clear();
+        legacyMigratedResourceIds.addAll(other.legacyMigratedResourceIds);
 
         states.clear();
         for (Map.Entry<Identifier, ResourceState> entry : other.states.entrySet()) {
@@ -494,7 +608,30 @@ public final class PlayerResourceStateComponent implements SyncedComponent, Copy
                 orphanedStates.put(id, stateToOrphan(entry.getValue()));
                 continue;
             }
-            states.put(id, copyState(entry.getValue()));
+            ResourceDeathPolicy deathPolicy = PlayerResourceRegistry.INSTANCE.get(id)
+                    .map(definition -> definition.lifecycle().deathPolicy())
+                    .orElse(ResourceDeathPolicy.KEEP_CURRENT);
+            switch (deathPolicy) {
+                case KEEP_CURRENT -> states.put(id, copyState(entry.getValue()));
+                case RESET_TO_MAXIMUM, RESET_TO_MINIMUM -> {
+                    // Deliberately dropped, not copied: the next grant reconciliation (which the
+                    // respawn lifecycle hook triggers immediately after component copy) sees this
+                    // resource as newly "missing" and reinitializes it via the winning grant's own
+                    // ResourceGrantInitialization (canonical §16.6) — reusing the already-tested
+                    // instantiation path instead of resolving a live ResourceMaximumResolver from
+                    // inside this low-level component-copy method, where the new ServerPlayer's other
+                    // components are not guaranteed fully attached yet. This produces the death
+                    // policy's literal named value only when the resource's grant initialization is
+                    // configured consistently with it (e.g. RESET_TO_MAXIMUM paired with AtMaximum,
+                    // as Mana/Stamina's Phase 4 migration does) — a documented simplification, not a
+                    // fully general death/initialization decoupling.
+                }
+                case SET_TO_AUTHORED_VALUE, CLEAR_OVERFLOW, CUSTOM -> {
+                    Totality.LOGGER.warn("[ResourceState] death policy {} is not implemented this pass for "
+                            + "{} — falling back to KEEP_CURRENT", deathPolicy, id);
+                    states.put(id, copyState(entry.getValue()));
+                }
+            }
         }
     }
 

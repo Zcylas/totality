@@ -21,7 +21,12 @@ public class ManaServerTick {
                         PlayerManaManager.addMana(player,
                                 PlayerManaManager.calculateRegenAmount(player));
                     }
-// Clamp current mana to max in case a Fortify effect just expired
+                    // Clamp current mana to max in case a Fortify effect just expired — this is NOT
+                    // redundant with the addMana call above: that only fires when current < max, so
+                    // this is the only thing that catches current > max (e.g. right after a Fortify
+                    // effect expires and lowers the resolved maximum). Now routes through
+                    // PlayerManaManager's PlayerResourceService-backed facade instead of the legacy
+                    // component directly, but performs the exact same clamp.
                     PlayerManaManager.setMana(player, PlayerManaManager.getMana(player));
                     syncMana(player);
 

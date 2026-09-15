@@ -202,33 +202,36 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
-    void nbtLoadingQuarantinesStaleGenericDataForMana() {
+    void nbtLoadingRestoresLiveGenericDataForManaAfterPhase4Migration() {
+        // Phase 4 migration (2026-09-15): totality:mana is now GENERIC_COMPONENT-authority — this
+        // exact NBT shape (previously "stale" and quarantined, see git history for the removed
+        // nbtLoadingQuarantinesStaleGenericDataForMana) is now the correct, current live format, and
+        // must round-trip the persisted current value exactly (canonical §24.4: preserve current
+        // amounts, not refill them).
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        // Phase 2C's own analogue: totality:mana is now a transitional EXTERNAL_ADAPTER over the
-        // legacy PlayerResourceComponent store, so the same quarantine guarantee must hold for it.
-        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.MANA, 100, 0, 0);
+        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.MANA, 63, 0, 0);
 
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
 
-        assertFalse(state.hasState(PlayerResourceIds.MANA), "Mana must never become live generic state");
-        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.MANA),
-                "stale Mana data must be quarantined, not silently dropped");
+        assertTrue(state.hasState(PlayerResourceIds.MANA), "Mana is GENERIC_COMPONENT authority after Phase 4 — this must become live");
+        assertEquals(63, state.getScalar(PlayerResourceIds.MANA).orElseThrow().currentUnits());
+        assertFalse(state.orphanedResourceIds().contains(PlayerResourceIds.MANA));
     }
 
     @Test
-    void nbtLoadingQuarantinesStaleGenericDataForStamina() {
+    void nbtLoadingRestoresLiveGenericDataForStaminaAfterPhase4Migration() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.STAMINA, 100, 0, 0);
+        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.STAMINA, 41, 0, 0);
 
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
 
-        assertFalse(state.hasState(PlayerResourceIds.STAMINA), "Stamina must never become live generic state");
-        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.STAMINA),
-                "stale Stamina data must be quarantined, not silently dropped");
+        assertTrue(state.hasState(PlayerResourceIds.STAMINA), "Stamina is GENERIC_COMPONENT authority after Phase 4 — this must become live");
+        assertEquals(41, state.getScalar(PlayerResourceIds.STAMINA).orElseThrow().currentUnits());
+        assertFalse(state.orphanedResourceIds().contains(PlayerResourceIds.STAMINA));
     }
 
     @Test
@@ -282,7 +285,10 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
-    void applyingASyncPayloadCannotCreateLiveManaGenericState() {
+    void applyingASyncPayloadCreatesLiveManaGenericStateAfterPhase4Migration() {
+        // Phase 4 migration (2026-09-15): totality:mana is GENERIC_COMPONENT-authority — a sync
+        // payload for it is now expected to become live, unlike the removed
+        // applyingASyncPayloadCannotCreateLiveManaGenericState test this replaces.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
@@ -295,12 +301,13 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.applySyncPacket(buf);
 
-        assertFalse(state.hasState(PlayerResourceIds.MANA), "Mana must never become live via a sync packet");
-        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+        assertTrue(state.hasState(PlayerResourceIds.MANA));
+        assertEquals(100L, state.getScalar(PlayerResourceIds.MANA).orElseThrow().currentUnits());
+        assertEquals(0, buf.readableBytes());
     }
 
     @Test
-    void applyingASyncPayloadCannotCreateLiveStaminaGenericState() {
+    void applyingASyncPayloadCreatesLiveStaminaGenericStateAfterPhase4Migration() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
@@ -313,8 +320,9 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.applySyncPacket(buf);
 
-        assertFalse(state.hasState(PlayerResourceIds.STAMINA), "Stamina must never become live via a sync packet");
-        assertEquals(0, buf.readableBytes(), "the entire payload must be consumed even though the entry was discarded");
+        assertTrue(state.hasState(PlayerResourceIds.STAMINA));
+        assertEquals(100L, state.getScalar(PlayerResourceIds.STAMINA).orElseThrow().currentUnits());
+        assertEquals(0, buf.readableBytes());
     }
 
     @Test
@@ -433,13 +441,11 @@ class PlayerResourceStateComponentExternalEntryPathTest {
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
-        // Phase 2C: Mana/Stamina are EXTERNAL_ADAPTER too (transitionally) — queryGenericState is
-        // structurally unreachable for them exactly the same way, even though their adapter reads a
-        // Totality-owned legacy store rather than a vanilla one.
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow().stateAuthority());
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow().stateAuthority());
+        // Mana/Stamina were EXTERNAL_ADAPTER too (transitionally) through Phase 2C, but the Phase 4
+        // migration (2026-09-15) redefined both as GENERIC_COMPONENT — the adapter-routing guarantee
+        // this test proves no longer applies to them; see
+        // PlayerResourceRegistryTest#productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration
+        // for their current-shape assertion instead.
         // Phase 2D: totality:spell_slots is EXTERNAL_ADAPTER too, despite being PARTITIONED_POOL
         // rather than SCALAR — queryGenericState is structurally unreachable for it the same way.
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,

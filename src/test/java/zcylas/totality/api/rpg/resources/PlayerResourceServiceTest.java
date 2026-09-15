@@ -7,6 +7,7 @@ import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
 import zcylas.totality.api.rpg.resources.external.ExternalResourceClientMirrorMode;
 import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSupport;
+import zcylas.totality.api.rpg.resources.state.PartitionedResourceState;
 
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -177,7 +178,7 @@ class PlayerResourceServiceTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.instantiateScalar(id("generic_scalar"), 30);
 
-        ResourceQueryResult result = service.queryGenericState(definition, state);
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Success.class, result);
         ResourceSnapshot snapshot = ((ResourceQueryResult.Success) result).snapshot();
@@ -197,7 +198,7 @@ class PlayerResourceServiceTest {
         PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        ResourceQueryResult result = service.queryGenericState(definition, state);
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.STATE_NOT_INSTANTIATED,
@@ -220,9 +221,14 @@ class PlayerResourceServiceTest {
     }
 
     @Test
-    void partitionedGenericDefinitionsProduceAnExplicitUnsupportedModelFailure() {
-        // No Phase 2A resource uses PARTITIONED_POOL, but the routing contract must still fail
-        // structured (never crash) rather than pretending to support a shape it doesn't yet.
+    void partitionedGenericDefinitionsNowSupportedButStillFailStructurallyWhenNeverInstantiated() {
+        // 2026-09-15 pre-Phase-4 foundation pass: GENERIC_COMPONENT PARTITIONED_POOL support was
+        // added (queryGenericPartitioned), closing the gap this test previously locked in as
+        // UNSUPPORTED_MODEL — see queryGenericPartitionedWithAnAuthoredResolverSucceeds below for
+        // the now-supported success path. An un-instantiated partitioned resource still fails
+        // structurally, exactly like the scalar case (queryDoesNotInstantiateGenericState above) —
+        // now STATE_NOT_INSTANTIATED (the model itself is supported; there is simply no state yet),
+        // not UNSUPPORTED_MODEL.
         PlayerResourceRegistry registry = new PlayerResourceRegistry();
         PlayerResourceDefinition definition = PlayerResourceDefinition
                 .builder(id("partitioned"), ResourceModel.PARTITIONED_POOL)
@@ -232,10 +238,10 @@ class PlayerResourceServiceTest {
         PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        ResourceQueryResult result = service.queryGenericState(definition, state);
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
-        assertEquals(ResourceQueryFailureReason.UNSUPPORTED_MODEL,
+        assertEquals(ResourceQueryFailureReason.STATE_NOT_INSTANTIATED,
                 ((ResourceQueryResult.Failure) result).reason());
     }
 
@@ -254,7 +260,7 @@ class PlayerResourceServiceTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.instantiateScalar(id("has_maximum"), 33);
 
-        ResourceQueryResult result = service.queryGenericState(definition, state);
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Success.class, result);
         assertEquals(80, ((ResourceQueryResult.Success) result).snapshot().maximumUnits());
@@ -274,7 +280,7 @@ class PlayerResourceServiceTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.instantiateScalar(id("no_maximum"), 5);
 
-        ResourceQueryResult result = service.queryGenericState(definition, state);
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
 
         assertInstanceOf(ResourceQueryResult.Failure.class, result);
         assertEquals(ResourceQueryFailureReason.MAXIMUM_UNAVAILABLE,
@@ -297,7 +303,7 @@ class PlayerResourceServiceTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.instantiateScalar(id("no_maximum_regression"), 5);
 
-        ResourceQueryResult result = service.queryGenericState(definition, state);
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
 
         assertFalse(result instanceof ResourceQueryResult.Success,
                 "must not return a fabricated 0-maximum success");
@@ -735,23 +741,41 @@ class PlayerResourceServiceTest {
     }
 
     @Test
-    void queryGenericStateStillRejectsPartitionedPoolAfterThePhase2DExternalExtension() {
-        // Phase 2D deliberately extends only the EXTERNAL_ADAPTER routing path (queryExternal).
-        // queryGenericState's PARTITIONED_POOL rejection (partitionedGenericDefinitionsProduceAnExplicitUnsupportedModelFailure,
-        // above) is unchanged and remains a documented future gap — this test re-confirms it wasn't
-        // silently altered as a side effect of the external-path work.
+    void queryGenericPartitionedWithAnAuthoredResolverSucceeds() {
+        // 2026-09-15 pre-Phase-4 foundation pass: closes the gap the old
+        // "queryGenericStateStillRejectsPartitionedPoolAfterThePhase2DExternalExtension" test name
+        // described as "a documented future gap" — GENERIC_COMPONENT PARTITIONED_POOL definitions
+        // now resolve successfully once instantiated, routed through the same central
+        // resolveMaximum path as everything else (via a registered ResourceMaximumResolver, since
+        // partitioned resources have no single authoredBaseMaximum field to fall back on).
+        Identifier resourceId = id("generic_partitioned_with_resolver");
         PlayerResourceRegistry registry = new PlayerResourceRegistry();
         PlayerResourceDefinition definition = PlayerResourceDefinition
-                .builder(id("still_unsupported_generic_partitioned"), ResourceModel.PARTITIONED_POOL)
+                .builder(resourceId, ResourceModel.PARTITIONED_POOL)
                 .build();
         registry.register(definition);
 
-        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        ResourceMaximumResolverRegistry resolvers = new ResourceMaximumResolverRegistry();
+        resolvers.register(resourceId, (player, def, context) -> new ResourceMaximum.Partitioned(
+                Map.of(1, 2L, 2, 1L), Map.of(1, 2L, 2, 1L)));
+
+        // Isolated resolver registry injected via the 3-arg constructor (added alongside this
+        // test) — mirrors how `registry`/`adapters` are already isolated per test, rather than
+        // reaching into the production ResourceMaximumResolverRegistry.INSTANCE singleton.
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry(), resolvers);
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        PartitionedResourceState pool = state.instantiatePartitioned(resourceId);
+        pool.setCurrent(1, 2);
+        pool.setCurrent(2, 0);
 
-        ResourceQueryResult result = service.queryGenericState(definition, state);
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
 
-        assertInstanceOf(ResourceQueryResult.Failure.class, result);
-        assertEquals(ResourceQueryFailureReason.UNSUPPORTED_MODEL, ((ResourceQueryResult.Failure) result).reason());
+        assertInstanceOf(ResourceQueryResult.PartitionedSuccess.class, result);
+        PartitionedResourceSnapshot snapshot = ((ResourceQueryResult.PartitionedSuccess) result).snapshot();
+        assertEquals(2, snapshot.partitions().size());
+        assertEquals(2L, snapshot.partition(1).orElseThrow().currentUnits());
+        assertEquals(2L, snapshot.partition(1).orElseThrow().maximumUnits());
+        assertEquals(0L, snapshot.partition(2).orElseThrow().currentUnits());
+        assertEquals(1L, snapshot.partition(2).orElseThrow().maximumUnits());
     }
 }
