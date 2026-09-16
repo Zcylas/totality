@@ -4122,21 +4122,60 @@ In dependency order:
    Health — is **not** implemented; no such formula exists yet anywhere in Totality's code or canon,
    and inventing one was explicitly out of this pass's scope. See the Phase 7A implementation report
    for the full boundary.
-2. Pact Magic through `WarlockClass`.
-3. Ki through `MonkClass`.
-4. Species resources needed by current content, such as Solar Charge.
-5. Thirst and the Temperature external adapter when Survival implementation begins.
-6. Rest Need/Fatigue only after its unresolved design choices are locked.
-7. Sanity with `SURVIVAL_CONSTANT` HUD role after its dedicated design.
+**Scheduling correction (2026-09-16, Phase 8 V1 readiness audit):** items 2-7 below were originally
+listed as sequential, mandatory Generic Resource API implementation phases. They are **not** that —
+each has been intentionally moved to its owning gameplay-system implementation pass (Warlock, Monk,
+the respective species/power-system/survival-system work), consistent with Phase 7A's own precedent
+(Health Recovery Dice implemented the Generic Resource pool, explicitly deferring the Rest/Health
+integration half to its owning layer). The Generic Player Resource API itself does not block on any
+of them, and none of them blocks V1 — see §33's readiness assessment. Their **resource designs below
+remain the settled canon** each owning system should implement against; only the *implementation
+scheduling* changes, from "next mandatory Generic API phase" to "owning-system work, whenever that
+system is built." The Generic API already provides every generic capability (definition, grant,
+maximum resolution — including `TARGET_RANGE` polarity for Temperature-like resources, spend/drain/
+restore, lifecycle, sync) each of these needs; nothing here waits on new Generic Resource API work.
 
-### Phase 8 — Cleanup
+2. Pact Magic through `WarlockClass` — owning-system work, design settled at §25 (see the Pact Magic
+   subsection), scheduled whenever Warlock is implemented.
+3. Ki through `MonkClass` — owning-system work, scheduled whenever Ki/Monk features are implemented.
+4. Species resources needed by current content, such as Solar Charge — owning-system work, scheduled
+   per species/power-system implementation.
+5. Thirst and the Temperature external adapter — owning-system work, scheduled when Survival
+   implementation begins.
+6. Rest Need/Fatigue — owning-system work, scheduled only after its unresolved design choices are
+   locked (§29).
+7. Sanity with `SURVIVAL_CONSTANT` HUD role — owning-system work, scheduled after its dedicated
+   design.
 
-- Remove legacy packets.
-- Remove duplicate stores.
-- Remove deprecated managers after no callers remain.
-- Remove dead no-op methods.
-- Remove one-release migration fallback after test worlds have been upgraded.
-- Update audit/documentation map.
+The future **Hit Die API** (§32) is a separate concept entirely — Character Creation/Progression/
+Classes/Dice API work, not a Generic Resource API resource of any kind, and not part of this
+roadmap's numbering.
+
+### Phase 8 — Hardening, cleanup, and V1 readiness audit
+
+**Status (2026-09-16): performed.** See
+`TOTALITY_GENERIC_PLAYER_RESOURCE_API_PHASE8_V1_READINESS_REPORT_2026-09-16.md` for the full audit,
+every finding, and every change made. Summary: no dual-authority, `PlayerResourceService`-bypass,
+maximum-reconciliation, grant-lifecycle, Rest-integration, or sync/wire-safety defects were found.
+Stale documentation describing four already-migrated resources' legacy adapters as still
+authoritative (Mana, Stamina, Rage, Standard Spell Slots) was corrected. The partition-label
+presentation gap (§34) was confirmed real but is a bounded, deferred UI/presentation concern, not a
+state-architecture defect, and was not implemented in Phase 8 per that report's own scope reasoning.
+
+Originally planned items, evaluated against the completed audit:
+
+- Remove legacy packets / duplicate stores / deprecated managers after no callers remain — **not
+  done in Phase 8**: `ManaResourceAdapter`/`StaminaResourceAdapter`/`RageResourceAdapter`/
+  `StandardSpellSlotsResourceAdapter` remain registered (their own unit tests still exercise them
+  directly, and an unreferenced adapter costs nothing at runtime) — this remains the already-
+  documented "Phase 8 concern, per-resource, not all at once" deferred-cleanup decision, now
+  explicitly re-confirmed rather than acted on wholesale, since removing them is a larger, riskier
+  change than a V1-readiness audit should make speculatively.
+- Remove dead no-op methods — none found beyond what prior phases already removed.
+- Remove one-release migration fallback after test worlds have been upgraded — not yet applicable;
+  no supported save has been released against any pre-migration format.
+- Update audit/documentation map — done as part of this pass (see the scheduling correction above
+  and §32/§34).
 
 ---
 
@@ -4696,6 +4735,59 @@ At minimum, the eventual design must be able to distinguish, conceptually:
 
 No Java schema is locked by this note. This is a future design requirement, not an implementation
 requirement for the current task.
+
+---
+
+## 33. V1 READINESS STATUS (Phase 8, 2026-09-16)
+
+Recorded after the Phase 8 hardening/cleanup/V1-readiness audit — see
+`TOTALITY_GENERIC_PLAYER_RESOURCE_API_PHASE8_V1_READINESS_REPORT_2026-09-16.md` for the full audit
+(inventory, per-category findings, every change made, every area investigated with no change
+needed).
+
+**Status: READY FOR V1 WITH DOCUMENTED NON-BLOCKING GAPS.**
+
+The Generic Player Resource API has now been exercised by five real production integrations (Mana,
+Stamina, Rage, Standard Spell Slots, Health Recovery Dice) covering scalar and partitioned models,
+`EXTERNAL_ADAPTER`→`GENERIC_COMPONENT` migration, class-derived and global grants, dynamic maxima,
+class-level maximum changes (`PRESERVE_DEFICIT`), spending, restoration, Short/Long Rest
+integration, death lifecycle, persistence, sync, and class-change reconciliation. No dual-authority,
+service-bypass, maximum/reconciliation, grant-lifecycle, Rest-integration, or sync/wire-safety defect
+was found. The one confirmed gap — partition-label presentation (§34) — is bounded to future UI/
+presentation work and does not require reopening state architecture; no current production resource
+is broken or mislabeled by it, since nothing currently renders partition labels at all. Stale
+documentation describing four already-migrated resources' legacy adapters as still authoritative was
+corrected (production Javadoc, not just this document).
+
+Future owner-specific resources (Pact Magic, Ki, species resources, Chakra, Reiryoku, Thirst,
+Temperature, Sanity) can register against the current architecture — definition, grant, maximum
+resolution (including `TARGET_RANGE` for Temperature-like resources), spend/drain/restore, lifecycle,
+and sync — without modifying core resource state/service architecture. Only their own game-design
+specifics (which classes/species grant them, formulas, UI) remain owning-system work, correctly
+deferred per §27's scheduling correction.
+
+## 34. PARTITION PRESENTATION GAP (bounded, deferred)
+
+Confirmed during the Phase 8 audit: no `ResourcePartitionDescriptor` or equivalent partition-to-label
+mapping exists anywhere in the codebase. `PartitionedResourceSnapshot`/the sync wire format expose
+raw integer partition keys only (spell level `1..9`, Hit Die size `6`/`8`/`10`/`12`). This matches
+what canonical §1055/§28.9 already anticipated as a future requirement, not a regression.
+
+**Current impact: none observed.** No client code currently renders a partition integer as
+user-facing text for either Standard Spell Slots or Health Recovery Dice — the Spell Radial draws
+slot pips positionally (not textual "Level N" labels), and Health Recovery Dice has no UI consumer
+at all yet (no Rest screen exists — §25.10). This is a genuine presentation gap, but it is not
+currently mislabeling anything, because nothing currently labels partitions at all.
+
+**Why it was not implemented in Phase 8:** building a `ResourcePartitionDescriptor` with no current
+UI consumer would be exactly the kind of speculative architecture Phase 8's own scope rules exclude
+("do not implement speculative architecture just because it may be useful someday"). The smallest
+future requirement, for whichever presentation/UI work eventually needs it: a per-resource,
+per-partition `int -> display label` mapping (e.g. Standard Spell Slots: `partition -> "Level " +
+partition`; Health Recovery Dice: `partition -> "d" + partition`), registered alongside each
+resource's `ResourcePresentationDefinition`, consulted only by client-side rendering — never by
+state, sync, or gameplay logic, which must keep operating on raw partition integers exactly as they
+do today. This remains deferred to presentation/UI work, not Generic Resource API work.
 
 ---
 

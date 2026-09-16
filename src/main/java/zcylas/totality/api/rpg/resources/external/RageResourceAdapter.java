@@ -16,14 +16,28 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * <b>Transitional, query-only</b> adapter over one entry of the legacy-authoritative, generically
+ * <b>Historical, query-only</b> adapter over one entry of the legacy, generically
  * {@code Identifier}-keyed charge-pool store, {@link PlayerChargesComponent}, via {@link
- * ChargeComponents}. {@link PlayerChargesComponent} remains the sole authoritative owner of every
- * Rage charge gameplay operation (consumption on activation, Short/Long Rest recovery, maximum
- * recalculation on Barbarian class selection/level-up, persistence, its own bespoke sync packet) —
- * this adapter changes none of that; it only ever reads, for exactly as long as this transitional
- * phase lasts. See the Phase 2E report's "Legacy Rage characterization findings" section for the
- * full audit this class is built from.
+ * ChargeComponents}.
+ *
+ * <p><b>Correction (2026-09-16, Phase 8 V1 readiness audit):</b> the paragraph below describes this
+ * class's original Phase 2E role. The Phase 5 Rage migration (2026-09-15) redefined {@code
+ * totality:rage} as {@code GENERIC_COMPONENT}-authority — {@link PlayerChargesComponent} is no
+ * longer the authoritative owner of Rage gameplay operations; {@link
+ * zcylas.totality.api.rpg.resources.PlayerResourceService} is, via {@code RageMaximumResolver}/
+ * {@code BarbarianRageResources} and the shared spend/restore/reconcile paths every other Generic
+ * Resource uses. This adapter is no longer referenced by the production {@code totality:rage}
+ * definition at all. It remains registered only per {@code
+ * ProductionResourceDefinitions.registerAdapters()}'s own documented "Phase 8 concern, per-resource,
+ * not all at once" deferred-cleanup decision. Do not read the paragraph below as describing current
+ * production behavior.
+ *
+ * <p>Original Phase 2E documentation, preserved for history: {@link PlayerChargesComponent}
+ * remains the sole authoritative owner of every Rage charge gameplay operation (consumption on
+ * activation, Short/Long Rest recovery, maximum recalculation on Barbarian class selection/level-up,
+ * persistence, its own bespoke sync packet) — this adapter changes none of that; it only ever reads,
+ * for exactly as long as this transitional phase lasts. See the Phase 2E report's "Legacy Rage
+ * characterization findings" section for the full audit this class is built from.
  *
  * <h2>Why {@code SCALAR}, not {@code PARTITIONED_POOL}</h2>
  * Rage charges are fully mechanically interchangeable: no individual charge has a stable identity,

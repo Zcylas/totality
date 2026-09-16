@@ -16,7 +16,20 @@ import zcylas.totality.Totality;
  * Deliberately not {@code totality:oxygen}/{@code totality:air}: see the Phase 2B report's vanilla
  * air audit for why "Breath" was chosen as the stable, forward-looking name.
  *
- * Phase 2C adds {@code totality:mana} and {@code totality:stamina} — transitional
+ * <p><b>Correction (2026-09-16, Phase 8 V1 readiness audit):</b> the next three paragraphs describe
+ * Mana/Stamina (Phase 2C), Spell Slots (Phase 2D), and Rage (Phase 2E) as "transitional {@code
+ * EXTERNAL_ADAPTER}" identifiers whose migration to {@code GENERIC_COMPONENT} was still future work.
+ * That migration has since happened for all three (Mana/Stamina: Phase 4, 2026-09-15; Rage: Phase 5,
+ * 2026-09-15; Spell Slots: Phase 6, 2026-09-16) — all four ({@code totality:mana}, {@code
+ * totality:stamina}, {@code totality:rage}, {@code totality:spell_slots}) are now real, authoritative
+ * {@code GENERIC_COMPONENT} resources, identical in kind to Thirst/Sanity/Ki below except that these
+ * four are actively granted/spent/restored by real gameplay systems rather than dormant. The ids
+ * themselves never changed, exactly as each paragraph below already anticipated — only {@code
+ * stateAuthority}/{@code definitionVersion} changed, per {@code ProductionResourceDefinitions}. See
+ * each resource's own migration implementation report for the full detail. The paragraphs below are
+ * preserved for history rather than rewritten.
+ *
+ * <p>Phase 2C adds {@code totality:mana} and {@code totality:stamina} — transitional
  * {@code EXTERNAL_ADAPTER} identifiers over the legacy-authoritative {@code PlayerResourceComponent}
  * store (see {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}). These are the same stable
  * ids the resources will keep after a future migration to {@code GENERIC_COMPONENT} authority — only
@@ -41,8 +54,13 @@ import zcylas.totality.Totality;
  * independent identifiers by design (unlike Phase 2D's spell-slot component/resource id overlap,
  * which was coincidental, not deliberate).
  *
+ * <p>Phase 7A adds {@code totality:health_recovery_dice} (see its own field doc below).
+ *
  * <p>The dormant Resource Registration pass adds {@code totality:thirst}, {@code totality:sanity},
- * and {@code totality:ki} — the first {@code GENERIC_COMPONENT}-authority production identifiers.
+ * and {@code totality:ki} — at the time of that pass, the first {@code GENERIC_COMPONENT}-authority
+ * production identifiers with no owning system yet (still true — see each field's own "Dormant" doc
+ * below); Mana/Stamina/Rage/Spell Slots/Health Recovery Dice are also {@code GENERIC_COMPONENT} now,
+ * but all five are actively owned, unlike these three.
  * Unlike every id above, none of these three has an adapter constant: they are registered with no
  * owning system, no grant provider, and no live query path yet (see
  * {@code TOTALITY_DORMANT_RESOURCE_REGISTRATION_IMPLEMENTATION_REPORT.md}). {@code totality:fatigue}

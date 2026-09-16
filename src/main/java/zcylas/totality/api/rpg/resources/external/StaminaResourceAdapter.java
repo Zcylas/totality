@@ -16,8 +16,21 @@ import java.util.Set;
 import java.util.function.IntSupplier;
 
 /**
- * <b>Transitional, query-only</b> adapter over the legacy-authoritative Stamina store
- * ({@link PlayerResourceComponent#getStamina()}, via {@link ResourceComponents}). {@link PlayerStaminaManager}
+ * <b>Historical, query-only</b> adapter over the legacy Stamina store
+ * ({@link PlayerResourceComponent#getStamina()}, via {@link ResourceComponents}).
+ *
+ * <p><b>Correction (2026-09-16, Phase 8 V1 readiness audit):</b> the paragraph below describes this
+ * class's original Phase 2C role. The Phase 4 Mana/Stamina migration (2026-09-15) redefined {@code
+ * totality:stamina} as {@code GENERIC_COMPONENT}-authority — {@link PlayerStaminaManager} is no
+ * longer the authoritative owner of Stamina gameplay operations; {@link
+ * zcylas.totality.api.rpg.resources.PlayerResourceService} is, via {@code StaminaMaximumResolver}
+ * and the shared spend/restore/reconcile paths every other Generic Resource uses. This adapter is no
+ * longer referenced by the production {@code totality:stamina} definition at all. It remains
+ * registered only per {@code ProductionResourceDefinitions.registerAdapters()}'s own documented
+ * "Phase 8 concern, per-resource, not all at once" deferred-cleanup decision. Do not read the
+ * paragraph below as describing current production behavior.
+ *
+ * <p>Original Phase 2C documentation, preserved for history: {@link PlayerStaminaManager}
  * remains the sole authoritative owner of every Stamina gameplay operation (sprint/flight/bow/melee/
  * ability costs, regeneration, combat-state and Exhaustion multipliers, maximum calculation,
  * persistence, its own bespoke packet) — this adapter changes none of that; it only ever reads, for
