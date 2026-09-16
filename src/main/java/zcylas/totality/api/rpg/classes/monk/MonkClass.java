@@ -61,7 +61,8 @@ public final class MonkClass {
 
         ClassLevelUpRegistry.register(TotalityClasses.MONK_ID,
                 (player, playerLevel, classLevel) -> {
-                    if (classLevel == 3 && !ClassComponents.get(player).hasSubclass()) {
+                    if (classLevel == DATA.subclassUnlockClassLevel()
+                            && !ClassComponents.get(player).hasSubclass(TotalityClasses.MONK_ID)) {
                         net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
                                 new zcylas.totality.networking.classes.OpenSubclassSelectionPayload(
                                         TotalityClasses.MONK_ID.toString()));

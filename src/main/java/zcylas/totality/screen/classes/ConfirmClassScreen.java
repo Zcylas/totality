@@ -138,7 +138,22 @@ public class ConfirmClassScreen extends BaseAncestryScreen {
         }
         if (isNext(mx, my)) {
             click();
-            if (ClassScreenMode.IS_MULTICLASSING) {
+            // Bug fix (2026-09-16, see SelectSubclassHandler's own Javadoc): a subclass choice
+            // reached here for a class the player ALREADY owns can never come from first-time
+            // class selection — that flow only ever offers a subclass screen before the class is
+            // owned (see ClassSelectionScreen's own subclassUnlockClassLevel <= 1 gate). This is
+            // therefore always the class-progression path (an ordinary level-up crossed the
+            // class's subclass-unlock milestone), regardless of whether the one-shot
+            // IS_MULTICLASSING flag is still set — that flag was already consumed by the earlier
+            // AddClassLevelPayload send that produced this milestone in the first place, so it
+            // cannot be relied on here. Checking class ownership directly (via the already-synced
+            // ClientClassManager mirror) is the smallest reliable signal that distinguishes the
+            // two cases.
+            boolean alreadyOwnsClass = ClientClassManager.getClassLevels().containsKey(cls.id());
+            if (sub != null && alreadyOwnsClass) {
+                ClientPlayNetworking.send(new zcylas.totality.networking.classes.SelectSubclassPayload(
+                        cls.id().toString(), sub.id().toString()));
+            } else if (ClassScreenMode.IS_MULTICLASSING) {
                 // Multiclass: spend a class point on this new class
                 ClientPlayNetworking.send(new AddClassLevelPayload(cls.id().toString()));
                 ClassScreenMode.IS_MULTICLASSING = false;

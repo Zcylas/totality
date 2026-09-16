@@ -43,7 +43,7 @@ public final class SelectClassHandler {
         }
 
         comp.selectClass(classId, 1); // starts at 0 levels, gains levels via XP
-        if (subclassId != null) comp.selectSubclass(subclassId);
+        if (subclassId != null) comp.selectSubclass(classId, subclassId);
         if (covenantId != null) comp.selectCovenant(covenantId);
 
         comp.sync();

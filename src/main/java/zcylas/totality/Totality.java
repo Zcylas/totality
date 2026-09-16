@@ -190,6 +190,7 @@ public class Totality implements ModInitializer {
 		ToggleAbilityHandler.register();
 		SelectClassHandler.register();
 		zcylas.totality.networking.classes.AddClassLevelHandler.register();
+		zcylas.totality.networking.classes.SelectSubclassHandler.register();
 		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(
 				zcylas.totality.networking.item.AttunementPayload.TYPE,
 				zcylas.totality.networking.item.AttunementHandler::handle);

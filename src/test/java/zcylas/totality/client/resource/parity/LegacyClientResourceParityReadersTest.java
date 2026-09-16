@@ -41,7 +41,7 @@ class LegacyClientResourceParityReadersTest {
         ClientManaManager.sync(100, 100);
         ClientStaminaManager.sync(100, 100);
         ClientSpellSlotManager.apply(new int[10], new int[10]);
-        ClientClassManager.apply(Map.of(), null, null);
+        ClientClassManager.apply(Map.of(), Map.of(), null); // Map.of(): per-class subclass migration, 2026-09-16
     }
 
     @Test
@@ -106,20 +106,20 @@ class LegacyClientResourceParityReadersTest {
 
     @Test
     void rageExpectedTrueForBarbarian() {
-        ClientClassManager.apply(Map.of(TotalityClasses.BARBARIAN_ID, 1), null, null);
+        ClientClassManager.apply(Map.of(TotalityClasses.BARBARIAN_ID, 1), Map.of(), null);
         assertTrue(LegacyClientResourceParityReaders.INSTANCE.rageExpectedForPlayer());
     }
 
     @Test
     void rageExpectedFalseForAnotherClass() {
         var otherClassId = net.minecraft.resources.Identifier.fromNamespaceAndPath("totality", "wizard");
-        ClientClassManager.apply(Map.of(otherClassId, 1), null, null);
+        ClientClassManager.apply(Map.of(otherClassId, 1), Map.of(), null);
         assertFalse(LegacyClientResourceParityReaders.INSTANCE.rageExpectedForPlayer());
     }
 
     @Test
     void rageExpectedFalseWhenNoClassIsPresent() {
-        ClientClassManager.apply(Map.of(), null, null);
+        ClientClassManager.apply(Map.of(), Map.of(), null); // Map.of(): per-class subclass migration, 2026-09-16
         assertFalse(LegacyClientResourceParityReaders.INSTANCE.rageExpectedForPlayer());
     }
 }

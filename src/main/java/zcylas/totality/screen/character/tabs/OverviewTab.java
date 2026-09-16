@@ -266,8 +266,10 @@ public class OverviewTab extends CharacterScreenTab {
                 ? ClientClassManager.getPrimaryClassData().displayName() : "None";
         drawIdRow(g, font, ix, cy, iw, "Class:", classStr); cy += NLH + 2;
 
-        if (ClientClassManager.getSubclassData() != null) {
-            drawIdRow(g, font, ix, cy, iw, "Subclass:", ClientClassManager.getSubclassData().displayName());
+        var primaryClassId = ClientClassManager.getPrimaryClassId();
+        var primarySubclass = primaryClassId != null ? ClientClassManager.getSubclassData(primaryClassId) : null;
+        if (primarySubclass != null) {
+            drawIdRow(g, font, ix, cy, iw, "Subclass:", primarySubclass.displayName());
             cy += NLH + 2;
         }
         if (ClientClassManager.getCovenantData() != null) {

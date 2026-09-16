@@ -70,8 +70,9 @@ public final class BarbarianClass {
                 (player, playerLevel, classLevel) -> {
                     BarbarianRageAbility.updateChargePool(player);
                     ClassFeatureRegistry.onClassLevelUp(player, TotalityClasses.BARBARIAN_ID, classLevel);
-                    // Trigger Primal Path selection at class level 3
-                    if (classLevel == 3 && !ClassComponents.get(player).hasSubclass()) {
+                    // Trigger Primal Path selection at the class's configured subclass milestone.
+                    if (classLevel == DATA.subclassUnlockClassLevel()
+                            && !ClassComponents.get(player).hasSubclass(TotalityClasses.BARBARIAN_ID)) {
                         net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
                                 new zcylas.totality.networking.classes.OpenSubclassSelectionPayload(
                                         TotalityClasses.BARBARIAN_ID.toString()));

@@ -18,6 +18,7 @@ import zcylas.totality.networking.classes.OpenClassSelectionPayload;
 import zcylas.totality.networking.classes.AddClassLevelPayload;
 import zcylas.totality.networking.classes.OpenSubclassSelectionPayload;
 import zcylas.totality.networking.classes.SelectClassPayload;
+import zcylas.totality.networking.classes.SelectSubclassPayload;
 import zcylas.totality.networking.combat.CombatTextPayload;
 import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
@@ -101,6 +102,7 @@ public class TotalityPackets {
         registry.register(DiceRollClickPayload.TYPE, DiceRollClickPayload.STREAM_CODEC);
         registry.register(SelectClassPayload.TYPE, SelectClassPayload.STREAM_CODEC);
         registry.register(AddClassLevelPayload.TYPE, AddClassLevelPayload.STREAM_CODEC);
+        registry.register(SelectSubclassPayload.TYPE, SelectSubclassPayload.STREAM_CODEC);
         registry.register(
                 zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.TYPE,
                 zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.CODEC);
