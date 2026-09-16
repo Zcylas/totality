@@ -15,6 +15,7 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.ancestry.OriginData;
+import zcylas.totality.api.rpg.classes.ClassChangeReconciler;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.PlayerClassComponent;
 import zcylas.totality.networking.notification.SendNotificationPayload;
@@ -180,6 +181,7 @@ public class TotalityCommands {
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
                                         ClassComponents.get(player).resetClass();
+                                        ClassChangeReconciler.reconcile(player);
                                         ServerPlayNetworking.send(player, new OpenClassSelectionPayload());
                                         ctx.getSource().sendSuccess(() ->
                                                 Component.literal("Class selection reset. Reopening menu..."), false);

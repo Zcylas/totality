@@ -4,7 +4,6 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
-import zcylas.totality.api.magic.spell.SpellSlotRecalculator;
 import zcylas.totality.api.rpg.classes.*;
 import zcylas.totality.api.rpg.stats.StatsComponents;
 import zcylas.totality.api.rpg.classes.ClassLevelUpRegistry;
@@ -47,7 +46,7 @@ public final class AddClassLevelHandler {
         // Fire class level-up registry so features (charge pools etc.) are updated
         int classLevel = comp.getClassLevel(classId);
         ClassLevelUpRegistry.fire(player, classId, playerLevel);
-        SpellSlotRecalculator.recalculate(player);
+        ClassChangeReconciler.reconcile(player);
 
         String className = ClassRegistry.get(classId)
                 .map(cd -> cd.displayName()).orElse(classId.getPath());

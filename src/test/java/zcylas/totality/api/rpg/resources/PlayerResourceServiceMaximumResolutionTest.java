@@ -166,6 +166,38 @@ class PlayerResourceServiceMaximumResolutionTest {
     }
 
     @Test
+    void maximumDecreaseWithClampCurrentLeavesStateSafeToSerializeOntoTheWire() {
+        // The exact invariant a class-change-triggered maximum decrease must never violate:
+        // ResourceScalarWireSnapshot's own currentUnits <= maximumUnits + overflowUnits check — the
+        // check that crashed production when a stale current value outlived a class-owned resource's
+        // grant and was later reactivated against a lower resolved maximum. This proves the already-
+        // existing reconcileMaximum/CLAMP_CURRENT mechanism produces genuinely wire-safe state, not
+        // merely a smaller number.
+        Identifier resourceId = id("test_reconcile_decrease_wire_safe");
+        PlayerResourceDefinition definition = PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR)
+                .authoredBaseMaximum(2).build(); // e.g. a fresh level-1 class after previously being much higher
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.instantiateScalar(resourceId, 6); // stale current carried over at the old, higher maximum
+
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        registry.register(definition);
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+
+        ResourceOperationResult reconciled = service.reconcileMaximumGenericState(
+                null, resourceId, definition, 6, MaximumChangePolicy.CLAMP_CURRENT,
+                ResourceAmount.scalar(resourceId, 0), state);
+        assertInstanceOf(ResourceOperationResult.Success.class, reconciled);
+
+        ResourceQueryResult queried = service.queryGenericState(null, definition, state);
+        assertInstanceOf(ResourceQueryResult.Success.class, queried);
+        ResourceSnapshot snapshot = ((ResourceQueryResult.Success) queried).snapshot();
+        assertEquals(2, snapshot.currentUnits());
+        assertEquals(2, snapshot.maximumUnits());
+        assertDoesNotThrow(() -> zcylas.totality.api.rpg.resources.sync.ResourceScalarWireSnapshot.from(snapshot),
+                "reconciled state must never violate the wire invariant this exact bug crashed on");
+    }
+
+    @Test
     void preserveRatioMaintainsPercentageAcrossAMaximumChange() {
         Identifier resourceId = id("test_reconcile_ratio");
         PlayerResourceDefinition definition = PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR)

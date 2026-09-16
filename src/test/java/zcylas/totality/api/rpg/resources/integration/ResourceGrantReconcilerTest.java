@@ -4,6 +4,7 @@ import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 import zcylas.totality.api.rpg.resources.*;
 import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
+import zcylas.totality.api.rpg.resources.sync.ResourceScalarWireSnapshot;
 
 import java.util.List;
 
@@ -430,6 +431,66 @@ class ResourceGrantReconcilerTest {
 
         assertTrue(state.hasState(resourceId));
         assertEquals(10, state.getScalar(resourceId).orElseThrow().currentUnits(), "must clamp to the resolved maximum, not seed 5x it");
+    }
+
+    // ── Class-change reconciliation regression (2026-09-16) ─────────────────────────────────────
+    // Reproduces, generically (a synthetic resource id, not Rage), the production bug that motivated
+    // ClassChangeReconciler: a CLASS-owned resource granted at a HIGH resolved maximum, whose class
+    // ownership is later lost (e.g. /totality showclass) and then reacquired at a much LOWER resolved
+    // maximum (e.g. a fresh level-1 class after previously being level-18). Before the fix, nothing
+    // ever re-ran this reconciler on the ownership-loss path, so the old high current value survived
+    // into the new low-maximum state and crashed ResourceScalarWireSnapshot's current<=maximum
+    // invariant on the next sync. This proves the reconciler itself — once actually invoked on both
+    // the loss and the reacquisition — already produces valid, wire-safe state with no Rage-specific
+    // logic anywhere in this test or in ResourceGrantReconciler itself.
+
+    @Test
+    void reacquiringAClassOwnedGrantAtALowerResolvedMaximumSeedsFreshValidStateNotAStaleHighValue() {
+        Identifier resourceId = id("test_grant_reacquire_lower_max");
+        Identifier source = id("test_source");
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        // Phase 1: granted at a high resolved maximum (a high-level class).
+        ResourceGrantReconciler highLevelReconciler = reconcilerWithProvider(resourceId, 6, providerOf(grant(resourceId, source, 0)));
+        highLevelReconciler.reconcile(null, state);
+        assertTrue(state.hasState(resourceId));
+        assertEquals(6, state.getScalar(resourceId).orElseThrow().currentUnits());
+
+        // Phase 2: class ownership is lost entirely (e.g. /totality showclass resetting
+        // PlayerClassComponent) — no provider grants this resource anymore.
+        PlayerResourceRegistry registryAfterLoss = new PlayerResourceRegistry();
+        registryAfterLoss.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR).authoredBaseMaximum(6).build());
+        PlayerResourceService serviceAfterLoss = new PlayerResourceService(registryAfterLoss, new ExternalPlayerResourceAdapterRegistry());
+        ResourceGrantReconciler.ReconciliationResult lossResult = new ResourceGrantReconciler(
+                registryAfterLoss, new ResourceGrantRegistry(), new ResourceGrantPolicyRegistry(), serviceAfterLoss)
+                .reconcile(null, state);
+        assertEquals(List.of(resourceId), lossResult.removed(), "REMOVE_STATE must actually remove the stale high-value state");
+        assertFalse(state.hasState(resourceId));
+
+        // Phase 3: the class is reacquired at a much LOWER resolved maximum (a fresh level-1 class).
+        PlayerResourceRegistry lowLevelRegistry = new PlayerResourceRegistry();
+        PlayerResourceDefinition lowLevelDefinition =
+                PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR).authoredBaseMaximum(2).build();
+        lowLevelRegistry.register(lowLevelDefinition);
+        ResourceGrantRegistry lowLevelGrants = new ResourceGrantRegistry();
+        lowLevelGrants.register(providerOf(grant(resourceId, source, 0)));
+        PlayerResourceService lowLevelService = new PlayerResourceService(lowLevelRegistry, new ExternalPlayerResourceAdapterRegistry());
+        ResourceGrantReconciler.ReconciliationResult reacquireResult =
+                new ResourceGrantReconciler(lowLevelRegistry, lowLevelGrants, new ResourceGrantPolicyRegistry(), lowLevelService)
+                        .reconcile(null, state);
+
+        assertEquals(List.of(resourceId), reacquireResult.instantiated());
+        assertEquals(2, state.getScalar(resourceId).orElseThrow().currentUnits(),
+                "must seed at the freshly resolved (lower) maximum, never the stale value from the previous, differently-leveled grant");
+
+        // The exact invariant the production crash violated: proves the reconciled state is safe to
+        // serialize onto the wire, not merely "some value less than 6."
+        long resolvedMax = ((ResourceMaximum.Scalar) lowLevelService
+                .resolveMaximum(null, lowLevelDefinition, ResourceResolutionContext.EMPTY).orElseThrow()).effectiveUnits();
+        ResourceSnapshot snapshot = new ResourceSnapshot(
+                resourceId, state.getScalar(resourceId).orElseThrow().currentUnits(), resolvedMax, lowLevelDefinition.unitScale());
+        assertDoesNotThrow(() -> ResourceScalarWireSnapshot.from(snapshot),
+                "the reconciled state must never violate the wire invariant this bug crashed on");
     }
 
     @Test

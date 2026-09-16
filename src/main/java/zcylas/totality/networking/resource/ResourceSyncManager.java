@@ -181,8 +181,19 @@ public final class ResourceSyncManager {
     private static PlayerResourceSyncState.ResourceOutcome queryOutcome(ServerPlayer player, Identifier resourceId) {
         ResourceQueryResult result = PlayerResourceService.INSTANCE.query(player, resourceId);
         return switch (result) {
-            case ResourceQueryResult.Success success ->
-                    new PlayerResourceSyncState.ScalarOutcome(ResourceScalarWireSnapshot.from(success.snapshot()));
+            case ResourceQueryResult.Success success -> {
+                try {
+                    yield new PlayerResourceSyncState.ScalarOutcome(ResourceScalarWireSnapshot.from(success.snapshot()));
+                } catch (IllegalArgumentException invalidSnapshot) {
+                    // Diagnostic-only: the original invariant violation is never swallowed or
+                    // normalized — this rethrows with the resource id and player identity attached,
+                    // since the bare "currentUnits must not exceed maximumUnits + overflowUnits"
+                    // message alone gives no way to tell which of a player's resources was invalid.
+                    throw new IllegalStateException("Invalid wire snapshot for resource " + resourceId
+                            + " (player " + player.getName().getString() + ", " + player.getUUID() + "): "
+                            + success.snapshot() + " — " + invalidSnapshot.getMessage(), invalidSnapshot);
+                }
+            }
             case ResourceQueryResult.PartitionedSuccess partitionedSuccess ->
                     new PlayerResourceSyncState.PartitionedOutcome(
                             ResourcePartitionedWireSnapshot.from(partitionedSuccess.snapshot()));

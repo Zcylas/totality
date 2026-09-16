@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
+import zcylas.totality.api.rpg.classes.ClassChangeReconciler;
 import zcylas.totality.api.rpg.classes.ClassData;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.ClassRegistry;
@@ -58,6 +59,7 @@ public final class SelectSubclassHandler {
         PlayerClassComponent comp = ClassComponents.get(player);
         if (apply(comp, classId, subclassId)) {
             comp.sync();
+            ClassChangeReconciler.reconcile(player);
             Totality.LOGGER.info("Subclass selected: {} for {} ({})",
                     subclassId, classId, player.getName().getString());
         } else {

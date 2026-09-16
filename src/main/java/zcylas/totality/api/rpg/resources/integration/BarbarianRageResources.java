@@ -5,11 +5,8 @@ import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
-import zcylas.totality.api.rpg.resources.PlayerResourceRegistry;
-import zcylas.totality.api.rpg.resources.PlayerResourceService;
 import zcylas.totality.api.rpg.resources.PlayerResourceStateComponent;
 import zcylas.totality.api.rpg.resources.ResourceStateComponents;
-import zcylas.totality.networking.resource.ResourceSyncManager;
 
 import java.util.List;
 
@@ -25,10 +22,13 @@ import java.util.List;
  * <p>Grant shape: {@link ResourceGrantInitialization.AtMaximum} (a newly-selected Barbarian starts
  * with a full Rage pool, matching legacy {@code registerChargePool}'s {@code ensurePool} which always
  * created a brand-new pool at {@code current == max}); {@link ResourceRemovalPolicy#REMOVE_STATE}
- * (canonical §16.7's default — no production class-removal/respec path exists, see {@code
- * SelectClassHandler}'s {@code hasAnyClass} guard, so this is never actually exercised today);
- * {@link ResourceVisibilityPolicy#WHEN_ACTIVE} (Rage is only relevant while the player actually has
- * the class, unlike Mana/Stamina's {@code ALWAYS_FOR_OWNER}).
+ * (canonical §16.7's default) — exercised for real by the universal post-class-mutation
+ * reconciliation seam ({@code zcylas.totality.api.rpg.classes.ClassChangeReconciler}), which runs
+ * after {@code /totality showclass}'s {@code PlayerClassComponent.resetClass()} and after ordinary
+ * class selection/level-up, so a Barbarian who loses the class has this state removed rather than
+ * left stale for a later, differently-leveled Barbarian to inherit; {@link
+ * ResourceVisibilityPolicy#WHEN_ACTIVE} (Rage is only relevant while the player actually has the
+ * class, unlike Mana/Stamina's {@code ALWAYS_FOR_OWNER}).
  *
  * <p>{@code totality:rage}'s definition uses {@link zcylas.totality.api.rpg.resources.ResourceLifecyclePolicy#DEFAULT}
  * — no {@code .lifecycle(...)} override, unlike Mana/Stamina's {@code RESET_TO_MAXIMUM} override —
@@ -50,10 +50,6 @@ public final class BarbarianRageResources {
             player != null && ClassComponents.get(player).hasClass(TotalityClasses.BARBARIAN_ID)
                     ? List.of(grant())
                     : List.of();
-
-    private static final ResourceGrantReconciler RECONCILER = new ResourceGrantReconciler(
-            PlayerResourceRegistry.INSTANCE, ResourceGrantRegistry.INSTANCE,
-            ResourceGrantPolicyRegistry.INSTANCE, PlayerResourceService.INSTANCE);
 
     private static ResourceGrant grant() {
         return new ResourceGrant(
@@ -77,14 +73,7 @@ public final class BarbarianRageResources {
      * ResourceGrantRegistry#INSTANCE} is shared global state).
      */
     public static void reconcile(ServerPlayer player) {
-        PlayerResourceStateComponent state = ResourceStateComponents.get(player);
-        ResourceGrantReconciler.ReconciliationResult result = RECONCILER.reconcile(player, state);
-        for (Identifier id : result.instantiated()) {
-            ResourceSyncManager.markDirty(player.getUUID(), id);
-        }
-        for (Identifier id : result.removed()) {
-            ResourceSyncManager.markDirty(player.getUUID(), id);
-        }
+        ResourceGrantReconciliation.reconcileAndSync(player);
     }
 
     /** Self-heals a Barbarian whose Rage state was never instantiated (mirrors {@link PlayerBaselineResources#ensureInstantiated}). */

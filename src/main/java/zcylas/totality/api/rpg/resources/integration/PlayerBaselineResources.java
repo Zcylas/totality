@@ -3,11 +3,8 @@ package zcylas.totality.api.rpg.resources.integration;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
-import zcylas.totality.api.rpg.resources.PlayerResourceRegistry;
-import zcylas.totality.api.rpg.resources.PlayerResourceService;
 import zcylas.totality.api.rpg.resources.PlayerResourceStateComponent;
 import zcylas.totality.api.rpg.resources.ResourceStateComponents;
-import zcylas.totality.networking.resource.ResourceSyncManager;
 
 import java.util.List;
 
@@ -40,10 +37,6 @@ public final class PlayerBaselineResources {
             grant(PlayerResourceIds.STAMINA)
     );
 
-    private static final ResourceGrantReconciler RECONCILER = new ResourceGrantReconciler(
-            PlayerResourceRegistry.INSTANCE, ResourceGrantRegistry.INSTANCE,
-            ResourceGrantPolicyRegistry.INSTANCE, PlayerResourceService.INSTANCE);
-
     private static ResourceGrant grant(Identifier resourceId) {
         return new ResourceGrant(
                 resourceId, SOURCE_ID, ResourceGrantSourceType.GLOBAL_SYSTEM, ResourceGrantMode.PERSISTENT,
@@ -63,14 +56,7 @@ public final class PlayerBaselineResources {
      * correction pass deliberately left open (see that pass's Issue 6).
      */
     public static void reconcile(ServerPlayer player) {
-        PlayerResourceStateComponent state = ResourceStateComponents.get(player);
-        ResourceGrantReconciler.ReconciliationResult result = RECONCILER.reconcile(player, state);
-        for (Identifier id : result.instantiated()) {
-            ResourceSyncManager.markDirty(player.getUUID(), id);
-        }
-        for (Identifier id : result.removed()) {
-            ResourceSyncManager.markDirty(player.getUUID(), id);
-        }
+        ResourceGrantReconciliation.reconcileAndSync(player);
     }
 
     /** Self-heals a player whose Mana/Stamina state was never instantiated (see the class Javadoc). */

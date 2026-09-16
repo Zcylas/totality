@@ -219,6 +219,65 @@ public final class BarbarianRageMigrationVerification {
             reconcileBarbarian.discard();
         }
 
+        ServerPlayer resetRepro = TotalityFakePlayer.create(level, "[BarbarianRageMigrationVerification-reset-repro]");
+        try {
+            // ClassChangeReconciler regression (2026-09-16): reproduces the exact discovered
+            // production bug end-to-end. A high-level Barbarian (class level 18, Rage 6/6) loses the
+            // class through the real /totality showclass path (PlayerClassComponent.resetClass(),
+            // with no Rage-specific cleanup anywhere in this test or in production), selects Wizard,
+            // then multiclasses back into Barbarian at level 1 through AddClassLevelHandler's real
+            // sequence (addClassLevel + ClassLevelUpRegistry.fire + ClassChangeReconciler.reconcile)
+            // — the exact steps that previously crashed ResourceScalarWireSnapshot's
+            // currentUnits <= maximumUnits + overflowUnits invariant with a stale current=6 against a
+            // freshly resolved maximum=2.
+            ClassComponents.get(resetRepro).selectClass(TotalityClasses.BARBARIAN_ID, 18);
+            BarbarianRageAbility.registerChargePool(resetRepro);
+
+            safe(r, "ClassChangeReconciler regression: a level-18 Barbarian starts at Rage 6/6 before the repro sequence begins", () -> {
+                ResourceQueryResult query = PlayerResourceService.INSTANCE.query(resetRepro, PlayerResourceIds.RAGE);
+                boolean pass = query instanceof ResourceQueryResult.Success s
+                        && s.snapshot().currentUnits() == 6 && s.snapshot().maximumUnits() == 6;
+                return result(pass, "query=" + query);
+            });
+
+            safe(r, "ClassChangeReconciler regression: the real /totality showclass path (resetClass + "
+                    + "ClassChangeReconciler.reconcile) removes the stale Rage state instead of leaving it behind", () -> {
+                ClassComponents.get(resetRepro).resetClass();
+                zcylas.totality.api.rpg.classes.ClassChangeReconciler.reconcile(resetRepro);
+                boolean hasState = ResourceStateComponents.get(resetRepro).hasState(PlayerResourceIds.RAGE);
+                return result(!hasState, "hasState=" + hasState);
+            });
+
+            safe(r, "ClassChangeReconciler regression: selecting Wizard after the class reset does not resurrect Rage", () -> {
+                ClassComponents.get(resetRepro).selectClass(TotalityClasses.WIZARD_ID, 1);
+                zcylas.totality.api.rpg.classes.ClassChangeReconciler.reconcile(resetRepro);
+                boolean hasState = ResourceStateComponents.get(resetRepro).hasState(PlayerResourceIds.RAGE);
+                return result(!hasState, "hasState=" + hasState);
+            });
+
+            safe(r, "ClassChangeReconciler regression: multiclassing back into Barbarian at level 1 (the real "
+                    + "AddClassLevelHandler sequence) seeds Rage fresh at the level-1 maximum 2/2 — never the stale "
+                    + "high-level current=6 that previously crashed the wire invariant", () -> {
+                ClassComponents.get(resetRepro).addClassLevel(TotalityClasses.BARBARIAN_ID);
+                zcylas.totality.api.rpg.classes.ClassLevelUpRegistry.fire(resetRepro, TotalityClasses.BARBARIAN_ID, 1);
+                zcylas.totality.api.rpg.classes.ClassChangeReconciler.reconcile(resetRepro);
+                ResourceQueryResult query = PlayerResourceService.INSTANCE.query(resetRepro, PlayerResourceIds.RAGE);
+                boolean pass = query instanceof ResourceQueryResult.Success s
+                        && s.snapshot().currentUnits() == 2 && s.snapshot().maximumUnits() == 2;
+                return result(pass, "query=" + query);
+            });
+
+            safe(r, "ClassChangeReconciler regression: the post-repro Rage state is genuinely safe to serialize onto "
+                    + "the wire — the exact ResourceScalarWireSnapshot invariant the production crash violated", () -> {
+                ResourceQueryResult query = PlayerResourceService.INSTANCE.query(resetRepro, PlayerResourceIds.RAGE);
+                if (!(query instanceof ResourceQueryResult.Success success)) return result(false, "query=" + query);
+                zcylas.totality.api.rpg.resources.sync.ResourceScalarWireSnapshot.from(success.snapshot());
+                return result(true, "snapshot=" + success.snapshot());
+            });
+        } finally {
+            resetRepro.discard();
+        }
+
         r.summarize();
     }
 
