@@ -139,21 +139,28 @@ public final class ProductionResourceDefinitions {
     /** Phase 4 migration: real resolvers for the first two GENERIC_COMPONENT resources that need one.
      *  Phase 5 adds Rage's, delegating to {@code BarbarianRageAbility.getMaxRage} the same way Mana/
      *  Stamina's delegate back to their own manager classes. Phase 6 adds Standard Spell Slots' —
-     *  the first PARTITIONED_POOL resolver — delegating to {@code SpellSlotRecalculator.computeMaxSlots}. */
+     *  the first PARTITIONED_POOL resolver — delegating to {@code SpellSlotRecalculator.computeMaxSlots}.
+     *  Phase 7A adds Health Recovery Dice's — delegating to {@code HealthRecoveryDiceMaximumResolver},
+     *  keyed by class-authored HP Hit Die size rather than spell level. (Renamed from the working
+     *  name "Hit Dice" before commit — this resolver is NOT the future Hit Die API; see {@code
+     *  PlayerResourceIds#HEALTH_RECOVERY_DICE}.) */
     private static void registerMaximumResolvers() {
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.MANA, zcylas.totality.api.rpg.mana.ManaMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.STAMINA, zcylas.totality.api.rpg.stamina.StaminaMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.RAGE, zcylas.totality.api.ability.impl.barbarian.RageMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.SPELL_SLOTS, zcylas.totality.api.magic.spell.StandardSpellSlotMaximumResolver.INSTANCE);
+        ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.HEALTH_RECOVERY_DICE, zcylas.totality.api.rpg.classes.HealthRecoveryDiceMaximumResolver.INSTANCE);
     }
 
     /** Phase 4 migration: the first production grant provider — see {@code PlayerBaselineResources}.
      *  Phase 5 adds the second, Barbarian-class-gated one — see {@code BarbarianRageResources}. Phase
-     *  6 adds the third, combined-multiclass-caster-gated one — see {@code StandardSpellSlotResources}. */
+     *  6 adds the third, combined-multiclass-caster-gated one — see {@code StandardSpellSlotResources}.
+     *  Phase 7A adds the fourth, any-class-owned-gated one — see {@code HealthRecoveryDiceResources}. */
     private static void registerGrants() {
         zcylas.totality.api.rpg.resources.integration.PlayerBaselineResources.register();
         zcylas.totality.api.rpg.resources.integration.BarbarianRageResources.register();
         zcylas.totality.api.rpg.resources.integration.StandardSpellSlotResources.register();
+        zcylas.totality.api.rpg.resources.integration.HealthRecoveryDiceResources.register();
     }
 
     private static void registerDefinitions() {
@@ -297,6 +304,41 @@ public final class ProductionResourceDefinitions {
                                 ResourceDisplayType.SLOTS,
                                 ResourceHudRole.MENU_ONLY))
                         .definitionVersion(2)
+                        .build());
+
+        // Health Recovery Dice: Phase 7A (2026-09-16) — canonical §25.10/§28.9. Working name during
+        // this pass was "Hit Dice"/totality:hit_dice; corrected to Health Recovery Dice/
+        // totality:health_recovery_dice BEFORE commit so it can never be confused with Totality's
+        // separate, future Hit Die API (a Character Creation/Progression system, not a Generic
+        // Resource — see the implementation report and canonical §25.10's added distinction note).
+        // GENERIC_COMPONENT authority (the builder default; no .externalAdapter(...) call) — never
+        // had a legacy authority of any kind under either name (confirmed by repo-wide search; no
+        // migration is needed or added — see the implementation report's migration section for why).
+        // PARTITIONED_POOL, partitions keyed by HP Hit Die size (see HealthRecoveryDiceMaximumResolver
+        // — reads the same ClassData.hpDie the future Hit Die API will also eventually read; the two
+        // systems intentionally share that one source of truth), not by class. No
+        // .authoredBaseMaximum(...) — a real resolver is registered (registerMaximumResolvers,
+        // above), matching every other resolver-backed resource's convention regardless of model.
+        // PARTITIONED_SPENDING alongside SPENDABLE/RESTORABLE (canonical: "only valid on
+        // PARTITIONED_POOL definitions") since spending one selected die and Long Rest's full restore
+        // both genuinely mutate this resource through partitioned operations. MENU_VISIBLE only, no
+        // HUD_VISIBLE — canonical's own "MENU_ONLY or Rest screen" choice, and no Rest screen exists
+        // yet (see the implementation report's UI section) — matches Standard Spell Slots' identical
+        // choice. No .lifecycle(...) override: ResourceLifecyclePolicy.DEFAULT's KEEP_CURRENT death
+        // policy already matches canonical §28.9's "Save/reload and dimension transfer preserve every
+        // partition" with no death-reset wanted, exactly like Rage/Spell Slots.
+        PlayerResourceRegistry.INSTANCE.register(
+                PlayerResourceDefinition.builder(PlayerResourceIds.HEALTH_RECOVERY_DICE, ResourceModel.PARTITIONED_POOL)
+                        .polarity(ResourcePolarity.HIGH_IS_GOOD)
+                        .unitScale(1)
+                        .absoluteMinimum(0)
+                        .capabilities(ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                                ResourceCapability.PARTITIONED_SPENDING, ResourceCapability.MENU_VISIBLE)
+                        .presentation(new ResourcePresentationDefinition(
+                                ResourceDisplayConversion.IDENTITY,
+                                ResourceDisplayType.SLOTS,
+                                ResourceHudRole.MENU_ONLY))
+                        .definitionVersion(1)
                         .build());
 
         // Rage: Phase 5 migration (2026-09-15) — GENERIC_COMPONENT authority (the builder default;

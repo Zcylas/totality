@@ -308,16 +308,53 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
+    void productionHealthRecoveryDiceIsGenericComponentPartitionedPoolAfterPhase7AMigration() {
+        // totality:health_recovery_dice (working name during this pass: "Hit Dice"/totality:hit_dice,
+        // corrected before commit — NOT the future Hit Die API, a separate Character
+        // Creation/Progression system) never had a legacy authority of any kind (confirmed by
+        // repo-wide search before Phase 7A) — this is a first-time registration, not a migration
+        // from EXTERNAL_ADAPTER.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.HEALTH_RECOVERY_DICE));
+        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH_RECOVERY_DICE).orElseThrow();
+        assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(),
+                "totality:health_recovery_dice must be GENERIC_COMPONENT");
+        assertTrue(definition.externalAdapterId().isEmpty(), "totality:health_recovery_dice must declare no external adapter");
+        assertEquals(ResourceModel.PARTITIONED_POOL, definition.model(), "totality:health_recovery_dice must be PARTITIONED_POOL");
+        assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity());
+        assertEquals(0L, definition.absoluteMinimum());
+        assertTrue(definition.capabilities().contains(ResourceCapability.SPENDABLE));
+        assertTrue(definition.capabilities().contains(ResourceCapability.RESTORABLE));
+        assertTrue(definition.capabilities().contains(ResourceCapability.PARTITIONED_SPENDING));
+        assertTrue(definition.capabilities().contains(ResourceCapability.MENU_VISIBLE));
+    }
+
+    @Test
+    void productionRegistryDoesNotContainTheObsoleteHitDiceWorkingName() {
+        // Guards the correction itself: totality:hit_dice was this resource's working name during
+        // the Phase 7A pass and must never be registered now that the production id is
+        // totality:health_recovery_dice.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        var oldId = net.minecraft.resources.Identifier.fromNamespaceAndPath("totality", "hit_dice");
+        assertTrue(PlayerResourceRegistry.INSTANCE.get(oldId).isEmpty(),
+                "totality:hit_dice must not be registered");
+    }
+
+    @Test
     void productionSingletonAlsoContainsExactlyThreeDormantGenericComponentDefinitions() {
         // The dormant Resource Registration pass adds totality:thirst, totality:sanity, and
         // totality:ki on top of the seven other production definitions above (three EXTERNAL_ADAPTER
         // — Health/Food/Breath — plus four GENERIC_COMPONENT — Mana/Stamina/Rage/Spell Slots) — ten
-        // total. All three dormant ones are GENERIC_COMPONENT-authority (no externalAdapterId), the
-        // first of their kind in production. totality:fatigue and totality:temperature are
-        // deliberately NOT registered — see the dormant-registration implementation report for why.
+        // total. Phase 7A adds an eleventh, real (non-dormant) GENERIC_COMPONENT definition,
+        // totality:health_recovery_dice — the dormant count itself is unaffected (still exactly
+        // three). All three dormant ones are GENERIC_COMPONENT-authority (no externalAdapterId), the first of their kind
+        // in production. totality:fatigue and totality:temperature are deliberately NOT registered —
+        // see the dormant-registration implementation report for why.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        assertEquals(10, PlayerResourceRegistry.INSTANCE.size());
+        assertEquals(11, PlayerResourceRegistry.INSTANCE.size());
         for (Identifier resourceId : new Identifier[] {
                 PlayerResourceIds.THIRST, PlayerResourceIds.SANITY, PlayerResourceIds.KI
         }) {

@@ -118,6 +118,17 @@ public class PlayerConnectionEvents {
                     StandardSpellSlotResources.onLongRest(p);
                 }
             });
+            // Phase 7A Health Recovery Dice (2026-09-16; renamed from the working name "Hit Dice"
+            // before commit — NOT the future Hit Die API, a separate Character Creation/Progression
+            // system): canonical §25.10/§28.9 — Health Recovery Dice fully restore on a valid Long
+            // Rest only. There is deliberately no Short Rest listener here — they are SPENT during a
+            // Short Rest (a player choice owned by the not-yet-built Rest/Health integration layer),
+            // never restored by one.
+            RestEventBus.register(player, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    zcylas.totality.api.rpg.resources.integration.HealthRecoveryDiceResources.onLongRest(p);
+                }
+            });
 
             var classComp = ClassComponents.get(player);
             Identifier primaryClass = classComp.getPrimaryClassId();
@@ -205,6 +216,11 @@ public class PlayerConnectionEvents {
             RestEventBus.register(newPlayer, (p, type) -> {
                 if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
                     StandardSpellSlotResources.onLongRest(p);
+                }
+            });
+            RestEventBus.register(newPlayer, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    zcylas.totality.api.rpg.resources.integration.HealthRecoveryDiceResources.onLongRest(p);
                 }
             });
             if (ClassComponents.get(newPlayer).hasClass(TotalityClasses.BARBARIAN_ID)) {

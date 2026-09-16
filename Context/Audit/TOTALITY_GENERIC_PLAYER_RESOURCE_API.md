@@ -199,7 +199,7 @@ A value belongs in this API only when it represents a reusable, player-owned, bo
 | HP/Health | First-class Generic Player Resource view backed by Health/Combat authority |
 | Food/Hunger | First-class Generic Player Resource view backed by Food/Hunger authority |
 | Temperature | First-class Generic Player Resource view backed by Survival/Temperature authority |
-| Standard spell slots, Pact Magic slots, Hit Dice | Generic Player Resource API using partitioned pools |
+| Standard spell slots, Pact Magic slots, Health Recovery Dice | Generic Player Resource API using partitioned pools |
 | Player XP and player level | Player progression/level component |
 | Class levels and available class-allocation points | Class progression component |
 | Skill XP and skill levels | Skills component |
@@ -419,7 +419,7 @@ public enum ResourceStateAuthority {
 
 The Generic Player Resource component stores current state.
 
-Examples include Mana, Stamina, Thirst, Rest Need/Fatigue, Sanity, Rage, Ki, Chakra, Solar Charge, spell slots, Pact Magic slots, and Hit Dice.
+Examples include Mana, Stamina, Thirst, Rest Need/Fatigue, Sanity, Rage, Ki, Chakra, Solar Charge, spell slots, Pact Magic slots, and Health Recovery Dice.
 
 #### `EXTERNAL_ADAPTER`
 
@@ -536,7 +536,7 @@ totality:chakra
 totality:solar_charge
 totality:spell_slots
 totality:pact_magic_slots
-totality:hit_dice
+totality:health_recovery_dice
 totality:thirst
 totality:rest_need  # provisional placeholder; final name/ID decided by dedicated Rest Need/Fatigue design
 totality:sanity
@@ -640,9 +640,9 @@ A resource containing independent current/max counts by an integer partition key
 
 Examples:
 
-- Standard spell slots, partitioned by spell level `1..9` (there is no ordinary tier 10 — see §14.3/§25.8; a partition id such as `10` remains valid generic infrastructure for other owners, e.g. the Hit Dice `d10` example below).
+- Standard spell slots, partitioned by spell level `1..9` (there is no ordinary tier 10 — see §14.3/§25.8; a partition id such as `10` remains valid generic infrastructure for other owners, e.g. the Health Recovery Dice `d10` example below).
 - Pact Magic slots, where the active partition normally equals the current pact-slot level.
-- Hit Dice, partitioned by die size such as `6`, `8`, `10`, or `12`.
+- Health Recovery Dice, partitioned by die size such as `6`, `8`, `10`, or `12`.
 - A future resource with independently consumable numeric bands.
 
 ```java
@@ -1063,7 +1063,7 @@ public interface ResourcePartitionDescriptor {
 Examples:
 
 - Spell slots display partition `3` as `Level 3`.
-- Hit Dice display partition `10` as `d10`.
+- Health Recovery Dice display partition `10` as `d10`.
 
 The descriptor labels and validates partitions. It does not calculate current/max values or decide spending rules.
 
@@ -3047,7 +3047,7 @@ Player progression
 
 Class progression
     -> per-class levels
-    -> Rage/Ki/Pact Magic/Hit Dice grants and maximums
+    -> Rage/Ki/Pact Magic/Health Recovery Dice grants and maximums
 
 Skills/Masteries
     -> unlocks and modifiers
@@ -3091,9 +3091,9 @@ Examples:
 - `MonkClass` activates Ki, resolves maximum, defines costs, and handles qualifying meditation.
 - `WarlockClass` activates Pact Magic slots and resolves pact tier/count.
 - `WizardClass` owns Arcane Recovery and standard slot access.
-- Every class implementation declares its Hit Die size and contributes partitions to the shared Hit Dice pool.
+- Every class implementation declares its HP Hit Die size (`ClassData.hpDie` — the same field the future Hit Die API, §32, will also read) and contributes partitions to the shared Health Recovery Dice pool.
 
-Class-level resource formulas read the player's actual per-class allocation. Totality's 30 class levels are shared across the multiclass build; the API must not calculate Rage, Ki, Pact Magic, or Hit Dice as though every class independently had 30 levels.
+Class-level resource formulas read the player's actual per-class allocation. Totality's 30 class levels are shared across the multiclass build; the API must not calculate Rage, Ki, Pact Magic, or Health Recovery Dice as though every class independently had 30 levels.
 
 Shared registries may support this, but class implementation classes remain authoritative organizers.
 
@@ -3127,7 +3127,7 @@ Examples:
 - Warlock: full Pact Magic on Short or Long Rest.
 - Monk: full Ki on qualifying meditation; full on Long Rest.
 - Wizard: Arcane Recovery feature performs limited restoration; Long Rest restores eligible standard slots.
-- Health/Class integration: Short Rest may spend Hit Dice to heal; Long Rest restores the Hit Dice pool according to the adopted rule.
+- Health/Class integration: Short Rest may spend Health Recovery Dice to heal; Long Rest restores the Health Recovery Dice pool according to the adopted rule.
 - Survival: Rest causes Thirst drain.
 - Magic item module: restores authored item-bound charges through item state, not the player Resource component.
 
@@ -3176,7 +3176,7 @@ Integrations may query HP, use health percentage in conditions, request authoriz
 
 They may not treat `drain health` as ordinary subtraction, bypass damage/death hooks, fold absorption into base HP, or persist another HP copy.
 
-Hit Dice and Rest calculate healing intent; Health applies it.
+Health Recovery Dice and Rest calculate healing intent; Health applies it.
 
 ### 22.9 Temperature integration
 
@@ -3727,19 +3727,29 @@ Rules:
 - Warlock spells may choose Pact or other eligible slots only according to D&D Spell API rules.
 - No generic conversion between standard and Pact slots.
 
-### 25.10 Hit Dice
+### 25.10 Health Recovery Dice
+
+> **Naming note (2026-09-16, corrected before commit):** this Generic Resource was implemented
+> during Phase 7A under the working name "Hit Dice" / `totality:hit_dice`. That name was corrected
+> to **Health Recovery Dice** / `totality:health_recovery_dice` before commit, because Totality
+> separately reserves the term **Hit Die API** for a future, unimplemented Character Creation /
+> Character Progression system that performs actual class/resource growth rolls (see §32). The two
+> are related — Health Recovery Dice derives its partitions from the same `ClassData.hpDie` field
+> the future Hit Die API will also eventually read — but they are not the same state or API. Never
+> use "Hit Dice"/`totality:hit_dice` to refer to the resource described below; that name now
+> unambiguously means §32's future system instead.
 
 ```text
-ID: totality:hit_dice
+ID: totality:health_recovery_dice
 Model: PARTITIONED_POOL
-Partitions: class-authored Hit Die sizes, normally 6, 8, 10, and 12
+Partitions: class-authored HP Hit Die sizes, normally 6, 8, 10, and 12
 Polarity: HIGH_IS_GOOD
 Display: SLOTS or PIPS / MENU_ONLY or Rest screen
 Grant owner: Class progression system
 Aggregation: SHARED_RESOURCE
 ```
 
-Every allocated class level contributes one maximum Hit Die to the partition matching that class's Hit Die size.
+Every allocated class level contributes one maximum Health Recovery Die to the partition matching that class's HP Hit Die size (`ClassData.hpDie`).
 
 Example:
 
@@ -3751,14 +3761,14 @@ Wizard 5 / Barbarian 3
 
 The Class system owns:
 
-- Which die size each class uses.
+- Which HP Hit Die size each class uses (`ClassData.hpDie`).
 - Contributions from each allocated class level.
 - Recalculation after multiclass changes.
-- Any class feature that alters Hit Dice.
+- Any class feature that alters Health Recovery Dice.
 
 The Rest/Health integration owns:
 
-- Whether the current Short Rest permits spending Hit Dice.
+- Whether the current Short Rest permits spending Health Recovery Dice.
 - Player choice of an available die partition.
 - Server-side die roll.
 - CON modifier and other healing modifiers.
@@ -3772,7 +3782,20 @@ Generic Resource API owns:
 - Persistence, sync, clamping, and restoration.
 - Long Rest restoration when invoked by the owning listener.
 
-The adopted Rest rule currently restores all Hit Dice on a valid Long Rest. This document preserves that rule without placing Rest timing or Health healing logic inside the Resource API.
+The adopted Rest rule currently restores all Health Recovery Dice on a valid Long Rest. This document preserves that rule without placing Rest timing or Health healing logic inside the Resource API.
+
+**Implementation status (2026-09-16, Phase 7A):** the Generic Resource API and Class-system halves
+above are implemented exactly as specified — `totality:health_recovery_dice`, `GENERIC_COMPONENT`/
+`PARTITIONED_POOL`, partitions keyed by class-authored HP Hit Die size (`HealthRecoveryDiceMaximumResolver`,
+`zcylas.totality.api.rpg.classes`), `SHARED_RESOURCE` aggregation, `PRESERVE_DEFICIT` maximum-change
+policy, full restoration on a real `Long Rest` listener (`HealthRecoveryDiceResources.onLongRest`).
+The Rest/Health integration half — player partition choice, the server-side die roll, CON modifier,
+and applying the result to Health — remains unimplemented; no such formula exists anywhere in
+current Totality code or canon. See the Phase 7A implementation report for the exact boundary and
+the open question this leaves for whoever builds that integration next. **This resource is NOT the
+future Hit Die API** — it does not perform character-progression growth rolls, has no notion of a
+starting class, reroll-1 rule, or pending/resolved roll ledger; it is a plain, finite,
+spend/restore Generic Resource pool. See §32 for the future Hit Die API's own canon.
 
 When class allocation changes:
 
@@ -4087,7 +4110,18 @@ Keep old packets until every consumer is migrated.
 
 In dependency order:
 
-1. Hit Dice pool and HP/Short-Rest integration, because the audit identifies HP/Hit Dice as the highest-priority missing Rest recovery foundation.
+1. Health Recovery Dice pool and HP/Short-Rest integration (implemented under the working name "Hit
+   Dice" during the Phase 7A pass, corrected to Health Recovery Dice before commit — see §25.10's
+   naming note; not to be confused with the separate future Hit Die API, §32), because the audit
+   identifies HP/Health Recovery Dice as the highest-priority missing Rest recovery foundation.
+   **Implementation status (2026-09-16, Phase 7A):** the `totality:health_recovery_dice` Generic
+   Resource pool itself (§25.10/§28.9 — definition, class-driven maximum resolution,
+   `SHARED_RESOURCE`/`PRESERVE_DEFICIT` grant behavior, spending primitive, full-restore-on-Long-Rest)
+   is implemented. The Rest/Health integration half of this item — Short Rest player choice of
+   partition, the server-side die roll, the CON-modifier healing formula, and applying healing to
+   Health — is **not** implemented; no such formula exists yet anywhere in Totality's code or canon,
+   and inventing one was explicitly out of this pass's scope. See the Phase 7A implementation report
+   for the full boundary.
 2. Pact Magic through `WarlockClass`.
 3. Ki through `MonkClass`.
 4. Species resources needed by current content, such as Solar Charge.
@@ -4157,7 +4191,7 @@ All tests are server-authoritative unless explicitly client-side.
 - Player XP, player level, class levels, class points, Skill XP/levels, mastery points/unlocks, attribute scores, and unspent attribute points are absent from resource NBT.
 - A resource maximum resolver reads the authoritative effective attribute value rather than rebuilding bonus layers.
 - Changing END invalidates Stamina when declared without recalculating unrelated Rage.
-- Changing Monk level invalidates Ki and Hit Dice contributions without changing Barbarian Rage.
+- Changing Monk level invalidates Ki and Health Recovery Dice contributions without changing Barbarian Rage.
 - A mastery may modify resource cost/rate without becoming a resource state entry.
 - Cost preview and commit use the same progression/modifier pipeline.
 - A level-up maximum increase does not refill unless the owner explicitly requests it.
@@ -4228,20 +4262,23 @@ All tests are server-authoritative unless explicitly client-side.
   entitlement (previously granted at class levels 25 and 30) is intentionally removed, with no
   invented replacement reward.
 
-### 28.9 Hit Dice
+### 28.9 Health Recovery Dice
 
-- A single-class character receives one maximum Hit Die per allocated class level in the correct die-size partition.
+(Named `totality:health_recovery_dice` — corrected from the Phase 7A working name "Hit Dice" before
+commit; see §25.10's naming note. Not the future Hit Die API — see §32.)
+
+- A single-class character receives one maximum Health Recovery Die per allocated class level in the correct die-size partition.
 - A multiclass character keeps independent counts for each die size.
 - Wizard 5 / Barbarian 3 resolves to five d6 and three d12 maximum dice.
 - Selecting a d10 cannot spend a d8 partition.
-- A full-health player cannot accidentally spend a Hit Die.
-- An invalid or interrupted Short Rest cannot spend a Hit Die through the completion action.
+- A full-health player cannot accidentally spend a Health Recovery Die.
+- An invalid or interrupted Short Rest cannot spend a Health Recovery Die through the completion action.
 - A valid spend rolls on the server and heals through the Health authority.
-- Long Rest restores all Hit Dice according to the adopted Totality rule.
+- Long Rest restores all Health Recovery Dice according to the adopted Totality rule.
 - Removing class levels clamps only affected partitions.
 - Gaining a class level does not automatically fill the new die unless the level-up owner explicitly requests it.
 - Save/reload and dimension transfer preserve every partition.
-- Hit Dice are synchronized as `d6`, `d8`, `d10`, and `d12`, not unlabeled raw integers.
+- Health Recovery Dice are synchronized as `d6`, `d8`, `d10`, and `d12`, not unlabeled raw integers.
 
 ### 28.10 Rage
 
@@ -4446,7 +4483,7 @@ The following decisions are locked by this document:
 11. Treat pips as scalar presentation.
 12. Use `TARGET_RANGE` polarity for Temperature-like state.
 13. Keep standard spell slots separate from Mana and Pact Magic separate from standard slots.
-14. Treat Hit Dice as a class-derived partitioned resource while Health remains externally authoritative.
+14. Treat Health Recovery Dice as a class-derived partitioned resource while Health remains externally authoritative.
 15. Preserve successful-cast-only slot consumption.
 16. Route external operations through adapters and reject unsupported operations.
 17. Require transactional adapter support before external resources join atomic transactions.
@@ -4474,7 +4511,7 @@ The following decisions are locked by this document:
 39. Batch sync and reuse native external mirrors where appropriate.
 40. Preserve existing Mana, Stamina, slots, Rage, Health, and Food behavior during migration.
 41. Do not merge combat Exhaustion with long-term Rest Need/Fatigue.
-42. Implement Health/Food adapters, Hit Dice/HP Rest, Pact Magic, and Ki through their owning systems.
+42. Implement Health/Food adapters, Health Recovery Dice/HP Rest, Pact Magic, and Ki through their owning systems.
 43. Support future Chakra, Reiatsu, Cursed Energy, and similar pools without universe hardcoding.
 44. Do not invent unresolved Rest Need/Fatigue, Sanity, Temperature, Survival, attribute-cadence, or class-progression rules.
 ---
@@ -4496,7 +4533,7 @@ Foundation implementation is complete only when:
 - Health, Food, and a test Temperature adapter produce first-class snapshots without duplicate state.
 - Health and Food conversions produce `20 -> 100`, and Food delta `6 -> 30`, without altering mechanics.
 - Player HP, mob bars, and floating damage/healing share the Health formatter without double scaling.
-- Spell-slot and Hit-Dice partition descriptors both work.
+- Spell-slot and Health-Recovery-Dice partition descriptors both work.
 - Constant and contextual HUD candidate classification works without duplicating HP, Food, or progression state.
 - Progression dependencies invalidate selectively without duplicating progression state.
 - Transactions are atomic.
@@ -4518,6 +4555,147 @@ Migration is complete only when:
 - Dedicated legacy packets and managers are removed only after all callers migrate.
 
 New resource work begins only after the foundation and migration tests pass.
+
+---
+
+## 32. FUTURE SYSTEM — HIT DIE API (DESIGN NOTE ONLY, NOT IMPLEMENTED)
+
+Recorded 2026-09-16, during the Phase 7A Health Recovery Dice correction pass, so the two concepts
+can never be confused later. **Nothing in this section is implemented.** No production code exists
+for it. It does not belong to the Generic Player Resource API described in §1-§31 — it belongs
+primarily to **Character Creation, Character Progression, Classes, and the Dice API/Dice
+presentation**. Do not implement any part of this section without a dedicated design/implementation
+task; this is a canonical placeholder to prevent future naming collisions and scope confusion with
+§25.10's Health Recovery Dice, not a spec ready to build from.
+
+### 32.1 Relationship to Health Recovery Dice
+
+The Hit Die API and Health Recovery Dice (§25.10) are **related but distinct**:
+
+- Both may read the same class-authored source of truth — e.g. `ClassData.hpDie` for HP, and
+  (once defined) an equivalent per-resource Hit Die field for Mana/Stamina/other resources. Sharing
+  that source is intentional, not a naming accident.
+- Health Recovery Dice is a plain Generic Resource: a finite, spendable/restorable
+  `PARTITIONED_POOL` with no notion of permanent character progression, no starting-class rule, no
+  reroll rule, and no historical ledger.
+- The Hit Die API is a **permanent character-progression system**: it performs real, one-time
+  (subject to reroll-on-1 and respec rules below) dice rolls that permanently raise a character's
+  resource maxima as they level, independently of whatever Generic Resource pool later consumes
+  those maxima.
+- A class's HP Hit Die (e.g. Barbarian d12) can simultaneously mean: (1) under the future Hit Die
+  API, "roll/take-max a d12 for HP maximum growth at this level," and (2) under the current Health
+  Recovery Dice resource, "this class contributes one d12 partition unit per level to the
+  spendable recovery pool." Two different meanings of the same class-authored die size, not two
+  copies of the same state.
+
+### 32.2 Scope
+
+The Hit Die API is not simply a Generic Player Resource pool. Each class may define a Hit Die for
+**multiple** player resources, potentially including Health, Stamina, Mana, and future resources
+such as Chakra or Reiryoku. Only the die sizes/modifiers already supplied as canonical design intent
+are recorded here — no other class/resource die size is invented by this note:
+
+```text
+Barbarian HP Hit Die    = d12, modifier = CON
+Barbarian Mana Hit Die  = d4,  modifier = INT
+```
+
+Do not extrapolate Stamina, Chakra, Reiryoku, or any other resource's die size or modifier for any
+class until Totality canon explicitly defines them.
+
+### 32.3 Roll semantics (agreed requirements)
+
+1. **Real rolls.** Hit Die progression rolls must eventually use the Dice API / Dice presentation
+   machinery — an actual, visible dice-roll flow — rather than silently generating a random number
+   in the background. The presentation category may differ from Dialogue Ability Checks, but the
+   roll must be a genuine visible event.
+2. **Reroll 1s.** For a normal (non-starting-class-maximum) Hit Die progression roll, a result of 1
+   is rerolled. The exact presentation of the reroll is a future design detail; the rule itself
+   (reroll on 1) is settled canon.
+3. **Starting-class first-level maximum.** The character's first/starting class is special: for the
+   first applicable progression die from the starting class, use the die's maximum result instead
+   of rolling.
+   ```text
+   Starting Barbarian:
+       HP:   d12 maximum = 12, + CON modifier
+       Mana: d4  maximum = 4,  + INT modifier
+   ```
+   This guaranteed maximum is tied specifically to the character's starting class — it must NOT
+   automatically apply merely because another (later-added) class happens to be at its own level 1.
+   Example: a character starts Barbarian, later multiclasses Wizard — Wizard's own level 1 is NOT
+   another starting-class-maximum event.
+4. **Starting class must be persisted.** The future system must durably record which class was
+   selected first — storing only accumulated die sizes/totals is insufficient, since the
+   starting-class-maximum rule (item 3) requires knowing starting-class identity indefinitely, not
+   just at character creation.
+5. **`/showclass` future testability requirement.** Once the Hit Die API/state exists,
+   `/showclass`'s dev/test class-reset behavior must also reset the stored starting-class identity
+   and whatever future class-progression Hit Die state must be cleared for a genuinely fresh test
+   character. **Not implemented now** — the Hit Die API/state does not exist yet, so there is
+   nothing for `/showclass` to reset today. Recorded here as a required future integration point.
+
+### 32.4 Resources acquired after class levels already exist
+
+A class may define a Hit Die for a resource the character does not yet possess (example: a class
+may have a Chakra Hit Die even though the current character has no Chakra resource at all). That
+resource-specific die remains hidden/inactive until the character actually obtains the resource.
+
+When the resource is later acquired:
+
+- Do NOT immediately force a large sequence of rolls.
+- Determine which of the character's existing class levels imply unresolved Hit Die progression
+  rolls for that newly-acquired resource.
+- Expose those as **pending** rolls, not auto-resolved ones.
+- The player later deliberately begins resolving them through an appropriate Character/Class UI
+  action — resolution is not automatic or forced.
+- If many historical class levels exist, the resulting roll session may contain many dice of the
+  appropriate class-specific types.
+- The first applicable roll belonging to the character's starting class still receives the
+  starting-class maximum rule (§32.3 item 3); the remaining applicable rolls are real rolls with
+  reroll-1 behavior (§32.3 items 1-2).
+
+Example shape only (not a real class balance number):
+
+```text
+Character has: Barbarian 8, Wizard 5
+Later obtains a future resource both classes define a Hit Die for.
+
+The system must know there are:
+    8 Barbarian-derived pending progression entries
+    5 Wizard-derived pending progression entries
+
+The exact dice come from each class's own metadata. The player later initiates resolution.
+```
+
+This state machine is **not implemented** by this task or any current code.
+
+### 32.5 Future data/ledger requirement
+
+The future Hit Die API will likely need durable, per-entry progression records rather than only a
+single accumulated total, because:
+
+- Rolls are permanent character progression, not a transient/recomputable value.
+- Values are random — a lost or recomputed total cannot be reconstructed from class level alone.
+- Late resource unlocks (§32.4) create pending historical rolls that must be resolvable long after
+  the class levels that created them were gained.
+- Class levels can change (multiclass, future respec), and the ledger must be able to reconcile
+  that without silently fabricating or discarding progression.
+- Testing/resetting (`/showclass`, §32.3 item 5) needs a well-defined "what gets cleared" boundary.
+- Rerolling or respeccing must never become an accidental infinite-stat-growth exploit (e.g.
+  re-rolling the same class level's die repeatedly for a better result).
+
+At minimum, the eventual design must be able to distinguish, conceptually:
+
+- Class source (which class granted this entry).
+- Class level / progression entry (which specific level).
+- Resource being advanced (HP, Mana, Stamina, future resources).
+- Die used (die size/type for that class+resource).
+- Whether the result was MAXIMUM (starting-class rule) or ROLLED (including any reroll-1 outcome).
+- The resolved numeric result.
+- Pending vs. resolved state (§32.4).
+
+No Java schema is locked by this note. This is a future design requirement, not an implementation
+requirement for the current task.
 
 ---
 

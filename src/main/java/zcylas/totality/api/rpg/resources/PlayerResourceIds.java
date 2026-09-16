@@ -58,6 +58,10 @@ public final class PlayerResourceIds {
     public static final Identifier STAMINA = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "stamina");
     public static final Identifier SPELL_SLOTS = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "spell_slots");
     public static final Identifier RAGE = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "rage");
+    /** Spendable/restorable Health recovery pool — NOT the future Hit Die API (a separate,
+     *  unimplemented Character Creation/Progression system that will eventually govern
+     *  class/resource growth rolls). See {@code TOTALITY_GENERIC_PLAYER_RESOURCE_API.md} §25.10. */
+    public static final Identifier HEALTH_RECOVERY_DICE = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "health_recovery_dice");
 
     /** Dormant — registered with no owning system, no grant provider, no adapter. */
     public static final Identifier THIRST = Identifier.fromNamespaceAndPath(Totality.MOD_ID, "thirst");
