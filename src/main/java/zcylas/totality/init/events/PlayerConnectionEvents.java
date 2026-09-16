@@ -15,11 +15,11 @@ import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
 import zcylas.totality.api.magic.spell.SpellSlotComponents;
-import zcylas.totality.api.magic.spell.SpellSlotRecalculator;
 import zcylas.totality.api.quest.QuestManager;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 import zcylas.totality.api.rpg.classes.ChargeComponents;
+import zcylas.totality.api.rpg.classes.ClassChangeReconciler;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.PlayerClassComponent;
 import zcylas.totality.api.rpg.classes.TotalityClasses;
@@ -31,6 +31,7 @@ import zcylas.totality.api.rpg.combat.RollModifierRegistry;
 import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
 import zcylas.totality.api.rpg.combat.stamina.depletion.StaminaDepletionManager;
 import zcylas.totality.api.rpg.rest.RestEventBus;
+import zcylas.totality.api.rpg.resources.integration.StandardSpellSlotResources;
 import zcylas.totality.api.rpg.skills.alchemy.AlchemyComponents;
 import zcylas.totality.api.rpg.skills.core.MasteriesComponents;
 import zcylas.totality.api.rpg.skills.core.SkillsComponents;
@@ -86,11 +87,12 @@ public class PlayerConnectionEvents {
             // .onRest registration that used to live here was removed — totality:rage is now
             // authoritative, and keeping both registered would let the legacy mirror restore Rage
             // independently of the Generic value (a real dual-authority hazard). See
-            // BarbarianRageAbility.onShortRest/onLongRest below for the replacement.
+            // BarbarianRageAbility.onShortRest/onLongRest below for the replacement. Phase 6 Standard
+            // Spell Slot migration (2026-09-16): the legacy SpellSlotComponent.onRest registration
+            // that used to live here was removed for the exact same reason — see
+            // StandardSpellSlotResources.onLongRest below for the replacement.
             RestEventBus.register(player, (p, type) ->
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
-            RestEventBus.register(player, (p, type) ->
-                    SpellSlotComponents.get(p).onRest(p, type));
             // Phase 4 migration: Stamina fully restores on Long Rest only (task §14 / canonical
             // §24.7) — Mana deliberately gets no Rest listener, matching its own characterized
             // absence of any current Rest behavior.
@@ -108,6 +110,14 @@ public class PlayerConnectionEvents {
                     BarbarianRageAbility.onLongRest(p);
                 }
             });
+            // Phase 6 migration: Standard Spell Slots fully restore on Long Rest only — canonical
+            // Phase 6 scope explicitly excludes Short Rest restoration for the ordinary pool (Pact
+            // Magic's own Short Rest restoration is Phase 7 scope).
+            RestEventBus.register(player, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    StandardSpellSlotResources.onLongRest(p);
+                }
+            });
 
             var classComp = ClassComponents.get(player);
             Identifier primaryClass = classComp.getPrimaryClassId();
@@ -116,14 +126,33 @@ public class PlayerConnectionEvents {
                 int available   = PlayerClassComponent.toClassLevel(playerLevel);
                 int stored      = classComp.getClassLevel(primaryClass);
                 if (stored > available) {
+                    // Correction pass (2026-09-16, Finding 1): this mutates PlayerClassComponent —
+                    // e.g. after /totality resetlevel/resetstats/resetall lowered the player's
+                    // overall level without touching class levels, so a later join finds the
+                    // primary class's stored level no longer supportable — but ran AFTER
+                    // BaselineResourceLifecycleEvents' own JOIN handler (registered earlier in
+                    // ModEvents.register()) already reconciled every class-owned Generic Resource
+                    // grant at the STALE, still-high stored level. Without reconciling again here,
+                    // a class-owned resource (Rage if primaryClass is Barbarian, totality:spell_slots
+                    // if it's a caster class) keeps its old high current against a freshly resolved
+                    // lower maximum on the very next query — the same current > maximum shape
+                    // ClassChangeReconciler exists to prevent. Universal, not Spell-Slot-specific:
+                    // reconcile() re-evaluates every registered grant provider and defensively clamps
+                    // every GENERIC_COMPONENT resource (scalar or partitioned) above its resolved
+                    // maximum, so Rage/future Ki/Pact Magic/etc. benefit automatically.
                     classComp.setClassLevel(primaryClass, available);
+                    ClassChangeReconciler.reconcile(player);
                 }
                 // Restore all class features for current class level
                 int classLevel = classComp.getClassLevel(primaryClass);
                 if (classLevel > 0) {
                     ClassFeatureRegistry.onPlayerJoin(player, primaryClass, classLevel);
                 }
-                SpellSlotRecalculator.recalculate(player);
+                // Phase 6 migration: the explicit SpellSlotRecalculator.recalculate(player) call that
+                // used to live here was removed — totality:spell_slots' grant (StandardSpellSlotResources)
+                // is already reconciled moments earlier by BaselineResourceLifecycleEvents' own JOIN
+                // handler (registered before this class in ModEvents.register()), and its maximum is
+                // resolved live on every query, so there is nothing left to eagerly recompute here.
             }
 
 
@@ -156,12 +185,11 @@ public class PlayerConnectionEvents {
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
             DamageResistanceRecalculator.recalculate(newPlayer);
             RestEventBus.clearPlayer(newPlayer.getUUID()); // ← clear first
-            // Phase 5 Rage migration: the legacy ChargeComponents.PLAYER_CHARGES.onRest
-            // registration was removed here too — see the JOIN handler above for why.
+            // Phase 5 Rage / Phase 6 Standard Spell Slot migrations: the legacy ChargeComponents
+            // .PLAYER_CHARGES.onRest / SpellSlotComponent.onRest registrations were removed here
+            // too — see the JOIN handler above for why.
             RestEventBus.register(newPlayer, (p, type) ->
                     AbilityComponents.ABILITIES.get((ComponentProvider) p).onRest(p, type));
-            RestEventBus.register(newPlayer, (p, type) ->
-                    SpellSlotComponents.get(p).onRest(p, type));
             RestEventBus.register(newPlayer, (p, type) -> {
                 if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
                     zcylas.totality.api.rpg.stamina.PlayerStaminaManager.onLongRest(p);
@@ -172,6 +200,11 @@ public class PlayerConnectionEvents {
                     BarbarianRageAbility.onShortRest(p);
                 } else if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
                     BarbarianRageAbility.onLongRest(p);
+                }
+            });
+            RestEventBus.register(newPlayer, (p, type) -> {
+                if (type == zcylas.totality.api.rpg.rest.RestType.LONG) {
+                    StandardSpellSlotResources.onLongRest(p);
                 }
             });
             if (ClassComponents.get(newPlayer).hasClass(TotalityClasses.BARBARIAN_ID)) {

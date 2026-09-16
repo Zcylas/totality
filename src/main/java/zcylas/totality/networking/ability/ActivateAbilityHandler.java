@@ -11,9 +11,14 @@ import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.magic.spell.Spell;
-import zcylas.totality.api.magic.spell.SpellSlotComponent;
-import zcylas.totality.api.magic.spell.SpellSlotComponents;
 import zcylas.totality.api.rpg.combat.CastingRestrictionRegistry;
+import zcylas.totality.api.rpg.resources.PartitionSelectionPolicy;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.PlayerResourceService;
+import zcylas.totality.api.rpg.resources.ResourceCause;
+import zcylas.totality.api.rpg.resources.ResourceContext;
+import zcylas.totality.api.rpg.resources.ResourceCost;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 
@@ -29,7 +34,13 @@ public class ActivateAbilityHandler {
         );
     }
 
-    private static void handle(ServerPlayer player, ActivateAbilityPayload payload) {
+    /** Public (not {@code private}), correction pass (2026-09-16, Finding 4), so a dev-only
+     *  verification (a different package, like every other production entry point these
+     *  verifications already call — {@code PlayerResourceService.trySpend}, {@code
+     *  BarbarianRageAbility.registerChargePool}, etc.) can exercise the real successful-cast-only
+     *  ordering directly against this real production entry point, rather than reimplementing this
+     *  control flow inside the verification. */
+    public static void handle(ServerPlayer player, ActivateAbilityPayload payload) {
         AbilityComponent comp = AbilityComponents.ABILITIES.get(
                 (ComponentProvider) player);
 
@@ -46,10 +57,18 @@ public class ActivateAbilityHandler {
                 return;
             }
             // Cantrips are free; leveled spells need an unspent slot at their own level. No
-            // upcast tier picker yet — always consumes at the spell's own minimum level.
+            // upcast tier picker yet — always consumes at the spell's own minimum level. Phase 6
+            // migration (2026-09-16): totality:spell_slots is now GENERIC_COMPONENT-authority —
+            // this is a pure availability query (mirrors the retired SpellSlotComponent.hasSlot
+            // exactly), never a mutation; the slot itself is only ever spent below, after the cast
+            // has actually resolved.
             if (!spell.isCantrip()) {
-                SpellSlotComponent slots = SpellSlotComponents.get(player);
-                if (!slots.hasSlot(spell.getSpellLevel())) {
+                ResourceQueryResult slotsQuery = PlayerResourceService.INSTANCE.query(player, PlayerResourceIds.SPELL_SLOTS);
+                boolean hasSlot = slotsQuery instanceof ResourceQueryResult.PartitionedSuccess success
+                        && success.snapshot().partition(spell.getSpellLevel())
+                                .map(partition -> partition.currentUnits() > 0)
+                                .orElse(false);
+                if (!hasSlot) {
                     SendNotificationPayload.send(player,
                             "No " + spell.getLevelDisplay() + " spell slots remaining.", 0xFFFF4444);
                     return;
@@ -81,7 +100,13 @@ public class ActivateAbilityHandler {
             comp.startCooldown(payload.abilityId());
         }
         if (castSucceeded && ability instanceof Spell spell && !spell.isCantrip()) {
-            SpellSlotComponents.get(player).useSlot(spell.getSpellLevel());
+            // Successful-cast-only commitment preserved exactly: this only runs after
+            // ability.onActivate has resolved and Spell.didCastSucceed() confirmed the cast actually
+            // took effect (see the pre-check above for the "does a slot exist" query). EXACT_TIER
+            // spends precisely the selected spell's own level — no upcast, no fallback tier search.
+            PlayerResourceService.INSTANCE.trySpend(player,
+                    new ResourceCost.Partitioned(PlayerResourceIds.SPELL_SLOTS, spell.getSpellLevel(), 1, PartitionSelectionPolicy.EXACT_TIER),
+                    ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.SPELL_COST)));
         }
     }
 

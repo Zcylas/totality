@@ -4,7 +4,16 @@ package zcylas.totality.api.magic.spell;
  * Standard spell slot tables for each caster archetype.
  *
  * Row  = class level (1-based).
- * Column = slot level index (0-based): index 0 = 1st-level slots, index 9 = 10th-level slots.
+ * Column = slot level index (0-based): index 0 = 1st-level slots, index 8 = 9th-level slots.
+ *
+ * <p><b>Phase 6 canon (2026-09-16):</b> ordinary Standard Spell Slots are 1st–9th level only — there
+ * is no ordinary 10th-level slot. The pre-Phase-6 tables granted a 10th-level slot at class levels 25
+ * and 30 as a "Totality epic magic" milestone; that ordinary tier-10 entitlement has been removed
+ * entirely (the two tables below are now genuinely 9 columns wide, not 10 columns with the 10th
+ * always zero). Epic Magic remains a real, separate future system this task does not implement or
+ * design — levels 25/30 simply no longer grant an ordinary ceiling-tier slot pending that future
+ * work, exactly as the Phase 6 task requires ("do not invent replacement rewards... document as
+ * expected pending future Epic Magic design").
  *
  * ── Multiclassing ──────────────────────────────────────────────────────────
  * Spell slots are pooled into one shared bank. Calculate combined caster level:
@@ -20,9 +29,13 @@ package zcylas.totality.api.magic.spell;
  * Levels 6–9 high-level spells are handled via Mystic Arcanum (once per long
  * rest, separate class feature — not tracked in SpellSlotComponent).
  * Levels 21–30 extend via Extended Arcanum (same mechanic, deeper patron gifts).
- * The pact slot table only tracks count growth, never level growth.
+ * The pact slot table only tracks count growth, never level growth. Pact Magic itself remains a
+ * Phase 7 concern — this table's shape/values are unaffected by the Phase 6 standard-slot migration.
  */
 public final class SpellSlotTable {
+
+    /** Standard Spell Slots are levels 1–9 only — see the class Javadoc's Phase 6 canon note. */
+    public static final int STANDARD_SLOT_LEVELS = 9;
 
     // ── Full caster ───────────────────────────────────────────────────────────
     // Levels 1–20: D&D 5e exactly.
@@ -30,41 +43,40 @@ public final class SpellSlotTable {
     //   • 1st-level grows to 6  (utility, rituals — feels plentiful at high level)
     //   • 2nd-level grows to 5
     //   • High-level slots fill their 2nd and 3rd counts progressively
-    //   • Level 25: first 10th-level slot (epic magic milestone)
-    //   • Level 30: second 10th-level slot (full epic ceiling)
+    //   • No ordinary 10th-level slot — see the class Javadoc's Phase 6 canon note.
     public static final int[][] FULL_CASTER = {
-            // 1st  2nd  3rd  4th  5th  6th  7th  8th  9th 10th
-            {  2,   0,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  1
-            {  3,   0,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  2
-            {  4,   2,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  3
-            {  4,   3,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  4
-            {  4,   3,   2,   0,   0,   0,   0,   0,   0,   0 }, // lv  5
-            {  4,   3,   3,   0,   0,   0,   0,   0,   0,   0 }, // lv  6
-            {  4,   3,   3,   1,   0,   0,   0,   0,   0,   0 }, // lv  7
-            {  4,   3,   3,   2,   0,   0,   0,   0,   0,   0 }, // lv  8
-            {  4,   3,   3,   3,   1,   0,   0,   0,   0,   0 }, // lv  9
-            {  4,   3,   3,   3,   2,   0,   0,   0,   0,   0 }, // lv 10
-            {  4,   3,   3,   3,   2,   1,   0,   0,   0,   0 }, // lv 11
-            {  4,   3,   3,   3,   2,   1,   0,   0,   0,   0 }, // lv 12
-            {  4,   3,   3,   3,   2,   1,   1,   0,   0,   0 }, // lv 13
-            {  4,   3,   3,   3,   2,   1,   1,   0,   0,   0 }, // lv 14
-            {  4,   3,   3,   3,   2,   1,   1,   1,   0,   0 }, // lv 15
-            {  4,   3,   3,   3,   2,   1,   1,   1,   0,   0 }, // lv 16
-            {  4,   3,   3,   3,   2,   1,   1,   1,   1,   0 }, // lv 17
-            {  4,   3,   3,   3,   3,   1,   1,   1,   1,   0 }, // lv 18
-            {  4,   3,   3,   3,   3,   2,   1,   1,   1,   0 }, // lv 19
-            {  4,   3,   3,   3,   3,   2,   2,   1,   1,   0 }, // lv 20 ← D&D 5e cap
+            // 1st  2nd  3rd  4th  5th  6th  7th  8th  9th
+            {  2,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  1
+            {  3,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  2
+            {  4,   2,   0,   0,   0,   0,   0,   0,   0 }, // lv  3
+            {  4,   3,   0,   0,   0,   0,   0,   0,   0 }, // lv  4
+            {  4,   3,   2,   0,   0,   0,   0,   0,   0 }, // lv  5
+            {  4,   3,   3,   0,   0,   0,   0,   0,   0 }, // lv  6
+            {  4,   3,   3,   1,   0,   0,   0,   0,   0 }, // lv  7
+            {  4,   3,   3,   2,   0,   0,   0,   0,   0 }, // lv  8
+            {  4,   3,   3,   3,   1,   0,   0,   0,   0 }, // lv  9
+            {  4,   3,   3,   3,   2,   0,   0,   0,   0 }, // lv 10
+            {  4,   3,   3,   3,   2,   1,   0,   0,   0 }, // lv 11
+            {  4,   3,   3,   3,   2,   1,   0,   0,   0 }, // lv 12
+            {  4,   3,   3,   3,   2,   1,   1,   0,   0 }, // lv 13
+            {  4,   3,   3,   3,   2,   1,   1,   0,   0 }, // lv 14
+            {  4,   3,   3,   3,   2,   1,   1,   1,   0 }, // lv 15
+            {  4,   3,   3,   3,   2,   1,   1,   1,   0 }, // lv 16
+            {  4,   3,   3,   3,   2,   1,   1,   1,   1 }, // lv 17
+            {  4,   3,   3,   3,   3,   1,   1,   1,   1 }, // lv 18
+            {  4,   3,   3,   3,   3,   2,   1,   1,   1 }, // lv 19
+            {  4,   3,   3,   3,   3,   2,   2,   1,   1 }, // lv 20 ← D&D 5e cap
             // ── Totality extension ────────────────────────────────────────────
-            {  5,   4,   3,   3,   3,   2,   2,   2,   1,   0 }, // lv 21 1st→5, 2nd→4, 8th→2
-            {  5,   4,   3,   3,   3,   2,   2,   2,   2,   0 }, // lv 22 9th→2
-            {  5,   4,   3,   3,   3,   3,   2,   2,   2,   0 }, // lv 23 6th→3
-            {  5,   4,   3,   3,   3,   3,   3,   2,   2,   0 }, // lv 24 7th→3
-            {  5,   4,   3,   3,   3,   3,   3,   3,   2,   1 }, // lv 25 8th→3, 10th unlocks!
-            {  5,   5,   3,   3,   3,   3,   3,   3,   3,   1 }, // lv 26 2nd→5, 9th→3
-            {  6,   5,   4,   3,   3,   3,   3,   3,   3,   1 }, // lv 27 1st→6, 3rd→4
-            {  6,   5,   4,   4,   3,   3,   3,   3,   3,   1 }, // lv 28 4th→4
-            {  6,   5,   4,   4,   4,   3,   3,   3,   3,   1 }, // lv 29 5th→4
-            {  6,   5,   4,   4,   4,   4,   3,   3,   3,   2 }, // lv 30 6th→4, 2nd 10th slot
+            {  5,   4,   3,   3,   3,   2,   2,   2,   1 }, // lv 21 1st→5, 2nd→4, 8th→2
+            {  5,   4,   3,   3,   3,   2,   2,   2,   2 }, // lv 22 9th→2
+            {  5,   4,   3,   3,   3,   3,   2,   2,   2 }, // lv 23 6th→3
+            {  5,   4,   3,   3,   3,   3,   3,   2,   2 }, // lv 24 7th→3
+            {  5,   4,   3,   3,   3,   3,   3,   3,   2 }, // lv 25 8th→3
+            {  5,   5,   3,   3,   3,   3,   3,   3,   3 }, // lv 26 2nd→5, 9th→3
+            {  6,   5,   4,   3,   3,   3,   3,   3,   3 }, // lv 27 1st→6, 3rd→4
+            {  6,   5,   4,   4,   3,   3,   3,   3,   3 }, // lv 28 4th→4
+            {  6,   5,   4,   4,   4,   3,   3,   3,   3 }, // lv 29 5th→4
+            {  6,   5,   4,   4,   4,   4,   3,   3,   3 }, // lv 30 6th→4
     };
 
     // ── Half caster (Ranger, Paladin) ─────────────────────────────────────────
@@ -74,38 +86,38 @@ public final class SpellSlotTable {
     // Levels 21–30: slowly unlock 6th and 7th-level spells (a level 30 half-caster
     // has a combined contribution of 15, equivalent to a lv-15 full caster).
     public static final int[][] HALF_CASTER = {
-            // 1st  2nd  3rd  4th  5th  6th  7th  8th  9th 10th
-            {  0,   0,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  1
-            {  2,   0,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  2
-            {  3,   0,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  3
-            {  3,   0,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  4
-            {  4,   2,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  5
-            {  4,   2,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  6
-            {  4,   3,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  7
-            {  4,   3,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  8
-            {  4,   3,   2,   0,   0,   0,   0,   0,   0,   0 }, // lv  9
-            {  4,   3,   2,   0,   0,   0,   0,   0,   0,   0 }, // lv 10
-            {  4,   3,   3,   0,   0,   0,   0,   0,   0,   0 }, // lv 11
-            {  4,   3,   3,   0,   0,   0,   0,   0,   0,   0 }, // lv 12
-            {  4,   3,   3,   1,   0,   0,   0,   0,   0,   0 }, // lv 13
-            {  4,   3,   3,   1,   0,   0,   0,   0,   0,   0 }, // lv 14
-            {  4,   3,   3,   2,   1,   0,   0,   0,   0,   0 }, // lv 15
-            {  4,   3,   3,   2,   1,   0,   0,   0,   0,   0 }, // lv 16
-            {  4,   3,   3,   3,   1,   0,   0,   0,   0,   0 }, // lv 17
-            {  4,   3,   3,   3,   2,   0,   0,   0,   0,   0 }, // lv 18
-            {  4,   3,   3,   3,   2,   0,   0,   0,   0,   0 }, // lv 19
-            {  4,   3,   3,   3,   3,   0,   0,   0,   0,   0 }, // lv 20 ← D&D cap
+            // 1st  2nd  3rd  4th  5th  6th  7th  8th  9th
+            {  0,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  1
+            {  2,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  2
+            {  3,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  3
+            {  3,   0,   0,   0,   0,   0,   0,   0,   0 }, // lv  4
+            {  4,   2,   0,   0,   0,   0,   0,   0,   0 }, // lv  5
+            {  4,   2,   0,   0,   0,   0,   0,   0,   0 }, // lv  6
+            {  4,   3,   0,   0,   0,   0,   0,   0,   0 }, // lv  7
+            {  4,   3,   0,   0,   0,   0,   0,   0,   0 }, // lv  8
+            {  4,   3,   2,   0,   0,   0,   0,   0,   0 }, // lv  9
+            {  4,   3,   2,   0,   0,   0,   0,   0,   0 }, // lv 10
+            {  4,   3,   3,   0,   0,   0,   0,   0,   0 }, // lv 11
+            {  4,   3,   3,   0,   0,   0,   0,   0,   0 }, // lv 12
+            {  4,   3,   3,   1,   0,   0,   0,   0,   0 }, // lv 13
+            {  4,   3,   3,   1,   0,   0,   0,   0,   0 }, // lv 14
+            {  4,   3,   3,   2,   1,   0,   0,   0,   0 }, // lv 15
+            {  4,   3,   3,   2,   1,   0,   0,   0,   0 }, // lv 16
+            {  4,   3,   3,   3,   1,   0,   0,   0,   0 }, // lv 17
+            {  4,   3,   3,   3,   2,   0,   0,   0,   0 }, // lv 18
+            {  4,   3,   3,   3,   2,   0,   0,   0,   0 }, // lv 19
+            {  4,   3,   3,   3,   3,   0,   0,   0,   0 }, // lv 20 ← D&D cap
             // ── Totality extension ────────────────────────────────────────────
-            {  4,   3,   3,   3,   3,   1,   0,   0,   0,   0 }, // lv 21 6th unlocks
-            {  4,   3,   3,   3,   3,   1,   0,   0,   0,   0 }, // lv 22
-            {  5,   4,   3,   3,   3,   1,   1,   0,   0,   0 }, // lv 23 1st→5, 2nd→4, 7th unlocks
-            {  5,   4,   3,   3,   3,   1,   1,   0,   0,   0 }, // lv 24
-            {  5,   4,   3,   3,   3,   2,   1,   1,   0,   0 }, // lv 25 6th→2, 8th unlocks
-            {  5,   4,   3,   3,   3,   2,   1,   1,   0,   0 }, // lv 26
-            {  5,   4,   4,   3,   3,   2,   2,   1,   0,   0 }, // lv 27 3rd→4, 7th→2
-            {  5,   4,   4,   3,   3,   2,   2,   1,   0,   0 }, // lv 28
-            {  5,   4,   4,   4,   3,   2,   2,   1,   1,   0 }, // lv 29 4th→4, 9th unlocks
-            {  5,   4,   4,   4,   3,   2,   2,   2,   1,   0 }, // lv 30 8th→2
+            {  4,   3,   3,   3,   3,   1,   0,   0,   0 }, // lv 21 6th unlocks
+            {  4,   3,   3,   3,   3,   1,   0,   0,   0 }, // lv 22
+            {  5,   4,   3,   3,   3,   1,   1,   0,   0 }, // lv 23 1st→5, 2nd→4, 7th unlocks
+            {  5,   4,   3,   3,   3,   1,   1,   0,   0 }, // lv 24
+            {  5,   4,   3,   3,   3,   2,   1,   1,   0 }, // lv 25 6th→2, 8th unlocks
+            {  5,   4,   3,   3,   3,   2,   1,   1,   0 }, // lv 26
+            {  5,   4,   4,   3,   3,   2,   2,   1,   0 }, // lv 27 3rd→4, 7th→2
+            {  5,   4,   4,   3,   3,   2,   2,   1,   0 }, // lv 28
+            {  5,   4,   4,   4,   3,   2,   2,   1,   1 }, // lv 29 4th→4, 9th unlocks
+            {  5,   4,   4,   4,   3,   2,   2,   2,   1 }, // lv 30 8th→2
     };
 
     // ── Warlock Pact Magic ────────────────────────────────────────────────────

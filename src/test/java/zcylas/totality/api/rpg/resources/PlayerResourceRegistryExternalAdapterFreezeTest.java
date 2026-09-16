@@ -189,23 +189,26 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     }
 
     @Test
-    void productionSpellSlotsDefinitionResolvesItsRegisteredAdapter() {
+    void productionSpellSlotsDefinitionNoLongerReferencesAnAdapterAfterPhase6Migration() {
+        // Phase 6 migration (2026-09-16): Standard Spell Slots is now GENERIC_COMPONENT-authority —
+        // see productionRageDefinitionNoLongerReferencesAnAdapterAfterPhase5Migration above for the
+        // identical Phase 5 precedent. StandardSpellSlotsResourceAdapter itself remains registered
+        // (still counted in productionAdapterRegistryContainsExactlySevenAdapters above — see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc for why removal is deferred), but
+        // the definition no longer references it.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         PlayerResourceDefinition spellSlots = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow();
 
-        assertEquals(StandardSpellSlotsResourceAdapter.ID, spellSlots.externalAdapterId().orElseThrow());
-        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(spellSlots.externalAdapterId().orElseThrow()));
-        assertSame(StandardSpellSlotsResourceAdapter.INSTANCE,
-                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(spellSlots.externalAdapterId().orElseThrow()).orElseThrow());
-        assertEquals(1, spellSlots.definitionVersion(), "transitional legacy-adapter representation must be explicit at version 1");
+        assertTrue(spellSlots.externalAdapterId().isEmpty());
+        assertEquals(2, spellSlots.definitionVersion(), "the Phase 6 authority migration must bump this, never silently redefine the id");
     }
 
     @Test
     void productionSpellSlotsQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
-        // Exercises the FULL production query path end to end, exactly like the Mana/Stamina tests
-        // below — PlayerResourceService.query -> queryExternal -> the real registered
-        // StandardSpellSlotsResourceAdapter.snapshot, using `null` as the player.
+        // Exercises the FULL production query path end to end — since the Phase 6 migration,
+        // PlayerResourceService.query -> queryGeneric (GENERIC_COMPONENT authority, no adapter
+        // anymore) -- using `null` as the player, exactly like the Mana/Stamina/Rage tests above/below.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.SPELL_SLOTS);

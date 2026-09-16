@@ -39,6 +39,12 @@ public final class AddClassLevelHandler {
             return;
         }
 
+        // Correction pass (2026-09-16): captured before the mutation so ClassChangeReconciler can
+        // grant newly unlocked Generic Resource capacity (e.g. a new Standard Spell Slot tier) while
+        // preserving already-spent capacity on a resource that stays continuously granted across the
+        // level-up — see ClassChangeReconciler's class Javadoc for the full root-cause trace.
+        var resolvedMaximumsBeforeLevelUp = ClassChangeReconciler.captureResolvedMaximums(player);
+
         // Add one level to the target class
         comp.addClassLevel(classId);
         comp.sync();
@@ -46,7 +52,7 @@ public final class AddClassLevelHandler {
         // Fire class level-up registry so features (charge pools etc.) are updated
         int classLevel = comp.getClassLevel(classId);
         ClassLevelUpRegistry.fire(player, classId, playerLevel);
-        ClassChangeReconciler.reconcile(player);
+        ClassChangeReconciler.reconcile(player, resolvedMaximumsBeforeLevelUp);
 
         String className = ClassRegistry.get(classId)
                 .map(cd -> cd.displayName()).orElse(classId.getPath());

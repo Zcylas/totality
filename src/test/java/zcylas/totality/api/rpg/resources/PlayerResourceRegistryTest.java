@@ -245,21 +245,23 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthFoodBreathAndSpellSlotsAsExternalAdapters() {
+    void productionSingletonContainsExactlyHealthFoodAndBreathAsExternalAdapters() {
         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
-        // added Breath; Phase 2D added totality:spell_slots — all four remain EXTERNAL_ADAPTER-
-        // authority, query-only (see ProductionResourceDefinitions).
+        // added Breath — all three remain EXTERNAL_ADAPTER-authority, query-only (see
+        // ProductionResourceDefinitions).
         // Phase 2C originally added Mana/Stamina as transitional EXTERNAL_ADAPTER too, but the Phase
         // 4 migration (2026-09-15) redefines both as GENERIC_COMPONENT — see
         // productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration below. Phase 2E
         // originally added totality:rage the same way, but the Phase 5 migration (2026-09-15)
         // redefines it as GENERIC_COMPONENT too — see
-        // productionRageIsGenericComponentAuthorityAfterPhase5Migration below.
+        // productionRageIsGenericComponentAuthorityAfterPhase5Migration below. Phase 2D originally
+        // added totality:spell_slots the same way, but the Phase 6 migration (2026-09-16) redefines
+        // it as GENERIC_COMPONENT too — see
+        // productionSpellSlotsIsGenericComponentAuthorityAfterPhase6Migration below.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
-                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH,
-                PlayerResourceIds.SPELL_SLOTS
+                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH
         }) {
             assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
@@ -294,12 +296,25 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
+    void productionSpellSlotsIsGenericComponentAuthorityAfterPhase6Migration() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.SPELL_SLOTS));
+        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow();
+        assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(),
+                "totality:spell_slots must be GENERIC_COMPONENT after the Phase 6 migration");
+        assertTrue(definition.externalAdapterId().isEmpty(), "totality:spell_slots must declare no external adapter");
+        assertEquals(ResourceModel.PARTITIONED_POOL, definition.model(), "PARTITIONED_POOL is unchanged by the authority migration");
+    }
+
+    @Test
     void productionSingletonAlsoContainsExactlyThreeDormantGenericComponentDefinitions() {
         // The dormant Resource Registration pass adds totality:thirst, totality:sanity, and
-        // totality:ki on top of the seven EXTERNAL_ADAPTER definitions above — ten total. All three
-        // are GENERIC_COMPONENT-authority (no externalAdapterId), the first of their kind in
-        // production. totality:fatigue and totality:temperature are deliberately NOT registered —
-        // see the dormant-registration implementation report for why.
+        // totality:ki on top of the seven other production definitions above (three EXTERNAL_ADAPTER
+        // — Health/Food/Breath — plus four GENERIC_COMPONENT — Mana/Stamina/Rage/Spell Slots) — ten
+        // total. All three dormant ones are GENERIC_COMPONENT-authority (no externalAdapterId), the
+        // first of their kind in production. totality:fatigue and totality:temperature are
+        // deliberately NOT registered — see the dormant-registration implementation report for why.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertEquals(10, PlayerResourceRegistry.INSTANCE.size());
@@ -366,9 +381,9 @@ class PlayerResourceRegistryTest {
 
     @Test
     void allThreeScalarExternalAdapterProductionDefinitionsAreExternalScalarResources() {
-        // Deliberately excludes totality:spell_slots (Phase 2D): it is PARTITIONED_POOL-model, not
-        // SCALAR — see spellSlotsDefinitionIsPartitionedPoolExternalAdapter below for its own shape
-        // assertions. Mana/Stamina moved to
+        // Deliberately excludes totality:spell_slots: it is PARTITIONED_POOL-model, not SCALAR — see
+        // spellSlotsDefinitionIsPartitionedPoolGenericComponentAfterPhase6Migration below for its own
+        // shape assertions. Mana/Stamina moved to
         // productionManaAndStaminaAreScalarGenericComponentResourcesAfterPhase4Migration below after
         // the Phase 4 migration (2026-09-15) redefined them as GENERIC_COMPONENT; Rage moved to
         // productionRageIsScalarGenericComponentResourceAfterPhase5Migration below after the Phase 5
@@ -467,36 +482,35 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void spellSlotsDefinitionIsPartitionedPoolExternalAdapter() {
+    void spellSlotsDefinitionIsPartitionedPoolGenericComponentAfterPhase6Migration() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow();
         assertEquals(ResourceModel.PARTITIONED_POOL, definition.model());
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER, definition.stateAuthority());
+        assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority());
         assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity());
         assertEquals(zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter.UNIT_SCALE, definition.unitScale(),
-                "the definition's unitScale must stay in lockstep with the adapter's own canonical constant");
+                "the definition keeps using the retired adapter's canonical unitScale constant for continuity");
         assertEquals(0L, definition.absoluteMinimum());
         assertTrue(definition.authoredBaseMaximum().isEmpty(),
-                "authoredBaseMaximum is scalar-shaped and must not be declared for a 10-partition resource");
-        assertEquals(1, definition.definitionVersion());
-        assertEquals(zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter.ID,
-                definition.externalAdapterId().orElseThrow());
+                "authoredBaseMaximum is scalar-shaped and must not be declared for a 9-partition resource");
+        assertEquals(2, definition.definitionVersion(), "the Phase 6 authority migration must bump this, never silently redefine the id");
+        assertTrue(definition.externalAdapterId().isEmpty(), "totality:spell_slots must declare no external adapter");
     }
 
     @Test
-    void spellSlotsDeclaresOnlyMenuVisibleNotHudVisibleOrAnyMutationCapability() {
+    void spellSlotsDeclaresSpendableRestorablePartitionedSpendingAndMenuVisibleAfterPhase6Migration() {
         // Spell slots belong in the spell radial / a future Spells app / character screens, not the
-        // ordinary resource-bar HUD — and this adapter is query-only, exactly like every other
-        // Phase 2A/2B/2C adapter, so no SPENDABLE/RESTORABLE/PARTITIONED_SPENDING is declared either.
+        // ordinary resource-bar HUD — still no HUD_VISIBLE. Phase 6 migration: PlayerResourceService
+        // now genuinely mutates this resource (ActivateAbilityHandler's cast-spend, Long Rest
+        // restore), so SPENDABLE/RESTORABLE/PARTITIONED_SPENDING are now declared, unlike the
+        // pre-migration query-only adapter shape.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         var capabilities = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow().capabilities();
-        assertEquals(java.util.Set.of(ResourceCapability.MENU_VISIBLE), capabilities);
+        assertEquals(java.util.Set.of(ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                ResourceCapability.PARTITIONED_SPENDING, ResourceCapability.MENU_VISIBLE), capabilities);
         assertFalse(capabilities.contains(ResourceCapability.HUD_VISIBLE));
-        assertFalse(capabilities.contains(ResourceCapability.SPENDABLE));
-        assertFalse(capabilities.contains(ResourceCapability.RESTORABLE));
-        assertFalse(capabilities.contains(ResourceCapability.PARTITIONED_SPENDING));
     }
 
     @Test

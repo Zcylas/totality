@@ -508,4 +508,128 @@ class ResourceGrantReconcilerTest {
         assertDoesNotThrow(() -> reconciler.reconcile(null, state));
         assertFalse(state.hasState(resourceId));
     }
+
+    // ── Partitioned grant instantiation (Phase 6 Standard Spell Slot migration, 2026-09-16) ────
+    // Uses a synthetic (non-spell-slot) PARTITIONED_POOL resource throughout — proves this
+    // reconciler's PARTITIONED_POOL support is genuinely CLASS-ownership-driven and generic, not
+    // hardcoded to totality:spell_slots.
+
+    private static ResourceGrantReconciler partitionedReconcilerWithProvider(
+            Identifier resourceId, java.util.Map<Integer, Long> maxByPartition, ResourceGrantProvider provider) {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.PARTITIONED_POOL).build());
+        ResourceMaximumResolverRegistry resolvers = new ResourceMaximumResolverRegistry();
+        resolvers.register(resourceId, (player, definition, context) -> new ResourceMaximum.Partitioned(maxByPartition, maxByPartition));
+        ResourceGrantRegistry grants = new ResourceGrantRegistry();
+        grants.register(provider);
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry(), resolvers);
+        return new ResourceGrantReconciler(registry, grants, new ResourceGrantPolicyRegistry(), service);
+    }
+
+    @Test
+    void aValidPartitionedGrantInstantiatesEveryPartitionAtItsResolvedMaximum() {
+        Identifier resourceId = id("test_partitioned_grant_valid");
+        Identifier source = id("test_source");
+        var maxByPartition = java.util.Map.of(1, 4L, 2, 2L, 3, 1L);
+        ResourceGrantReconciler reconciler = partitionedReconcilerWithProvider(
+                resourceId, maxByPartition, providerOf(grant(resourceId, source, 0)));
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        ResourceGrantReconciler.ReconciliationResult result = reconciler.reconcile(null, state);
+
+        assertEquals(List.of(resourceId), result.instantiated());
+        assertTrue(state.hasState(resourceId));
+        var partitioned = state.getPartitioned(resourceId).orElseThrow();
+        assertEquals(4L, partitioned.getCurrent(1));
+        assertEquals(2L, partitioned.getCurrent(2));
+        assertEquals(1L, partitioned.getCurrent(3));
+    }
+
+    @Test
+    void finalPartitionedGrantRemovalFollowsRemoveStatePolicy() {
+        Identifier resourceId = id("test_partitioned_grant_removal");
+        Identifier source = id("test_source");
+        var maxByPartition = java.util.Map.of(1, 3L);
+        ResourceGrantReconciler reconciler = partitionedReconcilerWithProvider(
+                resourceId, maxByPartition, providerOf(grant(resourceId, source, 0)));
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        reconciler.reconcile(null, state); // grant it first
+        assertTrue(state.hasState(resourceId));
+
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.PARTITIONED_POOL).build());
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        ResourceGrantReconciler.ReconciliationResult result =
+                new ResourceGrantReconciler(registry, new ResourceGrantRegistry(), new ResourceGrantPolicyRegistry(), service)
+                        .reconcile(null, state);
+
+        assertEquals(List.of(resourceId), result.removed());
+        assertFalse(state.hasState(resourceId), "REMOVE_STATE (the default) must delete state after the final grant disappears");
+    }
+
+    @Test
+    void reacquiringAPartitionedGrantAtALowerResolvedMaximumSeedsFreshValidStateNotAStaleHighValue() {
+        // Generic mirror of the exact discovered class-change bug shape (see
+        // ResourceGrantReconcilerTest's own scalar equivalent above) for a PARTITIONED_POOL
+        // resource: high-maximum grant -> total loss (REMOVE_STATE) -> reacquisition at a lower
+        // resolved maximum -> the resulting state must never inherit the stale high value.
+        Identifier resourceId = id("test_partitioned_grant_reacquire_lower_max");
+        Identifier source = id("test_source");
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        ResourceGrantReconciler highLevelReconciler = partitionedReconcilerWithProvider(
+                resourceId, java.util.Map.of(1, 6L), providerOf(grant(resourceId, source, 0)));
+        highLevelReconciler.reconcile(null, state);
+        assertEquals(6L, state.getPartitioned(resourceId).orElseThrow().getCurrent(1));
+
+        PlayerResourceRegistry registryAfterLoss = new PlayerResourceRegistry();
+        registryAfterLoss.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.PARTITIONED_POOL).build());
+        PlayerResourceService serviceAfterLoss = new PlayerResourceService(registryAfterLoss, new ExternalPlayerResourceAdapterRegistry());
+        new ResourceGrantReconciler(registryAfterLoss, new ResourceGrantRegistry(), new ResourceGrantPolicyRegistry(), serviceAfterLoss)
+                .reconcile(null, state);
+        assertFalse(state.hasState(resourceId));
+
+        ResourceGrantReconciler lowLevelReconciler = partitionedReconcilerWithProvider(
+                resourceId, java.util.Map.of(1, 2L), providerOf(grant(resourceId, source, 0)));
+        lowLevelReconciler.reconcile(null, state);
+
+        assertEquals(2L, state.getPartitioned(resourceId).orElseThrow().getCurrent(1),
+                "must seed at the freshly resolved (lower) maximum, never the stale value from the previous, differently-leveled grant");
+    }
+
+    @Test
+    void reRunningPartitionedReconciliationWithNoOwnershipChangeIsIdempotent() {
+        Identifier resourceId = id("test_partitioned_grant_idempotent");
+        var maxByPartition = java.util.Map.of(1, 5L);
+        ResourceGrantReconciler reconciler = partitionedReconcilerWithProvider(
+                resourceId, maxByPartition, providerOf(grant(resourceId, id("source"), 0)));
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        ResourceGrantReconciler.ReconciliationResult first = reconciler.reconcile(null, state);
+        state.getPartitioned(resourceId).orElseThrow().setCurrent(1, 2); // simulate spend-down
+        ResourceGrantReconciler.ReconciliationResult second = reconciler.reconcile(null, state);
+
+        assertEquals(List.of(resourceId), first.instantiated());
+        assertTrue(second.instantiated().isEmpty(), "re-reconciling an already-granted, already-instantiated resource must not re-instantiate it");
+        assertEquals(2L, state.getPartitioned(resourceId).orElseThrow().getCurrent(1), "must never refill merely because reconciliation ran again");
+    }
+
+    @Test
+    void partitionedGrantWithNonAtMaximumInitializationDefersInstantiationRatherThanGuessing() {
+        Identifier resourceId = id("test_partitioned_grant_unsupported_init");
+        Identifier source = id("test_source");
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.PARTITIONED_POOL).build());
+        ResourceMaximumResolverRegistry resolvers = new ResourceMaximumResolverRegistry();
+        resolvers.register(resourceId, (player, definition, context) -> new ResourceMaximum.Partitioned(java.util.Map.of(1, 3L), java.util.Map.of(1, 3L)));
+        ResourceGrantRegistry grants = new ResourceGrantRegistry();
+        grants.register(providerOf(new ResourceGrant(resourceId, source, ResourceGrantSourceType.CLASS, ResourceGrantMode.PERSISTENT,
+                new ResourceGrantInitialization.AtMinimum(), ResourceRemovalPolicy.REMOVE_STATE, ResourceVisibilityPolicy.WHEN_ACTIVE, 0)));
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry(), resolvers);
+        ResourceGrantReconciler reconciler = new ResourceGrantReconciler(registry, grants, new ResourceGrantPolicyRegistry(), service);
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        assertDoesNotThrow(() -> reconciler.reconcile(null, state));
+        assertFalse(state.hasState(resourceId), "only AtMaximum is implemented for PARTITIONED_POOL grants this pass");
+    }
 }

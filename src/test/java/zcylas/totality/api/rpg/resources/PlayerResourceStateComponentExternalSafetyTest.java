@@ -111,37 +111,19 @@ class PlayerResourceStateComponentExternalSafetyTest {
     // itself remains fully covered by instantiatePartitionedRejectsSpellSlots above (a genuinely
     // still-external PARTITIONED_POOL resource).
 
-    @Test
-    void instantiateScalarRejectsSpellSlots() {
-        // totality:spell_slots is EXTERNAL_ADAPTER-authority (Phase 2D) — instantiateScalar must
-        // reject it exactly like every other external-authority resource, even though its own model
-        // is PARTITIONED_POOL, not SCALAR (rejectExternalAuthority checks authority, not model).
-        TestResourceBootstrap.ensureProductionResourcesRegistered();
-        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiateScalar(PlayerResourceIds.SPELL_SLOTS, 5));
-        assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
-    }
-
-    @Test
-    void instantiatePartitionedRejectsSpellSlots() {
-        // The more natural-looking call for a PARTITIONED_POOL resource — still rejected, since
-        // authority (not model) is what generic instantiation cares about.
-        TestResourceBootstrap.ensureProductionResourcesRegistered();
-        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiatePartitioned(PlayerResourceIds.SPELL_SLOTS));
-        assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS));
-    }
+    // instantiateScalarRejectsSpellSlots/instantiatePartitionedRejectsSpellSlots removed: their
+    // premise (Standard Spell Slots reject generic instantiation via authority) is no longer true
+    // after the Phase 6 migration — same removal precedent as
+    // instantiatePartitionedRejectsMana/Stamina and instantiateScalarRejectsRage/
+    // instantiatePartitionedRejectsRage above. instantiatePartitionedFromGrant (the real production
+    // partitioned-instantiation path) is now covered directly by ResourceGrantReconciler's own tests.
 
     // instantiateScalarRejectsRage/instantiatePartitionedRejectsRage removed: their premise (Rage
     // rejects generic instantiation via authority) is no longer true after the Phase 5 migration —
     // same removal precedent as instantiatePartitionedRejectsMana/Stamina above.
 
     @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueForAllFourRemainingExternalAdapterProductionResources() {
+    void isRegisteredExternalAdapterAuthorityIsTrueForAllThreeRemainingExternalAdapterProductionResources() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
@@ -149,13 +131,14 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.HEALTH));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
-        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
         // Phase 4 migration (2026-09-15): Mana/Stamina are GENERIC_COMPONENT-authority now, so this
         // predicate must be false for them — the opposite of their pre-migration behavior. Phase 5
-        // migration (2026-09-15): Rage joins them.
+        // migration (2026-09-15): Rage joins them. Phase 6 migration (2026-09-16): Standard Spell
+        // Slots joins them too.
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.RAGE));
+        assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }

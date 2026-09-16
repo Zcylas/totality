@@ -19,13 +19,16 @@ class SpellSlotTableTest {
     }
 
     @Test
-    void everyStandardCasterRowHasTenSlotTiers() {
+    void everyStandardCasterRowHasNineSlotTiers() {
+        // Phase 6 (2026-09-16): Standard Spell Slots are 1st-9th level only — there is no ordinary
+        // 10th-level slot.
         for (int[] row : SpellSlotTable.FULL_CASTER) {
-            assertEquals(10, row.length);
+            assertEquals(9, row.length);
         }
         for (int[] row : SpellSlotTable.HALF_CASTER) {
-            assertEquals(10, row.length);
+            assertEquals(9, row.length);
         }
+        assertEquals(9, SpellSlotTable.STANDARD_SLOT_LEVELS);
     }
 
     @Test
@@ -46,20 +49,19 @@ class SpellSlotTableTest {
 
     @Test
     void fullCasterLevelTwentyMatchesDnd5eCap() {
-        // D&D 5e level-20 full caster: 4/3/3/3/3/2/2/1/1, no 10th-level slot yet.
+        // D&D 5e level-20 full caster: 4/3/3/3/3/2/2/1/1.
         int[] slots = SpellSlotTable.forFullCaster(20);
-        assertArrayEquals(new int[] {4, 3, 3, 3, 3, 2, 2, 1, 1, 0}, slots);
+        assertArrayEquals(new int[] {4, 3, 3, 3, 3, 2, 2, 1, 1}, slots);
     }
 
     @Test
-    void tenthLevelSlotFirstUnlocksAtEpicLevelTwentyFive() {
-        assertEquals(0, SpellSlotTable.forFullCaster(24)[9], "no 10th-level slot before level 25");
-        assertEquals(1, SpellSlotTable.forFullCaster(25)[9], "level 25 is the authored epic-progression unlock point");
-    }
-
-    @Test
-    void secondTenthLevelSlotUnlocksAtLevelThirty() {
-        assertEquals(2, SpellSlotTable.forFullCaster(30)[9]);
+    void noFullCasterRowAtAnyLevelHasATenthSlotTier() {
+        // Phase 6 (2026-09-16): the pre-Phase-6 table granted an ordinary 10th-level slot at class
+        // levels 25 and 30 ("epic magic milestone") — that entitlement is removed entirely, not
+        // merely hidden. Every row is now genuinely 9 columns wide, so there is no index 9 to read.
+        for (int level = 1; level <= 30; level++) {
+            assertEquals(9, SpellSlotTable.forFullCaster(level).length, "level " + level);
+        }
     }
 
     @Test
@@ -85,7 +87,7 @@ class SpellSlotTableTest {
     @Test
     void halfCasterLevelTwentyMatchesDnd5eCap() {
         int[] slots = SpellSlotTable.forHalfCaster(20);
-        assertArrayEquals(new int[] {4, 3, 3, 3, 3, 0, 0, 0, 0, 0}, slots);
+        assertArrayEquals(new int[] {4, 3, 3, 3, 3, 0, 0, 0, 0}, slots);
     }
 
     @Test

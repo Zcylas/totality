@@ -6,14 +6,23 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
+import zcylas.totality.api.magic.spell.SpellSlotComponent;
+import zcylas.totality.api.magic.spell.SpellSlotComponents;
+import zcylas.totality.api.magic.spell.SpellSlotRecalculator;
+import zcylas.totality.api.magic.spell.SpellSlotTable;
 import zcylas.totality.api.rpg.classes.ChargeComponents;
 import zcylas.totality.api.rpg.classes.PlayerChargesComponent;
 import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.PlayerResourceRegistry;
+import zcylas.totality.api.rpg.resources.PlayerResourceService;
 import zcylas.totality.api.rpg.resources.PlayerResourceStateComponent;
 import zcylas.totality.api.rpg.resources.ResourceComponents;
+import zcylas.totality.api.rpg.resources.ResourceMaximum;
+import zcylas.totality.api.rpg.resources.ResourceResolutionContext;
 import zcylas.totality.api.rpg.resources.ResourceStateComponents;
 import zcylas.totality.api.rpg.resources.integration.PlayerBaselineResources;
+import zcylas.totality.api.rpg.resources.state.PartitionedResourceState;
 
 import java.util.Optional;
 
@@ -24,16 +33,19 @@ import java.util.Optional;
  * Mana/Stamina NBT import (canonical §24.4) on join. Phase 4 Mana/Stamina migration, 2026-09-15.
  *
  * <p>{@link #migrateLegacyIfAbsent} also imports legacy Rage as of the Phase 5 migration
- * (2026-09-15, same date) — reusing this exact one-time-import mechanism rather than a separate one.
- * Rage's own grant reconciliation needs no additional lifecycle wiring beyond what already exists
- * here: {@code BarbarianRageResources}'s provider is registered on the same shared, global {@code
+ * (2026-09-15, same date), and legacy Standard Spell Slots as of the Phase 6 migration
+ * (2026-09-16, see {@link #migrateSpellSlots}) — reusing this exact one-time-import mechanism rather
+ * than a separate one. Both resources' own grant reconciliation need no additional lifecycle wiring
+ * beyond what already exists here: {@code BarbarianRageResources}'s and {@code
+ * StandardSpellSlotResources}'s providers are registered on the same shared, global {@code
  * ResourceGrantRegistry.INSTANCE} that {@link PlayerBaselineResources}'s own reconciler already
  * iterates in full, so every {@code PlayerBaselineResources.reconcile(player)} call below (join,
- * respawn, dimension transfer) transitively reconciles Rage's grant too — see {@code
+ * respawn, dimension transfer) transitively reconciles both grants too — see {@code
  * ResourceGrantReconciler#reconcile}'s own Javadoc ("every registered provider"). The one additional
  * trigger this generic wiring cannot cover — Barbarian class selection — is handled directly by
  * {@code BarbarianRageAbility.registerChargePool} calling {@code BarbarianRageResources.reconcile}
- * itself.
+ * itself; Standard Spell Slots needs no such extra call since every class-mutation path already
+ * routes through {@code ClassChangeReconciler}, which reconciles the shared registry directly.
  *
  * <p><b>Registration order matters.</b> This must run before {@code StatsServerEvents}'s
  * {@code JOIN}/{@code COPY_FROM} handlers (which call {@code PlayerResourceRecalculator
@@ -112,6 +124,53 @@ public final class BaselineResourceLifecycleEvents {
                 && legacyCharges.get().getAllPools().containsKey(BarbarianRageAbility.CHARGE_ID);
         int legacyRageValue = legacyRageInitialized ? legacyCharges.get().getCurrent(BarbarianRageAbility.CHARGE_ID) : 0;
         migrateOne(state, PlayerResourceIds.RAGE, legacyRageInitialized, legacyRageValue);
+
+        migrateSpellSlots(player, state);
+    }
+
+    /**
+     * Phase 6 Standard Spell Slot migration (2026-09-16): same one-time-import contract as Mana/
+     * Stamina/Rage above, but {@code PARTITIONED_POOL}-shaped (nine tiers, never a tenth — see
+     * {@link SpellSlotTable}'s class Javadoc) instead of scalar, so it cannot reuse {@link
+     * #migrateOne} directly.
+     *
+     * <p>{@link SpellSlotComponent} has no initialization sentinel distinguishing "never touched" from
+     * "genuinely all-zero" (see {@code StandardSpellSlotsResourceAdapter}'s own Javadoc on this exact
+     * point), so "legacy initialized" cannot be read off the legacy store itself the way Mana/Stamina's
+     * {@code -1} sentinel or Rage's pool-map key presence allow. Instead this gates on the player's
+     * <em>current</em> combined caster level (the same {@link SpellSlotRecalculator
+     * #computeCombinedCasterLevel} the grant provider itself uses): a player with real entitlement
+     * right now was, by construction, entitled under the identical class levels before this migration
+     * shipped (class data is untouched by this migration), so their legacy remaining values are
+     * meaningful and worth importing; a player with no current entitlement has nothing meaningful to
+     * import (any leftover legacy array is either a stale value from a class they no longer have —
+     * moot, since no grant will retain state for them anyway — or a genuinely-untouched all-zero
+     * array that must NOT be allowed to pre-empt a future genuine first grant with a frozen 0/0).
+     * Values are clamped against the freshly resolved 1-9 maxima (task requirement); tier 10 is never
+     * read from the legacy array at all — it is discarded by construction, never migrated, never
+     * resurrected.
+     */
+    private static void migrateSpellSlots(ServerPlayer player, PlayerResourceStateComponent state) {
+        Identifier id = PlayerResourceIds.SPELL_SLOTS;
+        if (state.isLegacyMigrated(id)) {
+            return;
+        }
+        if (!state.hasState(id) && SpellSlotRecalculator.computeCombinedCasterLevel(player) > 0) {
+            Optional<zcylas.totality.api.rpg.resources.PlayerResourceDefinition> definition = PlayerResourceRegistry.INSTANCE.get(id);
+            Optional<ResourceMaximum> maxOpt = definition.flatMap(def ->
+                    PlayerResourceService.INSTANCE.resolveMaximum(player, def, ResourceResolutionContext.EMPTY));
+            if (maxOpt.isPresent() && maxOpt.get() instanceof ResourceMaximum.Partitioned partitionedMax) {
+                SpellSlotComponent legacy = SpellSlotComponents.get(player);
+                PartitionedResourceState partitionState = state.instantiatePartitioned(id);
+                for (int level = 1; level <= SpellSlotTable.STANDARD_SLOT_LEVELS; level++) {
+                    long legacyRemaining = Math.max(0, (long) legacy.getMax(level) - legacy.getUsed(level));
+                    long max = partitionedMax.effectiveByPartition().getOrDefault(level, 0L);
+                    partitionState.setCurrent(level, Math.min(legacyRemaining, max));
+                }
+                // Tier 10 deliberately never read from `legacy` above — see this method's own Javadoc.
+            }
+        }
+        state.markLegacyMigrated(id);
     }
 
     private static void migrateOne(PlayerResourceStateComponent state, Identifier id, boolean legacyInitialized, int legacyValue) {

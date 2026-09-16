@@ -14,17 +14,28 @@ import zcylas.totality.api.rpg.rest.RestType;
 import zcylas.totality.networking.resource.ResourceSyncManager;
 
 /**
- * Tracks spell slot availability for a player.
- * Slots are indexed 0–9 (spell levels 1–10). Level 0 = cantrips, no slots.
+ * Legacy standard spell-slot store. Slots are indexed 0–8 (spell levels 1–9); level 0 = cantrips,
+ * no slots. There is no ordinary 10th-level slot (Phase 6 canon, 2026-09-16) — see
+ * {@link SpellSlotTable}'s class Javadoc.
  *
- * Long rest → {@link #restoreAll()}. Warlock short rest → {@link #restoreSome} (not yet wired —
- * Pact Magic is a separate pool this component doesn't model, see {@link CasterProgression}).
- * Max slots per level set via {@link #recalculate} from {@link SpellSlotTable}
- * ({@link SpellSlotRecalculator} drives this from class levels).
+ * <p><b>Retired as a production mutation authority (Phase 6, 2026-09-16).</b> {@code totality:spell_slots}
+ * is now {@code GENERIC_COMPONENT}-authority, mutated exclusively through {@link
+ * zcylas.totality.api.rpg.resources.PlayerResourceService} (see {@code
+ * zcylas.totality.api.rpg.resources.integration.StandardSpellSlotResources} for the grant/rest
+ * wiring and {@code StandardSpellSlotMaximumResolver} for the maximum resolution this class used to
+ * own via {@link #recalculate}). This class remains attached to every {@code ServerPlayer} and still
+ * persists whatever it last held <b>solely</b> so {@code BaselineResourceLifecycleEvents}'s one-time
+ * legacy-NBT import can still read a pre-migration player's remaining slots on their first post-Phase-6
+ * join — mirroring {@code PlayerResourceComponent} (legacy Mana/Stamina) and {@code
+ * PlayerChargesComponent} (legacy Rage), which remain attached and readable for exactly the same
+ * reason after their own Phase 4/5 migrations. Nothing in production calls {@link #useSlot}/{@link
+ * #recalculate}/{@link #restoreAll} anymore; {@link #onRest} is no longer registered as a {@link
+ * RestListener} (see {@code PlayerConnectionEvents}). They are left in place, not deleted, matching
+ * that same established precedent, and are exercised only by this class's own characterization tests.
  */
 public final class SpellSlotComponent implements SyncedComponent, CopyableComponent<SpellSlotComponent>, RestListener {
 
-    public static final int MAX_SPELL_LEVEL = 10;
+    public static final int MAX_SPELL_LEVEL = 9;
 
     private final ServerPlayer player;
     private final int[] maxSlots  = new int[MAX_SPELL_LEVEL];
@@ -71,20 +82,11 @@ public final class SpellSlotComponent implements SyncedComponent, CopyableCompon
         sync();
     }
 
-    public void restoreSome(int count, int maxLevel) {
-        int remaining = count;
-        for (int i = Math.min(maxLevel, MAX_SPELL_LEVEL) - 1; i >= 0 && remaining > 0; i--) {
-            int restore = Math.min(usedSlots[i], remaining);
-            usedSlots[i] -= restore;
-            remaining    -= restore;
-        }
-        sync();
-    }
-
     // ── RestListener ──────────────────────────────────────────────────────────
 
-    /** A Long Rest fully restores every caster's slots (D&D 2024 rule). Short Rest only
-     *  matters for Warlock Pact Magic / Wizard Arcane Recovery — not wired yet (see class doc). */
+    /** Dead production code since Phase 6 (no longer registered as a {@link RestListener} — see the
+     *  class Javadoc); retained only for this class's own characterization tests, matching {@link
+     *  #useSlot}/{@link #recalculate}/{@link #restoreAll}'s own retained-but-unreferenced status. */
     @Override
     public void onRest(ServerPlayer player, RestType type) {
         if (type == RestType.LONG) restoreAll();
@@ -127,11 +129,11 @@ public final class SpellSlotComponent implements SyncedComponent, CopyableCompon
         ClientSpellSlotManager.apply(maxSlots, usedSlots);
     }
 
+    /** Dead in production since Phase 6 (see the class Javadoc) — only ever invoked by this class's
+     *  own now-unreferenced mutators, which only tests still call. */
     private void sync() {
         if (player != null && !player.level().isClientSide()) {
             SpellSlotComponents.SPELL_SLOTS.sync((ComponentProvider) player);
-            // Non-authoritative dirty notification for the parallel Phase 3A generic Resource sync
-            // path — does not change spell slots' own gameplay behavior or existing sync.
             ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.SPELL_SLOTS);
         }
     }

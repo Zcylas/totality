@@ -6,22 +6,27 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Characterization coverage for the pure-logic pieces {@link SpellSlotRecalculator#recalculate}
- * composes: {@link SpellcastingProgressionRegistry}'s class-id → {@link CasterProgression} mapping,
- * and {@link SpellSlotTable}'s combining/lookup functions (covered in full by {@link
- * SpellSlotTableTest}).
+ * Characterization coverage for the pure-logic pieces {@link SpellSlotRecalculator
+ * #computeCombinedCasterLevel}/{@link SpellSlotRecalculator#computeMaxSlots} compose: {@link
+ * SpellcastingProgressionRegistry}'s class-id → {@link CasterProgression} mapping, and {@link
+ * SpellSlotTable}'s combining/lookup functions (covered in full by {@link SpellSlotTableTest},
+ * including the Phase 6 "no ordinary tier 10 at any level" guarantee).
  *
- * <p>{@code SpellSlotRecalculator.recalculate(ServerPlayer)} itself is <b>not</b> directly unit
- * tested here: it requires a real, component-attached {@code ServerPlayer} (it calls {@code
- * ClassComponents.get(player)} and {@code SpellSlotComponents.get(player)}, both of which cast to
- * {@code ComponentProvider} and dereference a real component container) that cannot be constructed
- * outside a running Minecraft server without an excessive fake-gameplay scaffold purely to exercise
- * one helper method — exactly the case the Phase 2D task itself calls out as "document the exact
- * production path and add focused lower-level characterization tests instead." Its correctness is
- * characterized here by proving its two real dependencies behave correctly in isolation; the method
- * itself is a thin, side-effect-light composition of them (iterate class levels, bucket by
- * progression, call {@code combinedCasterLevel}, call {@code forFullCaster}, write the result) with
- * no additional branching logic of its own to hide a bug.
+ * <p>{@code SpellSlotRecalculator.computeCombinedCasterLevel(ServerPlayer)}/{@code
+ * computeMaxSlots(ServerPlayer)} themselves are <b>not</b> directly unit tested here (nor is {@code
+ * StandardSpellSlotMaximumResolver}, which delegates straight back to {@code computeMaxSlots}): they
+ * require a real, component-attached {@code ServerPlayer} (they call {@code
+ * ClassComponents.get(player)}, which casts to {@code ComponentProvider} and dereferences a real
+ * component container) that cannot be constructed outside a running Minecraft server without an
+ * excessive fake-gameplay scaffold purely to exercise one helper method — exactly the case the
+ * Phase 2D task itself calls out as "document the exact production path and add focused lower-level
+ * characterization tests instead." Their correctness is characterized here by proving their real
+ * dependencies behave correctly in isolation; each method is a thin, side-effect-light composition of
+ * them (iterate class levels, bucket by progression, call {@code combinedCasterLevel}, call {@code
+ * forFullCaster}) with no additional branching logic of its own to hide a bug. The real end-to-end
+ * proof against a genuine {@code ServerPlayer} is {@code StandardSpellSlotMigrationVerification}
+ * (dev-server-gated), mirroring {@code BarbarianRageMigrationVerification}'s own precedent for
+ * {@code RageMaximumResolver}.
  *
  * <p>Uses uniquely-namespaced fake class ids per test (registered into {@link
  * SpellcastingProgressionRegistry}'s shared static map) to avoid any cross-test or cross-suite

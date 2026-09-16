@@ -24,7 +24,9 @@ import java.util.Optional;
 public final class ClientSpellSlotParityComparator {
 
     public static final int MIN_LEVEL = 1;
-    public static final int MAX_LEVEL = 10;
+    /** Phase 6 (2026-09-16): Standard Spell Slots are 1st-9th level only — there is no ordinary
+     *  10th-level slot (see {@code SpellSlotTable}'s class Javadoc). */
+    public static final int MAX_LEVEL = 9;
 
     /** The canonical unit scale standard spell slots use on both the generic and legacy sides. */
     public static final long CANONICAL_UNIT_SCALE = 1L;
@@ -51,7 +53,7 @@ public final class ClientSpellSlotParityComparator {
             return ClientResourceParityOutcome.MODEL_MISMATCH;
         }
 
-        // Every level 1-10 must be present on both sides, with no representable overflow (the
+        // Every level 1-9 must be present on both sides, with no representable overflow (the
         // legacy int-array manager has no overflow concept at all) — checked by key, never by raw
         // map/array position, so a future reordering cannot silently misalign the comparison.
         boolean anyMismatch = false;
@@ -71,8 +73,9 @@ public final class ClientSpellSlotParityComparator {
             }
         }
 
-        // A level outside 1-10 on either side (with all of 1-10 also present) is a wire shape the
-        // fixed ten-slot legacy array cannot possibly represent.
+        // A level outside 1-9 on either side (with all of 1-9 also present) is a wire shape the
+        // fixed nine-slot legacy array cannot possibly represent — this now also catches a stray
+        // partition 10, the exact obsolete tier this comparator must never treat as legitimate.
         for (int key : genericPartitioned.partitions().keySet()) {
             if (key < MIN_LEVEL || key > MAX_LEVEL) {
                 return ClientResourceParityOutcome.MODEL_MISMATCH;

@@ -14,9 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *  fakes — no Minecraft client is booted anywhere in this file. */
 class ClientResourceParityPollTest {
 
-    private static ClientResourceParitySummary.Partitioned tenLevels(int remaining, int max) {
+    /** Phase 6 (2026-09-16): Standard Spell Slots are 1st-9th level only. */
+    private static ClientResourceParitySummary.Partitioned nineLevels(int remaining, int max) {
         List<ClientResourceParitySummary.Partitioned.Partition> partitions = new java.util.ArrayList<>();
-        for (int level = 1; level <= 10; level++) {
+        for (int level = 1; level <= 9; level++) {
             partitions.add(new ClientResourceParitySummary.Partitioned.Partition(level, remaining, max, 0));
         }
         return ClientResourceParitySummary.Partitioned.of(partitions, 1);
@@ -29,7 +30,7 @@ class ClientResourceParityPollTest {
         var legacy = new FakeClientResourceParityLegacyAccess();
         generic.setScalar(PlayerResourceIds.MANA, 100, 100, ClientResourceTrust.FRESH);
         generic.setScalar(PlayerResourceIds.STAMINA, 100, 100, ClientResourceTrust.FRESH);
-        generic.setPartitioned(PlayerResourceIds.SPELL_SLOTS, partitionedResult(tenLevels(0, 0)));
+        generic.setPartitioned(PlayerResourceIds.SPELL_SLOTS, partitionedResult(nineLevels(0, 0)));
         generic.setScalar(PlayerResourceIds.RAGE, 0, 0, ClientResourceTrust.FRESH);
 
         ClientResourceParityPoll.pollOnce(tracker, 0, generic, legacy);
@@ -75,8 +76,8 @@ class ClientResourceParityPollTest {
         var tracker = new ClientResourceParityTracker();
         var generic = new FakeClientResourceParityGenericAccess();
         var legacy = new FakeClientResourceParityLegacyAccess();
-        generic.setPartitioned(PlayerResourceIds.SPELL_SLOTS, partitionedResult(tenLevels(3, 5)));
-        legacy.setSpellSlots(tenLevels(3, 5));
+        generic.setPartitioned(PlayerResourceIds.SPELL_SLOTS, partitionedResult(nineLevels(3, 5)));
+        legacy.setSpellSlots(nineLevels(3, 5));
 
         ClientResourceParityPoll.pollOnce(tracker, 0, generic, legacy);
 
@@ -251,7 +252,7 @@ class ClientResourceParityPollTest {
         var legacy = new FakeClientResourceParityLegacyAccess();
         generic.setScalar(PlayerResourceIds.MANA, 100, 100, ClientResourceTrust.FRESH);
         generic.setScalar(PlayerResourceIds.STAMINA, 100, 100, ClientResourceTrust.FRESH);
-        generic.setPartitioned(PlayerResourceIds.SPELL_SLOTS, partitionedResult(tenLevels(0, 0)));
+        generic.setPartitioned(PlayerResourceIds.SPELL_SLOTS, partitionedResult(nineLevels(0, 0)));
         generic.setScalar(PlayerResourceIds.RAGE, 0, 0, ClientResourceTrust.FRESH);
 
         ClientResourceParityPoll.pollOnce(tracker, 0, generic, legacy);

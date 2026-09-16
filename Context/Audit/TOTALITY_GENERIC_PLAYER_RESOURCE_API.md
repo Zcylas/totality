@@ -640,7 +640,7 @@ A resource containing independent current/max counts by an integer partition key
 
 Examples:
 
-- Standard spell slots, partitioned by spell level `1..10`.
+- Standard spell slots, partitioned by spell level `1..9` (there is no ordinary tier 10 — see §14.3/§25.8; a partition id such as `10` remains valid generic infrastructure for other owners, e.g. the Hit Dice `d10` example below).
 - Pact Magic slots, where the active partition normally equals the current pact-slot level.
 - Hit Dice, partitioned by die size such as `6`, `8`, `10`, or `12`.
 - A future resource with independently consumable numeric bands.
@@ -1592,7 +1592,11 @@ Do not automatically spend a higher slot merely because the minimum tier is empt
 
 ### 14.3 Standard spell slots
 
-`totality:spell_slots` uses `PARTITIONED_POOL`.
+`totality:spell_slots` uses `PARTITIONED_POOL`, partitions `1..9` only. There is no ordinary tier 10:
+the historical progression that granted a 10th-level slot at class levels 25 and 30 is intentionally
+removed, not migrated, and not replaced with an invented reward. Any old persisted tier-10 data is
+ignored on migration (§24.4). Epic Magic, if it is ever designed, is a separate future system, not an
+extension of this partition range.
 
 Maximum is resolved by the existing multiclass Full/Half/Third caster logic.
 
@@ -3406,7 +3410,7 @@ Recommended sequence:
 1. Load new resource component.
 2. If `totality:mana` is absent and legacy Mana data exists, import it.
 3. If `totality:stamina` is absent and legacy Stamina data exists, import it.
-4. If `totality:spell_slots` is absent and legacy `SpellSlotComponent` data exists, import every current tier exactly.
+4. If `totality:spell_slots` is absent and legacy `SpellSlotComponent` data exists, import every valid tier (`1..9`) exactly, clamped against the freshly resolved maximum; any historical tier-10 data present in the legacy store is discarded, never migrated, never resurrected.
 5. If a charge pool is absent in new state and legacy `PlayerChargesComponent` contains it, import by existing pool ID.
 6. Mark migration version.
 7. Recalculate maximums through canonical resolvers.
@@ -3686,7 +3690,7 @@ Rest core does not contain `if monk`.
 ```text
 ID: totality:spell_slots
 Model: PARTITIONED_POOL
-Tiers: 1..10
+Tiers: 1..9 (no ordinary tier 10 — see §6.2/§14.3)
 Polarity: HIGH_IS_GOOD
 Display: SLOTS / SPELLCASTING
 Owner: D&D Spell/Class architecture
@@ -3702,6 +3706,7 @@ Rules:
 - Long Rest restores eligible slots.
 - Arcane Recovery is a Wizard feature, not a generic passive restore.
 - Higher-level auto-spend is forbidden for ordinary player casting.
+- There is no ordinary tier 10; the historical level-25/30 tier-10 milestone is retired, not replaced.
 
 ### 25.9 Warlock Pact Magic
 
@@ -4069,10 +4074,12 @@ Keep old packets until every consumer is migrated.
 
 ### Phase 6 — Migrate standard spell slots
 
-- Import every tier.
+- Import every valid (1–9) tier; discard any historical tier-10 data.
 - Preserve multiclass maximum resolver.
 - Preserve successful-cast commitment.
-- Preserve level 1–10 capacity.
+- Preserve valid 1–9 capacity. **Superseded canon (2026-09-16):** the pre-Phase-6 "1–10" assumption
+  this bullet originally read is retired — there is no ordinary tier 10 (see §14.3/§25.8). No
+  replacement reward was invented for the retired level-25/30 tier-10 milestone.
 - Switch spell UI and Rest listener.
 - Keep adapter facade until all callers move.
 
@@ -4204,7 +4211,10 @@ All tests are server-authoritative unless explicitly client-side.
 - Explicit eligible-partition policy chooses deterministically.
 - Restore clamps per partition.
 - Partition maximum reduction clamps correctly.
-- Level 10 survives persistence.
+- A synthetic/non-Spell-Slot partition id such as `10` survives persistence — the generic
+  `PARTITIONED_POOL` model itself is not restricted to any tier count (e.g. a Hit Die `d10`, §28.9).
+  This is infrastructure-level, not a Standard Spell Slot statement: Standard Spell Slots are
+  restricted to partitions `1..9` only (§14.3/§25.8) and must never expose or resurrect a partition 10.
 
 ### 28.8 Spell slots
 
@@ -4214,7 +4224,9 @@ All tests are server-authoritative unless explicitly client-side.
 - Cantrip consumes none.
 - Long Rest restores eligible standard slots.
 - Standard and Pact pools do not affect each other.
-- Existing multiclass table output is unchanged.
+- The valid 1–9 multiclass table output is preserved exactly; the obsolete ordinary tier-10
+  entitlement (previously granted at class levels 25 and 30) is intentionally removed, with no
+  invented replacement reward.
 
 ### 28.9 Hit Dice
 

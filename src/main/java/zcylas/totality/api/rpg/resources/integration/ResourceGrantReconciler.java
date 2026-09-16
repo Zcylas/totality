@@ -4,6 +4,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
 import zcylas.totality.api.rpg.resources.*;
+import zcylas.totality.api.rpg.resources.state.PartitionedResourceState;
 
 import java.util.*;
 
@@ -178,6 +179,9 @@ public final class ResourceGrantReconciler {
     private Optional<Identifier> instantiateFromGrant(
             ServerPlayer player, PlayerResourceDefinition definition, ResourceGrant grant, PlayerResourceStateComponent state) {
         Identifier resourceId = definition.id();
+        if (definition.model() == ResourceModel.PARTITIONED_POOL) {
+            return instantiatePartitionedFromGrant(player, definition, grant, state);
+        }
         long initial = switch (grant.initialization()) {
             case ResourceGrantInitialization.AtMinimum ignored -> definition.absoluteMinimum();
             case ResourceGrantInitialization.AtMaximum ignored -> {
@@ -252,15 +256,37 @@ public final class ResourceGrantReconciler {
         };
         if (initial == Long.MIN_VALUE) return Optional.empty();
 
-        // This foundation's grant instantiation is scalar-only (mirroring PlayerResourceService's
-        // transact() — canonical gives no partitioned-grant example, and no test/production
-        // resource needs one yet).
-        if (definition.model() != ResourceModel.SCALAR) {
-            Totality.LOGGER.warn("[ResourceGrantReconciler] PARTITIONED_POOL grant instantiation is not "
-                    + "implemented this pass — skipping {}", resourceId);
+        state.instantiateScalar(resourceId, initial);
+        return Optional.of(resourceId);
+    }
+
+    /**
+     * {@code PARTITIONED_POOL} grant instantiation — added for the Phase 6 Standard Spell Slot
+     * migration (2026-09-16), the first production {@code PARTITIONED_POOL} resource granted through
+     * this reconciler. Only {@link ResourceGrantInitialization.AtMaximum} is implemented — the only
+     * shape any current {@code PARTITIONED_POOL} grant needs, mirroring how every scalar Phase 4/5
+     * migration (Mana, Stamina, Rage) also only ever needed {@code AtMaximum} in practice. Every
+     * other initialization variant is declared but given no partitioned semantics here, logged and
+     * deferred rather than guessed at, matching this class's own established pattern for unsupported
+     * combinations elsewhere.
+     */
+    private Optional<Identifier> instantiatePartitionedFromGrant(
+            ServerPlayer player, PlayerResourceDefinition definition, ResourceGrant grant, PlayerResourceStateComponent state) {
+        Identifier resourceId = definition.id();
+        if (!(grant.initialization() instanceof ResourceGrantInitialization.AtMaximum)) {
+            Totality.LOGGER.warn("[ResourceGrantReconciler] PARTITIONED_POOL grant instantiation only implements "
+                    + "AtMaximum this pass — deferring instantiation of {}", resourceId);
             return Optional.empty();
         }
-        state.instantiateScalar(resourceId, initial);
+        Optional<ResourceMaximum> max = service.resolveMaximum(player, definition, ResourceResolutionContext.EMPTY);
+        if (max.isEmpty() || !(max.get() instanceof ResourceMaximum.Partitioned partitionedMax)) {
+            Totality.LOGGER.warn("[ResourceGrantReconciler] cannot resolve partitioned maximum for {} — deferring instantiation", resourceId);
+            return Optional.empty();
+        }
+        PartitionedResourceState partitionState = state.instantiatePartitioned(resourceId);
+        for (Map.Entry<Integer, Long> entry : partitionedMax.effectiveByPartition().entrySet()) {
+            partitionState.setCurrent(entry.getKey(), entry.getValue());
+        }
         return Optional.of(resourceId);
     }
 

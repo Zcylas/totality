@@ -118,11 +118,12 @@ public final class ProductionResourceDefinitions {
      * {@code ManaResourceAdapter}/{@code StaminaResourceAdapter} remain registered here even though
      * neither definition references them anymore as of the Phase 4 migration (2026-09-15), and
      * {@code RageResourceAdapter} joins them as of the Phase 5 migration (2026-09-15, same date) — a
-     * deliberate, documented deferred-cleanup decision, not an oversight. Removing them is a Phase 8
-     * concern (canonical: "remove... after no callers remain," per-resource, not all at once); their
-     * own unit tests still exercise their (now-unreachable-from-production) {@code resolve}/{@code
-     * normalize} logic directly, and leaving the registration in place costs nothing (an
-     * unreferenced adapter is simply never looked up).
+     * deliberate, documented deferred-cleanup decision, not an oversight. {@code
+     * StandardSpellSlotsResourceAdapter} joins them as of the Phase 6 migration (2026-09-16). Removing
+     * them is a Phase 8 concern (canonical: "remove... after no callers remain," per-resource, not all
+     * at once); their own unit tests still exercise their (now-unreachable-from-production) {@code
+     * resolve}/{@code normalize} logic directly, and leaving the registration in place costs nothing
+     * (an unreferenced adapter is simply never looked up).
      */
     private static void registerAdapters() {
         ExternalPlayerResourceAdapterRegistry.INSTANCE.register(HealthResourceAdapter.INSTANCE);
@@ -137,18 +138,22 @@ public final class ProductionResourceDefinitions {
 
     /** Phase 4 migration: real resolvers for the first two GENERIC_COMPONENT resources that need one.
      *  Phase 5 adds Rage's, delegating to {@code BarbarianRageAbility.getMaxRage} the same way Mana/
-     *  Stamina's delegate back to their own manager classes. */
+     *  Stamina's delegate back to their own manager classes. Phase 6 adds Standard Spell Slots' —
+     *  the first PARTITIONED_POOL resolver — delegating to {@code SpellSlotRecalculator.computeMaxSlots}. */
     private static void registerMaximumResolvers() {
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.MANA, zcylas.totality.api.rpg.mana.ManaMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.STAMINA, zcylas.totality.api.rpg.stamina.StaminaMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.RAGE, zcylas.totality.api.ability.impl.barbarian.RageMaximumResolver.INSTANCE);
+        ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.SPELL_SLOTS, zcylas.totality.api.magic.spell.StandardSpellSlotMaximumResolver.INSTANCE);
     }
 
     /** Phase 4 migration: the first production grant provider — see {@code PlayerBaselineResources}.
-     *  Phase 5 adds the second, Barbarian-class-gated one — see {@code BarbarianRageResources}. */
+     *  Phase 5 adds the second, Barbarian-class-gated one — see {@code BarbarianRageResources}. Phase
+     *  6 adds the third, combined-multiclass-caster-gated one — see {@code StandardSpellSlotResources}. */
     private static void registerGrants() {
         zcylas.totality.api.rpg.resources.integration.PlayerBaselineResources.register();
         zcylas.totality.api.rpg.resources.integration.BarbarianRageResources.register();
+        zcylas.totality.api.rpg.resources.integration.StandardSpellSlotResources.register();
     }
 
     private static void registerDefinitions() {
@@ -266,27 +271,32 @@ public final class ProductionResourceDefinitions {
                         .definitionVersion(2)
                         .build());
 
-        // Standard spell slots: transitional EXTERNAL_ADAPTER over the legacy SpellSlotComponent
-        // store (see the class Javadoc). PARTITIONED_POOL model — the Resource API's first. No
-        // .authoredBaseMaximum(...) (scalar-shaped field, cannot represent ten per-level maxima).
-        // No HUD_VISIBLE — presentation is MENU_ONLY (spell radial / future Spells app), not the
-        // ordinary resource-bar HUD. No SPENDABLE/RESTORABLE/PARTITIONED_SPENDING capability — this
-        // adapter is query-only, exactly like every other Phase 2A/2B/2C adapter. unitScale uses the
-        // adapter's own canonical StandardSpellSlotsResourceAdapter.UNIT_SCALE constant rather than a
-        // second, independently-maintained literal — the adapter always produces a snapshot at that
-        // scale regardless of what this definition declares, so the two must stay in lockstep.
+        // Standard spell slots: Phase 6 migration (2026-09-16) — GENERIC_COMPONENT authority (the
+        // builder default; no .externalAdapter(...) call), bumped to definitionVersion 2 (never a
+        // silent structural hot-swap of what totality:spell_slots means). PARTITIONED_POOL model
+        // unchanged, but now genuinely nine partitions (spell levels 1-9) — the pre-Phase-6 ten-
+        // partition shape (levels 1-10) is retired; there is no ordinary 10th-level slot (see
+        // SpellSlotTable's class Javadoc). unitScale keeps using StandardSpellSlotsResourceAdapter
+        // .UNIT_SCALE (still 1) for continuity even though the adapter no longer backs this
+        // definition, matching Rage's own precedent (RageResourceAdapter.UNIT_SCALE). PARTITIONED_SPENDING
+        // added alongside SPENDABLE/RESTORABLE (canonical: "only valid on PARTITIONED_POOL
+        // definitions") since PlayerResourceService.trySpend/restore now genuinely mutate this
+        // resource through EXACT_TIER partitioned operations (ActivateAbilityHandler's cast-spend,
+        // StandardSpellSlotResources' Long Rest restore). MENU_VISIBLE only, no HUD_VISIBLE — spell
+        // slots belong in the spell radial / a future Spells app, not the ordinary resource-bar HUD,
+        // unchanged from the pre-migration definition.
         PlayerResourceRegistry.INSTANCE.register(
                 PlayerResourceDefinition.builder(PlayerResourceIds.SPELL_SLOTS, ResourceModel.PARTITIONED_POOL)
                         .polarity(ResourcePolarity.HIGH_IS_GOOD)
-                        .externalAdapter(PlayerResourceIds.SPELL_SLOTS_ADAPTER)
                         .unitScale(StandardSpellSlotsResourceAdapter.UNIT_SCALE)
                         .absoluteMinimum(0)
-                        .capabilities(ResourceCapability.MENU_VISIBLE)
+                        .capabilities(ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE,
+                                ResourceCapability.PARTITIONED_SPENDING, ResourceCapability.MENU_VISIBLE)
                         .presentation(new ResourcePresentationDefinition(
                                 ResourceDisplayConversion.IDENTITY,
                                 ResourceDisplayType.SLOTS,
                                 ResourceHudRole.MENU_ONLY))
-                        .definitionVersion(1)
+                        .definitionVersion(2)
                         .build());
 
         // Rage: Phase 5 migration (2026-09-15) — GENERIC_COMPONENT authority (the builder default;

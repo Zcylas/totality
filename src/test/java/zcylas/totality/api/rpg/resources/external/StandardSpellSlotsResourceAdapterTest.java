@@ -54,16 +54,16 @@ class StandardSpellSlotsResourceAdapterTest {
     // ── resolve(): shape and ordering ───────────────────────────────────────────────────────
 
     @Test
-    void freshComponentProducesAllTenLevelsAtZeroZero() {
+    void freshComponentProducesAllNineLevelsAtZeroZero() {
         SpellSlotComponent component = new SpellSlotComponent(null);
 
         PartitionedResourceSnapshot snapshot = successSnapshot(
                 StandardSpellSlotsResourceAdapter.resolve(ID, component));
 
         NavigableMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = snapshot.partitions();
-        assertEquals(10, partitions.size(), "all ten levels must be present, including zero-maximum ones");
-        assertEquals(java.util.List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), java.util.List.copyOf(partitions.keySet()),
-                "partitions must be keys 1..10 in ascending order");
+        assertEquals(9, partitions.size(), "all nine levels must be present, including zero-maximum ones");
+        assertEquals(java.util.List.of(1, 2, 3, 4, 5, 6, 7, 8, 9), java.util.List.copyOf(partitions.keySet()),
+                "partitions must be keys 1..9 in ascending order — there is no ordinary tier 10");
         for (var entry : partitions.entrySet()) {
             assertEquals(0L, entry.getValue().currentUnits(), "level " + entry.getKey());
             assertEquals(0L, entry.getValue().maximumUnits(), "level " + entry.getKey());
@@ -85,7 +85,7 @@ class StandardSpellSlotsResourceAdapterTest {
     @Test
     void partiallySpentSlotIsReflectedAsMaximumMinusUsed() {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 3, 2, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {4, 3, 2, 0, 0, 0, 0, 0, 0});
         component.useSlot(1);
 
         PartitionedResourceSnapshot snapshot = successSnapshot(
@@ -98,7 +98,7 @@ class StandardSpellSlotsResourceAdapterTest {
     @Test
     void fullySpentSlotHasZeroCurrentButNonZeroMaximum() {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {2, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {2, 0, 0, 0, 0, 0, 0, 0, 0});
         component.useSlot(1);
         component.useSlot(1);
 
@@ -112,7 +112,7 @@ class StandardSpellSlotsResourceAdapterTest {
     @Test
     void fullSlotHasCurrentEqualToMaximum() {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {4, 0, 0, 0, 0, 0, 0, 0, 0});
 
         PartitionedResourceSnapshot snapshot = successSnapshot(
                 StandardSpellSlotsResourceAdapter.resolve(ID, component));
@@ -122,10 +122,10 @@ class StandardSpellSlotsResourceAdapterTest {
     }
 
     @Test
-    void mixedValuesAcrossLevelsIncludingLevelTenAreAllPresent() {
-        // A high-epic full caster: level 25+ progression unlocks a 10th-level slot.
+    void mixedValuesAcrossLevelsUpToLevelNineAreAllPresentAndLevelTenIsAbsent() {
+        // A high-level full caster (level 21+) — no ordinary tier-10 slot exists to unlock (Phase 6).
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {5, 4, 3, 3, 3, 2, 2, 2, 1, 1});
+        component.recalculate(new int[] {5, 4, 3, 3, 3, 2, 2, 2, 1});
         component.useSlot(1);
         component.useSlot(9);
 
@@ -136,21 +136,20 @@ class StandardSpellSlotsResourceAdapterTest {
         assertEquals(5L, snapshot.partition(1).orElseThrow().maximumUnits());
         assertEquals(0L, snapshot.partition(9).orElseThrow().currentUnits());
         assertEquals(1L, snapshot.partition(9).orElseThrow().maximumUnits());
-        assertEquals(1L, snapshot.partition(10).orElseThrow().currentUnits(), "level 10 must be present and unspent");
-        assertEquals(1L, snapshot.partition(10).orElseThrow().maximumUnits());
+        assertTrue(snapshot.partition(10).isEmpty(), "there is no ordinary tier-10 slot");
     }
 
     @Test
     void zeroMaximumLevelsRemainPresentAlongsideNonZeroOnes() {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 3, 0, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {4, 3, 0, 0, 0, 0, 0, 0, 0});
 
         PartitionedResourceSnapshot snapshot = successSnapshot(
                 StandardSpellSlotsResourceAdapter.resolve(ID, component));
 
-        assertEquals(10, snapshot.partitions().size());
+        assertEquals(9, snapshot.partitions().size());
         assertEquals(0L, snapshot.partition(3).orElseThrow().maximumUnits());
-        assertEquals(0L, snapshot.partition(10).orElseThrow().maximumUnits());
+        assertTrue(snapshot.partition(10).isEmpty(), "there is no ordinary tier-10 slot");
     }
 
     // ── resolve(): malformed owner state ─────────────────────────────────────────────────────
@@ -168,7 +167,7 @@ class StandardSpellSlotsResourceAdapterTest {
     @Test
     void negativeUsedProducesMalformedOwnerStateFailure() throws Exception {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {4, 0, 0, 0, 0, 0, 0, 0, 0});
         writeUsedSlotDirectly(component, 0, -1);
 
         ResourceQueryResult result = StandardSpellSlotsResourceAdapter.resolve(ID, component);
@@ -179,7 +178,7 @@ class StandardSpellSlotsResourceAdapterTest {
     @Test
     void usedGreaterThanMaximumProducesMalformedOwnerStateFailure() throws Exception {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {2, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {2, 0, 0, 0, 0, 0, 0, 0, 0});
         writeUsedSlotDirectly(component, 0, 5); // used (5) > maximum (2), bypassing useSlot's own guard
 
         ResourceQueryResult result = StandardSpellSlotsResourceAdapter.resolve(ID, component);
@@ -210,7 +209,7 @@ class StandardSpellSlotsResourceAdapterTest {
     @Test
     void resolveDoesNotMutateTheComponent() {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 3, 0, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {4, 3, 0, 0, 0, 0, 0, 0, 0});
         component.useSlot(1);
 
         StandardSpellSlotsResourceAdapter.resolve(ID, component);
@@ -223,7 +222,7 @@ class StandardSpellSlotsResourceAdapterTest {
     @Test
     void repeatedResolveCallsProduceIdenticalResults() {
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 3, 2, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {4, 3, 2, 0, 0, 0, 0, 0, 0});
         component.useSlot(2);
 
         PartitionedResourceSnapshot first = successSnapshot(StandardSpellSlotsResourceAdapter.resolve(ID, component));
@@ -255,7 +254,7 @@ class StandardSpellSlotsResourceAdapterTest {
         // definition misconfigured with a different scale. This test documents that guarantee
         // directly: there is no way to make resolve() produce anything other than UNIT_SCALE.
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        component.recalculate(new int[] {4, 0, 0, 0, 0, 0, 0, 0, 0});
 
         PartitionedResourceSnapshot snapshot = successSnapshot(
                 StandardSpellSlotsResourceAdapter.resolve(ID, component));
@@ -281,17 +280,18 @@ class StandardSpellSlotsResourceAdapterTest {
     // ── boundaries: no Pact Magic / other casting-source data ───────────────────────────────
 
     @Test
-    void snapshotNeverContainsMoreThanTenPartitions() {
-        // SpellSlotComponent.MAX_SPELL_LEVEL is 10 and resolve() iterates exactly 1..MAX_SPELL_LEVEL
-        // — no Pact Magic tier, item charge, Sorcery Point, or granted-use partition can appear,
-        // since nothing else ever contributes an entry to this map.
+    void snapshotNeverContainsMoreThanNinePartitions() {
+        // SpellSlotComponent.MAX_SPELL_LEVEL is 9 (Phase 6) and resolve() iterates exactly
+        // 1..MAX_SPELL_LEVEL — no Pact Magic tier, item charge, Sorcery Point, ordinary tier-10, or
+        // granted-use partition can appear, since nothing else ever contributes an entry to this map.
         SpellSlotComponent component = new SpellSlotComponent(null);
-        component.recalculate(new int[] {4, 3, 3, 3, 2, 1, 1, 1, 1, 1});
+        component.recalculate(new int[] {4, 3, 3, 3, 2, 1, 1, 1, 1});
 
         PartitionedResourceSnapshot snapshot = successSnapshot(
                 StandardSpellSlotsResourceAdapter.resolve(ID, component));
 
-        assertEquals(10, snapshot.partitions().size());
+        assertEquals(9, snapshot.partitions().size());
         assertEquals(SpellSlotComponent.MAX_SPELL_LEVEL, snapshot.partitions().size());
+        assertTrue(snapshot.partition(10).isEmpty(), "there is no ordinary tier-10 slot");
     }
 }

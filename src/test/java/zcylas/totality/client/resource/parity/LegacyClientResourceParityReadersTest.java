@@ -65,26 +65,28 @@ class LegacyClientResourceParityReadersTest {
     }
 
     @Test
-    void spellSlotLegacySnapshotContainsExactlyLevelsOneThroughTen() {
-        int[] max = new int[10];
-        int[] used = new int[10];
-        for (int i = 0; i < 10; i++) {
+    void spellSlotLegacySnapshotContainsExactlyLevelsOneThroughNine() {
+        // Phase 6 (2026-09-16): Standard Spell Slots are 1st-9th level only.
+        int[] max = new int[9];
+        int[] used = new int[9];
+        for (int i = 0; i < 9; i++) {
             max[i] = i + 1;
             used[i] = 0;
         }
         ClientSpellSlotManager.apply(max, used);
 
         var summary = (ClientResourceParitySummary.Partitioned) LegacyClientResourceParityReaders.INSTANCE.spellSlotSummary();
-        assertEquals(10, summary.partitions().size());
-        for (int level = 1; level <= 10; level++) {
+        assertEquals(9, summary.partitions().size());
+        for (int level = 1; level <= 9; level++) {
             assertTrue(summary.partition(level).isPresent(), "missing level " + level);
         }
+        assertTrue(summary.partition(10).isEmpty(), "there is no ordinary tier-10 slot");
     }
 
     @Test
     void spellSlotCurrentEqualsRemainingNotUsed() {
-        int[] max = new int[10];
-        int[] used = new int[10];
+        int[] max = new int[9];
+        int[] used = new int[9];
         max[2] = 5;  // level 3
         used[2] = 2; // remaining should be 3, never the raw used count (2)
         ClientSpellSlotManager.apply(max, used);
@@ -97,11 +99,11 @@ class LegacyClientResourceParityReadersTest {
 
     @Test
     void spellSlotPartitionsAreAscendingAndImmutable() {
-        ClientSpellSlotManager.apply(new int[10], new int[10]);
+        ClientSpellSlotManager.apply(new int[9], new int[9]);
         var summary = (ClientResourceParitySummary.Partitioned) LegacyClientResourceParityReaders.INSTANCE.spellSlotSummary();
-        assertEquals(java.util.List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), java.util.List.copyOf(summary.partitions().keySet()));
+        assertEquals(java.util.List.of(1, 2, 3, 4, 5, 6, 7, 8, 9), java.util.List.copyOf(summary.partitions().keySet()));
         org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
-                () -> summary.partitions().put(11, new ClientResourceParitySummary.Partitioned.Partition(11, 0, 0, 0)));
+                () -> summary.partitions().put(10, new ClientResourceParitySummary.Partitioned.Partition(10, 0, 0, 0)));
     }
 
     @Test

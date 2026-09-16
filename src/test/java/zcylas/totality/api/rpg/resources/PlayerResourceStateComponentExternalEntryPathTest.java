@@ -235,10 +235,13 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
-    void nbtLoadingQuarantinesStaleGenericPartitionedDataForSpellSlots() {
-        // Phase 2D's own analogue of the SCALAR quarantine tests above, but for the first
-        // PARTITIONED_POOL production resource — proves readLiveEntry's authority guard also
-        // protects a partitioned-shaped stale entry, not only scalar ones.
+    void nbtLoadingRestoresLiveGenericPartitionedDataForSpellSlotsAfterPhase6Migration() {
+        // Phase 6 migration (2026-09-16): totality:spell_slots is now GENERIC_COMPONENT-authority —
+        // this exact NBT shape (previously "stale" and quarantined, see git history for the removed
+        // nbtLoadingQuarantinesStaleGenericPartitionedDataForSpellSlots) is now the correct, current
+        // live format for the Resource API's first PARTITIONED_POOL GENERIC_COMPONENT production
+        // resource, and must round-trip the persisted current value exactly — mirrors Phase 5's
+        // identical Rage SCALAR test above.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         CompoundTag tag = buildStaleGenericPartitionedNbt(PlayerResourceIds.SPELL_SLOTS, 1, 4, 0);
@@ -246,9 +249,9 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
 
-        assertFalse(state.hasState(PlayerResourceIds.SPELL_SLOTS), "spell slots must never become live generic state");
-        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.SPELL_SLOTS),
-                "stale spell-slot data must be quarantined, not silently dropped");
+        assertTrue(state.hasState(PlayerResourceIds.SPELL_SLOTS), "Spell Slots is GENERIC_COMPONENT authority after Phase 6 — this must become live");
+        assertEquals(4L, state.getPartitioned(PlayerResourceIds.SPELL_SLOTS).orElseThrow().getCurrent(1));
+        assertFalse(state.orphanedResourceIds().contains(PlayerResourceIds.SPELL_SLOTS));
     }
 
     @Test
@@ -454,10 +457,12 @@ class PlayerResourceStateComponentExternalEntryPathTest {
         // this test proves no longer applies to them; see
         // PlayerResourceRegistryTest#productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration
         // for their current-shape assertion instead.
-        // Phase 2D: totality:spell_slots is EXTERNAL_ADAPTER too, despite being PARTITIONED_POOL
-        // rather than SCALAR — queryGenericState is structurally unreachable for it the same way.
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow().stateAuthority());
+        // totality:spell_slots was EXTERNAL_ADAPTER too (transitionally) through Phase 2D, despite
+        // being PARTITIONED_POOL rather than SCALAR, but the Phase 6 migration (2026-09-16)
+        // redefined it as GENERIC_COMPONENT — the adapter-routing guarantee this test proves no
+        // longer applies to it; see
+        // PlayerResourceRegistryTest#spellSlotsDefinitionIsPartitionedPoolGenericComponentAfterPhase6Migration
+        // for its current-shape assertion instead.
         // Rage was EXTERNAL_ADAPTER too (transitionally) through Phase 2E, but the Phase 5 migration
         // (2026-09-15) redefined it as GENERIC_COMPONENT — the adapter-routing guarantee this test
         // proves no longer applies to it; see

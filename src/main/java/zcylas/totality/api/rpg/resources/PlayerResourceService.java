@@ -1051,16 +1051,7 @@ public final class PlayerResourceService {
         long reconciled;
         long newOverflowUnits = 0L;
         try {
-            reconciled = switch (policy) {
-                case CLAMP_CURRENT -> Math.min(current, newMax);
-                case PRESERVE_RATIO -> previousMaximumUnits <= 0 ? Math.min(current, newMax)
-                        : Math.max(floor, Math.min(newMax, Math.floorDiv(Math.multiplyExact(current, newMax), previousMaximumUnits)));
-                case PRESERVE_DEFICIT -> {
-                    long deficit = Math.max(0, Math.subtractExact(previousMaximumUnits, current));
-                    yield Math.max(floor, Math.min(newMax, Math.subtractExact(newMax, deficit)));
-                }
-                case ALLOW_OVERFLOW -> current; // handled via overflow below; current itself is untouched
-            };
+            reconciled = policy.reconcileCurrent(current, previousMaximumUnits, newMax, floor);
             if (policy == MaximumChangePolicy.ALLOW_OVERFLOW && current > newMax
                     && definition.capabilities().contains(ResourceCapability.OVERFLOW)) {
                 newOverflowUnits = Math.addExact(scalar.overflowUnits(), Math.subtractExact(current, newMax));

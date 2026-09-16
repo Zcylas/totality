@@ -15,17 +15,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class ClientSpellSlotParityComparatorTest {
 
-    /** Builds a full ten-level partitioned summary. {@code remaining}/{@code max} are indexed 0
-     *  (level 1) through 9 (level 10), fed in the given key order to prove ordering-insensitivity. */
-    private static ClientResourceParitySummary.Partitioned tenLevels(int[] remaining, int[] max, boolean reversedInsertionOrder) {
-        return tenLevels(remaining, max, reversedInsertionOrder, 1L);
+    /** Builds a full nine-level (1st-9th, no ordinary tier 10 — Phase 6) partitioned summary.
+     *  {@code remaining}/{@code max} are indexed 0 (level 1) through 8 (level 9), fed in the given
+     *  key order to prove ordering-insensitivity. */
+    private static ClientResourceParitySummary.Partitioned nineLevels(int[] remaining, int[] max, boolean reversedInsertionOrder) {
+        return nineLevels(remaining, max, reversedInsertionOrder, 1L);
     }
 
-    private static ClientResourceParitySummary.Partitioned tenLevels(
+    private static ClientResourceParitySummary.Partitioned nineLevels(
             int[] remaining, int[] max, boolean reversedInsertionOrder, long unitScale) {
         List<ClientResourceParitySummary.Partitioned.Partition> partitions = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            int level = reversedInsertionOrder ? 10 - i : i + 1;
+        for (int i = 0; i < 9; i++) {
+            int level = reversedInsertionOrder ? 9 - i : i + 1;
             int idx = level - 1;
             partitions.add(new ClientResourceParitySummary.Partitioned.Partition(level, remaining[idx], max[idx], 0));
         }
@@ -33,15 +34,15 @@ class ClientSpellSlotParityComparatorTest {
     }
 
     private static int[] filled(int value) {
-        int[] arr = new int[10];
+        int[] arr = new int[9];
         java.util.Arrays.fill(arr, value);
         return arr;
     }
 
     @Test
-    void allZeroTenLevelsIsExactMatch() {
-        var generic = tenLevels(filled(0), filled(0), false);
-        var legacy = tenLevels(filled(0), filled(0), false);
+    void allZeroNineLevelsIsExactMatch() {
+        var generic = nineLevels(filled(0), filled(0), false);
+        var legacy = nineLevels(filled(0), filled(0), false);
         assertEquals(ClientResourceParityOutcome.MATCH, ClientSpellSlotParityComparator.compare(generic, legacy));
     }
 
@@ -52,15 +53,15 @@ class ClientSpellSlotParityComparatorTest {
         int[] remaining = filled(0);
         max[2] = 4;
         remaining[2] = 3; // maximum(4) - used(1) = remaining(3), never the raw used count (1)
-        var generic = tenLevels(remaining, max, false);
-        var legacy = tenLevels(remaining, max, false);
+        var generic = nineLevels(remaining, max, false);
+        var legacy = nineLevels(remaining, max, false);
         assertEquals(ClientResourceParityOutcome.MATCH, ClientSpellSlotParityComparator.compare(generic, legacy));
 
         // Now assert comparing against the *used* count (1) instead of remaining (3) would mismatch —
         // proving the comparator is sensitive to using the correct field, not tolerant of either.
         int[] usedInstead = filled(0);
         usedInstead[2] = 1;
-        var legacyWithUsedMistakenly = tenLevels(usedInstead, max, false);
+        var legacyWithUsedMistakenly = nineLevels(usedInstead, max, false);
         assertEquals(ClientResourceParityOutcome.MISMATCH,
                 ClientSpellSlotParityComparator.compare(generic, legacyWithUsedMistakenly));
     }
@@ -71,8 +72,8 @@ class ClientSpellSlotParityComparatorTest {
         int[] genericRemaining = filled(5);
         int[] legacyRemaining = filled(5);
         legacyRemaining[4] = 4; // level 5 differs
-        var generic = tenLevels(genericRemaining, max, false);
-        var legacy = tenLevels(legacyRemaining, max, false);
+        var generic = nineLevels(genericRemaining, max, false);
+        var legacy = nineLevels(legacyRemaining, max, false);
         assertEquals(ClientResourceParityOutcome.MISMATCH, ClientSpellSlotParityComparator.compare(generic, legacy));
     }
 
@@ -81,42 +82,44 @@ class ClientSpellSlotParityComparatorTest {
         int[] genericMax = filled(5);
         int[] legacyMax = filled(5);
         legacyMax[7] = 6; // level 8 differs
-        var generic = tenLevels(filled(5), genericMax, false);
-        var legacy = tenLevels(filled(5), legacyMax, false);
+        var generic = nineLevels(filled(5), genericMax, false);
+        var legacy = nineLevels(filled(5), legacyMax, false);
         assertEquals(ClientResourceParityOutcome.MISMATCH, ClientSpellSlotParityComparator.compare(generic, legacy));
     }
 
     @Test
     void comparisonIsKeyBasedNotPositional() {
-        var generic = tenLevels(filled(3), filled(5), false);
-        var legacyReversedInsertion = tenLevels(filled(3), filled(5), true);
+        var generic = nineLevels(filled(3), filled(5), false);
+        var legacyReversedInsertion = nineLevels(filled(3), filled(5), true);
         assertEquals(ClientResourceParityOutcome.MATCH,
                 ClientSpellSlotParityComparator.compare(generic, legacyReversedInsertion));
     }
 
     @Test
     void missingLevelBecomesModelMismatch() {
-        List<ClientResourceParitySummary.Partitioned.Partition> nineLevels = new ArrayList<>();
-        for (int level = 1; level <= 9; level++) {
-            nineLevels.add(new ClientResourceParitySummary.Partitioned.Partition(level, 0, 1, 0));
+        List<ClientResourceParitySummary.Partitioned.Partition> eightLevels = new ArrayList<>();
+        for (int level = 1; level <= 8; level++) {
+            eightLevels.add(new ClientResourceParitySummary.Partitioned.Partition(level, 0, 1, 0));
         }
-        var genericMissingLevel10 = ClientResourceParitySummary.Partitioned.of(nineLevels, 1);
-        var legacy = tenLevels(filled(0), filled(1), false);
+        var genericMissingLevel9 = ClientResourceParitySummary.Partitioned.of(eightLevels, 1);
+        var legacy = nineLevels(filled(0), filled(1), false);
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
-                ClientSpellSlotParityComparator.compare(genericMissingLevel10, legacy));
+                ClientSpellSlotParityComparator.compare(genericMissingLevel9, legacy));
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
-                ClientSpellSlotParityComparator.compare(legacy, genericMissingLevel10));
+                ClientSpellSlotParityComparator.compare(legacy, genericMissingLevel9));
     }
 
     @Test
     void extraOutOfRangeLevelBecomesModelMismatch() {
-        List<ClientResourceParitySummary.Partitioned.Partition> elevenLevels = new ArrayList<>();
-        for (int level = 1; level <= 10; level++) {
-            elevenLevels.add(new ClientResourceParitySummary.Partitioned.Partition(level, 0, 1, 0));
+        // Phase 6: level 10 (the retired ordinary tier) is now itself an out-of-range partition,
+        // exactly like the pre-Phase-6 level 11 case this test previously exercised.
+        List<ClientResourceParitySummary.Partitioned.Partition> tenLevels = new ArrayList<>();
+        for (int level = 1; level <= 9; level++) {
+            tenLevels.add(new ClientResourceParitySummary.Partitioned.Partition(level, 0, 1, 0));
         }
-        elevenLevels.add(new ClientResourceParitySummary.Partitioned.Partition(11, 0, 1, 0));
-        var genericWithExtraLevel = ClientResourceParitySummary.Partitioned.of(elevenLevels, 1);
-        var legacy = tenLevels(filled(0), filled(1), false);
+        tenLevels.add(new ClientResourceParitySummary.Partitioned.Partition(10, 0, 1, 0));
+        var genericWithExtraLevel = ClientResourceParitySummary.Partitioned.of(tenLevels, 1);
+        var legacy = nineLevels(filled(0), filled(1), false);
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
                 ClientSpellSlotParityComparator.compare(genericWithExtraLevel, legacy));
     }
@@ -124,12 +127,12 @@ class ClientSpellSlotParityComparatorTest {
     @Test
     void nonzeroGenericOverflowBecomesModelMismatch() {
         List<ClientResourceParitySummary.Partitioned.Partition> partitions = new ArrayList<>();
-        for (int level = 1; level <= 10; level++) {
+        for (int level = 1; level <= 9; level++) {
             long overflow = level == 5 ? 1 : 0;
             partitions.add(new ClientResourceParitySummary.Partitioned.Partition(level, 0, 1, overflow));
         }
         var genericWithOverflow = ClientResourceParitySummary.Partitioned.of(partitions, 1);
-        var legacy = tenLevels(filled(0), filled(1), false);
+        var legacy = nineLevels(filled(0), filled(1), false);
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
                 ClientSpellSlotParityComparator.compare(genericWithOverflow, legacy));
     }
@@ -137,7 +140,7 @@ class ClientSpellSlotParityComparatorTest {
     @Test
     void genericNotSynchronizedYetBecomesGenericNotReady() {
         var generic = new ClientResourceParitySummary.Unavailable(ClientResourceUnavailableReason.NOT_SYNCHRONIZED_YET);
-        var legacy = tenLevels(filled(0), filled(1), false);
+        var legacy = nineLevels(filled(0), filled(1), false);
         assertEquals(ClientResourceParityOutcome.GENERIC_NOT_READY,
                 ClientSpellSlotParityComparator.compare(generic, legacy));
     }
@@ -145,7 +148,7 @@ class ClientSpellSlotParityComparatorTest {
     @Test
     void scalarShapeContradictionBecomesModelMismatch() {
         var genericScalar = new ClientResourceParitySummary.Scalar(1, 1, 0, 1);
-        var legacy = tenLevels(filled(0), filled(1), false);
+        var legacy = nineLevels(filled(0), filled(1), false);
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
                 ClientSpellSlotParityComparator.compare(genericScalar, legacy));
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
@@ -156,16 +159,16 @@ class ClientSpellSlotParityComparatorTest {
 
     @Test
     void differentUnitScalesBecomeModelMismatchEvenWhenLevelsAgree() {
-        var generic = tenLevels(filled(3), filled(5), false, 1L);
-        var legacy = tenLevels(filled(3), filled(5), false, 1000L);
+        var generic = nineLevels(filled(3), filled(5), false, 1L);
+        var legacy = nineLevels(filled(3), filled(5), false, 1000L);
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
                 ClientSpellSlotParityComparator.compare(generic, legacy));
     }
 
     @Test
     void bothSidesSharingTheSameNonCanonicalScaleStillBecomesModelMismatch() {
-        var generic = tenLevels(filled(3), filled(5), false, 1000L);
-        var legacy = tenLevels(filled(3), filled(5), false, 1000L);
+        var generic = nineLevels(filled(3), filled(5), false, 1000L);
+        var legacy = nineLevels(filled(3), filled(5), false, 1000L);
         assertEquals(ClientResourceParityOutcome.MODEL_MISMATCH,
                 ClientSpellSlotParityComparator.compare(generic, legacy));
     }
