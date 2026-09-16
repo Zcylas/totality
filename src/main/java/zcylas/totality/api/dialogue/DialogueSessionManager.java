@@ -103,8 +103,13 @@ public final class DialogueSessionManager {
                 int modifier = StatsComponents.getStats(player).getModifier(governingScore);
                 bonuses.add(new DiceBonus(governingScore.getDisplayName(), modifier, governingScore.getIcon()));
             }
-            // Collect active flat bonuses (e.g. Bless +1d4) for the roll context
-            bonuses.addAll(RollModifierRegistry.resolveSaveBonusList(player, scoreForModifiers));
+            // Every dialogue roll is an Ability Check (Persuasion, Intimidation, Investigation,
+            // etc.), never a Saving Throw — so this must read the Ability Check bonus channel, not
+            // the Saving Throw one. Using resolveSaveBonusList here previously let a save-only
+            // effect like Bless (+1d4 to attacks and saves, never checks per D&D 5e) incorrectly
+            // apply to e.g. a Banker Persuasion check. Collects active flat Ability-Check bonuses
+            // (e.g. a future Guidance-style effect) for the roll context.
+            bonuses.addAll(RollModifierRegistry.resolveCheckBonusList(player, scoreForModifiers));
 
             DiceRollContext ctx = new DiceRollContext(
                     spec.skill(),

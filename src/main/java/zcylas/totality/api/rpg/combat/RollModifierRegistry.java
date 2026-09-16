@@ -19,6 +19,17 @@ public final class RollModifierRegistry {
         default List<DiceBonus> getAttackBonusList(AbilityScore score) { return List.of(); }
         /** Labeled save bonuses (roll dice here). Shown in dice-screen bonuses. */
         default List<DiceBonus> getSaveBonusList(AbilityScore score) { return List.of(); }
+        /**
+         * Labeled Ability Check bonuses (roll dice here) — e.g. a dialogue Persuasion/Charisma
+         * check, or any future exploration/skill check. Deliberately a separate list from {@link
+         * #getSaveBonusList}: D&amp;D 5e Bless grants +1d4 to attack rolls and saving throws only,
+         * never Ability Checks, and a future effect like Guidance is the reverse (Ability Checks
+         * only) — the two must be able to vary independently. Defaults to {@code List.of()}, so
+         * every existing modifier that only overrides {@code getAttackBonusList}/{@code
+         * getSaveBonusList} (e.g. Bless) correctly contributes nothing to Ability Checks with zero
+         * changes needed on its part.
+         */
+        default List<DiceBonus> getCheckBonusList(AbilityScore score) { return List.of(); }
 
         /** Total attack bonus — derived from getAttackBonusList. */
         default int attackBonus(AbilityScore score) {
@@ -27,6 +38,10 @@ public final class RollModifierRegistry {
         /** Total save bonus — derived from getSaveBonusList. */
         default int saveBonus(AbilityScore score) {
             return getSaveBonusList(score).stream().mapToInt(DiceBonus::value).sum();
+        }
+        /** Total Ability Check bonus — derived from getCheckBonusList. */
+        default int checkBonus(AbilityScore score) {
+            return getCheckBonusList(score).stream().mapToInt(DiceBonus::value).sum();
         }
 
         /**
@@ -103,6 +118,22 @@ public final class RollModifierRegistry {
         return resolveSaveBonusList(player, score).stream().mapToInt(DiceBonus::value).sum();
     }
 
+    /** Returns labeled Ability Check bonuses from all currently active modifiers (dice are rolled
+     *  here) — e.g. a dialogue Persuasion check. Deliberately separate from {@link
+     *  #resolveSaveBonusList}: see {@link RollModifier#getCheckBonusList} for why. */
+    public static List<DiceBonus> resolveCheckBonusList(ServerPlayer player, AbilityScore score) {
+        Collection<RollModifier> mods = activeModifiers(player.getUUID());
+        if (mods.isEmpty()) return List.of();
+        List<DiceBonus> result = new ArrayList<>();
+        for (RollModifier mod : mods) result.addAll(mod.getCheckBonusList(score));
+        return result;
+    }
+
+    /** Total Ability Check bonus — sums resolveCheckBonusList. */
+    public static int resolveCheckBonus(ServerPlayer player, AbilityScore score) {
+        return resolveCheckBonusList(player, score).stream().mapToInt(DiceBonus::value).sum();
+    }
+
     /** Call on player disconnect to clean up. */
     public static void clearPlayer(UUID playerId) {
         MODIFIERS.remove(playerId);
@@ -161,6 +192,31 @@ public final class RollModifierRegistry {
         if (mods.isEmpty()) return List.of();
         List<DiceBonus> result = new ArrayList<>();
         for (RollModifier mod : mods) result.addAll(mod.getAttackBonusList(score));
+        return result;
+    }
+
+    static List<DiceBonus> resolveSaveBonusListForTest(UUID playerId, AbilityScore score) {
+        Collection<RollModifier> mods = activeModifiers(playerId);
+        if (mods.isEmpty()) return List.of();
+        List<DiceBonus> result = new ArrayList<>();
+        for (RollModifier mod : mods) result.addAll(mod.getSaveBonusList(score));
+        return result;
+    }
+
+    static List<DiceBonus> resolveCheckBonusListForTest(UUID playerId, AbilityScore score) {
+        Collection<RollModifier> mods = activeModifiers(playerId);
+        if (mods.isEmpty()) return List.of();
+        List<DiceBonus> result = new ArrayList<>();
+        for (RollModifier mod : mods) result.addAll(mod.getCheckBonusList(score));
+        return result;
+    }
+
+    static AbilityCheckResolver.RollMode resolveCheckModeForTest(
+            UUID playerId, AbilityScore score, AbilityCheckResolver.RollMode base) {
+        Collection<RollModifier> mods = activeModifiers(playerId);
+        if (mods.isEmpty()) return base;
+        AbilityCheckResolver.RollMode result = base;
+        for (RollModifier mod : mods) result = mod.modifyCheck(score, result);
         return result;
     }
 

@@ -62,6 +62,18 @@ class BlessLifecycleSourceRegressionTest {
     }
 
     @Test
+    void blessEffectDoesNotOverrideGetCheckBonusList() throws Exception {
+        // 2026-09-16 dialogue Ability Check bonus routing fix: Bless is +1d4 to attack rolls and
+        // saving throws only, never Ability Checks (D&D 5e) — confirms BlessEffect's registered
+        // modifier relies on RollModifier#getCheckBonusList's List.of() default rather than ever
+        // granting itself an Ability Check bonus, so it correctly cannot apply to e.g. a dialogue
+        // Persuasion check now that DialogueSessionManager reads the check-bonus channel.
+        String source = read(BLESS_EFFECT);
+        assertFalse(source.contains("getCheckBonusList"),
+                "BlessEffect must not override getCheckBonusList — Bless never grants an Ability Check bonus");
+    }
+
+    @Test
     void neitherFileGainedAnAlchemyOrCombatTextDependency() throws Exception {
         for (Path path : java.util.List.of(BLESS_EFFECT, RAGE_EFFECT)) {
             String source = read(path);
