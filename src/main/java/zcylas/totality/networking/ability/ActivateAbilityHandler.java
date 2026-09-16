@@ -50,6 +50,16 @@ public class ActivateAbilityHandler {
         Ability ability = AbilityRegistry.get(payload.abilityId());
         if (ability == null) return;
 
+        // Computed once, before onActivate runs (so it reflects the spell's state as of the
+        // moment this activation began, not after onActivate may have mutated it — see Crown of
+        // Stars, whose own onActivate flips a mote-remaining counter) and reused for BOTH the
+        // pre-check below and the post-cast spend at the bottom of this method, so the two can
+        // never disagree. Defaults to false for every ability that isn't a Spell, and for every
+        // Spell that doesn't override Spell#isActiveInstanceAction — i.e. every existing spell's
+        // behavior is unchanged.
+        boolean chargesSlot = ability instanceof Spell spell
+                && !spell.isCantrip() && !spell.isActiveInstanceAction(player);
+
         if (ability instanceof Spell spell) {
             String restriction = CastingRestrictionRegistry.check(player);
             if (restriction != null) {
@@ -61,8 +71,9 @@ public class ActivateAbilityHandler {
             // migration (2026-09-16): totality:spell_slots is now GENERIC_COMPONENT-authority —
             // this is a pure availability query (mirrors the retired SpellSlotComponent.hasSlot
             // exactly), never a mutation; the slot itself is only ever spent below, after the cast
-            // has actually resolved.
-            if (!spell.isCantrip()) {
+            // has actually resolved. A follow-up action on an already-active instance (Crown of
+            // Stars firing a mote) is exempt — see chargesSlot above.
+            if (chargesSlot) {
                 ResourceQueryResult slotsQuery = PlayerResourceService.INSTANCE.query(player, PlayerResourceIds.SPELL_SLOTS);
                 boolean hasSlot = slotsQuery instanceof ResourceQueryResult.PartitionedSuccess success
                         && success.snapshot().partition(spell.getSpellLevel())
@@ -99,11 +110,15 @@ public class ActivateAbilityHandler {
         if (castSucceeded && ability.getCooldownTicks() > 0) {
             comp.startCooldown(payload.abilityId());
         }
-        if (castSucceeded && ability instanceof Spell spell && !spell.isCantrip()) {
+        if (castSucceeded && ability instanceof Spell spell && chargesSlot) {
             // Successful-cast-only commitment preserved exactly: this only runs after
             // ability.onActivate has resolved and Spell.didCastSucceed() confirmed the cast actually
             // took effect (see the pre-check above for the "does a slot exist" query). EXACT_TIER
             // spends precisely the selected spell's own level — no upcast, no fallback tier search.
+            // Gated on the same chargesSlot computed before onActivate ran, not a fresh
+            // !spell.isCantrip() re-check, so a follow-up action (Crown of Stars firing a mote)
+            // can never be charged here even though onActivate's own state mutation already
+            // happened by this point.
             PlayerResourceService.INSTANCE.trySpend(player,
                     new ResourceCost.Partitioned(PlayerResourceIds.SPELL_SLOTS, spell.getSpellLevel(), 1, PartitionSelectionPolicy.EXACT_TIER),
                     ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.SPELL_COST)));

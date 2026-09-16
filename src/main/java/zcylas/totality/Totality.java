@@ -126,6 +126,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.rpg.resources.verification.BaselineResourceMigrationVerification.register();
 		zcylas.totality.api.rpg.resources.verification.BarbarianRageMigrationVerification.register();
 		zcylas.totality.api.rpg.resources.verification.StandardSpellSlotMigrationVerification.register();
+		zcylas.totality.api.rpg.resources.verification.CrownOfStarsActiveInstanceActionVerification.register();
 		ModEvents.register();
 	}
 
