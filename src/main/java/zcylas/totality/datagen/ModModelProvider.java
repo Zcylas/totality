@@ -384,6 +384,16 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(MagicItems.NOVICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.APPRENTICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.ARCHMAGE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/petty_soul_gem.json
+        generators.itemModelOutput.accept(
+                MagicItems.PETTY_SOUL_GEM,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/petty_soul_gem")));
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/common_soul_gem.json
+        generators.itemModelOutput.accept(
+                MagicItems.COMMON_SOUL_GEM,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/common_soul_gem")));
         generators.generateFlatItem(ToolItems.WRENCH, ModelTemplates.FLAT_ITEM);
         //Basic Weapons
             //Shuriken

@@ -540,10 +540,17 @@ class TotalityHudCleanupSourceRegressionTest {
     }
 
     // 50. No threat-tier redesign appears — still the same MobRank-based rank/color logic.
+    //     Updated 2026-09-17 (Soul Gem foundation pass): the rank display now decodes via the
+    //     stable MobRank.fromOrder(...) authored-order lookup instead of the old, ordinal-fragile
+    //     MobRank.values()[rankOrdinal] indexing — see MobRank's own Javadoc for why. This is a
+    //     deliberate, intentional change to the exact line this test used to pin, not a redesign of
+    //     the threat-tier/rank display feature itself.
     @Test
     void noThreatTierRedesignWasIntroduced() throws Exception {
         String source = read(MOB_HEALTH_BAR_HUD);
-        assertTrue(source.contains("MobRank.values()["));
+        assertTrue(source.contains("MobRank.fromOrder("));
+        assertFalse(source.contains("MobRank.values()["),
+                "the ordinal-fragile decode must not have returned");
         for (String futureTierWord : new String[] {"Uncommon", "Legendary", "Mythical", "Ancient"}) {
             assertFalse(source.contains(futureTierWord),
                     "the future authored threat-tier redesign must not appear yet: found \"" + futureTierWord + "\"");

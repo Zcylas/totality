@@ -45,6 +45,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
             //Arcane Foci
         translationBuilder.add("item.totality.arcane_orb", "Arcane Orb");
         translationBuilder.add("item.totality.bard_guitar", "Bard's Guitar");
+            //Soul Gems
+        translationBuilder.add("item.totality.petty_soul_gem", "Petty Soul Gem");
+        translationBuilder.add("item.totality.common_soul_gem", "Common Soul Gem");
             //Rune Items - Blanks
         translationBuilder.add("item.totality.blank_form", "Blank Form Rune");
         translationBuilder.add("item.totality.blank_effect", "Blank Effect Rune");
@@ -187,6 +190,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.shuriken.tooltip", "A razor-sharp throwing star. Deadly at range.");
         translationBuilder.add("item.totality.shuriken.damage", "Throw Damage: %s ❤");
 
+        translationBuilder.add("itemGroup.totality.magic", "Totality: Magic");
         translationBuilder.add("itemGroup.totality.food", "Totality: Food");
 
         //Keys

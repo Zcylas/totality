@@ -129,6 +129,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.rpg.resources.verification.CrownOfStarsActiveInstanceActionVerification.register();
 		zcylas.totality.api.rpg.resources.verification.HealthRecoveryDiceResourceVerification.register();
 		zcylas.totality.api.rpg.resources.verification.FoodSystemVerification.register();
+		zcylas.totality.api.soulgem.verification.SoulGemSystemVerification.register();
 		ModEvents.register();
 	}
 
@@ -173,6 +174,7 @@ public class Totality implements ModInitializer {
 		OriginRegistry.init();
 		TotalityClasses.register();
 		zcylas.totality.api.item.TotalityItemComponents.register();
+		zcylas.totality.api.soulgem.CapturedSoulComponent.register();
 		zcylas.totality.api.rpg.resources.ProductionResourceDefinitions.register();
 	}
 

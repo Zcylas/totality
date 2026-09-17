@@ -295,9 +295,7 @@ public class MobHealthBarHud {
                 name = rarity.getDisplayName() + " " + name;
             }
             if (showRank) {
-                String rank = MobRank.values()[
-                        Math.min(mobData.rankOrdinal(),
-                                MobRank.values().length - 1)].name();
+                String rank = MobRank.fromOrder(mobData.rankOrdinal()).getId();
                 name = name + " [" + rank + "]";
             }
         }

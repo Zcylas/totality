@@ -90,8 +90,7 @@ public class MobStatBlock {
     /** Roll a rarity rank based on variant weights. */
     /** Fixed display rank for this mob type — never rolled. */
     public MobRank getFixedRank() {
-        try { return MobRank.valueOf(rank.toUpperCase()); }
-        catch (Exception e) { return MobRank.E; }
+        return MobRank.fromId(rank);
     }
 
     /** Roll a spawn variant based on weights. Returns null if no variants defined. */

@@ -3,9 +3,13 @@ package zcylas.totality.init.items;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.Item;
 import zcylas.totality.api.core.rpgutils.rarity.*;
+import zcylas.totality.api.mob.stats.MobRank;
+import zcylas.totality.api.soulgem.SoulCategory;
+import zcylas.totality.api.soulgem.SoulGemAcceptanceRule;
 import zcylas.totality.init.TotalityRegistry;
 import zcylas.totality.item.equipment.RingOfProtectionItem;
 import zcylas.totality.item.magic.GrimoireItem;
+import zcylas.totality.item.soulgem.SoulGemItem;
 import zcylas.totality.item.spell_material.ArcaneFocusItem;
 
 public class MagicItems {
@@ -85,6 +89,39 @@ public class MagicItems {
                             "Every string carries a word of power. In the hands of a true Bard, music and magic are the same breath."
                     ))
     );
+//Soul Gems
+    public static final SoulGemItem PETTY_SOUL_GEM = TotalityRegistry.registerItem(
+            "petty_soul_gem",
+            properties -> new SoulGemItem(properties,
+                    SoulGemAcceptanceRule.categoryUpToRank(SoulCategory.ORDINARY, MobRank.F)),
+            new Item.Properties()
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
+                    .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "The smallest of the conventional soul gems, its facets barely wide enough to cradle a soul at all — enough to hold only the faintest sparks of life, and nothing more."
+                    ))
+    );
+
+    // Rarity is COMMON, same as Petty — deliberately NOT bumped a tier. A Soul Gem's vessel
+    // tier/name (Petty, Common, and any future tier) is a separate classification from Totality's
+    // ItemRarity ladder; the two must never be inferred from one another. See the 2026-09-17
+    // review-correction section of TOTALITY_SOUL_GEM_FOUNDATION_IMPLEMENTATION_REPORT_2026-09-17.md.
+    public static final SoulGemItem COMMON_SOUL_GEM = TotalityRegistry.registerItem(
+            "common_soul_gem",
+            properties -> new SoulGemItem(properties,
+                    SoulGemAcceptanceRule.categoryUpToRank(SoulCategory.ORDINARY, MobRank.D)),
+            new Item.Properties()
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
+                    .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A step beyond the smallest gems, its facets wide enough to hold a soul of modest strength — still nowhere near large enough for anything greater."
+                    ))
+    );
+
     public static void register() {}
 
     private MagicItems() {}
