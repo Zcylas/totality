@@ -27,7 +27,6 @@ import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.resources.PlayerResourceService;
 import zcylas.totality.api.rpg.resources.ResourceQueryResult;
 import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
-import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
 import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegistry;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
@@ -192,12 +191,23 @@ public class TotalityHudRenderer {
                             () -> ClientManaManager.getMana(), () -> ClientManaManager.getMaxMana());
             long mana    = manaView.current();
             long maxMana = manaView.maximum();
-            int hunger  = client.player.getFoodData().getFoodLevel();
+            // Food 0-100 migration (2026-09-17): totality:food is now a real GENERIC_COMPONENT
+            // resource, resolved the same way as Stamina/Mana above rather than read straight off
+            // vanilla FoodData/HEALTH_FOOD's old x5 presentation trick (see ProductionResourceDefinitions
+            // and TotalityHudRenderer's own history in the Food 0-100 implementation report). The
+            // fallback is vanilla's own foodLevel mirror x5 — an approximation only used before the
+            // first Generic sync packet arrives (see FoodVanillaCompatibilityBridge).
+            ClientResourcePresentationResolver.ScalarPresentation foodView =
+                    ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.FOOD,
+                            () -> client.player.getFoodData().getFoodLevel() * 5L,
+                            () -> 100L);
+            long hunger    = foodView.current();
+            long maxHunger = foodView.maximum();
 
             double hpPct      = maxHp > 0 ? hp / maxHp : 0;
             double staminaPct = maxStamina > 0 ? (double) stamina / maxStamina : 0;
             double manaPct    = maxMana > 0 ? (double) mana / maxMana : 0;
-            double hungerPct  = hunger / 20.0;
+            double hungerPct  = maxHunger > 0 ? (double) hunger / maxHunger : 0;
 
             if (!smoothsReady) {
                 // First frame — snap immediately so bars are visible right away.
@@ -257,20 +267,13 @@ public class TotalityHudRenderer {
             graphics.text(client.font, "AC " + ac, acX, acY, 0xFF00CCFF, true);
 
             // ── RIGHT SIDE — Hunger ──
-            // Bar fill keeps using the native hunger/20 ratio (hungerSmooth, above) unchanged; the
-            // displayed 0-100 numbers come from PlayerResourceService + the shared totality:food
-            // formatter (canonical §19.8: Food aligns to the same 100 baseline as Health/Mana/Stamina).
+            // Both the bar fill (hungerSmooth/hungerPct, above) and the displayed numbers now come
+            // from the same resolved totality:food value (foodView) — a real 0-100 resource, not a
+            // presentation-only x5 trick over vanilla's 0-20 field.
             int rightX = HudBarLayout.rightX(screenW);
-            // The fallback itself must not bypass the shared conversion either — Food's unitScale
-            // is 1, so this is the same totality:food 5/1 conversion the primary (query) path
-            // uses, applied directly to the raw mechanical values rather than a hardcoded * 5.
-            long hungerFallbackCurrent = ResourceDisplayConversion.HEALTH_FOOD.convertUnitsToDisplay(hunger, 1);
-            long hungerFallbackMax = ResourceDisplayConversion.HEALTH_FOOD.convertUnitsToDisplay(20, 1);
-            long[] hungerDisplay = resourceDisplayCurrentMax(
-                    client.player, PlayerResourceIds.FOOD, hungerFallbackCurrent, hungerFallbackMax);
             drawBarMirroredSmooth(graphics, client, rightX, hpY,
                     FOOD_FILL_COLOR, FOOD_HIGHLIGHT_COLOR, FOOD_SHADOW_COLOR,
-                    hungerSmooth, hungerDisplay[0], hungerDisplay[1]);
+                    hungerSmooth, hunger, maxHunger);
             // ── RIGHT SIDE — Secondary Resources (below hunger bar) ──
             drawSecondaryResources(graphics, client, screenW - HudBarLayout.EDGE_MARGIN,
                     HudBarLayout.secondaryResourceY(screenH));

@@ -43,14 +43,25 @@ class ResourceValueFormatterRegistryTest {
     }
 
     @Test
-    void productionRegistryHasHealthAndFoodBothOnFiveOverOne() {
+    void productionRegistryHasHealthOnFiveOverOne() {
+        // Food used to share this exact ×5 formatter; the 2026-09-17 Food migration moves it to
+        // productionRegistryHasFoodOnIdentityAfterTheFoodMigration below — Food is now natively
+        // 0-100, so its formatter is IDENTITY, not 5/1.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         ResourceValueFormatter health = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow();
-        ResourceValueFormatter food = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
 
         assertEquals(100L, health.toDisplayValue(20000, 1000));
-        assertEquals(100L, food.toDisplayValue(20, 1));
+    }
+
+    @Test
+    void productionRegistryHasFoodOnIdentityAfterTheFoodMigration() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceValueFormatter food = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
+
+        assertEquals(100L, food.toDisplayValue(100, 1));
+        assertEquals(73L, food.toDisplayValue(73, 1));
     }
 
     @Test
@@ -69,11 +80,13 @@ class ResourceValueFormatterRegistryTest {
     }
 
     @Test
-    void foodDeltaOfSixFormatsAsThirty() {
+    void foodDeltaOfSixFormatsAsSixAfterTheFoodMigration() {
+        // A Pizza Slice's authored restoration (6) displays as 6, not 30 — Food's formatter is now
+        // IDENTITY, not the old ×5 conversion.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
         ResourceValueFormatter food = ResourceValueFormatterRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
 
-        assertEquals(30L, food.toDisplayDelta(6, 1));
+        assertEquals(6L, food.toDisplayDelta(6, 1));
     }
 
     @Test

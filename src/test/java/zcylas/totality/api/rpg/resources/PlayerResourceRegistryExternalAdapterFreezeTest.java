@@ -98,16 +98,27 @@ class PlayerResourceRegistryExternalAdapterFreezeTest {
     }
 
     @Test
-    void productionHealthAndFoodDefinitionsResolveTheirRegisteredAdapters() {
+    void productionHealthDefinitionResolvesItsRegisteredAdapter() {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         PlayerResourceDefinition health = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow();
-        PlayerResourceDefinition food = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
 
         assertEquals(HealthResourceAdapter.ID, health.externalAdapterId().orElseThrow());
-        assertEquals(FoodResourceAdapter.ID, food.externalAdapterId().orElseThrow());
         assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(health.externalAdapterId().orElseThrow()));
-        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(food.externalAdapterId().orElseThrow()));
+    }
+
+    @Test
+    void foodDefinitionNoLongerDeclaresAnExternalAdapterAfterTheFoodMigrationButTheOldAdapterRemainsRegistered() {
+        // 2026-09-17 Food migration: the definition itself declares no external adapter anymore
+        // (GENERIC_COMPONENT authority), but FoodResourceAdapter stays registered in
+        // ExternalPlayerResourceAdapterRegistry — deferred-cleanup precedent, matching
+        // Mana/Stamina/Rage/Spell Slots' own now-unreferenced adapters (see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc).
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition food = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
+        assertTrue(food.externalAdapterId().isEmpty());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
     }
 
     @Test

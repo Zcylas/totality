@@ -155,16 +155,20 @@ class PlayerResourceStateComponentExternalEntryPathTest {
     }
 
     @Test
-    void nbtLoadingQuarantinesStaleGenericDataForFood() {
+    void nbtLoadingRestoresLiveGenericDataForFoodAfterTheFoodMigration() {
+        // 2026-09-17 Food migration: totality:food is now GENERIC_COMPONENT authority — this
+        // replaces the removed nbtLoadingQuarantinesStaleGenericDataForFood test, which pinned the
+        // pre-migration quarantine, mirroring nbtLoadingRestoresLiveGenericDataForStaminaAfterPhase4Migration.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
-        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.FOOD, 20, 0, 0);
+        CompoundTag tag = buildStaleGenericScalarNbt(PlayerResourceIds.FOOD, 73, 0, 0);
 
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
         state.readData(TagValueInput.create(ProblemReporter.DISCARDING, emptyRegistries(), tag));
 
-        assertFalse(state.hasState(PlayerResourceIds.FOOD));
-        assertTrue(state.orphanedResourceIds().contains(PlayerResourceIds.FOOD));
+        assertTrue(state.hasState(PlayerResourceIds.FOOD), "Food is GENERIC_COMPONENT authority after the Food migration — this must become live");
+        assertEquals(73, state.getScalar(PlayerResourceIds.FOOD).orElseThrow().currentUnits());
+        assertFalse(state.orphanedResourceIds().contains(PlayerResourceIds.FOOD));
     }
 
     @Test
@@ -407,10 +411,13 @@ class PlayerResourceStateComponentExternalEntryPathTest {
 
     @Test
     void syncWritingExcludesExternalLiveEntriesEvenIfCorruptedIntoStates() {
+        // Uses Breath, not Food — the 2026-09-17 Food migration makes totality:food genuinely
+        // GENERIC_COMPONENT, so this "corrupted external forced into live state" scenario no longer
+        // applies to it (see nbtLoadingRestoresLiveGenericDataForFoodAfterTheFoodMigration instead).
         TestResourceBootstrap.ensureProductionResourcesRegistered();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-        injectCorruptedExternalStateViaReflection(state, PlayerResourceIds.FOOD, 20);
-        assertTrue(state.hasState(PlayerResourceIds.FOOD), "sanity: injection actually worked");
+        injectCorruptedExternalStateViaReflection(state, PlayerResourceIds.BREATH, 300);
+        assertTrue(state.hasState(PlayerResourceIds.BREATH), "sanity: injection actually worked");
 
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
         state.writeSyncPacket(buf, null);
@@ -437,19 +444,20 @@ class PlayerResourceStateComponentExternalEntryPathTest {
 
     @Test
     void externalSnapshotsAlwaysComeFromTheAdapterNeverFromGenericState() {
-        // Structural proof, not a snapshot-content check: totality:health/totality:food are
+        // Structural proof, not a snapshot-content check: totality:health/totality:breath are
         // EXTERNAL_ADAPTER-authority in the production registry, so PlayerResourceService's
         // routing (see PlayerResourceServiceTest.genericDefinitionsDoNotRouteToAnAdapter and
         // .externalDefinitionsRouteToTheirAdapter for the routing logic itself) can only ever
-        // reach HealthResourceAdapter/FoodResourceAdapter for these two ids — queryGenericState is
+        // reach HealthResourceAdapter/BreathResourceAdapter for these two ids — queryGenericState is
         // structurally unreachable for them. This test re-confirms the authority declaration that
-        // guarantee rests on, directly against the production registry.
+        // guarantee rests on, directly against the production registry. totality:food was
+        // EXTERNAL_ADAPTER too until the 2026-09-17 Food migration redefined it as GENERIC_COMPONENT
+        // — the adapter-routing guarantee this test proves no longer applies to it; see
+        // PlayerResourceRegistryTest#productionFoodIsGenericComponentAuthorityAfterTheFoodMigration.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().stateAuthority());
-        assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().stateAuthority());
         assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow().stateAuthority());
         // Mana/Stamina were EXTERNAL_ADAPTER too (transitionally) through Phase 2C, but the Phase 4

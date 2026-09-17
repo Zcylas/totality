@@ -3516,24 +3516,82 @@ All player-facing Health values use the shared ×5 formatter. Native Health and 
 
 ### 25.2 Food
 
+> **2026-09-17 status update, corrected 2026-09-17 (post-V1, using V1's established extension
+> points — V1 itself remains CLOSED/unchanged):** `totality:food` migrated from `EXTERNAL_ADAPTER`
+> to `GENERIC_COMPONENT` authority, definitionVersion 2. The table below describes that CURRENT
+> state, not the original `EXTERNAL_ADAPTER` shape this section originally documented. Food is now a
+> true, native mechanical value with a baseline of 100 (no ×5 presentation conversion — the
+> formatter is IDENTITY). The maximum is **resolver-driven** (`FoodMaximumResolver`), not a hardcoded
+> `authoredBaseMaximum` literal — the 100 baseline is a normal-player default, not an architectural
+> ceiling; an exceptional future Origin/Species/effect may legitimately resolve higher, without any
+> change to this resource's definition or authority (this pass authors no such modifier).
+>
+> Vanilla's own `FoodData` engine (exhaustion, ordinary eating) remains the trigger for every
+> ordinary change; `FoodVanillaCompatibilityBridge` and four `*AuthorityMixin` classes (exhaustion,
+> ordinary eating, Cake, the Saturation mob effect) translate its mutations into this resource at a
+> fixed, exact 5x delta rate and keep vanilla's own `foodLevel` field as a write-back compatibility
+> mirror — proportional to the *resolved* maximum (`current / max` mapped into vanilla's fixed 0-20
+> domain), never a fixed `/5` that would silently assume the maximum is eternally 100.
+> `FoodMirrorServerTick` additionally re-syncs this mirror once per player every server tick, closing
+> the "stale mirror" gap that existed for authoritative mutations with no vanilla call site (a
+> `TotalityFoodItem` eating, `/totality food set`).
+>
+> **Corrected/removed vanilla-owned gameplay rules:** vanilla's Food-based sprint gate
+> (`Player#hasEnoughFoodToDoExhaustiveManoeuvres`) is now permanently bypassed — Stamina is the sole
+> sprint-endurance authority, and low Food no longer prevents or stops sprinting by itself. Vanilla's
+> direct starvation Health damage (`FoodData#tick`'s `foodLevel <= 0` branch) is now disabled — Food
+> reaching 0 causes no direct HP damage; future sustained-underfeeding consequences belong to the
+> later Diet/Metabolism/Fatigue direction, not to this pass. Natural Food-based Health regeneration
+> remains disabled (unchanged from the original pass). **Real-client correction:** vanilla's
+> Peaceful-difficulty automatic Food restore is now suppressed entirely (`ServerPlayerPeacefulFoodRestoreAuthorityMixin`
+> redirects it to a no-op rather than translating it) — Food does not passively regenerate merely
+> because the difficulty is Peaceful, only through a real authored Food effect.
+>
+> **Real-client correction:** the client Resource façade (`TotalityClientResourceReaders`) now routes
+> `totality:food` to the generic-synchronized reader, not the native reader — the native reader still
+> answers straight out of vanilla `FoodData` (0-20), and real-client testing found the HUD displaying
+> that lossy mirror instead of this true resource until this was fixed.
+>
+> **Real-client correction (Pizza/Saturation pass):** vanilla's Peaceful-difficulty automatic
+> Saturation restore is also now suppressed (`ServerPlayerPeacefulSaturationRestoreAuthorityMixin`),
+> the same way its Food restore already was — Saturation does not passively regenerate on Peaceful
+> either. Separately, `FoodVanillaCompatibilityBridge`'s vanilla-eat translation now skips vanilla's
+> own `eat` entirely for a zero intended nutrition (rather than still running it), since vanilla's real
+> `FoodData#add(0, 0.0F)` was found to still clamp Saturation down to the current mirror even when
+> nothing was being restored — this was silently corrupting real Saturation on every
+> `TotalityFoodItem` consumption. `TotalityFoodItem` now separately authors its own explicitly
+> *temporary* Saturation contribution (Pizza Margherita `+12.0`, Slice `+1.5`), clamped against
+> vanilla's own real `[0, foodLevel]` invariant — never the 0-100 Food maximum, never a Generic
+> Resource, and not a canonical Diet/Metabolism figure.
+>
+> See `TOTALITY_FOOD_0_100_AND_TOTALITY_FOOD_ITEM_IMPLEMENTATION_REPORT_2026-09-17.md`'s §36-§37 (the
+> final correction pass and its real-client-confirmed final status) for the full rationale, including
+> the locked canonical Food model and the documented-only future Metabolic Reserve/Metabolism/Fatigue
+> direction.
+
 ```text
 ID: totality:food
 Model: SCALAR
-State authority: EXTERNAL_ADAPTER
-Adapter: totality:food
+State authority: GENERIC_COMPONENT
 Polarity: HIGH_IS_GOOD
 Display: BAR / CORE_FOOD
-Display conversion: 5 / 1
-Mechanical baseline: 20
+Display conversion: IDENTITY
+Mechanical baseline: 100 (resolver-driven default, not a hardcoded ceiling)
 Displayed baseline: 100
 HUD role: CORE_CONSTANT
 Ownership: universal
-Owner: Food/Hunger
+Owner: totality:food (Generic Player Resource API) — vanilla FoodData remains the compatibility
+       trigger/mirror only, not the authority
 ```
 
-The primary value maps to authoritative Food/Hunger level. Saturation, exhaustion, eating rules, Diet history, nutrients, and quality remain owner-specific.
+The primary value IS the authoritative Food/Hunger level, natively baseline-100 (extensible via
+`FoodMaximumResolver`). Saturation and exhaustion remain vanilla-internal, owner-specific
+compatibility state (never rescaled, and explicitly temporary — see the implementation report's
+Saturation section and the future Metabolic Reserve direction); eating rules, Diet history,
+nutrients, and quality remain owner-specific future work.
 
-All player-facing primary Food values use the shared ×5 formatter. A mechanical restoration of `6` displays as `30`.
+All player-facing primary Food values are identity (no conversion) — the mechanical value already is
+the displayed value. A restoration of `6` (e.g. one Pizza Slice) displays as `6`, not `30`.
 
 ### 25.3 Temperature
 

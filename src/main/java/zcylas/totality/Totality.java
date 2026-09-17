@@ -128,6 +128,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.rpg.resources.verification.StandardSpellSlotMigrationVerification.register();
 		zcylas.totality.api.rpg.resources.verification.CrownOfStarsActiveInstanceActionVerification.register();
 		zcylas.totality.api.rpg.resources.verification.HealthRecoveryDiceResourceVerification.register();
+		zcylas.totality.api.rpg.resources.verification.FoodSystemVerification.register();
 		ModEvents.register();
 	}
 
@@ -156,6 +157,7 @@ public class Totality implements ModInitializer {
 		ServerScheduler.register();
 		zcylas.totality.api.rpg.rest.RestSessionManager.register();
 		zcylas.totality.networking.resource.ResourceSyncServerTick.register();
+		zcylas.totality.networking.food.FoodMirrorServerTick.register();
 		registerPassiveTicker();
 	}
 

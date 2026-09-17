@@ -35,7 +35,9 @@ import java.util.Optional;
  * <p>{@link #migrateLegacyIfAbsent} also imports legacy Rage as of the Phase 5 migration
  * (2026-09-15, same date), and legacy Standard Spell Slots as of the Phase 6 migration
  * (2026-09-16, see {@link #migrateSpellSlots}) — reusing this exact one-time-import mechanism rather
- * than a separate one. Both resources' own grant reconciliation need no additional lifecycle wiring
+ * than a separate one. The Food 0-100 migration (2026-09-17) reuses it a fourth time, this time
+ * importing from vanilla's own {@code FoodData} rather than a Totality-owned legacy store — see
+ * {@link #migrateLegacyIfAbsent}'s own trailing paragraph. Both resources' own grant reconciliation need no additional lifecycle wiring
  * beyond what already exists here: {@code BarbarianRageResources}'s and {@code
  * StandardSpellSlotResources}'s providers are registered on the same shared, global {@code
  * ResourceGrantRegistry.INSTANCE} that {@link PlayerBaselineResources}'s own reconciler already
@@ -126,6 +128,16 @@ public final class BaselineResourceLifecycleEvents {
         migrateOne(state, PlayerResourceIds.RAGE, legacyRageInitialized, legacyRageValue);
 
         migrateSpellSlots(player, state);
+
+        // Food 0-100 migration (2026-09-17): same one-time-import contract as Mana/Stamina/Rage
+        // above, reusing the exact isLegacyMigrated/markLegacyMigrated marker. "Legacy initialized"
+        // is unconditionally true — unlike Mana/Stamina's -1 sentinel, vanilla FoodData always has a
+        // real value (a brand-new player's own vanilla default is foodLevel=20), so there is never a
+        // "nothing to migrate" case to distinguish; every player, new or existing, imports through
+        // this exact same path. The conversion is an exact x5 (100/20), never a rounding
+        // approximation: old 20/18/14/10/1/0 -> new 100/90/70/50/5/0, matching the task's locked
+        // migration examples precisely.
+        migrateOne(state, PlayerResourceIds.FOOD, true, player.getFoodData().getFoodLevel() * 5);
     }
 
     /**

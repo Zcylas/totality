@@ -17,12 +17,13 @@ class ResourceSyncManagerEligibilityTest {
 
     @Test
     void nativelyMirroredResourcesAreIneligible() {
+        // Food used to be pinned here too; the 2026-09-17 Food migration makes it GENERIC_COMPONENT
+        // authority, so it moved to legacyBespokeMirroredResourcesAreStillEligibleInParallel below,
+        // alongside Mana/Stamina/Rage/Spell Slots.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertFalse(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.HEALTH),
                 "Health is NATIVE_SYNCHRONIZATION — vanilla already reliably mirrors it");
-        assertFalse(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.FOOD),
-                "Food is NATIVE_SYNCHRONIZATION — vanilla already reliably mirrors it");
         assertFalse(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.BREATH),
                 "Breath is NATIVE_SYNCHRONIZATION — vanilla already reliably mirrors it");
     }
@@ -35,6 +36,7 @@ class ResourceSyncManagerEligibilityTest {
         assertTrue(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.STAMINA));
         assertTrue(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.SPELL_SLOTS));
         assertTrue(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.RAGE));
+        assertTrue(ResourceSyncManager.isEligibleForGenericSync(PlayerResourceIds.FOOD));
     }
 
     @Test

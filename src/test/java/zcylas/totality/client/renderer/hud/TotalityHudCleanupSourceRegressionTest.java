@@ -409,14 +409,23 @@ class TotalityHudCleanupSourceRegressionTest {
     // 13. Native Health and Food remain unchanged: Health's fill still reads the native
     // getHealth()/getMaxHealth() ratio; Food's fill still reads the native 0-20 hunger ratio.
     @Test
-    void nativeHealthAndFoodRemainUnchanged() throws Exception {
+    void nativeHealthRemainsUnchanged() throws Exception {
+        // Food used to be pinned here too ("no Food 0-100 work has started"); the 2026-09-17 Food
+        // migration (a later, separate pass) supersedes that — see
+        // foodNoLongerUsesTheNativeZeroToTwentyRatioAfterTheFoodMigration below. Health is untouched.
         String source = read(HUD_RENDERER);
         assertTrue(source.contains("float hp    = client.player.getHealth();"));
         assertTrue(source.contains("float maxHp = client.player.getMaxHealth();"));
         assertTrue(source.contains("double hpPct      = maxHp > 0 ? hp / maxHp : 0;"));
-        assertTrue(source.contains("int hunger  = client.player.getFoodData().getFoodLevel();"));
-        assertTrue(source.contains("double hungerPct  = hunger / 20.0;"),
-                "Food's fill ratio must still be the native 0-20 scale — no Food 0-100 work has started");
+    }
+
+    @Test
+    void foodNoLongerUsesTheNativeZeroToTwentyRatioAfterTheFoodMigration() throws Exception {
+        String source = read(HUD_RENDERER);
+        assertFalse(source.contains("int hunger  = client.player.getFoodData().getFoodLevel();"));
+        assertFalse(source.contains("double hungerPct  = hunger / 20.0;"));
+        assertTrue(source.contains("long hunger    = foodView.current();"));
+        assertTrue(source.contains("double hungerPct  = maxHunger > 0 ? (double) hunger / maxHunger : 0;"));
     }
 
     // 14. No Resource mutation or packet sending appears anywhere in the render path.

@@ -29,13 +29,15 @@ class PlayerResourceStateComponentExternalSafetyTest {
     }
 
     @Test
-    void instantiateScalarRejectsFood() {
+    void instantiateScalarAcceptsFoodAfterTheFoodMigration() {
+        // 2026-09-17 Food migration: totality:food is now GENERIC_COMPONENT-authority — this
+        // replaces the removed instantiateScalarRejectsFood test, which pinned the pre-migration
+        // rejection, mirroring instantiateScalarAcceptsManaAfterPhase4Migration above.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
         PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiateScalar(PlayerResourceIds.FOOD, 20));
-        assertFalse(state.hasState(PlayerResourceIds.FOOD));
+        assertDoesNotThrow(() -> state.instantiateScalar(PlayerResourceIds.FOOD, 100));
+        assertTrue(state.hasState(PlayerResourceIds.FOOD));
     }
 
     @Test
@@ -46,16 +48,6 @@ class PlayerResourceStateComponentExternalSafetyTest {
         assertThrows(IllegalArgumentException.class,
                 () -> state.instantiatePartitioned(PlayerResourceIds.HEALTH));
         assertFalse(state.hasState(PlayerResourceIds.HEALTH));
-    }
-
-    @Test
-    void instantiatePartitionedRejectsFood() {
-        TestResourceBootstrap.ensureProductionResourcesRegistered();
-        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
-
-        assertThrows(IllegalArgumentException.class,
-                () -> state.instantiatePartitioned(PlayerResourceIds.FOOD));
-        assertFalse(state.hasState(PlayerResourceIds.FOOD));
     }
 
     @Test
@@ -123,22 +115,22 @@ class PlayerResourceStateComponentExternalSafetyTest {
     // same removal precedent as instantiatePartitionedRejectsMana/Stamina above.
 
     @Test
-    void isRegisteredExternalAdapterAuthorityIsTrueForAllThreeRemainingExternalAdapterProductionResources() {
+    void isRegisteredExternalAdapterAuthorityIsTrueForBothRemainingExternalAdapterProductionResources() {
         // Same-package access to the package-visible predicate — the exact decision point both
         // instantiateScalar/instantiatePartitioned and the NBT-read quarantine logic share.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.HEALTH));
-        assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
         assertTrue(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.BREATH));
         // Phase 4 migration (2026-09-15): Mana/Stamina are GENERIC_COMPONENT-authority now, so this
         // predicate must be false for them — the opposite of their pre-migration behavior. Phase 5
         // migration (2026-09-15): Rage joins them. Phase 6 migration (2026-09-16): Standard Spell
-        // Slots joins them too.
+        // Slots joins them too. 2026-09-17 Food migration: Food joins them too.
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.MANA));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.STAMINA));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.RAGE));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.SPELL_SLOTS));
+        assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(PlayerResourceIds.FOOD));
         assertFalse(PlayerResourceStateComponent.isRegisteredExternalAdapterAuthority(
                 Identifier.fromNamespaceAndPath("totality", "definitely_unregistered")));
     }

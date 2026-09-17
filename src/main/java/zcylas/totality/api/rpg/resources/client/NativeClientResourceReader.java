@@ -3,33 +3,41 @@ package zcylas.totality.api.rpg.resources.client;
 import net.minecraft.resources.Identifier;
 import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
-import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
 import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
 
 import java.util.Objects;
 
 /**
- * Pure Health/Food/Breath reader for the client Resource façade. Reads only through the injected
+ * Pure Health/Breath reader for the client Resource façade. Reads only through the injected
  * {@link NativeResourceAccess} — never touches {@code Minecraft}/client classes directly — so this
  * class is unit-testable with a synthetic access implementation, without launching a client. Real
  * production wiring supplies a {@code Minecraft.getInstance()}-backed access implementation from the
  * client-only layer ({@code zcylas.totality.client.resource.MinecraftNativeResourceAccess}).
  *
- * <p>Reuses {@link HealthResourceAdapter#toUnits} for Health's fixed-point rounding and
- * {@link FoodResourceAdapter#NATIVE_MAXIMUM} for Food's native ceiling — the exact same conversion
- * the server-side adapters use — so no second rounding/scale convention is introduced. Raw mechanical
- * units are returned (Food stays 0-20; the Totality ×5 display conversion is a presentation-layer
- * concern applied by callers via {@code ResourceDisplayConversion.HEALTH_FOOD}, not by this reader).
+ * <p>Reuses {@link HealthResourceAdapter#toUnits} for Health's fixed-point rounding — the exact same
+ * conversion the server-side adapter uses — so no second rounding/scale convention is introduced.
+ *
+ * <p><b>Corrected 2026-09-17 (real-client manual test correction):</b> this reader no longer answers
+ * {@code totality:food} queries at all. It originally did (Food was {@code EXTERNAL_ADAPTER}, and
+ * this class read vanilla {@code FoodData} directly, 0-20), but the 2026-09-17 Food 0-100 migration
+ * made Food a real {@code GENERIC_COMPONENT} resource without updating this class or its production
+ * registration — real-client testing then found the HUD silently displaying vanilla's lossy
+ * compatibility mirror (20/20, 10/20) instead of the true resource (100/100, 50/100). The fix is at
+ * the registration site ({@code zcylas.totality.client.resource.TotalityClientResourceReaders}, now
+ * wired to the generic-synchronized reader for Food); this class no longer even has a Food branch to
+ * accidentally re-register, so it structurally cannot regress into answering for Food again. A Food
+ * query reaching this reader now falls through to the final {@code CLIENT_SOURCE_NOT_CONFIGURED}
+ * case below, exactly like any other resource id it doesn't recognize.
  *
  * <p><b>Malformed-source safety (Phase 3B-1 external review correction, 2026-07-23):</b> a native
  * owner can report a value this reader cannot represent as a valid
  * {@link ClientResourceQueryResult.Scalar} (a non-finite Health float, a fixed-point conversion
- * overflow, a negative Food level, a non-positive Breath maximum, ...). Every such case returns
+ * overflow, a non-positive Breath maximum, ...). Every such case returns
  * {@link ClientResourceUnavailableReason#MALFORMED_SOURCE_STATE} rather than throwing out of the
- * public façade or fabricating a value — see {@link #safeScalar} and {@link #breath}. Health and Food
- * are never clamped into range on the way there (neither's authoritative server adapter defines a
- * current-value clamp policy); Breath alone clamps, exactly mirroring
- * {@code BreathResourceAdapter.normalize}'s own documented policy.
+ * public façade or fabricating a value — see {@link #safeScalar} and {@link #breath}. Health is never
+ * clamped into range on the way there (its authoritative server adapter defines no current-value
+ * clamp policy); Breath alone clamps, exactly mirroring {@code BreathResourceAdapter.normalize}'s own
+ * documented policy.
  */
 public final class NativeClientResourceReader implements ClientResourceReader {
 
@@ -48,9 +56,6 @@ public final class NativeClientResourceReader implements ClientResourceReader {
         }
         if (id.equals(PlayerResourceIds.HEALTH)) {
             return health(id, definition.unitScale());
-        }
-        if (id.equals(PlayerResourceIds.FOOD)) {
-            return safeScalar(id, access.foodLevel(), FoodResourceAdapter.NATIVE_MAXIMUM, 0L, definition.unitScale());
         }
         if (id.equals(PlayerResourceIds.BREATH)) {
             return breath(id, definition.unitScale());
@@ -104,9 +109,9 @@ public final class NativeClientResourceReader implements ClientResourceReader {
      * Constructs a {@link ClientResourceQueryResult.Scalar}, translating a validation failure from
      * its own compact constructor (negative quantities, {@code current > maximum + overflow}, or an
      * invalid {@code unitScale}) into {@link ClientResourceUnavailableReason#MALFORMED_SOURCE_STATE}
-     * instead of letting the exception escape the public façade. This is the single place Food's
-     * "below zero"/"above native maximum" cases and Health's "current exceeds maximum" case are
-     * caught — no separate clamping or range-checking logic is duplicated for either.
+     * instead of letting the exception escape the public façade. This is the single place Health's
+     * "current exceeds maximum" case is caught — no separate clamping or range-checking logic is
+     * duplicated for it.
      */
     private static ClientResourceQueryResult safeScalar(Identifier id, long current, long maximum, long overflow, long unitScale) {
         try {

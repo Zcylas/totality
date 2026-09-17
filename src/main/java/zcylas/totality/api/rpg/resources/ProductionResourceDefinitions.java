@@ -17,23 +17,31 @@ import zcylas.totality.api.rpg.resources.presentation.ResourceValueFormatterRegi
 
 /**
  * Registers the Generic Player Resource API's production content — {@code totality:health},
- * {@code totality:food} (Phase 2A), and {@code totality:breath} (Phase 2B), all
- * {@code EXTERNAL_ADAPTER}-authority query-only resources — and freezes every registry involved at
- * a deterministic point during mod initialization, before any player can join. See
- * {@code Totality.registerApi()}, which calls {@link #register()} once, after every other Phase 1
- * foundation class has had a chance to load.
+ * {@code totality:food} (originally Phase 2A), and {@code totality:breath} (Phase 2B) — and freezes
+ * every registry involved at a deterministic point during mod initialization, before any player can
+ * join. See {@code Totality.registerApi()}, which calls {@link #register()} once, after every other
+ * Phase 1 foundation class has had a chance to load.
  *
- * Nothing here creates player state: registering a definition and its adapter is pure metadata
- * registration (canonical §4.4 — a definition existing does not mean any player owns it), and
- * Health/Food/Breath never gain {@link PlayerResourceStateComponent} entries because their
- * authority is {@code EXTERNAL_ADAPTER}, not {@code GENERIC_COMPONENT} (see
- * {@link PlayerResourceStateComponent#instantiateScalar}'s rejection of external definitions).
+ * <p><b>Corrected 2026-09-17:</b> Health and Breath remain {@code EXTERNAL_ADAPTER}-authority,
+ * query-only, and never gain {@link PlayerResourceStateComponent} entries (see that class's
+ * rejection of external definitions in {@code instantiateScalar}). {@code totality:food} no longer
+ * fits this description — the Food migration redefines it as a real {@code GENERIC_COMPONENT}
+ * resource (see its own registration in {@link #registerDefinitions()} and
+ * {@code FoodMaximumResolver}/{@code FoodVanillaCompatibilityBridge}), so it now genuinely
+ * instantiates {@link PlayerResourceStateComponent} entries and is mutated through
+ * {@link zcylas.totality.api.rpg.resources.PlayerResourceService} like Mana/Stamina/Rage/Spell Slots
+ * below, not merely queried like Health/Breath.
  *
- * Breath deliberately declares no {@link ResourcePresentationDefinition} — unlike Health/Food's
- * shared {@code 5/1} formatter, no canonical Breath presentation unit (seconds, percentage, pip
- * count, ...) is defined anywhere yet. Inventing one here would be a speculative formatter the
- * Phase 2B task explicitly forbids; that decision is deferred to a future HUD-presentation phase.
- * Breath remains contextually visible today through vanilla's own unmodified air-bubble HUD.
+ * Nothing here creates player state merely by registering a definition and its adapter — that is
+ * pure metadata registration (canonical §4.4 — a definition existing does not mean any player owns
+ * it) — real state only appears once a grant provider or migration actually instantiates it.
+ *
+ * <p>Breath deliberately declares no {@link ResourcePresentationDefinition} — unlike Health's own
+ * {@code 5/1} formatter (Food's is now {@code IDENTITY}, not {@code 5/1} — see its own registration
+ * below), no canonical Breath presentation unit (seconds, percentage, pip count, ...) is defined
+ * anywhere yet. Inventing one here would be a speculative formatter the Phase 2B task explicitly
+ * forbids; that decision is deferred to a future HUD-presentation phase. Breath remains contextually
+ * visible today through vanilla's own unmodified air-bubble HUD.
  *
  * <p>Phase 2C originally added {@code totality:mana} and {@code totality:stamina} as transitional
  * {@code EXTERNAL_ADAPTER}-authority, query-only resources wrapping the legacy-authoritative {@link
@@ -150,6 +158,10 @@ public final class ProductionResourceDefinitions {
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.RAGE, zcylas.totality.api.ability.impl.barbarian.RageMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.SPELL_SLOTS, zcylas.totality.api.magic.spell.StandardSpellSlotMaximumResolver.INSTANCE);
         ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.HEALTH_RECOVERY_DICE, zcylas.totality.api.rpg.classes.HealthRecoveryDiceMaximumResolver.INSTANCE);
+        // 2026-09-17 Food correction: see the class Javadoc for why this exists instead of an
+        // authoredBaseMaximum literal — returns the same 100 baseline today, but makes the ceiling
+        // extensible for a future exceptional Origin/Species/effect without touching this file again.
+        ResourceMaximumResolverRegistry.INSTANCE.register(PlayerResourceIds.FOOD, zcylas.totality.api.rpg.resources.food.FoodMaximumResolver.INSTANCE);
     }
 
     /** Phase 4 migration: the first production grant provider — see {@code PlayerBaselineResources}.
@@ -165,11 +177,14 @@ public final class ProductionResourceDefinitions {
 
     private static void registerDefinitions() {
         // Both Health and Food are player-visible constant HUD resources, so both declare
-        // HUD_VISIBLE and MENU_VISIBLE (canonical §9's feature-declaration capabilities). Neither
-        // declares a mutation capability (SPENDABLE, RESTORABLE, DIRECT_DRAIN, ...): Phase 2A's
-        // generic adapters remain query-only regardless of whether their owning vanilla systems
-        // (Health/Combat, Food/Hunger) can themselves change the underlying value — see the
-        // correction pass's "Align capabilities and presentation metadata" section.
+        // HUD_VISIBLE and MENU_VISIBLE (canonical §9's feature-declaration capabilities). Health
+        // declares no mutation capability (SPENDABLE, RESTORABLE, DIRECT_DRAIN, ...): its Phase 2A
+        // adapter remains query-only regardless of Health/Combat itself changing the underlying
+        // value — see the correction pass's "Align capabilities and presentation metadata" section.
+        // Food no longer shares that query-only shape: the 2026-09-17 Food migration redefines it as
+        // a real GENERIC_COMPONENT resource (see its own registration below), which legitimately
+        // declares RESTORABLE and DIRECT_DRAIN — eating and vanilla-triggered exhaustion genuinely
+        // mutate it through this façade now, unlike Health.
         PlayerResourceRegistry.INSTANCE.register(
                 PlayerResourceDefinition.builder(PlayerResourceIds.HEALTH, ResourceModel.SCALAR)
                         .polarity(ResourcePolarity.HIGH_IS_GOOD)
@@ -187,20 +202,58 @@ public final class ProductionResourceDefinitions {
                                 ResourceHudRole.CORE_CONSTANT))
                         .build());
 
+        // Food: true 0-100-baseline GENERIC_COMPONENT authority migration (2026-09-17, corrected
+        // 2026-09-17) — same EXTERNAL_ADAPTER -> GENERIC_COMPONENT shape as the Phase 4/5/6 Mana/
+        // Stamina/Rage/Spell Slot migrations, bumped to definitionVersion 2 (never a silent
+        // structural hot-swap of what totality:food means). Unlike those four, Food's legacy owner is
+        // vanilla's own FoodData engine (exhaustion/eating — sprint-gating, starvation direct-damage,
+        // and (real-client correction) Peaceful's automatic Food restore are now DISABLED, not "kept
+        // working," see PlayerFoodSprintGateAuthorityMixin/FoodDataStarvationDamageAuthorityMixin/
+        // ServerPlayerPeacefulFoodRestoreAuthorityMixin), not Totality-owned code, so the changes it
+        // does still allow cannot simply stop being called —
+        // FoodDataExhaustionAuthorityMixin/FoodPropertiesEatAuthorityMixin/CakeBlockEatAuthorityMixin/
+        // SaturationMobEffectEatAuthorityMixin instead translate every known remaining vanilla
+        // FoodData mutation into this resource and keep vanilla's own foodLevel field as a write-back
+        // compatibility mirror (proportional to the RESOLVED maximum, not a fixed /5 — see
+        // FoodVanillaCompatibilityBridge#mirrorOf), refreshed both inline (vanilla-triggered changes)
+        // and every server tick (FoodMirrorServerTick, for authoritative-only changes like eating a
+        // TotalityFoodItem or /totality food set). See the Food 0-100 implementation report's
+        // 2026-09-17 correction sections for the full rationale.
+        //
+        // The client Resource façade (TotalityClientResourceReaders) must route totality:food to the
+        // generic-synchronized reader, never the native reader — real-client testing found the HUD
+        // silently displaying vanilla's mirror (20/20, 10/20) instead of the true resource (100/100,
+        // 50/100) when this was wrong. See that class's own Javadoc for the full correction.
+        //
+        // Deliberately NO .authoredBaseMaximum(...) — an authored base wins outright over a
+        // registered resolver for SCALAR resources (canonical §10.2), so a hardcoded 100 here would
+        // silently short-circuit FoodMaximumResolver (registered below) exactly the way Mana/
+        // Stamina/Rage's own authored-maximum precedent already warns against. FoodMaximumResolver
+        // returns the same 100 baseline today — this changes nothing about current gameplay — but
+        // makes the ceiling a real, resolver-driven baseline rather than an architectural hard limit,
+        // per the locked canonical Food model (a normal player stays at 100; an exceptional future
+        // Origin/Species/effect MAY resolve higher; this pass authors no such modifier).
+        //
+        // RESET_TO_MAXIMUM death policy matches vanilla's own "hunger always refills to full on
+        // respawn" behavior exactly, the same way Mana/Stamina's override matched their own legacy
+        // reset-on-respawn behavior. Presentation conversion is IDENTITY, not HEALTH_FOOD (5/1) — the
+        // mechanical value itself is already natively 0-100(+), so a further x5 display conversion
+        // would multiply it further.
         PlayerResourceRegistry.INSTANCE.register(
                 PlayerResourceDefinition.builder(PlayerResourceIds.FOOD, ResourceModel.SCALAR)
                         .polarity(ResourcePolarity.HIGH_IS_GOOD)
-                        .externalAdapter(PlayerResourceIds.FOOD_ADAPTER)
                         .unitScale(1)
                         .absoluteMinimum(0)
-                        // Unlike Health, vanilla Food genuinely has one fixed ceiling (FoodResourceAdapter.NATIVE_MAXIMUM);
-                        // still descriptive only — the live query path reads getFoodLevel() directly.
-                        .authoredBaseMaximum(FoodResourceAdapter.NATIVE_MAXIMUM)
-                        .capabilities(ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
+                        .capabilities(ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN,
+                                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE)
                         .presentation(new ResourcePresentationDefinition(
-                                ResourceDisplayConversion.HEALTH_FOOD,
+                                ResourceDisplayConversion.IDENTITY,
                                 ResourceDisplayType.BAR,
                                 ResourceHudRole.CORE_CONSTANT))
+                        .lifecycle(new ResourceLifecyclePolicy(
+                                ResourceDeathPolicy.RESET_TO_MAXIMUM, true, true, false,
+                                new zcylas.totality.api.rpg.resources.integration.ResourceGrantInitialization.AtMaximum()))
+                        .definitionVersion(2)
                         .build());
 
         // Breath: HUD_VISIBLE/MENU_VISIBLE only, no mutation capability, and deliberately no
@@ -426,8 +479,9 @@ public final class ProductionResourceDefinitions {
     private static void registerFormatters() {
         ResourceValueFormatterRegistry.INSTANCE.register(
                 ResourceValueFormatter.ofConversion(PlayerResourceIds.HEALTH, ResourceDisplayConversion.HEALTH_FOOD));
+        // IDENTITY, not HEALTH_FOOD — Food is now natively 0-100 authority (see registerDefinitions).
         ResourceValueFormatterRegistry.INSTANCE.register(
-                ResourceValueFormatter.ofConversion(PlayerResourceIds.FOOD, ResourceDisplayConversion.HEALTH_FOOD));
+                ResourceValueFormatter.ofConversion(PlayerResourceIds.FOOD, ResourceDisplayConversion.IDENTITY));
         ResourceValueFormatterRegistry.INSTANCE.register(
                 ResourceValueFormatter.ofConversion(PlayerResourceIds.MANA, ResourceDisplayConversion.IDENTITY));
         ResourceValueFormatterRegistry.INSTANCE.register(

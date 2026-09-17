@@ -173,6 +173,83 @@ class ClientResourcePresentationResolverTest {
         assertFalse(legacyEvaluated.get(), "legacy suppliers must not be evaluated when the Generic result is used");
     }
 
+    // ── FOOD (2026-09-17 real-client manual test correction) ────────────────────────────────
+    //
+    // Direct regression proof at the exact layer TotalityHudRenderer calls
+    // (ClientResourcePresentationResolver.resolveScalar(PlayerResourceIds.FOOD, ...)): a resolved
+    // Generic Food value must be presented as-is, and the caller's vanilla-mirror-derived legacy
+    // fallback (client.player.getFoodData().getFoodLevel() * 5L) must never be evaluated once a
+    // Generic result exists — see the implementation report's final correction section.
+
+    @Test
+    void trueFoodOneHundredOverOneHundredPresentsAsOneHundredOverOneHundred() {
+        ClientResourceService service = serviceReturning(PlayerResourceIds.FOOD,
+                scalar(PlayerResourceIds.FOOD, 100, 100, 1, ClientResourceTrust.FRESH));
+        ClientResourcePresentationResolver resolver = new ClientResourcePresentationResolver(service);
+
+        ClientResourcePresentationResolver.ScalarPresentation result =
+                resolver.resolveScalar(PlayerResourceIds.FOOD, () -> 999L, () -> 999L);
+        assertEquals(100L, result.current());
+        assertEquals(100L, result.maximum());
+        assertTrue(result.generic());
+    }
+
+    @Test
+    void trueFoodFiftyOverOneHundredPresentsAsFiftyOverOneHundredNotTenOverTwenty() {
+        ClientResourceService service = serviceReturning(PlayerResourceIds.FOOD,
+                scalar(PlayerResourceIds.FOOD, 50, 100, 1, ClientResourceTrust.FRESH));
+        ClientResourcePresentationResolver resolver = new ClientResourcePresentationResolver(service);
+
+        ClientResourcePresentationResolver.ScalarPresentation result =
+                resolver.resolveScalar(PlayerResourceIds.FOOD, () -> 999L, () -> 999L);
+        assertEquals(50L, result.current(), "must present the true value 50 — the real-client bug showed 10 "
+                + "(vanilla's compatibility mirror) here instead");
+        assertEquals(100L, result.maximum(), "must present the true maximum 100 — the real-client bug showed "
+                + "vanilla's fixed 20 here instead");
+    }
+
+    @Test
+    void trueFoodSeventyFiveOverOneHundredFiftyPresentsUnchangedAtAFutureResolvedMaximum() {
+        ClientResourceService service = serviceReturning(PlayerResourceIds.FOOD,
+                scalar(PlayerResourceIds.FOOD, 75, 150, 1, ClientResourceTrust.FRESH));
+        ClientResourcePresentationResolver resolver = new ClientResourcePresentationResolver(service);
+
+        ClientResourcePresentationResolver.ScalarPresentation result =
+                resolver.resolveScalar(PlayerResourceIds.FOOD, () -> 999L, () -> 999L);
+        assertEquals(75L, result.current());
+        assertEquals(150L, result.maximum());
+    }
+
+    @Test
+    void foodLegacyVanillaMirrorFallbackIsNotEvaluatedWhenGenericFoodIsAvailable() {
+        ClientResourceService service = serviceReturning(PlayerResourceIds.FOOD,
+                scalar(PlayerResourceIds.FOOD, 50, 100, 1, ClientResourceTrust.FRESH));
+        ClientResourcePresentationResolver resolver = new ClientResourcePresentationResolver(service);
+
+        AtomicBoolean legacyEvaluated = new AtomicBoolean(false);
+        resolver.resolveScalar(PlayerResourceIds.FOOD,
+                () -> { legacyEvaluated.set(true); return 10L; },  // TotalityHudRenderer's vanilla-mirror fallback shape
+                () -> { legacyEvaluated.set(true); return 100L; });
+        assertFalse(legacyEvaluated.get(),
+                "the vanilla-mirror-derived legacy fallback must not be evaluated once Generic Food is available — "
+                        + "evaluating it anyway is exactly how a stale mirror value could leak through");
+    }
+
+    @Test
+    void foodFallsBackToTheVanillaMirrorApproximationOnlyBeforeFirstGenericSync() {
+        ClientResourceService service = serviceReturning(PlayerResourceIds.FOOD,
+                ClientResourceQueryResult.unavailable(PlayerResourceIds.FOOD, ClientResourceUnavailableReason.NOT_SYNCHRONIZED_YET));
+        ClientResourcePresentationResolver resolver = new ClientResourcePresentationResolver(service);
+
+        // TotalityHudRenderer's own fallback shape: vanilla foodLevel * 5, baseline max 100.
+        ClientResourcePresentationResolver.ScalarPresentation result =
+                resolver.resolveScalar(PlayerResourceIds.FOOD, () -> 10L * 5L, () -> 100L);
+        assertEquals(50L, result.current());
+        assertEquals(100L, result.maximum());
+        assertFalse(result.generic(), "before the first Generic sync, the approximation is a legitimate fallback, "
+                + "not the authoritative source");
+    }
+
     // ── SPELL SLOTS (partitioned) ────────────────────────────────────────────────────────────
 
     // 22. Generic partition keys remain 1 through 10.

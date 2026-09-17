@@ -74,15 +74,26 @@ class Phase3CConsumerMigrationSourceRegressionTest {
 
     // 13/14: Health and Food remain native-backed — never routed through the new resolver.
     @Test
-    void hudRendererDoesNotRouteHealthOrFoodThroughTheGenericPresentationResolver() throws Exception {
+    void hudRendererDoesNotRouteHealthThroughTheGenericPresentationResolver() throws Exception {
+        // Food moved to hudRendererNowRoutesFoodThroughTheGenericPresentationResolverAfterTheFoodMigration
+        // below: the 2026-09-17 Food migration (a later pass than this Phase 3C one) makes
+        // totality:food a real GENERIC_COMPONENT resource, so its HUD presentation now goes through
+        // the same resolver Stamina/Mana already used — Health is untouched and still native-backed.
         String source = read(HUD_RENDERER);
         assertFalse(source.contains("ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.HEALTH"),
                 "Health must stay native-backed (client.player.getHealth()), not migrated in Phase 3C");
-        assertFalse(source.contains("ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.FOOD"),
-                "Food must stay native-backed, not migrated in Phase 3C");
         assertTrue(source.contains("client.player.getHealth()"), "Health must still read the native player field directly");
+    }
+
+    @Test
+    void hudRendererNowRoutesFoodThroughTheGenericPresentationResolverAfterTheFoodMigration() throws Exception {
+        String source = read(HUD_RENDERER);
+        assertTrue(source.contains("ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.FOOD"),
+                "Food is GENERIC_COMPONENT authority after the Food migration and must be resolved the same way Stamina/Mana are");
+        // The vanilla FoodData read is still present, but only as the resolver's own fallback
+        // supplier (used before the first Generic sync packet arrives), not the primary source.
         assertTrue(source.contains("client.player.getFoodData().getFoodLevel()"),
-                "Food must still read the native FoodData directly");
+                "Food's fallback supplier must still read the native FoodData mirror directly");
     }
 
     @Test
@@ -327,10 +338,15 @@ class Phase3CConsumerMigrationSourceRegressionTest {
     // ── 37: no Food 0-100 implementation appears ─────────────────────────────────────────────
 
     @Test
-    void hudRendererFoodBarStillUsesTheNativeZeroToTwentyRatio() throws Exception {
+    void hudRendererFoodBarNowUsesTheResolvedRatioAfterTheFoodMigration() throws Exception {
+        // Superseded: this test previously pinned "hunger / 20.0" as proof Phase 3C did not begin
+        // the Food 0-100 migration. The 2026-09-17 Food migration (a later, separate pass) makes
+        // Food a true 0-100 resource, so the bar-fill ratio is now current/maximum of the SAME
+        // resolved value the displayed numbers use — never a hardcoded /20.0 native ratio again.
         String source = read(HUD_RENDERER);
-        assertTrue(source.contains("hunger / 20.0"),
-                "Food's bar-fill ratio must remain the native 0-20 scale — Phase 3C does not begin the Food 0-100 migration");
+        assertFalse(source.contains("hunger / 20.0"), "the old hardcoded native 0-20 fill ratio must be gone");
+        assertTrue(source.contains("(double) hunger / maxHunger"),
+                "Food's bar-fill ratio must now be derived from the resolved current/maximum pair");
     }
 
     // ── 39: no Tooltip API file touched by this pass ─────────────────────────────────────────

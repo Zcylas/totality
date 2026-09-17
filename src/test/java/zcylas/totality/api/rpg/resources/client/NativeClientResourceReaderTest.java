@@ -11,9 +11,16 @@ import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests 24-28 of the Phase 3B-1 task: native Health/Food/Breath reads, no-local-player handling, and
+ * Tests 24, 26-28 of the Phase 3B-1 task: native Health/Breath reads, no-local-player handling, and
  * rounding parity with the server-side adapter — all driven through a synthetic
  * {@link NativeResourceAccess}, with no Minecraft client required.
+ *
+ * <p><b>Corrected 2026-09-17 (real-client manual test correction):</b> the former Food tests (25,
+ * plus corrections 10/11) are removed — this reader no longer answers {@code totality:food} queries
+ * at all (see {@link NativeClientResourceReader}'s own Javadoc). Replaced by
+ * {@link #foodIsNoLongerAnsweredByTheNativeReaderAfterTheFoodMigration} below, which pins the
+ * opposite: a Food query reaching this reader must fail rather than silently succeed with a stale
+ * vanilla-domain value.
  */
 class NativeClientResourceReaderTest {
 
@@ -59,18 +66,9 @@ class NativeClientResourceReaderTest {
         assertEquals(HealthResourceAdapter.toUnits(access.maxHealth, HealthResourceAdapter.UNIT_SCALE), scalar.maximumUnits());
     }
 
-    // 25. Native Food query returns raw 0-20-scale values.
-    @Test
-    void foodQueryReturnsRawNativeZeroToTwentyScale() {
-        FakeNativeAccess access = new FakeNativeAccess();
-        NativeClientResourceReader reader = new NativeClientResourceReader(access);
-
-        ClientResourceQueryResult result = reader.query(scalarDefinition(PlayerResourceIds.FOOD, 1L));
-
-        ClientResourceQueryResult.Scalar scalar = (ClientResourceQueryResult.Scalar) result;
-        assertEquals(14L, scalar.currentUnits());
-        assertEquals(20L, scalar.maximumUnits(), "Food's native ceiling is 20, not the eventual ×5 display scale");
-    }
+    // 25 (corrected 2026-09-17): Food is no longer answered by this reader at all — see
+    // foodIsNoLongerAnsweredByTheNativeReaderAfterTheFoodMigration below, near the malformed-source
+    // correction tests, for the direct regression proof.
 
     // 26. Native Breath query returns raw air values.
     @Test
@@ -231,36 +229,36 @@ class NativeClientResourceReaderTest {
                 ((ClientResourceQueryResult.Unavailable) result).reason());
     }
 
-    // Correction test 10 / requirement 10: Food below zero returns MALFORMED_SOURCE_STATE.
+    // Corrected 2026-09-17: the former "Food below zero"/"Food above native maximum" correction
+    // tests 10/11 are removed along with this reader's Food-handling branch — see
+    // foodIsNoLongerAnsweredByTheNativeReaderAfterTheFoodMigration below.
+
+    // Correction test 12 / requirement 12: valid Health/Breath results remain unchanged — this is
+    // exactly what healthQueryReturnsNativeSourceFreshTrustAndMatchesAdapterRounding and
+    // breathQueryReturnsRawAirSupplyValues (above, both unmodified) already prove; no new test is
+    // needed to restate them.
+
+    // ── 2026-09-17 real-client manual test correction: Food is no longer this reader's job ────────
+
+    /**
+     * The direct regression proof for the real-client HUD bug: {@code totality:food} must never be
+     * answered by this reader again, at any {@code foodLevel} value, since Food is now
+     * {@code GENERIC_COMPONENT} authority and this reader only knows vanilla's lossy 0-20 mirror.
+     * Before this correction, this exact query would have returned a "valid-looking" {@code Scalar}
+     * (current=14, maximum=20) that silently won over the real Generic value wherever it was
+     * queried — which is exactly what happened in production. It must now fail closed instead.
+     */
     @Test
-    void foodBelowZeroReturnsMalformedSourceState() {
+    void foodIsNoLongerAnsweredByTheNativeReaderAfterTheFoodMigration() {
         FakeNativeAccess access = new FakeNativeAccess();
-        access.foodLevel = -1;
+        NativeClientResourceReader reader = new NativeClientResourceReader(access);
 
-        ClientResourceQueryResult result = new NativeClientResourceReader(access)
-                .query(scalarDefinition(PlayerResourceIds.FOOD, 1L));
+        ClientResourceQueryResult result = reader.query(scalarDefinition(PlayerResourceIds.FOOD, 1L));
 
-        assertInstanceOf(ClientResourceQueryResult.Unavailable.class, result);
-        assertEquals(ClientResourceUnavailableReason.MALFORMED_SOURCE_STATE,
+        assertInstanceOf(ClientResourceQueryResult.Unavailable.class, result,
+                "a Food query must never again surface as a Scalar from this reader — that is the exact bug "
+                        + "the real-client HUD test found (20/20 and 10/20 instead of 100/100 and 50/100)");
+        assertEquals(ClientResourceUnavailableReason.CLIENT_SOURCE_NOT_CONFIGURED,
                 ((ClientResourceQueryResult.Unavailable) result).reason());
     }
-
-    // Correction test 11 / requirement 11: Food above native maximum returns MALFORMED_SOURCE_STATE.
-    @Test
-    void foodAboveNativeMaximumReturnsMalformedSourceState() {
-        FakeNativeAccess access = new FakeNativeAccess();
-        access.foodLevel = 21; // FoodResourceAdapter.NATIVE_MAXIMUM is 20
-
-        ClientResourceQueryResult result = new NativeClientResourceReader(access)
-                .query(scalarDefinition(PlayerResourceIds.FOOD, 1L));
-
-        assertInstanceOf(ClientResourceQueryResult.Unavailable.class, result);
-        assertEquals(ClientResourceUnavailableReason.MALFORMED_SOURCE_STATE,
-                ((ClientResourceQueryResult.Unavailable) result).reason());
-    }
-
-    // Correction test 12 / requirement 12: valid Health/Food/Breath results remain unchanged — this
-    // is exactly what healthQueryReturnsNativeSourceFreshTrustAndMatchesAdapterRounding,
-    // foodQueryReturnsRawNativeZeroToTwentyScale, and breathQueryReturnsRawAirSupplyValues (above,
-    // all unmodified) already prove; no new test is needed to restate them.
 }

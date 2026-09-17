@@ -15,9 +15,11 @@ import java.util.Optional;
  * <p>Uses the canonical {@link PlayerResourceRegistry}/{@link PlayerResourceDefinition} metadata to
  * resolve a Resource's model and existence — never a second, hardcoded database of Resource shape.
  * Delegates the actual value lookup to a reader-strategy registry ({@link ClientResourceReaderRegistry}):
- * a native reader for Health/Food/Breath, a generic-synchronized reader for Mana/Stamina/spell
- * slots/Rage (see {@code zcylas.totality.client.resource.TotalityClientResourceReaders} for
- * production wiring).
+ * a native reader for Health/Breath (still genuinely {@code EXTERNAL_ADAPTER}), a
+ * generic-synchronized reader for Food/Mana/Stamina/spell slots/Rage (all {@code GENERIC_COMPONENT}
+ * — Food joined this group in the 2026-09-17 real-client correction, having previously been
+ * mis-registered on the native reader after its own authority migration) — see {@code
+ * zcylas.totality.client.resource.TotalityClientResourceReaders} for production wiring.
  *
  * <p>This class cannot mutate Resource authority or Phase 3A synchronization state: it never calls
  * an apply/clear/resync-request method on anything, and every reader it can be wired to is

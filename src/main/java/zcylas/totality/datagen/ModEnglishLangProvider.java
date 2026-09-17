@@ -160,6 +160,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.true_wheat","True Wheat");
         translationBuilder.add("item.totality.rock_warbler_egg","Rock Warbler Egg");
         translationBuilder.add("item.totality.garlic","Garlic");
+        //Food Items
+        translationBuilder.add("item.totality.pizza_margherita", "Pizza Margherita");
+        translationBuilder.add("item.totality.pizza_margherita_slice", "Pizza Margherita Slice");
         //Spell Materials
         translationBuilder.add("item.totality.bat_guano", "Bat Guano");
         translationBuilder.add("item.totality.sulphur_dust", "Sulphur Dust");
@@ -183,6 +186,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
                 //Shuriken
         translationBuilder.add("item.totality.shuriken.tooltip", "A razor-sharp throwing star. Deadly at range.");
         translationBuilder.add("item.totality.shuriken.damage", "Throw Damage: %s ❤");
+
+        translationBuilder.add("itemGroup.totality.food", "Totality: Food");
 
         //Keys
         translationBuilder.add("key.category.totality.totality", "Totality");

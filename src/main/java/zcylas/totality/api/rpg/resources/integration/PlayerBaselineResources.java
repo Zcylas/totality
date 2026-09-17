@@ -27,6 +27,17 @@ import java.util.List;
  * code runs); it exists for callers that construct a {@code ServerPlayer} outside that lifecycle
  * (dev-only self-tests using {@code TotalityFakePlayer}, which never fires {@code
  * ServerPlayConnectionEvents.JOIN}).
+ *
+ * <p>{@code totality:food} joins this universal grant as of the 2026-09-17 Food 0-100 migration —
+ * Food is exactly as universal as Mana/Stamina (every player has it, no class/species gate). In the
+ * ordinary JOIN path this {@code AtMaximum} grant is always a no-op: {@code
+ * BaselineResourceLifecycleEvents#migrateLegacyIfAbsent} already instantiates {@code totality:food}
+ * (from the player's live vanilla food level) before this reconcile ever runs, so state already
+ * exists by the time this grant is evaluated. This entry exists purely as the same self-heal safety
+ * net Mana/Stamina already rely on — a fake/dev player built outside the ordinary lifecycle (never
+ * fires {@code JOIN}, so migration never ran) still ends up with Food state via {@link
+ * #ensureInstantiated}/{@link #reconcile}, initialized at maximum rather than left permanently
+ * ungranted.
  */
 public final class PlayerBaselineResources {
 
@@ -34,7 +45,8 @@ public final class PlayerBaselineResources {
 
     private static final ResourceGrantProvider PROVIDER = player -> List.of(
             grant(PlayerResourceIds.MANA),
-            grant(PlayerResourceIds.STAMINA)
+            grant(PlayerResourceIds.STAMINA),
+            grant(PlayerResourceIds.FOOD)
     );
 
     private static ResourceGrant grant(Identifier resourceId) {
@@ -59,10 +71,11 @@ public final class PlayerBaselineResources {
         ResourceGrantReconciliation.reconcileAndSync(player);
     }
 
-    /** Self-heals a player whose Mana/Stamina state was never instantiated (see the class Javadoc). */
+    /** Self-heals a player whose Mana/Stamina/Food state was never instantiated (see the class Javadoc). */
     public static void ensureInstantiated(ServerPlayer player) {
         PlayerResourceStateComponent state = ResourceStateComponents.get(player);
-        if (!state.hasState(PlayerResourceIds.MANA) || !state.hasState(PlayerResourceIds.STAMINA)) {
+        if (!state.hasState(PlayerResourceIds.MANA) || !state.hasState(PlayerResourceIds.STAMINA)
+                || !state.hasState(PlayerResourceIds.FOOD)) {
             reconcile(player);
         }
     }

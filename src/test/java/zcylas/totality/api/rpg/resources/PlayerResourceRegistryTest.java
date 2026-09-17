@@ -245,10 +245,12 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionSingletonContainsExactlyHealthFoodAndBreathAsExternalAdapters() {
+    void productionSingletonContainsExactlyHealthAndBreathAsExternalAdapters() {
         // Phase 1 registered zero production resources; Phase 2A added Health and Food; Phase 2B
-        // added Breath — all three remain EXTERNAL_ADAPTER-authority, query-only (see
-        // ProductionResourceDefinitions).
+        // added Breath. Food is no longer in this list — the 2026-09-17 Food migration redefines it
+        // as GENERIC_COMPONENT (see productionFoodIsGenericComponentAuthorityAfterTheFoodMigration
+        // below), the same shape as Mana/Stamina/Rage/Spell Slots below. Health and Breath remain
+        // EXTERNAL_ADAPTER-authority, query-only (see ProductionResourceDefinitions).
         // Phase 2C originally added Mana/Stamina as transitional EXTERNAL_ADAPTER too, but the Phase
         // 4 migration (2026-09-15) redefines both as GENERIC_COMPONENT — see
         // productionManaAndStaminaAreGenericComponentAuthorityAfterPhase4Migration below. Phase 2E
@@ -261,7 +263,7 @@ class PlayerResourceRegistryTest {
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
-                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH
+                PlayerResourceIds.HEALTH, PlayerResourceIds.BREATH
         }) {
             assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(resourceId), () -> resourceId + " must be registered");
             assertEquals(ResourceStateAuthority.EXTERNAL_ADAPTER,
@@ -269,6 +271,20 @@ class PlayerResourceRegistryTest {
                     () -> resourceId + " must be EXTERNAL_ADAPTER");
         }
         assertTrue(PlayerResourceRegistry.INSTANCE.isFrozen());
+    }
+
+    @Test
+    void productionFoodIsGenericComponentAuthorityAfterTheFoodMigration() {
+        // 2026-09-17 Food migration: same EXTERNAL_ADAPTER -> GENERIC_COMPONENT shape as the Phase
+        // 4/5/6 migrations, but Food's legacy owner is vanilla's own FoodData engine, not
+        // Totality-owned code — see FoodVanillaCompatibilityBridge and the implementation report.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertTrue(PlayerResourceRegistry.INSTANCE.isRegistered(PlayerResourceIds.FOOD));
+        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
+        assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(),
+                "totality:food must be GENERIC_COMPONENT after the Food migration");
+        assertTrue(definition.externalAdapterId().isEmpty(), "totality:food must declare no external adapter");
     }
 
     @Test
@@ -349,7 +365,9 @@ class PlayerResourceRegistryTest {
         // — Health/Food/Breath — plus four GENERIC_COMPONENT — Mana/Stamina/Rage/Spell Slots) — ten
         // total. Phase 7A adds an eleventh, real (non-dormant) GENERIC_COMPONENT definition,
         // totality:health_recovery_dice — the dormant count itself is unaffected (still exactly
-        // three). All three dormant ones are GENERIC_COMPONENT-authority (no externalAdapterId), the first of their kind
+        // three). The 2026-09-17 Food migration moves Food from the EXTERNAL_ADAPTER group to the
+        // GENERIC_COMPONENT group (now two EXTERNAL_ADAPTER — Health/Breath — plus five
+        // GENERIC_COMPONENT — Mana/Stamina/Rage/Spell Slots/Food) without changing the total count. All three dormant ones are GENERIC_COMPONENT-authority (no externalAdapterId), the first of their kind
         // in production. totality:fatigue and totality:temperature are deliberately NOT registered —
         // see the dormant-registration implementation report for why.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
@@ -417,18 +435,20 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void allThreeScalarExternalAdapterProductionDefinitionsAreExternalScalarResources() {
+    void bothRemainingScalarExternalAdapterProductionDefinitionsAreExternalScalarResources() {
         // Deliberately excludes totality:spell_slots: it is PARTITIONED_POOL-model, not SCALAR — see
         // spellSlotsDefinitionIsPartitionedPoolGenericComponentAfterPhase6Migration below for its own
         // shape assertions. Mana/Stamina moved to
         // productionManaAndStaminaAreScalarGenericComponentResourcesAfterPhase4Migration below after
         // the Phase 4 migration (2026-09-15) redefined them as GENERIC_COMPONENT; Rage moved to
         // productionRageIsScalarGenericComponentResourceAfterPhase5Migration below after the Phase 5
-        // migration (2026-09-15) redefined it the same way.
+        // migration (2026-09-15) redefined it the same way; Food moved to
+        // foodIsAScalarGenericComponentResourceAfterTheFoodMigration below after the 2026-09-17 Food
+        // migration redefined it the same way.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         for (Identifier resourceId : new Identifier[] {
-                PlayerResourceIds.HEALTH, PlayerResourceIds.FOOD, PlayerResourceIds.BREATH
+                PlayerResourceIds.HEALTH, PlayerResourceIds.BREATH
         }) {
             PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(resourceId).orElseThrow();
             assertEquals(ResourceModel.SCALAR, definition.model(), () -> resourceId + " must be SCALAR");
@@ -436,6 +456,17 @@ class PlayerResourceRegistryTest {
             assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), () -> resourceId + " must be HIGH_IS_GOOD");
             assertEquals(0L, definition.absoluteMinimum(), () -> resourceId + " must have absoluteMinimum 0");
         }
+    }
+
+    @Test
+    void foodIsAScalarGenericComponentResourceAfterTheFoodMigration() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition definition = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
+        assertEquals(ResourceModel.SCALAR, definition.model(), "totality:food must be SCALAR");
+        assertEquals(ResourceStateAuthority.GENERIC_COMPONENT, definition.stateAuthority(), "totality:food must be GENERIC_COMPONENT");
+        assertEquals(ResourcePolarity.HIGH_IS_GOOD, definition.polarity(), "totality:food must be HIGH_IS_GOOD");
+        assertEquals(0L, definition.absoluteMinimum(), "totality:food must have absoluteMinimum 0");
     }
 
     @Test
@@ -651,11 +682,14 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionHealthAndFoodDeclareExactlyHudVisibleAndMenuVisibleCapabilities() {
+    void productionHealthDeclaresExactlyHudVisibleAndMenuVisibleCapabilities() {
         // Correction pass: player-visible constant HUD resources should declare HUD_VISIBLE/
         // MENU_VISIBLE, and must NOT declare a mutation capability merely because their owning
-        // vanilla system (Health/Combat, Food/Hunger) can itself change the value — Phase 2A's
-        // generic adapters remain query-only.
+        // vanilla system (Health/Combat) can itself change the value — Phase 2A's generic adapters
+        // remain query-only. Food moved to
+        // foodDeclaresRestorableDirectDrainHudVisibleAndMenuVisibleAfterTheFoodMigration below — as a
+        // real GENERIC_COMPONENT resource it now genuinely mutates through this façade (eating,
+        // exhaustion), unlike Health, which is still query-only.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         java.util.Set<ResourceCapability> expected = java.util.Set.of(
@@ -663,17 +697,26 @@ class PlayerResourceRegistryTest {
 
         assertEquals(expected,
                 PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow().capabilities());
-        assertEquals(expected,
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().capabilities());
 
         for (ResourceCapability mutationCapability : new ResourceCapability[] {
                 ResourceCapability.SPENDABLE, ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN
         }) {
             assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow()
                     .capabilities().contains(mutationCapability));
-            assertFalse(PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow()
-                    .capabilities().contains(mutationCapability));
         }
+    }
+
+    @Test
+    void foodDeclaresRestorableDirectDrainHudVisibleAndMenuVisibleAfterTheFoodMigration() {
+        // See FoodResourceDefinitionTest for the fuller Food-specific capability assertions; this
+        // keeps this file's own Health/Food-parity narrative intact for anyone reading it top to
+        // bottom.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        var capabilities = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow().capabilities();
+        assertEquals(java.util.Set.of(ResourceCapability.RESTORABLE, ResourceCapability.DIRECT_DRAIN,
+                ResourceCapability.HUD_VISIBLE, ResourceCapability.MENU_VISIBLE), capabilities);
+        assertFalse(capabilities.contains(ResourceCapability.SPENDABLE));
     }
 
     @Test
@@ -708,22 +751,31 @@ class PlayerResourceRegistryTest {
     }
 
     @Test
-    void productionHealthAndFoodDeclareCorePresentationMetadata() {
+    void productionHealthDeclaresCorePresentationMetadataOnTheFiveOverOneConversion() {
+        // Food used to share this exact ×5 presentation; the 2026-09-17 Food migration moves it to
+        // foodDeclaresCorePresentationMetadataOnIdentity below — Food is now natively 0-100, so its
+        // conversion is IDENTITY (1/1), not 5/1. Health is untouched by the Food migration.
         TestResourceBootstrap.ensureProductionResourcesRegistered();
 
         assertPresentationIsCoreConstantBar(
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow());
-        assertPresentationIsCoreConstantBar(
-                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow());
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow(), 5, 1);
     }
 
-    private static void assertPresentationIsCoreConstantBar(PlayerResourceDefinition definition) {
+    @Test
+    void foodDeclaresCorePresentationMetadataOnIdentity() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertPresentationIsCoreConstantBar(
+                PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow(), 1, 1);
+    }
+
+    private static void assertPresentationIsCoreConstantBar(PlayerResourceDefinition definition, int numerator, int denominator) {
         var presentation = definition.presentation().orElseThrow(
                 () -> new AssertionError(definition.id() + " must declare presentation metadata"));
         assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceDisplayType.BAR, presentation.displayType());
         assertEquals(zcylas.totality.api.rpg.resources.presentation.ResourceHudRole.CORE_CONSTANT, presentation.hudRole());
-        assertEquals(5, presentation.displayConversion().numerator());
-        assertEquals(1, presentation.displayConversion().denominator());
+        assertEquals(numerator, presentation.displayConversion().numerator());
+        assertEquals(denominator, presentation.displayConversion().denominator());
     }
 
     @Test

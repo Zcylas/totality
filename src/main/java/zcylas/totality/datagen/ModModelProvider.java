@@ -462,6 +462,9 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(SKIngredientItems.BLUE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.PURPLE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.RED_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
+        //Food Items
+        generators.generateFlatItem(FoodItems.PIZZA_MARGHERITA, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(FoodItems.PIZZA_MARGHERITA_SLICE, ModelTemplates.FLAT_ITEM);
         //Fuels
         generators.generateFlatItem(FuelItems.TINY_COAL, ModelTemplates.FLAT_ITEM);
         //Ritual Items

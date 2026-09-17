@@ -198,8 +198,25 @@ class NaturalFoodRegenerationMixinSourceRegressionTest {
     void noProductionFileOutsideTheDedicatedMixinReferencesTickRegeneration() throws IOException {
         // Guards against a future accidental broad heal-cancellation being added elsewhere —
         // exactly the "unacceptable implementation" pattern this task explicitly forbids.
+        // ServerPlayerPeacefulFoodRestoreAuthorityMixin (2026-09-17 Food migration) and
+        // ServerPlayerPeacefulSaturationRestoreAuthorityMixin (2026-09-17 Pizza/Saturation
+        // correction pass) are further legitimate, independent dedicated mixins on this same
+        // method — they redirect Food restore and Saturation restore respectively, never Health, so
+        // neither weakens this guard's actual intent.
+        // FoodSystemVerification (2026-09-17 correction pass) reflectively invokes
+        // tickRegeneration() to exercise ServerPlayerPeacefulFoodRestoreAuthorityMixin's real
+        // effect end-to-end against a live ServerPlayer — a dev-server verification calling the
+        // real method, not a second implementation of any heal-cancellation logic.
+        Path foodRestoreMixin = Path.of(
+                "src/main/java/zcylas/totality/mixin/ServerPlayerPeacefulFoodRestoreAuthorityMixin.java");
+        Path saturationRestoreMixin = Path.of(
+                "src/main/java/zcylas/totality/mixin/ServerPlayerPeacefulSaturationRestoreAuthorityMixin.java");
+        Path foodSystemVerification = Path.of(
+                "src/main/java/zcylas/totality/api/rpg/resources/verification/FoodSystemVerification.java");
         forEachProductionJavaFile((path, source) -> {
-            if (path.equals(FOOD_DATA_MIXIN) || path.equals(SERVER_PLAYER_MIXIN)) return;
+            if (path.equals(FOOD_DATA_MIXIN) || path.equals(SERVER_PLAYER_MIXIN)
+                    || path.equals(foodRestoreMixin) || path.equals(saturationRestoreMixin)
+                    || path.equals(foodSystemVerification)) return;
             assertFalse(source.contains("tickRegeneration"),
                     path + " must not reference tickRegeneration outside the dedicated mixin");
         });

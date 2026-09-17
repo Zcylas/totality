@@ -39,6 +39,10 @@ class ClientResourceServiceTest {
         service.registerReader(PlayerResourceIds.MANA, reader);
         service.registerReader(PlayerResourceIds.SPELL_SLOTS, reader);
         service.registerReader(PlayerResourceIds.RAGE, reader);
+        // Food (2026-09-17 real-client correction): production wiring now registers Food with this
+        // same generic-synchronized reader, not the native reader — see
+        // TotalityClientResourceReaders and foodResourceRepresentsTrueValueNotRawVanillaMirror below.
+        service.registerReader(PlayerResourceIds.FOOD, reader);
         return service;
     }
 
@@ -292,6 +296,51 @@ class ClientResourceServiceTest {
         ClientResourceQueryResult result = service.query(PlayerResourceIds.SPELL_SLOTS);
         assertInstanceOf(ClientResourceQueryResult.Partitioned.class, result,
                 "an all-zero ten-partition state is a valid non-caster success, not NOT_AVAILABLE_TO_PLAYER");
+    }
+
+    // ── 2026-09-17 real-client manual test correction: Food routes through the generic reader ─────
+
+    /**
+     * The direct regression proof for the real-client HUD bug (see the implementation report's
+     * final correction section): once Food is registered with the generic-synchronized reader —
+     * exactly as production wiring now does — a synced true value of 100/100 or 50/100 must be
+     * returned as-is, never as vanilla's lossy 0-20 mirror (20/20, 10/20). This exercises the same
+     * {@link GenericSyncClientResourceReader} class production code uses, through a synthetic
+     * {@link FakeGenericSyncResourceAccess} full-sync payload — no live Minecraft client required.
+     */
+    @Test
+    void foodResourceRepresentsTrueValueNotRawVanillaMirror() {
+        FakeGenericSyncResourceAccess access = new FakeGenericSyncResourceAccess();
+        ClientResourceService service = serviceWithGenericReader(access);
+
+        access.state.applyFull(new ResourceFullSyncPayload(
+                ResourceSyncProtocol.PROTOCOL_VERSION, 1L, List.of(scalar(PlayerResourceIds.FOOD, 100, 100)), List.of()));
+
+        ClientResourceQueryResult.Scalar full = (ClientResourceQueryResult.Scalar) service.query(PlayerResourceIds.FOOD);
+        assertEquals(100L, full.currentUnits(), "true Food 100/100 must present as 100, never vanilla's mirrored 20");
+        assertEquals(100L, full.maximumUnits(), "true Food's maximum must present as 100, never vanilla's fixed 20 ceiling");
+
+        access.state.applyFull(new ResourceFullSyncPayload(
+                ResourceSyncProtocol.PROTOCOL_VERSION, 2L, List.of(scalar(PlayerResourceIds.FOOD, 50, 100)), List.of()));
+
+        ClientResourceQueryResult.Scalar half = (ClientResourceQueryResult.Scalar) service.query(PlayerResourceIds.FOOD);
+        assertEquals(50L, half.currentUnits(), "true Food 50/100 must present as 50 — exactly the value the real-client "
+                + "bug reported as 10 (vanilla's mirror) instead");
+        assertEquals(100L, half.maximumUnits());
+    }
+
+    /** Same proof at a future resolved maximum above 100 (an exceptional Origin/Species/effect). */
+    @Test
+    void foodResourceRepresentsTrueValueAtAResolvedMaximumAboveOneHundred() {
+        FakeGenericSyncResourceAccess access = new FakeGenericSyncResourceAccess();
+        ClientResourceService service = serviceWithGenericReader(access);
+
+        access.state.applyFull(new ResourceFullSyncPayload(
+                ResourceSyncProtocol.PROTOCOL_VERSION, 1L, List.of(scalar(PlayerResourceIds.FOOD, 75, 150)), List.of()));
+
+        ClientResourceQueryResult.Scalar result = (ClientResourceQueryResult.Scalar) service.query(PlayerResourceIds.FOOD);
+        assertEquals(75L, result.currentUnits());
+        assertEquals(150L, result.maximumUnits(), "a resolved maximum above 100 must present as-is, never clamped to vanilla's 20");
     }
 
     // 29. Reader registration rejects duplicate IDs.

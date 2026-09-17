@@ -44,18 +44,21 @@ class HungerDisplayCharacterizationTest {
     }
 
     @Test
-    void foodDisplayConversionNowExistsViaTheSharedFormatterRegistry() {
-        // The Phase 1 characterization above ("no conversion exists yet") is now superseded: Food
-        // does have a registered ×5 formatter — just reached through PlayerResourceIds.FOOD, not
-        // through RpgDisplayUtils. Native Food 20/16/6/0 -> displayed 100/80/30/0 (canonical §19.8).
+    void foodDisplayConversionIsNowIdentityNotTheOldPhase2AFiveToOneConversion() {
+        // Superseded twice over: Phase 2A registered a x5 formatter (native 0-20 -> display 0-100)
+        // reached through PlayerResourceIds.FOOD, not RpgDisplayUtils. The 2026-09-17 Food 0-100
+        // migration supersedes THAT: totality:food is now natively 0-100 (a real GENERIC_COMPONENT
+        // resource, not vanilla FoodData 0-20 with a presentation trick), so the registered formatter
+        // is IDENTITY — applying any further multiplier here would double-scale a native 73 into a
+        // displayed 365. See TOTALITY_FOOD_0_100_AND_TOTALITY_FOOD_ITEM_IMPLEMENTATION_REPORT_2026-09-17.md.
         zcylas.totality.api.rpg.resources.TestResourceBootstrap.ensureProductionResourcesRegistered();
         ResourceValueFormatter formatter = ResourceValueFormatterRegistry.INSTANCE
                 .get(PlayerResourceIds.FOOD)
-                .orElseThrow(() -> new AssertionError("totality:food formatter must be registered by Phase 2A"));
+                .orElseThrow(() -> new AssertionError("totality:food formatter must be registered"));
 
-        assertEquals(100, formatter.toDisplayValue(20, 1));
-        assertEquals(80, formatter.toDisplayValue(16, 1));
-        assertEquals(30, formatter.toDisplayValue(6, 1));
+        assertEquals(100, formatter.toDisplayValue(100, 1));
+        assertEquals(73, formatter.toDisplayValue(73, 1));
+        assertEquals(30, formatter.toDisplayValue(30, 1));
         assertEquals(0, formatter.toDisplayValue(0, 1));
     }
 

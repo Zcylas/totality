@@ -792,6 +792,98 @@ public class TotalityCommands {
                                         return 1;
                                     })
                             )
+                            // ── /totality food get|set <value> ────────────────────────────
+                            // Dev-only debug tool for the true, authoritative totality:food
+                            // resource. 2026-09-17 correction: "set" no longer hardcodes an upper
+                            // bound of 100 — the resolved maximum (FoodMaximumResolver) is not
+                            // architecturally fixed at 100, so an input above the CURRENT resolved
+                            // maximum is legitimately clamped by PlayerResourceService.set itself
+                            // rather than rejected by the command's own argument range. Both
+                            // subcommands report the actual resolved maximum, never a literal 100.
+                            .then(Commands.literal("food")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        zcylas.totality.api.rpg.resources.ResourceQueryResult result =
+                                                zcylas.totality.api.rpg.resources.PlayerResourceService.INSTANCE
+                                                        .query(player, zcylas.totality.api.rpg.resources.PlayerResourceIds.FOOD);
+                                        if (result instanceof zcylas.totality.api.rpg.resources.ResourceQueryResult.Success success) {
+                                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                                    "Food: " + success.snapshot().currentUnits() + "/" + success.snapshot().maximumUnits()), false);
+                                            return 1;
+                                        }
+                                        ctx.getSource().sendFailure(Component.literal("Food is not queryable for this player."));
+                                        return 0;
+                                    })
+                                    .then(Commands.literal("set")
+                                            .then(Commands.argument("value", IntegerArgumentType.integer(0))
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        int value = IntegerArgumentType.getInteger(ctx, "value");
+                                                        var result = zcylas.totality.api.rpg.resources.PlayerResourceService.INSTANCE.set(
+                                                                player,
+                                                                zcylas.totality.api.rpg.resources.ResourceTarget.scalar(
+                                                                        zcylas.totality.api.rpg.resources.PlayerResourceIds.FOOD, value),
+                                                                zcylas.totality.api.rpg.resources.ResourceContext.of(
+                                                                        zcylas.totality.api.rpg.resources.ResourceCause.of(
+                                                                                zcylas.totality.api.rpg.resources.ResourceContext.CauseTypes.ADMIN_COMMAND)));
+                                                        if (!(result instanceof zcylas.totality.api.rpg.resources.ResourceOperationResult.Success success)) {
+                                                            ctx.getSource().sendFailure(Component.literal("Could not set Food."));
+                                                            return 0;
+                                                        }
+                                                        long finalCurrent = success.after().currentUnits();
+                                                        long finalMax = success.after().maximumUnits();
+                                                        ctx.getSource().sendSuccess(() ->
+                                                                Component.literal("Food set to " + finalCurrent + "/" + finalMax
+                                                                        + (value > finalMax ? " (clamped from requested " + value + ")" : "")), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                                    // ── /totality food debug ──────────────────────────────
+                                    // 2026-09-17 real-client correction: a narrowly-scoped
+                                    // diagnostic for the "real Survival sprint/jump doesn't
+                                    // deplete Food" investigation. Reports every link in the
+                                    // upstream chain (server sprint state, vanilla hunger
+                                    // exhaustion, Saturation) alongside the already-visible
+                                    // downstream state (authoritative Food, vanilla mirror) so a
+                                    // real-client tester can see exactly which link is live
+                                    // without needing a second automated test run. exhaustionLevel
+                                    // has no public vanilla getter — read via reflection, the same
+                                    // pattern FoodSystemVerification already uses for other private
+                                    // vanilla internals.
+                                    .then(Commands.literal("debug")
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                net.minecraft.world.food.FoodData foodData = player.getFoodData();
+                                                float exhaustionLevel;
+                                                try {
+                                                    java.lang.reflect.Field field =
+                                                            net.minecraft.world.food.FoodData.class.getDeclaredField("exhaustionLevel");
+                                                    field.setAccessible(true);
+                                                    exhaustionLevel = field.getFloat(foodData);
+                                                } catch (ReflectiveOperationException e) {
+                                                    exhaustionLevel = Float.NaN;
+                                                }
+                                                zcylas.totality.api.rpg.resources.ResourceQueryResult result =
+                                                        zcylas.totality.api.rpg.resources.PlayerResourceService.INSTANCE
+                                                                .query(player, zcylas.totality.api.rpg.resources.PlayerResourceIds.FOOD);
+                                                String foodLine = result instanceof zcylas.totality.api.rpg.resources.ResourceQueryResult.Success success
+                                                        ? success.snapshot().currentUnits() + "/" + success.snapshot().maximumUnits()
+                                                        : "unavailable";
+                                                float finalExhaustion = exhaustionLevel;
+                                                ctx.getSource().sendSuccess(() -> Component.literal(
+                                                        "Food debug — sprinting=" + player.isSprinting()
+                                                                + ", onGround=" + player.onGround()
+                                                                + ", invulnerable=" + player.getAbilities().invulnerable
+                                                                + ", exhaustionLevel=" + finalExhaustion + " (threshold 4.0)"
+                                                                + ", saturationLevel=" + foodData.getSaturationLevel()
+                                                                + ", authoritative Food=" + foodLine
+                                                                + ", vanilla mirror foodLevel=" + foodData.getFoodLevel() + "/20"
+                                                                + ", difficulty=" + player.level().getDifficulty()), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
                             // ── /totality savingthrows ────────────────────────────────────
                             .then(Commands.literal("savingthrows")
                                     .executes(ctx -> {

@@ -56,6 +56,35 @@ import zcylas.totality.Totality;
  *
  * <p>Phase 7A adds {@code totality:health_recovery_dice} (see its own field doc below).
  *
+ * <p><b>2026-09-17 Food 0-100 migration</b> (post-V1, using V1's established extension points, not
+ * a V1 foundation change): {@code totality:food} migrates from {@code EXTERNAL_ADAPTER} (querying
+ * vanilla {@code FoodData}, 0-20) to {@code GENERIC_COMPONENT} authority (a true resource, baseline
+ * maximum 100 via {@code FoodMaximumResolver}, extensible for exceptional future physiology) — the
+ * same shape as the Mana/Stamina/Rage/Spell Slot migrations above, at {@code definitionVersion = 2}.
+ * Unlike those four, vanilla's own {@code FoodData.foodLevel} is kept alive, but strictly as a
+ * lossy, endpoint-preserving <i>compatibility projection</i>, never a second authority — see
+ * {@code FoodVanillaCompatibilityBridge}. Ordinary vanilla eating, Cake, the Saturation mob effect,
+ * and hunger-exhaustion's depletion are all bridged into authoritative Food; vanilla's own Food-based
+ * sprint gate is bypassed (Stamina owns sprint endurance) and its direct starvation Health damage is
+ * disabled (natural Food-based Health regen was already disabled). Vanilla Saturation remains
+ * temporary depletion/compatibility machinery only, intended to evolve into the future Metabolic
+ * Reserve concept; sustained-underfeeding consequences belong to the future Diet/Metabolism/Fatigue
+ * direction, not to this migration.
+ *
+ * <p><b>Corrected 2026-09-17 (real-client manual test correction):</b> two further issues surfaced
+ * only by testing on a real client/server, not by the automated test suite. First, Peaceful
+ * difficulty's automatic Food restore — originally bridged into authoritative Food like the other
+ * vanilla-triggered changes above — is now disabled entirely ({@code
+ * ServerPlayerPeacefulFoodRestoreAuthorityMixin} suppresses it rather than translating it): Food
+ * represents physical fullness/hunger and must never regenerate merely because the difficulty is
+ * Peaceful. Second, the client Resource façade ({@code
+ * zcylas.totality.client.resource.TotalityClientResourceReaders}) had never been updated to route
+ * {@code totality:food} to the generic-synchronized reader after this migration — it was still wired
+ * to the native reader, which answers straight out of vanilla {@code FoodData}, so the HUD displayed
+ * the lossy 0-20 mirror (20/20, 10/20) instead of the true resource (100/100, 50/100). Both are now
+ * fixed; see {@code TOTALITY_FOOD_0_100_AND_TOTALITY_FOOD_ITEM_IMPLEMENTATION_REPORT_2026-09-17.md}
+ * (§33 is authoritative) for the full detail.
+ *
  * <p>The dormant Resource Registration pass adds {@code totality:thirst}, {@code totality:sanity},
  * and {@code totality:ki} — at the time of that pass, the first {@code GENERIC_COMPONENT}-authority
  * production identifiers with no owning system yet (still true — see each field's own "Dormant" doc
