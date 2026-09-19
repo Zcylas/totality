@@ -49,13 +49,34 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
         return classLevels.values().stream().mapToInt(Integer::intValue).sum();
     }
 
-    /** Player levels → class level. Every 5 player levels = 1 class level, max 30 at level 150. */
-    public int getClassLevel(int playerLevel) {
-        return Math.clamp(playerLevel / 5, 1, 30);
+    /**
+     * Player level → total class-level points a character should have available across all
+     * classes, INCLUDING the free starting Class Level 1 granted at character creation (see
+     * {@code SelectClassHandler.handle}, which calls {@code selectClass(classId, 1)}).
+     *
+     * <p><b>Bug fix:</b> this formula previously omitted that starting level from its own count
+     * ({@code playerLevel / 5}, no offset), so the Player-Level-5 milestone produced the SAME
+     * total (1) the character already started with — the first real award silently vanished, and
+     * every later milestone landed one 5-level bucket late (first bankable point at Player Level
+     * 10 instead of 5, the 30th/final point at Player Level 150 instead of 145). The {@code + 1}
+     * restores the starting level to the total this formula represents, so a fresh Player Level 1
+     * character still totals 1, Player Level 5 totals 2 (starting + first award), Player Level 10
+     * totals 3, and the cap of 30 is reached exactly at Player Level 145 and holds through 150.
+     *
+     * <p>Stateless by design — always recomputed from the player's CURRENT level, never a
+     * separately persisted "already awarded" counter — so this single fix is also the complete,
+     * automatic, zero-migration catch-up for any existing character: the next time this is
+     * evaluated (spending a point, opening the Class tab, leveling up again) it simply reflects
+     * the corrected total, with no risk of double-awarding since nothing was ever consumed from a
+     * mutable counter in the first place.
+     */
+    public static int toClassLevel(int playerLevel) {
+        return Math.clamp(1 + playerLevel / 5, 1, 30);
     }
 
-    public static int toClassLevel(int playerLevel) {
-        return Math.clamp(playerLevel / 5, 1, 30);
+    /** Player levels → class level. See {@link #toClassLevel(int)} for the formula and its fix. */
+    public int getClassLevel(int playerLevel) {
+        return toClassLevel(playerLevel);
     }
 
     public boolean hasClass(Identifier classId) {
@@ -117,7 +138,7 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
     }
 
     public int getAvailableClassPoints(int playerLevel) {
-        return Math.clamp(playerLevel / 5, 1, 30);
+        return toClassLevel(playerLevel);
     }
 
     public int getSpentClassPoints() {

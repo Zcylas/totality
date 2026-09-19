@@ -180,8 +180,15 @@ public class PlayerChargesComponent implements SyncedComponent, CopyableComponen
         }
     }
 
+    /**
+     * 2026-09-19: this was found during the Class Level progression bug investigation as an
+     * unused, drifted duplicate of {@link PlayerClassComponent#toClassLevel(int)} — it used a
+     * different, also-incorrect divisor ({@code / 4}) and had no callers anywhere in the codebase.
+     * Delegates to the one canonical formula instead of carrying its own copy, so it can't drift
+     * again if something starts calling it.
+     */
     public static int toClassLevel(int playerLevel) {
-        return playerLevel / 4;
+        return PlayerClassComponent.toClassLevel(playerLevel);
     }
 
     public void updatePoolMax(Identifier id, int newMax) {
