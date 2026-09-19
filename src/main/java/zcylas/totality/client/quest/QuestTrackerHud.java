@@ -8,7 +8,7 @@ import zcylas.totality.Totality;
 import zcylas.totality.networking.quest.QuestEntryDisplayData;
 
 /**
- * Always-visible top-right HUD tracker for the player's currently tracked quest — solves
+ * Top-right gameplay HUD tracker for the player's currently tracked quest — solves
  * the discoverability problem for quests like First Signal, where the objectives themselves
  * require opening a menu (the Quests app) that the player has no other reason to know exists.
  * Quests auto-track on grant ({@code QuestManager.grantIfMissing}) specifically so this has
@@ -30,7 +30,7 @@ public final class QuestTrackerHud {
     public static void register() {
         HudElementRegistry.addLast(HUD_ID, (graphics, delta) -> {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.gui.hud.isHidden()) return;
+            if (mc.player == null || mc.gui.hud.isHidden() || mc.gui.screen() != null) return;
 
             QuestEntryDisplayData quest = ClientQuestManager.getTrackedQuest().orElse(null);
             if (quest == null) return;
