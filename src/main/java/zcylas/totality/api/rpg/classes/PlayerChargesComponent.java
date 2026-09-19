@@ -120,7 +120,10 @@ public class PlayerChargesComponent implements SyncedComponent, CopyableComponen
             int current = buf.readInt(), max = buf.readInt();
             ChargePool existing = pools.get(id);
             if (existing != null) {
-                pools.put(id, existing.withCurrent(current));
+                // Must also adopt the server's maximum, not just current — withCurrent() alone
+                // left a stale client-side maximum in place forever after the very first sync
+                // (e.g. a Barbarian level-up raising Rage's max was never reflected client-side).
+                pools.put(id, new ChargePool(current, max, existing.rechargeType(), existing.rechargeAmount()));
             } else {
                 // Pool doesn't exist client-side yet — create it
                 pools.put(id, new ChargePool(current, max, RestType.LONG, -1));

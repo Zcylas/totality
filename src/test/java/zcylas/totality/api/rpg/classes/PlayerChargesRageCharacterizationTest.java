@@ -246,6 +246,96 @@ class PlayerChargesRageCharacterizationTest {
         assertEquals(0, buf.readableBytes(), "the entire sync payload must be consumed");
     }
 
+    // ── 2026-09-15 Rage synchronization fix: missing-pool + existing-pool-maximum coverage ──
+    //
+    // Reproduces the exact defects found while auditing a manual /totalitydebug resource parity
+    // report of "totality:rage | PERSISTENT_MISMATCH | generic=2/4 | legacy=0/0" for a level-6
+    // Barbarian. The Generic Resource channel (RageResourceAdapter + Phase 3A sync) was never at
+    // fault; both defects below are in this legacy charge-pool mirror only.
+
+    @Test
+    void missingClientPoolIsCreatedFromServerSyncInsteadOfStayingZeroZero() {
+        // Simulates PlayerConnectionEvents' JOIN handler now calling
+        // ChargeComponents.PLAYER_CHARGES.sync(...) for a reconnecting player whose server-side
+        // pool was already restored from NBT to 2/4 — the client mirror previously had no pool at
+        // all until some other mutation/respawn happened to sync it, producing 0/0 in the meantime.
+        PlayerChargesComponent server = new PlayerChargesComponent(null);
+        server.registerPool(RAGE_ID, 4, RestType.SHORT, 1);
+        server.consume(RAGE_ID);
+        server.consume(RAGE_ID);
+        assertEquals(2, server.getCurrent(RAGE_ID));
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        server.writeSyncPacket(buf, null);
+
+        PlayerChargesComponent client = new PlayerChargesComponent(null); // freshly (re)created, no pools
+        client.applySyncPacket(buf);
+
+        assertEquals(2, client.getCurrent(RAGE_ID));
+        assertEquals(4, client.getMax(RAGE_ID), "must become 2/4 from the server sync, not remain 0/0");
+    }
+
+    @Test
+    void existingClientPoolAdoptsAnIncreasedServerMaximum() {
+        // The historical "live Rage maximum increase" thread left open by the 2026-09-15 resume
+        // audit: applySyncPacket's existing-pool branch previously called withCurrent(current),
+        // which preserves the OLD maximum forever instead of adopting the server's new one.
+        PlayerChargesComponent client = new PlayerChargesComponent(null);
+        client.registerPool(RAGE_ID, 2, RestType.SHORT, 1); // client starts at a stale 2/2
+
+        PlayerChargesComponent server = new PlayerChargesComponent(null);
+        server.registerPool(RAGE_ID, 2, RestType.SHORT, 1);
+        server.updatePoolMax(RAGE_ID, 4); // simulates a Barbarian class level-up: 2/2 -> 2/4
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        server.writeSyncPacket(buf, null);
+        client.applySyncPacket(buf);
+
+        assertEquals(2, client.getCurrent(RAGE_ID));
+        assertEquals(4, client.getMax(RAGE_ID),
+                "an existing client pool must adopt the server's new maximum, not keep its stale one");
+    }
+
+    @Test
+    void existingClientPoolAdoptsADecreasedServerMaximumAndItsAlreadyClampedCurrent() {
+        // The server always sends an already-clamped current (see updatePoolMaxClampsCurrentWhenMaximumDecreases
+        // above) — applySyncPacket just needs to mirror whatever current/max the server sent.
+        PlayerChargesComponent client = new PlayerChargesComponent(null);
+        client.registerPool(RAGE_ID, 6, RestType.SHORT, 1); // client starts at a stale 6/6
+
+        PlayerChargesComponent server = new PlayerChargesComponent(null);
+        server.registerPool(RAGE_ID, 6, RestType.SHORT, 1);
+        server.updatePoolMax(RAGE_ID, 2); // simulates a respec/downgrade: 6/6 -> clamped 2/2
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        server.writeSyncPacket(buf, null);
+        client.applySyncPacket(buf);
+
+        assertEquals(2, client.getCurrent(RAGE_ID), "current must follow the server's already-clamped value");
+        assertEquals(2, client.getMax(RAGE_ID), "an existing client pool must adopt the server's decreased maximum");
+    }
+
+    @Test
+    void existingClientPoolSyncPreservesRechargeMetadataSinceItIsNotOnTheWire() {
+        // writeSyncPacket only serializes current/max (never rechargeType/rechargeAmount — see its
+        // own body) — applySyncPacket's existing-pool branch must keep the client's own recharge
+        // metadata rather than resetting it to the create-branch's RestType.LONG/-1 placeholder.
+        PlayerChargesComponent client = new PlayerChargesComponent(null);
+        client.registerPool(RAGE_ID, 4, RestType.SHORT, 1);
+
+        PlayerChargesComponent server = new PlayerChargesComponent(null);
+        server.registerPool(RAGE_ID, 4, RestType.SHORT, 1);
+        server.consume(RAGE_ID);
+
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), null);
+        server.writeSyncPacket(buf, null);
+        client.applySyncPacket(buf);
+
+        assertEquals(RestType.SHORT, client.getAllPools().get(RAGE_ID).rechargeType(),
+                "an existing pool's recharge type must not be reset by a sync that doesn't carry it");
+        assertEquals(1, client.getAllPools().get(RAGE_ID).rechargeAmount());
+    }
+
     /**
      * Reflection is used deliberately instead of widening the field's visibility, so this
      * characterization test adds zero footprint to production code (the task's Stage 2 scope

@@ -86,9 +86,13 @@ public final class LegacyClientResourceParityReaders implements ClientResourcePa
      * attached component is a completely different, expected situation, still handled correctly by
      * {@code getCurrent}/{@code getMax}'s own convention and by {@code ClientRageParityPolicy}'s
      * Rage-absence-expectation reasoning. No {@code hasPool} accessor was added; no pool is created,
-     * registered, or mutated; the known live maximum-update gap ({@code
-     * PlayerChargesComponent.applySyncPacket} not updating an already-existing pool's maximum) is
-     * left completely unfixed so parity can observe it.
+     * registered, or mutated here.
+     *
+     * <p><b>2026-09-15 Rage synchronization fix:</b> the previously-live maximum-update gap
+     * ({@code PlayerChargesComponent.applySyncPacket} not updating an already-existing pool's
+     * maximum) and the missing JOIN-time sync ({@code PlayerConnectionEvents} never pushed a
+     * reconnecting player's persisted charge pools to their client mirror) are both fixed — this
+     * reader's output should now track the server's Rage state correctly in both cases.
      */
     @Override
     public ClientResourceParitySummary rageSummary() {
