@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,6 +13,7 @@ import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.economy.currency.CreditPaymentHelper;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.ancestry.OriginData;
@@ -322,22 +324,55 @@ public class TotalityCommands {
                                                     })
                                             )
                                     )
-                                    .then(Commands.literal("give")
-                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
-                                                    .executes(ctx -> {
-                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                                        int amount = IntegerArgumentType.getInteger(ctx, "amount");
-
-                                                        for (ItemStack stack :
-                                                                zcylas.totality.init.items.CurrencyItems.CREDITS
-                                                                        .createStacks(amount)) {
-                                                            player.getInventory().add(stack);
-                                                        }
-
-                                                        String msg = "Gave " + amount + "₵ in physical Credits.";
-                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
-                                                        return 1;
-                                                    })
+                            )
+                            // ── /totality credits physical|bank give <player> <amount> ────
+                            // Targets an arbitrary online player (unlike the self-only `wallet`
+                            // commands above) through the canonical economy authorities rather
+                            // than re-deriving inventory/balance mutation here: physical Credits
+                            // go through CreditPaymentHelper.receivePhysical (the same helper the
+                            // Banker's withdraw path uses — item-stack creation, MAX_PER_STACK
+                            // splitting, and drop-on-full fallback all stay centralized there),
+                            // and banked Credits go through CreditPaymentHelper.receive, which
+                            // credits the player's WalletComponent balance (persisted via that
+                            // component's own writeData, the same path normal deposits use).
+                            .then(Commands.literal("credits")
+                                    .then(Commands.literal("physical")
+                                            .then(Commands.literal("give")
+                                                    .then(Commands.argument("player", EntityArgument.player())
+                                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                                                    .executes(ctx -> {
+                                                                        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                                                        long amount = IntegerArgumentType.getInteger(ctx, "amount");
+                                                                        CreditPaymentHelper.receivePhysical(target, amount);
+                                                                        String msg = "Gave " + amount + "₵ in physical Credits to "
+                                                                                + target.getName().getString() + ".";
+                                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), true);
+                                                                        return 1;
+                                                                    })
+                                                            )
+                                                    )
+                                            )
+                                    )
+                                    .then(Commands.literal("bank")
+                                            .then(Commands.literal("give")
+                                                    .then(Commands.argument("player", EntityArgument.player())
+                                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                                                    .executes(ctx -> {
+                                                                        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                                                        long amount = IntegerArgumentType.getInteger(ctx, "amount");
+                                                                        if (!CreditPaymentHelper.receive(target, amount)) {
+                                                                            ctx.getSource().sendFailure(Component.literal(
+                                                                                    "Could not credit " + target.getName().getString()
+                                                                                            + "'s bank balance (overflow)."));
+                                                                            return 0;
+                                                                        }
+                                                                        String msg = "Gave " + amount + "₵ in banked Credits to "
+                                                                                + target.getName().getString() + ".";
+                                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), true);
+                                                                        return 1;
+                                                                    })
+                                                            )
+                                                    )
                                             )
                                     )
                             )
