@@ -138,10 +138,17 @@ public class PlayerStats {
 
     public boolean tryLevelUp() {
         if (isMaxLevel()) return false;
-        level++;
-        unspentAttributePoints += ATTRIBUTE_POINTS_PER_LEVEL;
+        advanceLevel();
         characterXp = 0;
         return true;
+    }
+
+    /** Shared level-increment step (attribute points only) — see {@link #tryLevelUp()} and
+     *  {@link #addCharacterXp(int)}, which handle the XP side differently (unconditional reset
+     *  vs. carryover). */
+    private void advanceLevel() {
+        level++;
+        unspentAttributePoints += ATTRIBUTE_POINTS_PER_LEVEL;
     }
 
     public void setLevelDirectly(int level) {
@@ -156,13 +163,39 @@ public class PlayerStats {
         return (level + 3) * 25;
     }
 
+    /**
+     * Adds {@code amount} character XP, then processes as many level-ups as the resulting total
+     * covers — repeatedly consuming exactly {@link #getXpRequiredForNextLevel()} (recalculated
+     * fresh each iteration, since the requirement changes with level) and carrying the remainder
+     * forward, rather than discarding it.
+     *
+     * <p><b>Bug fix:</b> this previously added {@code amount}, then called {@link #tryLevelUp()}
+     * AT MOST ONCE if the threshold was met — which unconditionally zeroed {@code characterXp}
+     * regardless of how far past the threshold it was, silently losing any overflow (e.g. Level 1
+     * at 0/100 XP gaining 120 XP produced Level 2 at 0 XP, not the correct 20 XP remainder), and
+     * could only ever advance one Player Level per call even if the awarded amount covered several
+     * thresholds at once. The loop below fixes both: it keeps consuming thresholds (via the
+     * shared {@link #advanceLevel()} step, without zeroing XP) until the remaining XP is below the
+     * requirement for the player's new current level, or the level cap is reached.
+     *
+     * <p>Max-level XP policy is unchanged from before this fix: once {@link #isMaxLevel()}, no XP
+     * is retained (this already refused to add XP at all once capped; a large award that crosses
+     * into the cap mid-loop now hits the same "XP resets to 0 at cap" outcome instead of losing
+     * only part of the overflow to the old single-step bug).
+     */
     public boolean addCharacterXp(int amount) {
         if (isMaxLevel()) return false;
         characterXp += amount;
-        if (characterXp >= getXpRequiredForNextLevel()) {
-            return tryLevelUp();
+        boolean leveledUp = false;
+        while (!isMaxLevel() && characterXp >= getXpRequiredForNextLevel()) {
+            characterXp -= getXpRequiredForNextLevel();
+            advanceLevel();
+            leveledUp = true;
         }
-        return false;
+        if (isMaxLevel()) {
+            characterXp = 0;
+        }
+        return leveledUp;
     }
 
     public void setCharacterXpDirectly(int xp) {
