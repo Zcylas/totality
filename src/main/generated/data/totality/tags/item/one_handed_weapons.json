@@ -12,6 +12,9 @@
     "minecraft:golden_spear",
     "minecraft:diamond_spear",
     "minecraft:netherite_spear",
-    "minecraft:mace"
+    "minecraft:mace",
+    "totality:iron_sword",
+    "totality:steel_sword",
+    "totality:zanpakuto"
   ]
 }
