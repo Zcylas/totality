@@ -402,6 +402,12 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(BasicWeaponItems.GOLD_SHURIKEN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(BasicWeaponItems.DIAMOND_SHURIKEN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(BasicWeaponItems.NETHERITE_SHURIKEN, ModelTemplates.FLAT_ITEM);
+            //Skyrim Swords
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/iron_sword.json
+        generators.itemModelOutput.accept(
+                BasicWeaponItems.IRON_SWORD,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/iron_sword")));
         //Ingredients
             //Gears
         generators.generateFlatItem(IngredientItems.COPPER_GEAR, ModelTemplates.FLAT_ITEM);
