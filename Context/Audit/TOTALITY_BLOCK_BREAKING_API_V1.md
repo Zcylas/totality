@@ -9,7 +9,7 @@
 >
 > **DEFERRED (not part of V1):** authored Mining Stats · universal mining tooltips (effective values + Shift provenance) · block structural tooltip · modular tools · drills / generic Impact Cost Policy (energy, fuel, resource...) · two-handed tools · a reusable Animation API · circular/radial Power Mining HUD art · Popeye-like cosmetic/Gacha animation skin · Veinminer rewrite (50 % aggregate work) · mining source taxonomy · third-person mining animation · final large-scale block balance.
 
-Branch `feature/block-breaking-api`, based on `master` @ `bc16cc3`. Minecraft 26.2, Fabric (Loader 0.19.3 / Fabric API 0.161.0+26.2 — the bump in `gradle.properties` is intentional), Java 25, no new dependencies.
+Developed on `feature/block-breaking-api` (cut from `master` @ `bc16cc3`), committed as `2193939` + `1946a42`, then integrated with the canonical line (`master` = `feature/soul-gems` @ `3170e2f`) by merge commit `ab9ef6a`; `master` was fast-forwarded to the result. Minecraft 26.2, Fabric (Loader 0.19.3 / Fabric API 0.161.0+26.2 — the bump in `gradle.properties` is intentional), Java 25, no new dependencies.
 
 Legend: **FINAL V1 BEHAVIOR** = the rule/structure is decided for V1; **PROVISIONAL** = a tuning constant that will be rebalanced. **IMPLEMENTED** · **PROVISIONAL** (works, number/policy is a tuning placeholder) · **DEFERRED** · **OPEN** (design question).
 
@@ -469,10 +469,6 @@ No sprite HUD art (the procedural meter is still a placeholder; final direction 
 | Mining source taxonomy; Power HUD art; third person | **DEFERRED** |
 
 
-## 19. Integration status
+## 19. Integration status (EXECUTED)
 
-Block Breaking V1 is intended to be closed and integrated after the corrected normal bare-hand punch is live-tested. A read-only Git audit was produced in `Context/Audit/TOTALITY_BRANCH_INTEGRATION_AUDIT_2026-09-21.md`: the history is one straight line ending in `feature/soul-gems` (53 commits ahead of `master`, containing the Player Resource API, Food 0–100 and Soul Gems), this branch is 53 commits behind it, five tracked files will conflict (all additive), and no rubble/physics-mining experiment branch exists in the repository. **Nothing has been merged.**
-
-## 20. Future Animation API (DEFERRED — documentation only)
-
-Totality may eventually get a **small reusable Animation API** instead of authoring every gameplay animation as isolated transform logic. Initial validation candidates, chosen so the API is proven on meaningfully different animation types rather than built around mining: **(1) the bare-hand mining punch** and **(2) one sword animation**. Potential future responsibilities: named animation profiles; phases; normalised timelines; contact/event markers; cadence/time scaling; dominant-hand mirroring; first-person transforms; possibly third-person integration; cosmetic animation skins; while **gameplay-authoritative contact stays outside presentation** (an animation, or a skin, never changes damage, tier, speed, force or contact timing). Nothing is designed or implemented now, and the accepted mining animations (`MiningHandAnimation`) are **not** to be refactored into it as part of V1.
+Block Breaking V1 was accepted after the final live visual test and **integrated**: committed (`2193939` build bump, `1946a42` feature), `master` fast-forwarded to `feature/soul-gems` (`3170e2f`), `master` merged into the feature branch (`ab9ef6a`, two additive conflicts in `gradle.properties` and `totality.mixins.json`, resolved keeping both sides), validated (build, 1717 JUnit tests, `MiningVerification` 166/166, all other dev suites except the historical `OffhandAttackVerification` failures, dedicated server and dev client start), and `master` fast-forwarded to the integrated result. Details: `Context/Audit/TOTALITY_BRANCH_INTEGRATION_AUDIT_2026-09-21.md` §9. Nothing was pushed; no branch was deleted.

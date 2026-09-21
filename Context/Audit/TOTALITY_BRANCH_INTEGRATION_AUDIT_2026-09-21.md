@@ -148,3 +148,46 @@ Goal: **one unified current Totality codebase = `master`**, from which every new
 1. **Where is the rubble/physics-mining experiment?** No branch, ref, reflog entry or unreachable commit exists for it in this repo (§4). It cannot be excluded or included by name because it is not here; tell us where it lives if it must be handled.
 2. Confirm that `feature/soul-gems` (not an older intermediate) is indeed the intended latest line, and that nothing exists on another machine/clone that is not in `origin` (all six remote heads are accounted for).
 3. Decide commit granularity for Block Breaking (§7 Step 0) and whether Step 3 is a fast-forward or a PR merge.
+
+---
+
+## 9. EXECUTED INTEGRATION RESULT (2026-09-21)
+
+The plan in §7 was executed after the developer accepted Block Breaking V1. **Nothing was pushed. No branch was deleted.**
+
+**Pre-flight:** graph unchanged (`master` = `origin/master` = `bc16cc3`; `feature/soul-gems` = `3170e2f`, 53 ahead of `master`; `git merge-base master feature/soul-gems` = `master`; `feature/block-breaking-api` merge-base with `master` = `bc16cc3`; no stash).
+
+| Step | Result |
+|---|---|
+| Block Breaking commits (on `feature/block-breaking-api`) | `2193939` *build: bump Fabric API to 0.161.0+26.2*, then **`1946a42` *feat: implement Block Breaking API v1*** (37 files). Excluded: `.claude/`, `logs/`, `src/main/generated/.cache/`, review ZIPs. |
+| Validation of that commit (before integration) | `bash gradlew build` OK; `MiningVerification` **166/166** |
+| `master` → `feature/soul-gems` | **fast-forward** `bc16cc3` → `3170e2f` (`git merge --ff-only`); no merge commit; `general-resource-api`, `food-system` and the `origin/` variants were *not* merged separately (all ancestors of `soul-gems`) |
+| `master` merged into `feature/block-breaking-api` | merge commit **`ab9ef6a`** (`--no-ff`, history preserved) |
+| Documentation commit on `feature/block-breaking-api` | the commit that contains this section (see `git log`) |
+| `master` → `feature/block-breaking-api` | fast-forward to that final commit (see `git log`; `git diff master..feature/block-breaking-api` is empty) |
+
+**Actual conflicts (2, not the 5 predicted):** `gradle.properties` and `src/main/resources/totality.mixins.json`. `Totality.java`, `TotalityClient.java` and `networking/TotalityPackets.java` were predicted but **auto-merged cleanly** because all edits were append-only in different places.
+
+| File | Resolution |
+|---|---|
+| `gradle.properties` | `fabric_api_version=0.161.0+26.2` (Block Breaking) **and** `loader_version=0.19.5` (canonical line; auto-merged). The canonical `0.160.0+26.2` was discarded in favour of the newer intentional bump; nothing else in the file conflicted. |
+| `totality.mixins.json` | Block Breaking's `client.MinecraftMiningMixin`, `client.MiningHandRenderMixin` **and** the canonical five `client.chat.*` mixins kept in the `client` list; the canonical Food/regeneration mixins and `mining.ServerPlayerGameModeMixin` were already in the common list (auto-merged). JSON validated; **no duplicates** (51 entries). |
+| `Totality.java`, `TotalityClient.java`, `TotalityPackets.java` | auto-merged; verified by `git diff master -- <file>`: the *only* differences from the canonical line are the Block Breaking registrations (`PlayerMiningManager.register`, `MiningVerification.register`, `ClientMiningController.register`, `MiningIntentPayload` and `MiningSwingPayload` registrations). |
+
+**Unexpected semantic conflicts: none.**
+
+**Semantic integration checks**
+1. *PlayerStats / STR / DEX:* the canonical `PlayerStats` changed only XP/level-up logic; `BASE_SCORE`, `getScore`, `getModifier`, `recalculate`, `setSpentPointsDirectly` are unchanged and Block Breaking uses only those. `MiningVerification` STR/DEX cases pass (166/166) on the integrated tree.
+2. *Body strain:* `VanillaDamageInterceptor` and `TotalityDamage` are unchanged on the canonical line, so bare-hand orange/red strain still hands the intended provisional amount (2 / 6 HP) to the normal server damage path (verified through the test seam; tool Power hits, misses, DENIED and INEFFECTIVE hits cause none; one call per successful contact). Actual HP lost may legitimately differ through Totality's damage handling (resistances etc.); it was not bypassed.
+3. *Food / exhaustion:* Block Breaking does not touch food. Its terminal break is the vanilla `destroyBlock`, which calls the same `Block.playerDestroy` (vanilla exhaustion call) as before; the canonical food authority mixins remain untouched and applied. `FoodSystemVerification` 42/42.
+4. *Dual wield / item rendering:* `ItemInHandRendererMixin` (dual wield) is unchanged on the canonical line; `MiningHandRenderMixin` uses different injectors (main-hand `@ModifyArg` ordinal 0, `renderItem`/`renderPlayerArm` wraps) and both apply in the dev client. Dual-wield visuals were not exercised interactively.
+5. *Generic Player Resource:* Block Breaking neither duplicates nor bypasses the Resource API (it holds no resource state); the resource suites pass.
+
+**Validation of the integrated tree**
+* `bash gradlew build`: **BUILD SUCCESSFUL**. JUnit (now present on the canonical line): **1717 tests, 0 failures, 0 errors, 0 skipped** (re-run with `cleanTest test`).
+* Dedicated dev server: `Done`, no mixin/registry/packet/codec failure; every dev suite ran: `MiningVerification` **166/166**, `PowerAttackVerification` 12/12, `FoodSystemVerification` 42/42, `SoulGemSystemVerification` 16/16, `ResourceFoundationVerification` 6/6, `BaselineResourceMigrationVerification` 11/11, `BarbarianRageMigrationVerification` 18/18, `StandardSpellSlotMigrationVerification` 23/23, `HealthRecoveryDiceResourceVerification` 14/14, `CrownOfStarsActiveInstanceActionVerification` 11/11, `ProvisionerVerification` 71/71, `TradingScreenVerification` 22/22, `MerchantSellVerification` 47/47, `ItemValueVerification` 19/19. **`OffhandAttackVerification` 3/5 fails — the same historical failures as before the integration (not a regression).** (`PowerAttackVerification`, which had 1 historical failure on the old base, is 12/12 on the canonical line.)
+* Dev client: started, applied all mixins, joined a world and rendered for about 9 seconds until the window was closed (clean shutdown); no crash, mixin, networking or render error. No input was driven, so mining, animations, inventory/tooltips, the Food HUD and dual-wield rendering were **not** exercised in this run.
+
+**Rubble experiment:** the earlier rubble/block-fracture experiment is not represented by a current Git branch and therefore is not part of this integration. Nothing was merged, recreated or excluded for it.
+
+**Branches kept (nothing deleted):** `feature/soul-gems`, `feature/food-system`, `feature/general-resource-api`, `migration/minecraft-26.2`, `feature/provisioner-phase-4`, `feature/block-breaking-api`, `master`, and all remote-tracking refs. After this integration they are all ancestors of `master`, so any of them can be retired later once the developer approves the unified `master`.
