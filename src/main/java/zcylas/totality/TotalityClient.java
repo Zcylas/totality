@@ -122,6 +122,7 @@ public class TotalityClient implements ClientModInitializer {
         zcylas.totality.client.quest.QuestTrackerHud.register();
         MobHealthBarHud.register();
         CombatTextRenderer.register();
+        zcylas.totality.client.mining.ClientMiningController.register();
         HeatVisionBeamRenderer.register();
 
         SecondaryResourceRegistry.register(new ISecondaryResource() {

@@ -19,7 +19,8 @@
 		"InventoryCreditsMergeMixin",
 		"MultiNoiseBiomeSourceParameterListMixin",
 		"client.LivingEntityMixin",
-		"item.TridentItemMixin"
+		"item.TridentItemMixin",
+		"mining.ServerPlayerGameModeMixin"
 	],
 	"client": [
 		"EntityDimensionsMixin",
@@ -36,7 +37,9 @@
 		"client.GuiExtractRenderStateMixin",
 		"client.HumanoidModelMixin",
 		"client.ItemInHandRendererMixin",
-		"client.MultiPlayerGameModeMixin"
+		"client.MultiPlayerGameModeMixin",
+		"client.MinecraftMiningMixin",
+		"client.MiningHandRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

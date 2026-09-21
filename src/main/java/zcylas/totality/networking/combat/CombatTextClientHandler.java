@@ -52,6 +52,8 @@ public final class CombatTextClientHandler {
                 CombatTextManager.spawnCondition(type,
                         Conditions.getByName(payload.label()), pos);
             }
+            case BLOCK_DAMAGE -> CombatTextManager.spawnBlockDamage(payload.amount(), pos, payload.style());
+            case INEFFECTIVE -> CombatTextManager.spawnIneffective(payload.label(), pos);
             case HEAL -> CombatTextManager.spawnDamage(
                     null, payload.amount(), pos, false, false);
         }

@@ -12,7 +12,9 @@ public final class CombatTextEntry {
         RESIST,     // resistance — shows number, dimmer
         VULNERABLE, // vulnerability — shows number, brighter
         CONDITION,  // condition applied — shows condition name
-        HEAL        // future — green number
+        HEAL,       // future — green number
+        BLOCK_DAMAGE, // structural damage to a block — shows "-amount" at the impact point
+        INEFFECTIVE   // a block impact that could not damage the material — shows label
     }
 
     private final TextType type;
@@ -21,6 +23,7 @@ public final class CombatTextEntry {
     private final String label;                    // "IMMUNE", condition name, or null
     private final Vec3 worldPos;
     private int age;                               // ticks since spawned
+    private int style;                            // presentation band (0 = default); colour only, never gameplay
     private final boolean abbreviated;            // 1.2k vs 1200
 
     public static final int MAX_AGE = 30;          // 1.5 seconds at 20tps
@@ -59,11 +62,20 @@ public final class CombatTextEntry {
         return new CombatTextEntry(TextType.CONDITION, damageType, 0, conditionName, pos);
     }
 
+    public static CombatTextEntry blockDamage(float amount, Vec3 pos) {
+        return new CombatTextEntry(TextType.BLOCK_DAMAGE, null, amount, null, pos);
+    }
+
+    public static CombatTextEntry ineffective(String label, Vec3 pos) {
+        return new CombatTextEntry(TextType.INEFFECTIVE, null, 0, label, pos);
+    }
+
     // ── Display text ──────────────────────────────────────────────────────────
 
     public String getDisplayText() {
         return switch (type) {
-            case IMMUNE, CONDITION -> label;
+            case IMMUNE, CONDITION, INEFFECTIVE -> label;
+            case BLOCK_DAMAGE -> "-" + formatAmount(amount);
             case DAMAGE, RESIST, VULNERABLE -> formatAmount(amount);
             case HEAL -> "+" + formatAmount(amount);
         };
@@ -88,5 +100,7 @@ public final class CombatTextEntry {
     public float getAmount() { return amount; }
     public Vec3 getWorldPos() { return worldPos; }
     public int getAge() { return age; }
+    public int getStyle() { return style; }
+    public CombatTextEntry withStyle(int style) { this.style = style; return this; }
     public float getLifePercent() { return (float) age / MAX_AGE; }
 }

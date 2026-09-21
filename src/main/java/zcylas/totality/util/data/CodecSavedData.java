@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.storage.SavedDataStorage;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import org.slf4j.Logger;
 
@@ -132,7 +133,11 @@ public final class CodecSavedData<T> extends SavedData implements Supplier<T> {
             var storage = this.global
                     ? level.getServer().overworld().getDataStorage()
                     : level.getDataStorage();
+            return create(storage);
+        }
 
+        /** Retrieve (or create) from an explicit storage (used by persistence round-trip tests). */
+        public CodecSavedData<T> create(SavedDataStorage storage) {
             if (this.type == null) {
                 this.type = new SavedDataType<>(
                         this.id,

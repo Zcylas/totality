@@ -69,9 +69,24 @@ public final class CombatTextRenderer {
             case IMMUNE -> 0.5f;
             default     -> 1.0f;
         };
-        int base   = 0xFF000000 | getTypeColor(entry.getDamageType());
+        int base   = 0xFF000000 | switch (entry.getType()) {
+            case BLOCK_DAMAGE -> blockDamageColor(entry.getStyle());
+            case INEFFECTIVE  -> 0xB0B0B0;
+            default           -> getTypeColor(entry.getDamageType());
+        };
         int dimmed = dim < 1f ? ColorUtils.blend(0xFF000000, base, dim) : base;
         return ColorUtils.setAlpha(dimmed, (int)(alpha * 255));
+    }
+
+    /** Structural damage colour by presentation band: default, then increasingly bright/hot Power force, then danger red. */
+    private static int blockDamageColor(int band) {
+        return switch (band) {
+            case 1 -> 0xF2D88A;
+            case 2 -> 0xFFC24A;
+            case 3 -> 0xFF8A2A;
+            case 4 -> 0xFF3030;
+            default -> 0xE8C46A;
+        };
     }
 
     private static int getTypeColor(TotalityDamageType type) {

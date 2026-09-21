@@ -46,6 +46,15 @@ public final class CombatTextManager {
         ));
     }
 
+    /** Block impacts are shown at the exact struck point (no entity-height offset), lightly jittered. */
+    public static void spawnBlockDamage(float amount, Vec3 hitPos, int style) {
+        ENTRIES.add(CombatTextEntry.blockDamage(amount, jitter(hitPos)).withStyle(style));
+    }
+
+    public static void spawnIneffective(String label, Vec3 hitPos) {
+        ENTRIES.add(CombatTextEntry.ineffective(label, jitter(hitPos)));
+    }
+
     // ── Tick ──────────────────────────────────────────────────────────────────
 
     public static void tick() {
@@ -60,6 +69,14 @@ public final class CombatTextManager {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static Vec3 jitter(Vec3 base) {
+        return new Vec3(
+                base.x + (RANDOM.nextFloat() - 0.5f) * 0.3f,
+                base.y + RANDOM.nextFloat() * 0.2f,
+                base.z + (RANDOM.nextFloat() - 0.5f) * 0.3f
+        );
+    }
 
     // Slight random offset so multiple hits don't perfectly overlap
     private static Vec3 randomOffset(Vec3 base) {

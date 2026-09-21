@@ -83,6 +83,8 @@ public class Totality implements ModInitializer {
 
 		// ── Ticks ─────────────────────────────────────────────────────────────
 		registerServerTickEvents();
+		zcylas.totality.api.mining.PlayerMiningManager.register();
+		zcylas.totality.api.mining.MiningVerification.register();
 
 		// ── World ─────────────────────────────────────────────────────────────
 		TotalityBiomeModifications.register();

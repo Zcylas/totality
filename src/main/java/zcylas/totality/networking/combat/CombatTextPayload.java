@@ -17,8 +17,16 @@ public record CombatTextPayload(
         boolean resisted,
         boolean vulnerable,
         int entityId,
-        int attackerEntityId
+        int attackerEntityId,
+        int style                  // presentation band only (0 = default); never gameplay
 ) implements CustomPacketPayload {
+
+    /** Entity combat text and every pre-existing sender: default presentation. */
+    public CombatTextPayload(CombatTextEntry.TextType textType, Identifier damageTypeId, float amount, String label,
+                             double x, double y, double z, boolean resisted, boolean vulnerable,
+                             int entityId, int attackerEntityId) {
+        this(textType, damageTypeId, amount, label, x, y, z, resisted, vulnerable, entityId, attackerEntityId, 0);
+    }
 
     public static final CustomPacketPayload.Type<CombatTextPayload> TYPE =
             new CustomPacketPayload.Type<>(
@@ -41,6 +49,7 @@ public record CombatTextPayload(
         buf.writeBoolean(p.vulnerable());
         buf.writeInt(p.entityId());
         buf.writeInt(p.attackerEntityId());
+        buf.writeByte(p.style());
     }
 
     private static CombatTextPayload decode(RegistryFriendlyByteBuf buf) {
@@ -55,8 +64,9 @@ public record CombatTextPayload(
         boolean vulnerable = buf.readBoolean();
         int entityId = buf.readInt();
         int attackerEntityId = buf.readInt();
+        int style = buf.readByte();
         return new CombatTextPayload(type, damageTypeId, amount,
-                label, x, y, z, resisted, vulnerable, entityId, attackerEntityId);
+                label, x, y, z, resisted, vulnerable, entityId, attackerEntityId, style);
     }
 
     @Override

@@ -85,6 +85,8 @@ public class TotalityPackets {
         registry.register(FavoriteAbilityPayload.TYPE, FavoriteAbilityPayload.CODEC);
         registry.register(VeinminerKeyPayload.TYPE, VeinminerKeyPayload.CODEC);
         registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
+        registry.register(zcylas.totality.networking.mining.MiningIntentPayload.TYPE,
+                zcylas.totality.networking.mining.MiningIntentPayload.CODEC);
         registry.register(zcylas.totality.networking.combat.BlockKeyPayload.TYPE,
                 zcylas.totality.networking.combat.BlockKeyPayload.CODEC);
         registry.register(zcylas.totality.networking.combat.OffhandAttackPayload.TYPE,
@@ -131,6 +133,8 @@ public class TotalityPackets {
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
+        registry.register(zcylas.totality.networking.mining.MiningSwingPayload.TYPE,
+                zcylas.totality.networking.mining.MiningSwingPayload.CODEC);
         registry.register(SideModeSyncPayload.TYPE, SideModeSyncPayload.CODEC);
         registry.register(SyncStaminaPayload.TYPE, SyncStaminaPayload.CODEC);
         registry.register(SyncManaPayload.TYPE, SyncManaPayload.CODEC);
