@@ -12,7 +12,14 @@ public record RarityComponent(ItemRarity rarity) {
 
     public static final StreamCodec<ByteBuf, RarityComponent> STREAM_CODEC =
             ByteBufCodecs.STRING_UTF8.map(
-                    s -> new RarityComponent(ItemRarity.valueOf(s.toUpperCase())),
+                    s -> new RarityComponent(fromNameWithLegacyAlias(s)),
                     c -> c.rarity().getSerializedName()
             );
+
+    /** Mirrors {@link ItemRarity#CODEC}'s "artifact" -> {@link ItemRarity#ANCIENT} read alias. */
+    private static ItemRarity fromNameWithLegacyAlias(String s) {
+        String normalized = s.toUpperCase();
+        if (normalized.equals("ARTIFACT")) return ItemRarity.ANCIENT;
+        return ItemRarity.valueOf(normalized);
+    }
 }

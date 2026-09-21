@@ -220,8 +220,10 @@ public abstract class BaseCharacterScreen extends Screen {
         int cy = summaryY + PAD;
         cy = drawSummaryRow(g, 0, cy, lw, "Name:",    playerName);
         cy = drawSummaryRow(g, 0, cy, lw, "Level:",   String.valueOf(level));
-        String classLine = ClientClassManager.getSubclassData() != null
-                ? ClientClassManager.getSubclassData().displayName()
+        var primarySubclass = ClientClassManager.getPrimaryClassId() != null
+                ? ClientClassManager.getSubclassData(ClientClassManager.getPrimaryClassId()) : null;
+        String classLine = primarySubclass != null
+                ? primarySubclass.displayName()
                 : ClientClassManager.getPrimaryClassData() != null
                 ? ClientClassManager.getPrimaryClassData().displayName()
                 : "None";

@@ -6,11 +6,26 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.combat.CombatStateManager;
-import zcylas.totality.api.rpg.resources.PlayerResourceComponent;
-import zcylas.totality.api.rpg.resources.ResourceComponents;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.PlayerResourceService;
+import zcylas.totality.api.rpg.resources.ResourceAmount;
+import zcylas.totality.api.rpg.resources.ResourceCause;
+import zcylas.totality.api.rpg.resources.ResourceContext;
+import zcylas.totality.api.rpg.resources.ResourceQueryResult;
+import zcylas.totality.api.rpg.resources.ResourceTarget;
+import zcylas.totality.api.rpg.resources.integration.PlayerBaselineResources;
 import zcylas.totality.api.rpg.stamina.base.*;
 
 
+/**
+ * Phase 4 migration (2026-09-15): compatibility facade over {@link PlayerResourceService} — see
+ * {@link zcylas.totality.api.rpg.mana.PlayerManaManager}'s own Javadoc for the full rationale behind
+ * every design decision below (operation mapping, self-healing instantiation, cause-type choices),
+ * which mirrors this class exactly. {@code totality:stamina} is now the authoritative, {@code
+ * GENERIC_COMPONENT}-owned current value. {@link #getMaxStamina}/{@link #getRegenPercent}/{@link
+ * #calculateRegenAmount} are untouched pure formula computations — {@link StaminaMaximumResolver}
+ * delegates back to {@link #getMaxStamina} rather than duplicating it.
+ */
 public class PlayerStaminaManager {
     public static final int   BASE_MAX_STAMINA        = 100;
 
@@ -33,32 +48,53 @@ public class PlayerStaminaManager {
 
     public static int getStamina(Player player) {
         if (!(player instanceof ServerPlayer sp)) return 0;
-        PlayerResourceComponent comp = ResourceComponents.get(sp);
-        if (!comp.isStaminaInitialized()) {
-            int max = getMaxStamina(player);
-            comp.setStamina(max);
-        }
-        return comp.getStamina();
+        PlayerBaselineResources.ensureInstantiated(sp);
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(sp, PlayerResourceIds.STAMINA);
+        return result instanceof ResourceQueryResult.Success success ? Math.toIntExact(success.snapshot().currentUnits()) : 0;
     }
 
     public static void setStamina(Player player, int amount) {
         if (!(player instanceof ServerPlayer sp)) return;
-        int max = getMaxStamina(player);
-        ResourceComponents.get(sp).setStamina(Math.clamp(amount, 0, max));
+        PlayerBaselineResources.ensureInstantiated(sp);
+        PlayerResourceService.INSTANCE.set(sp, ResourceTarget.scalar(PlayerResourceIds.STAMINA, amount),
+                ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.ADMIN_COMMAND)));
     }
 
     public static void addStamina(Player player, int amount) {
-        setStamina(player, getStamina(player) + amount);
+        if (!(player instanceof ServerPlayer sp)) return;
+        PlayerBaselineResources.ensureInstantiated(sp);
+        PlayerResourceService.INSTANCE.restore(sp, ResourceAmount.scalar(PlayerResourceIds.STAMINA, amount),
+                ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.PASSIVE_REGENERATION)));
     }
 
     public static void removeStamina(Player player, int amount) {
         if (player.isCreative()) return;
-        setStamina(player, getStamina(player) - amount);
+        if (!(player instanceof ServerPlayer sp)) return;
+        PlayerBaselineResources.ensureInstantiated(sp);
+        PlayerResourceService.INSTANCE.drain(sp, ResourceAmount.scalar(PlayerResourceIds.STAMINA, amount),
+                ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.ABILITY_COST)));
     }
 
     public static boolean hasStamina(Player player, int amount) {
         if (player.isCreative()) return true;
         return getStamina(player) >= amount;
+    }
+
+    /**
+     * Task §14 / canonical §24.7: a valid Long Rest fully restores Stamina; ordinary Short Rest does
+     * nothing to it (no separate feature currently says otherwise). Registered as a {@code
+     * RestListener} in {@code PlayerConnectionEvents} alongside Rage/Abilities/Spell Slots'
+     * established pattern. Uses {@code restore} with the exact deficit (never an astronomically
+     * large amount) so the now-checked-arithmetic mutation path cannot spuriously overflow-reject a
+     * legitimate full restore.
+     */
+    public static void onLongRest(ServerPlayer player) {
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(player, PlayerResourceIds.STAMINA);
+        if (!(result instanceof ResourceQueryResult.Success success)) return;
+        long deficit = success.snapshot().maximumUnits() - success.snapshot().currentUnits();
+        if (deficit <= 0) return;
+        PlayerResourceService.INSTANCE.restore(player, ResourceAmount.scalar(PlayerResourceIds.STAMINA, deficit),
+                ResourceContext.of(ResourceCause.of(ResourceContext.CauseTypes.LONG_REST)));
     }
 
     public static int getMaxStamina(Player player) {

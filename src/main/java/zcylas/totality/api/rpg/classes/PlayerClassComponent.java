@@ -16,7 +16,16 @@ import java.util.*;
 public class PlayerClassComponent implements SyncedComponent, CopyableComponent<PlayerClassComponent> {
 
     private final Map<Identifier, Integer> classLevels = new LinkedHashMap<>();
-    private @Nullable Identifier subclassId = null;
+    /**
+     * Per-class subclass ownership: {@code classId -> subclassId}. Migrated (2026-09-16) from a
+     * single global {@code Identifier subclassId} field, which incorrectly modeled subclass choice
+     * as one slot per PLAYER rather than one slot per CLASS — meaning a multiclass character who
+     * picked a Barbarian subclass could never also pick a Wizard subclass ({@code hasSubclass()}
+     * was already {@code true} globally). See the Class Tab Quick Level-Up implementation report's
+     * "Per-class subclass migration" section for the full audit and legacy-save migration behavior
+     * ({@link #readData}).
+     */
+    private final Map<Identifier, Identifier> subclassIds = new LinkedHashMap<>();
     private @Nullable Identifier covenantId = null;
     private final ServerPlayer player;
 
@@ -40,13 +49,34 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
         return classLevels.values().stream().mapToInt(Integer::intValue).sum();
     }
 
-    /** Player levels → class level. Every 5 player levels = 1 class level, max 30 at level 150. */
-    public int getClassLevel(int playerLevel) {
-        return Math.clamp(playerLevel / 5, 1, 30);
+    /**
+     * Player level → total class-level points a character should have available across all
+     * classes, INCLUDING the free starting Class Level 1 granted at character creation (see
+     * {@code SelectClassHandler.handle}, which calls {@code selectClass(classId, 1)}).
+     *
+     * <p><b>Bug fix:</b> this formula previously omitted that starting level from its own count
+     * ({@code playerLevel / 5}, no offset), so the Player-Level-5 milestone produced the SAME
+     * total (1) the character already started with — the first real award silently vanished, and
+     * every later milestone landed one 5-level bucket late (first bankable point at Player Level
+     * 10 instead of 5, the 30th/final point at Player Level 150 instead of 145). The {@code + 1}
+     * restores the starting level to the total this formula represents, so a fresh Player Level 1
+     * character still totals 1, Player Level 5 totals 2 (starting + first award), Player Level 10
+     * totals 3, and the cap of 30 is reached exactly at Player Level 145 and holds through 150.
+     *
+     * <p>Stateless by design — always recomputed from the player's CURRENT level, never a
+     * separately persisted "already awarded" counter — so this single fix is also the complete,
+     * automatic, zero-migration catch-up for any existing character: the next time this is
+     * evaluated (spending a point, opening the Class tab, leveling up again) it simply reflects
+     * the corrected total, with no risk of double-awarding since nothing was ever consumed from a
+     * mutable counter in the first place.
+     */
+    public static int toClassLevel(int playerLevel) {
+        return Math.clamp(1 + playerLevel / 5, 1, 30);
     }
 
-    public static int toClassLevel(int playerLevel) {
-        return Math.clamp(playerLevel / 5, 1, 30);
+    /** Player levels → class level. See {@link #toClassLevel(int)} for the formula and its fix. */
+    public int getClassLevel(int playerLevel) {
+        return toClassLevel(playerLevel);
     }
 
     public boolean hasClass(Identifier classId) {
@@ -80,21 +110,25 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
 
     // ── Subclass & Covenant ───────────────────────────────────────────────────
 
-    public @Nullable Identifier getSubclassId()        { return subclassId; }
+    /** The subclass chosen for {@code classId}, or {@code null} if that class has none yet. A
+     *  subclass chosen for one class never affects any other class's entry. */
+    public @Nullable Identifier getSubclassId(Identifier classId) { return subclassIds.get(classId); }
     public @Nullable Identifier getCovenantId()        { return covenantId; }
-    public boolean hasSubclass()                       { return subclassId != null; }
+    public boolean hasSubclass(Identifier classId)     { return subclassIds.containsKey(classId); }
     public boolean hasCovenant()                       { return covenantId != null; }
+    public Map<Identifier, Identifier> getAllSubclassIds() { return Collections.unmodifiableMap(subclassIds); }
 
     public void selectClass(Identifier classId, int playerLevels) {
         classLevels.clear();
         classLevels.put(classId, playerLevels);
-        subclassId = null;
+        subclassIds.clear();
         covenantId = null;
         sync();
     }
 
-    public void selectSubclass(Identifier id) {
-        this.subclassId = id;
+    /** Applies {@code subclassId} to {@code classId}'s own subclass slot — never any other class's. */
+    public void selectSubclass(Identifier classId, Identifier subclassId) {
+        subclassIds.put(classId, subclassId);
         sync();
     }
 
@@ -104,7 +138,7 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
     }
 
     public int getAvailableClassPoints(int playerLevel) {
-        return Math.clamp(playerLevel / 5, 1, 30);
+        return toClassLevel(playerLevel);
     }
 
     public int getSpentClassPoints() {
@@ -131,8 +165,11 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
             buf.writeUtf(id.toString());
             buf.writeInt(lvl);
         });
-        buf.writeBoolean(subclassId != null);
-        if (subclassId != null) buf.writeUtf(subclassId.toString());
+        buf.writeInt(subclassIds.size());
+        subclassIds.forEach((classId, subclassId) -> {
+            buf.writeUtf(classId.toString());
+            buf.writeUtf(subclassId.toString());
+        });
         buf.writeBoolean(covenantId != null);
         if (covenantId != null) buf.writeUtf(covenantId.toString());
     }
@@ -144,9 +181,13 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
         for (int i = 0; i < count; i++) {
             classLevels.put(Identifier.parse(buf.readUtf()), buf.readInt());
         }
-        subclassId = buf.readBoolean() ? Identifier.parse(buf.readUtf()) : null;
+        subclassIds.clear();
+        int subCount = buf.readInt();
+        for (int i = 0; i < subCount; i++) {
+            subclassIds.put(Identifier.parse(buf.readUtf()), Identifier.parse(buf.readUtf()));
+        }
         covenantId = buf.readBoolean() ? Identifier.parse(buf.readUtf()) : null;
-        ClientClassManager.apply(classLevels, subclassId, covenantId);
+        ClientClassManager.apply(classLevels, subclassIds, covenantId);
     }
 
     // ── Persistence ───────────────────────────────────────────────────────────
@@ -160,7 +201,16 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
             output.putInt("ClassLvl_" + i, entry.getValue());
             i++;
         }
-        output.putString("SubclassId", subclassId != null ? subclassId.toString() : "none");
+        // Per-class format (2026-09-16) — see readData for the one-time migration from the old
+        // single "SubclassId" key this replaces. Always written now; the old key is never written
+        // again once a character has been saved once under this format.
+        output.putInt("SubclassCount", subclassIds.size());
+        int j = 0;
+        for (Map.Entry<Identifier, Identifier> entry : subclassIds.entrySet()) {
+            output.putString("SubclassClassId_" + j, entry.getKey().toString());
+            output.putString("SubclassSubclassId_" + j, entry.getValue().toString());
+            j++;
+        }
         output.putString("CovenantId", covenantId != null ? covenantId.toString() : "none");
     }
 
@@ -176,9 +226,39 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
                 catch (Exception ignored) {}
             }
         }
-        String sub = input.getStringOr("SubclassId", "none");
+
+        subclassIds.clear();
+        // -1 (never a real count) distinguishes "this save predates the per-class format" from "this
+        // save is already per-class but currently has zero subclasses chosen" (SubclassCount == 0).
+        int subCount = input.getIntOr("SubclassCount", -1);
+        if (subCount >= 0) {
+            for (int i = 0; i < subCount; i++) {
+                String classIdStr    = input.getStringOr("SubclassClassId_" + i, "none");
+                String subclassIdStr = input.getStringOr("SubclassSubclassId_" + i, "none");
+                if (!classIdStr.equals("none") && !subclassIdStr.equals("none")) {
+                    try { subclassIds.put(Identifier.parse(classIdStr), Identifier.parse(subclassIdStr)); }
+                    catch (Exception ignored) {}
+                }
+            }
+        } else {
+            // Legacy migration: the old format stored one global subclass with no owning class
+            // recorded — infer it from SubclassRegistry.get(id).parentClassId(), the same
+            // authoritative class/subclass relationship every other consumer already relies on.
+            // Deterministic and re-derived from scratch on every load until this character is
+            // saved once under the new format above (after which SubclassCount >= 0 forever, and
+            // this branch is never consulted again) — so a load that never triggers a save cannot
+            // duplicate or drift, and an unknown/malformed legacy id simply migrates nothing.
+            String legacySub = input.getStringOr("SubclassId", "none");
+            if (!legacySub.equals("none")) {
+                try {
+                    Identifier legacySubclassId = Identifier.parse(legacySub);
+                    SubclassRegistry.get(legacySubclassId)
+                            .ifPresent(data -> subclassIds.put(data.parentClassId(), legacySubclassId));
+                } catch (Exception ignored) {}
+            }
+        }
+
         String cov = input.getStringOr("CovenantId", "none");
-        subclassId = sub.equals("none") ? null : Identifier.parse(sub);
         covenantId = cov.equals("none") ? null : Identifier.parse(cov);
     }
 
@@ -188,14 +268,15 @@ public class PlayerClassComponent implements SyncedComponent, CopyableComponent<
     public void copyFrom(PlayerClassComponent other, HolderLookup.Provider registries) {
         this.classLevels.clear();
         this.classLevels.putAll(other.classLevels);
-        this.subclassId = other.subclassId;
+        this.subclassIds.clear();
+        this.subclassIds.putAll(other.subclassIds);
         this.covenantId = other.covenantId;
     }
 
     // In PlayerClassComponent
     public void resetClass() {
         this.classLevels.clear();
-        this.subclassId = null;
+        this.subclassIds.clear();
         this.covenantId = null;
         sync();
     }

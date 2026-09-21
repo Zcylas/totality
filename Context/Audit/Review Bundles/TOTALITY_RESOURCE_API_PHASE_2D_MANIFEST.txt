@@ -1,0 +1,230 @@
+TOTALITY GENERIC PLAYER RESOURCE API — PHASE 2D REVIEW BUNDLE MANIFEST
+========================================================================
+
+Bundle creation date (UTC): 2026-07-20 (finalization pass — records the
+  passed manual smoke test; supersedes the correction-pass bundle generated
+  earlier the same day, which recorded manual smoke testing as not yet
+  executed).
+Revision: FINALIZATION PASS. No source or test change in this pass — only
+  the two canonical documents updated to record Stefan's manual smoke-test
+  result:
+    Manual smoke testing passed for every currently applicable scenario:
+    existing spell-slot display unchanged; `/totality spellslots` showing
+    sensible max/used/remaining values; a leveled cast consuming exactly
+    one correct standard slot; an unavailable-slot cast producing the
+    existing rejection behaviour; cantrips consuming no slot; Long Rest
+    restoring standard slots exactly as before; spent slot state
+    persisting correctly across logout/relog; death/respawn preserving
+    the existing lifecycle behaviour; no new Resource API/partitioned-
+    snapshot/adapter-registration/spell-slot error in the logs; no visible
+    gameplay/HUD/radial/synchronization/persistence/casting/restoration
+    regression.
+    The planned standard-spellcasting multiclass scenario was NOT
+    APPLICABLE with the currently implemented classes (Warlock is the
+    only other currently relevant arcane class; Warlock Pact Magic is not
+    implemented yet and is intentionally separate from the standard pool
+    in any case) — not a failure or blocker; existing automated
+    characterization tests remain the evidence for pooled
+    full/half/third-caster calculations.
+    One log warning, "Received passengers for unknown entity", appeared
+    once during the Long Rest test — classified as unrelated to Phase 2D,
+    non-blocking, associated with the existing Rest animation/passenger
+    synchronization mechanism, not investigated or fixed here per
+    instruction, and not a Resource API or spell-slot regression. No
+    visible stuck pose/mount/dismount/movement problem was observed.
+  Updated in this pass:
+    - Context/Audit/TOTALITY_RESOURCE_API_PHASE_2D_STANDARD_SPELL_SLOT_ADAPTER_IMPLEMENTATION_REPORT.md
+      — §21 rewritten from "pending plan" to itemized passed result; §3
+      executive-result note and the Correction Pass's §6 final-status both
+      updated; new "Final Status — Ready to Commit" section added.
+    - Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+      — top Status line, the Phase 2D Implementation Record's "Manual
+      verification" line, and a new "Phase 2D Final Status" section all
+      updated to reflect the passed manual smoke test.
+  The prior correction pass's three fixes (unit-scale ownership, the
+  ordering-test correction, the documentation corrections) are unchanged
+  by this pass — see the report's "Correction Pass" section for their
+  original detail.
+Branch: feature/general-resource-api
+Starting commit (Phase 2C, confirmed committed before Phase 2D):
+  fbb836a74e5a7969984a43500548112084e4d2ed ("Add Mana and Stamina resource adapters")
+HEAD commit at manifest generation time: fbb836a74e5a7969984a43500548112084e4d2ed
+  (all Phase 2D work — original implementation, correction pass, and this
+  finalization pass — is uncommitted working-tree content at manifest
+  generation time; nothing was staged or committed at any point prior to
+  this pass; git diff --cached is empty).
+
+Manual smoke test: PASSED. Phase 2D is COMPLETE and READY TO COMMIT.
+
+------------------------------------------------------------------------
+git status --short (full working tree, at manifest generation time)
+------------------------------------------------------------------------
+ M Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+ M src/main/generated/data/minecraft/worldgen/noise_settings/overworld.json
+ M src/main/generated/data/totality/loot_table/blocks/apothecary_table.json
+ M src/main/generated/data/totality/loot_table/blocks/copper_cable.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/electric_furnace.json
+ M src/main/generated/data/totality/loot_table/blocks/flecked_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/generator.json
+ M src/main/generated/data/totality/loot_table/blocks/graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/limestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone_bricks.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_altar.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_dais.json
+ M src/main/generated/data/totality/loot_table/blocks/ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/tin_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/true_wheat_crop.json
+ M src/main/generated/data/totality/loot_table/blocks/whitestone.json
+ M src/main/generated/data/totality/recipe/copper_gear.json
+ M src/main/generated/data/totality/recipe/diamond_gear.json
+ M src/main/generated/data/totality/recipe/gold_gear.json
+ M src/main/generated/data/totality/recipe/iron_gear.json
+ M src/main/java/zcylas/totality/api/magic/spell/SpellSlotComponents.java
+ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryResult.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2D.patch"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2D_IMPLEMENTATION_REPORT.md"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2D_MANIFEST.txt"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2D_REVIEW_BUNDLE.zip"
+?? "Context/Audit/TOTALITY_RESOURCE_API_PHASE_2D_STANDARD_SPELL_SLOT_ADAPTER_IMPLEMENTATION_REPORT.md"
+?? "Context/Trading Test/trade_screen2.png"
+?? "Context/Trading Test/trade_screen3.png"
+?? "Context/Trading Test/trade_screen4.png"
+?? "Context/Trading Test/trade_screen5.png"
+?? logs/
+?? src/main/generated/.cache/
+?? src/main/java/zcylas/totality/api/rpg/resources/PartitionedResourceSnapshot.java
+?? src/main/java/zcylas/totality/api/rpg/resources/external/StandardSpellSlotsResourceAdapter.java
+?? src/test/java/zcylas/totality/api/magic/
+?? src/test/java/zcylas/totality/api/rpg/resources/PartitionedResourceSnapshotTest.java
+?? src/test/java/zcylas/totality/api/rpg/resources/external/StandardSpellSlotsResourceAdapterTest.java
+
+NOTE: only the files listed in the FILE INVENTORY section below are
+included in the ZIP. The pre-existing modified files under
+src/main/generated/data/** (loot tables, recipes, noise settings), the
+untracked Context/Trading Test/*.png screenshots, the untracked
+src/main/generated/.cache/ directory, and the untracked logs/ directory
+are unrelated uncommitted/generated artifacts and are deliberately
+excluded from this bundle. No Phase 1, Phase 2A, Phase 2B, or Phase 2C
+review-bundle artifact (TOTALITY_RESOURCE_API_PHASE_1.*,
+TOTALITY_RESOURCE_API_PHASE_2A.*, TOTALITY_RESOURCE_API_PHASE_2B.*,
+TOTALITY_RESOURCE_API_PHASE_2C.*) was modified by this phase and none is
+included here. /Inspiration Mods was excluded from every search, decision,
+and artifact in this phase.
+
+------------------------------------------------------------------------
+FILE INVENTORY (13 modified files + 8 created files + bundle-local
+report + patch + manifest)
+------------------------------------------------------------------------
+
+Format: CLASSIFICATION  bytes=<size>  sha256=<hash>  <project-relative path>
+
+MODIFIED  bytes=158360   sha256=9091c613e149452f1fcfd1e097c806d48b3cb8b97617f4656093d9344412d414  Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+MODIFIED  bytes=2064     sha256=4d2e3f296023ce6d636bc0e50d782e0d592d6220879e34bf7728cf26aacda016  src/main/java/zcylas/totality/api/magic/spell/SpellSlotComponents.java
+MODIFIED  bytes=3328     sha256=a26b63ac4bfda42f03dfc9a99f00dfc9baccc30f2605d323cb52e6eb4bf05231  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+MODIFIED  bytes=16365    sha256=cc4af449190b2f519f9351039a047b84ae5225c2693c597c9b5960902a58043c  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+MODIFIED  bytes=16106    sha256=dae5008d00193ef5b526093fd62e700537b5ee633010f11e3cde6b7110a2dfd3  src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+MODIFIED  bytes=2503     sha256=ea99094e2bc66debded46594363042c8dba84ee65524d907a9a7c3b5087ee5c0  src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryResult.java
+MODIFIED  bytes=8170     sha256=438316335270267cc4598d00567b6c70f198d114e350fb57c06fd7706f390311  src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+MODIFIED  bytes=11601    sha256=96c81037bf5b7ff8147f6f1e21f8e5cbae042f38f71b527c828f77bfafc27f2f  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+MODIFIED  bytes=28659    sha256=80ea07e4f8d52608a02099f4b2d42a8c19bd29dc4e8450c3432a7edd24b54c49  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+MODIFIED  bytes=40867    sha256=804fb8aed4ae68c16bdd1606ac7c10e4fd8c946e7bc380214c3dde52506dcc16  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+MODIFIED  bytes=23959    sha256=ab886dc88c7ba0e0b900c1c1b168c7e59629ed5ebc1d27bb871a3fa20f5adcd2  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+MODIFIED  bytes=9437     sha256=76119542627909a5f80fb3b4eac5cb87deae9f5442e34e41c597194a5297e871  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+MODIFIED  bytes=12052    sha256=ea928da59c4ff20a7f323bd885105e212b0315f4e06eeaa0afc0d700e12a11fd  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+CREATED   bytes=5517     sha256=3e1629f0e225f9e3048f65f7ce77e1759b9b2f420eab0f2bca328d662a8aba0f  src/main/java/zcylas/totality/api/rpg/resources/PartitionedResourceSnapshot.java
+CREATED   bytes=10687    sha256=6b9a6360967fffeefd40544b658ce19e5bdbd730c39bd96af74cd5cff3ce036c  src/main/java/zcylas/totality/api/rpg/resources/external/StandardSpellSlotsResourceAdapter.java
+CREATED   bytes=7558     sha256=addceec3110f1c29508d6c65e45ccdfe7e0e40e09d9a09ec386b8c46912c0114  src/test/java/zcylas/totality/api/magic/spell/SpellSlotComponentTest.java
+CREATED   bytes=6909     sha256=02777b92bab84e0f840d27d621b295abefeb081578ab2e4e9c4fd6afe9b2125a  src/test/java/zcylas/totality/api/magic/spell/SpellSlotRecalculatorCharacterizationTest.java
+CREATED   bytes=5519     sha256=cf1191fe81c4ab8370e60105d8f5d78862fc58efb1da21203149d35f1e28305a  src/test/java/zcylas/totality/api/magic/spell/SpellSlotTableTest.java
+CREATED   bytes=9086     sha256=30b464a9adba420e7a8935cfe55cce7203cf27ed165ab1a01d496ac3786254f4  src/test/java/zcylas/totality/api/rpg/resources/PartitionedResourceSnapshotTest.java
+CREATED   bytes=14549    sha256=bced6eaee250838fbb7ea4c36832b487d09bc26993020a618f486bb26a35a7ca  src/test/java/zcylas/totality/api/rpg/resources/external/StandardSpellSlotsResourceAdapterTest.java
+CREATED   bytes=45221    sha256=734c869660f23f7d563154052ec6a7a66d765694aa70f6ca1a60861cbe8e4287  Context/Audit/TOTALITY_RESOURCE_API_PHASE_2D_STANDARD_SPELL_SLOT_ADAPTER_IMPLEMENTATION_REPORT.md
+REPORT    bytes=45221    sha256=734c869660f23f7d563154052ec6a7a66d765694aa70f6ca1a60861cbe8e4287  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2D_IMPLEMENTATION_REPORT.md
+PATCH     bytes=185894   sha256=e2cf30e18e3a1bd0c38680e41443645ac54f0bb5e03b83fd28b0cb506e2ff4f8  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2D.patch
+MANIFEST  bytes=N/A       sha256=N/A (self-referential — this row describes this file; a file cannot contain a hash of its own final byte contents without circularity)  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2D_MANIFEST.txt
+
+------------------------------------------------------------------------
+PATCH REGENERATION (this pass)
+------------------------------------------------------------------------
+The correction-pass patch was regenerated in this finalization pass, purely
+to include the two documentation files' new content (the report's smoke-test
+update, the readiness doc's smoke-test update) — no source or test file's
+diff content changed from the correction-pass patch. Regeneration method:
+`git diff fbb836a -- <tracked files>` concatenated with `git diff --no-index
+/dev/null <file>` for each of the 8 new (untracked) files, reproducing the
+same method used to build every prior bundle in this series. Verified via
+`git apply --check --reverse` against the working tree with zero errors
+before being written to this bundle.
+
+------------------------------------------------------------------------
+TOTALS
+------------------------------------------------------------------------
+Files listed above (excluding this manifest's own self-referential row): 23
+  - MODIFIED: 13 (12 code/test files + 1 doc, the readiness audit)
+  - CREATED:  8 (7 code/test files + 1 doc, the Phase 2D implementation report)
+  - REPORT:   1 (bundle-local copy of the implementation report)
+  - PATCH:    1
+Total files packaged into the ZIP (including this manifest itself): 24
+
+------------------------------------------------------------------------
+TEST COUNT
+------------------------------------------------------------------------
+301 (end of Phase 2C) -> 388 (end of initial Phase 2D implementation pass)
+-> 390 (end of correction pass). 390/390 passed, 0 failures, 0 errors.
+Unchanged by this finalization pass (documentation only, no source/test
+change).
+
+------------------------------------------------------------------------
+BUILD/VALIDATION RESULTS (this finalization pass)
+------------------------------------------------------------------------
+./gradlew compileJava compileTestJava   BUILD SUCCESSFUL
+./gradlew test --rerun-tasks             390/390 tests passed
+./gradlew runDatagen                      BUILD SUCCESSFUL, written: 0
+./gradlew build -x runDatagen              BUILD SUCCESSFUL
+git diff --cached                          empty throughout this phase and every pass
+git diff --check                            exit code 0; only pre-existing LF/CRLF warnings, no errors
+git status before/after runDatagen           byte-identical (diff produced no output)
+
+------------------------------------------------------------------------
+MANUAL SMOKE TEST
+------------------------------------------------------------------------
+PASSED for every currently applicable scenario. Full itemized result:
+- Existing spell-slot display unchanged.
+- /totality spellslots displayed sensible maximum, used, and remaining values.
+- Casting a leveled spell consumed the correct standard slot exactly once.
+- Casting without an available suitable slot produced the existing rejection behaviour.
+- Cantrips consumed no spell slot.
+- Long Rest restored standard spell slots exactly as before.
+- Spent spell-slot state persisted correctly across logout and relog.
+- Death and respawn preserved the existing spell-slot lifecycle behaviour.
+- No new Resource API, partitioned-snapshot, adapter-registration, or spell-slot errors observed in the logs.
+- No visible gameplay, HUD, radial, synchronization, persistence, casting, or restoration regression observed.
+
+NOT APPLICABLE (not a failure or blocker): the planned standard-spellcasting
+multiclass smoke test — no second real caster class exists yet alongside
+Warlock (whose Pact Magic is unimplemented and is intentionally a separate
+pool regardless). Existing automated characterization tests
+(SpellSlotTableTest's combinedCasterLevel* tests) remain the evidence for
+pooled full/half/third-caster calculations.
+
+ONE LOG WARNING OBSERVED: "Received passengers for unknown entity", once,
+during the Long Rest test. Classified as: unrelated to Phase 2D; non-blocking;
+associated with the existing Rest animation/passenger synchronization
+mechanism; not a Resource API or spell-slot regression; no visible stuck
+pose/mount/dismount/movement problem observed. Not investigated or fixed in
+Phase 2D, per instruction.
+
+Phase 2D is COMPLETE and READY TO COMMIT.

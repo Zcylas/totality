@@ -90,8 +90,10 @@ public class BasicWeaponItems {
                     .enchantable(ToolMaterial.NETHERITE.enchantmentValue())
                     .component(DataComponents.BREAK_SOUND, SoundEvents.ITEM_BREAK)
                     .useCooldown(0.4f)
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.EPIC))
                     .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.WEAPON))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.WEAPON))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "Born in ancient flame, unmoved by fire or time. The last thing many have seen was its glint in the dark."
                     ))

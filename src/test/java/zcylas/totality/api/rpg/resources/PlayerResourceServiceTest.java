@@ -1,0 +1,781 @@
+package zcylas.totality.api.rpg.resources;
+
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Player;
+import org.junit.jupiter.api.Test;
+import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
+import zcylas.totality.api.rpg.resources.external.ExternalResourceClientMirrorMode;
+import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSupport;
+import zcylas.totality.api.rpg.resources.state.PartitionedResourceState;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Exercises {@link PlayerResourceService}'s query-only routing using a small fake adapter (per the
+ * Phase 2A task's explicit "use a small fake test adapter rather than adding a mocking framework")
+ * and isolated registries, so it never depends on a real Minecraft {@code Player}/{@code ServerPlayer}
+ * or on production {@code INSTANCE} state.
+ */
+class PlayerResourceServiceTest {
+
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath("totality", path);
+    }
+
+    /** Deterministic fake adapter; records how many times it was asked for a snapshot. */
+    private static final class FakeAdapter implements ExternalPlayerResourceAdapter {
+        private final Identifier id;
+        private final long current;
+        private final long max;
+        final AtomicInteger snapshotCalls = new AtomicInteger();
+
+        FakeAdapter(Identifier id, long current, long max) {
+            this.id = id;
+            this.current = current;
+            this.max = max;
+        }
+
+        @Override public Identifier id() { return id; }
+
+        @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+            snapshotCalls.incrementAndGet();
+            return new ResourceQueryResult.Success(new ResourceSnapshot(definition.id(), current, max, definition.unitScale()));
+        }
+
+        @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
+            return Set.of(ExternalResourceOperationSupport.QUERY);
+        }
+
+        @Override public ExternalResourceClientMirrorMode clientMirrorMode() {
+            return ExternalResourceClientMirrorMode.NATIVE_SYNCHRONIZATION;
+        }
+    }
+
+    /**
+     * An adapter that always returns a fixed, potentially-malformed {@code ResourceQueryResult} —
+     * including, deliberately, a literal {@code null} reference for one defensive test (a
+     * misbehaving adapter returning null instead of a real {@code Success}/{@code Failure}).
+     */
+    private static final class FixedSnapshotAdapter implements ExternalPlayerResourceAdapter {
+        private final Identifier id;
+        private final ResourceQueryResult fixedResult;
+        private final Set<ExternalResourceOperationSupport> support;
+
+        FixedSnapshotAdapter(Identifier id, ResourceQueryResult fixedResult, Set<ExternalResourceOperationSupport> support) {
+            this.id = id;
+            this.fixedResult = fixedResult;
+            this.support = support;
+        }
+
+        @Override public Identifier id() { return id; }
+        @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) { return fixedResult; }
+        @Override public Set<ExternalResourceOperationSupport> supportedOperations() { return support; }
+        @Override public ExternalResourceClientMirrorMode clientMirrorMode() { return ExternalResourceClientMirrorMode.NATIVE_SYNCHRONIZATION; }
+    }
+
+    private static PlayerResourceService serviceWith(Identifier resourceId, FakeAdapter adapter) {
+        return serviceWithDefinitionBuilder(resourceId, adapter,
+                builder -> builder.authoredBaseMaximum(100));
+    }
+
+    /** {@code fixedSnapshotOrNull == null} constructs the adapter with a {@code MALFORMED_OWNER_STATE} decline. */
+    private static PlayerResourceService serviceWithFixedSnapshot(
+            Identifier resourceId, ResourceSnapshot fixedSnapshotOrNull, long absoluteMinimum) {
+        ResourceQueryResult fixedResult = fixedSnapshotOrNull == null
+                ? new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId)
+                : new ResourceQueryResult.Success(fixedSnapshotOrNull);
+        FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(
+                resourceId, fixedResult, Set.of(ExternalResourceOperationSupport.QUERY));
+        return serviceWithDefinitionBuilder(resourceId, adapter,
+                builder -> builder.absoluteMinimum(absoluteMinimum).authoredBaseMaximum(absoluteMinimum + 100));
+    }
+
+    private static PlayerResourceService serviceWithDefinitionBuilder(
+            Identifier resourceId,
+            ExternalPlayerResourceAdapter adapter,
+            java.util.function.UnaryOperator<PlayerResourceDefinition.Builder> customize) {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        adapters.register(adapter);
+        PlayerResourceDefinition.Builder builder = PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR)
+                .externalAdapter(adapter.id())
+                .unitScale(1);
+        registry.register(customize.apply(builder).build());
+        registry.freeze(adapters);
+        return new PlayerResourceService(registry, adapters);
+    }
+
+    /**
+     * Reflection is unavoidable here: {@link ExternalPlayerResourceAdapterRegistry#register}
+     * itself now enforces QUERY support at registration time (see the correction pass's
+     * "Enforce operation-support declarations" section), so the only way to get a non-QUERY
+     * adapter into a registry for {@link PlayerResourceService} to independently, defensively
+     * reject is to bypass {@code register()} entirely and place it directly via the private field.
+     */
+    private static void injectAdapterBypassingRegistryValidation(
+            ExternalPlayerResourceAdapterRegistry registry, ExternalPlayerResourceAdapter adapter) {
+        try {
+            Field adaptersField = ExternalPlayerResourceAdapterRegistry.class.getDeclaredField("adapters");
+            adaptersField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Map<Identifier, ExternalPlayerResourceAdapter> adapters =
+                    (Map<Identifier, ExternalPlayerResourceAdapter>) adaptersField.get(registry);
+            adapters.put(adapter.id(), adapter);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inject adapter for test setup", e);
+        }
+    }
+
+    @Test
+    void externalDefinitionsRouteToTheirAdapter() {
+        FakeAdapter adapter = new FakeAdapter(id("fake_ext"), 42, 100);
+        PlayerResourceService service = serviceWith(id("fake_ext"), adapter);
+
+        // Player argument is never dereferenced by this fake adapter — null is honest here, not a
+        // hack: it proves the routing itself, independent of any real Player implementation.
+        ResourceQueryResult result = service.query(null, id("fake_ext"));
+
+        assertInstanceOf(ResourceQueryResult.Success.class, result);
+        ResourceSnapshot snapshot = ((ResourceQueryResult.Success) result).snapshot();
+        assertEquals(42, snapshot.currentUnits());
+        assertEquals(100, snapshot.maximumUnits());
+        assertEquals(1, adapter.snapshotCalls.get());
+    }
+
+    @Test
+    void unknownResourceProducesAStructuredFailureNotAnException() {
+        PlayerResourceService service = new PlayerResourceService(
+                new PlayerResourceRegistry(), new ExternalPlayerResourceAdapterRegistry());
+
+        ResourceQueryResult result = service.query(null, id("nonexistent"));
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        ResourceQueryResult.Failure failure = (ResourceQueryResult.Failure) result;
+        assertEquals(ResourceQueryFailureReason.RESOURCE_NOT_REGISTERED, failure.reason());
+        assertEquals(id("nonexistent"), failure.resourceId());
+    }
+
+    @Test
+    void genericDefinitionsDoNotRouteToAnAdapter() {
+        // Pure routing core, tested directly against a PlayerResourceStateComponent built with a
+        // null ServerPlayer (matching Phase 1's own precedent for testing this component without
+        // the Minecraft runtime) — proves GENERIC_COMPONENT never reaches an adapter at all.
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(id("generic_scalar"), ResourceModel.SCALAR)
+                .authoredBaseMaximum(50)
+                .build();
+        registry.register(definition);
+
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.instantiateScalar(id("generic_scalar"), 30);
+
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
+
+        assertInstanceOf(ResourceQueryResult.Success.class, result);
+        ResourceSnapshot snapshot = ((ResourceQueryResult.Success) result).snapshot();
+        assertEquals(30, snapshot.currentUnits());
+        assertEquals(50, snapshot.maximumUnits());
+    }
+
+    @Test
+    void queryDoesNotInstantiateGenericState() {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(id("never_instantiated"), ResourceModel.SCALAR)
+                .authoredBaseMaximum(50)
+                .build();
+        registry.register(definition);
+
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_NOT_INSTANTIATED,
+                ((ResourceQueryResult.Failure) result).reason());
+        // The query itself must never have created state as a side effect.
+        assertFalse(state.hasState(id("never_instantiated")));
+    }
+
+    @Test
+    void queryNeverMutatesAdapterOrGenericState() {
+        FakeAdapter adapter = new FakeAdapter(id("immutable_ext"), 7, 10);
+        PlayerResourceService service = serviceWith(id("immutable_ext"), adapter);
+
+        service.query(null, id("immutable_ext"));
+        service.query(null, id("immutable_ext"));
+
+        // Two reads produced two independent snapshot() calls, not one cached/mutated value —
+        // and the fake never exposes a mutation path at all, so there is nothing to mutate.
+        assertEquals(2, adapter.snapshotCalls.get());
+    }
+
+    @Test
+    void partitionedGenericDefinitionsNowSupportedButStillFailStructurallyWhenNeverInstantiated() {
+        // 2026-09-15 pre-Phase-4 foundation pass: GENERIC_COMPONENT PARTITIONED_POOL support was
+        // added (queryGenericPartitioned), closing the gap this test previously locked in as
+        // UNSUPPORTED_MODEL — see queryGenericPartitionedWithAnAuthoredResolverSucceeds below for
+        // the now-supported success path. An un-instantiated partitioned resource still fails
+        // structurally, exactly like the scalar case (queryDoesNotInstantiateGenericState above) —
+        // now STATE_NOT_INSTANTIATED (the model itself is supported; there is simply no state yet),
+        // not UNSUPPORTED_MODEL.
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(id("partitioned"), ResourceModel.PARTITIONED_POOL)
+                .build();
+        registry.register(definition);
+
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_NOT_INSTANTIATED,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    // ── Correction pass: no fabricated generic maximum ──────────────────────────────────────
+
+    @Test
+    void genericScalarWithAnAuthoredMaximumSucceeds() {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(id("has_maximum"), ResourceModel.SCALAR)
+                .authoredBaseMaximum(80)
+                .build();
+        registry.register(definition);
+
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.instantiateScalar(id("has_maximum"), 33);
+
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
+
+        assertInstanceOf(ResourceQueryResult.Success.class, result);
+        assertEquals(80, ((ResourceQueryResult.Success) result).snapshot().maximumUnits());
+    }
+
+    @Test
+    void genericScalarWithoutAnAuthoredMaximumFailsStructurallyRatherThanFabricatingOne() {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        // Deliberately never calls .authoredBaseMaximum(...) — the builder's default is
+        // OptionalLong.empty(), exactly the "no resolvable maximum" case under test.
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(id("no_maximum"), ResourceModel.SCALAR)
+                .build();
+        registry.register(definition);
+
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.instantiateScalar(id("no_maximum"), 5);
+
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.MAXIMUM_UNAVAILABLE,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void noFabricatedZeroZeroSuccessWhenMaximumIsUnavailable() {
+        // Regression guard for the exact bug the correction pass fixes: the old fallback
+        // (authoredBaseMaximum().orElse(absoluteMinimum())) silently returned a SUCCESSFUL
+        // snapshot with maximumUnits() == absoluteMinimum() (commonly 0) instead of failing.
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(id("no_maximum_regression"), ResourceModel.SCALAR)
+                .absoluteMinimum(0)
+                .build();
+        registry.register(definition);
+
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry());
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        state.instantiateScalar(id("no_maximum_regression"), 5);
+
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
+
+        assertFalse(result instanceof ResourceQueryResult.Success,
+                "must not return a fabricated 0-maximum success");
+    }
+
+    // ── Correction pass: adapter snapshot validation ────────────────────────────────────────
+
+    @Test
+    void declinedAdapterSnapshotProducesMalformedOwnerStateFailure() {
+        // The adapter legitimately declines (returns a Failure naming MALFORMED_OWNER_STATE) — e.g.
+        // BreathResourceAdapter when the owner's maximum is non-positive. Distinct from a
+        // misbehaving null reference (see nullResultFromAdapterProducesCorruptAdapterSnapshotFailure
+        // below).
+        PlayerResourceService service = serviceWithFixedSnapshot(id("declined_snapshot"), null, 0);
+
+        ResourceQueryResult result = service.query(null, id("declined_snapshot"));
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void nullResultFromAdapterProducesCorruptAdapterSnapshotFailure() {
+        // A misbehaving adapter returns a literal null instead of a real Success/Failure.
+        // Constructed directly (bypassing serviceWithFixedSnapshot's null-to-Failure mapping)
+        // specifically to exercise PlayerResourceService's defensive null-result guard.
+        Identifier resourceId = id("null_result");
+        FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(resourceId, null, Set.of(ExternalResourceOperationSupport.QUERY));
+        PlayerResourceService service = serviceWithDefinitionBuilder(resourceId, adapter,
+                builder -> builder.authoredBaseMaximum(100));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void mismatchedResourceIdInFailureReasonProducesCorruptAdapterSnapshotFailure() {
+        // An adapter that returns a structurally valid Failure, but names a different resourceId
+        // than the one actually queried — must not be trusted as-is, since that would let a
+        // misbehaving/misconfigured adapter attribute a failure to the wrong resource.
+        Identifier queried = id("mismatched_failure_id");
+        FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(
+                queried,
+                new ResourceQueryResult.Failure(ResourceQueryFailureReason.STATE_UNINITIALIZED, id("a_totally_different_resource")),
+                Set.of(ExternalResourceOperationSupport.QUERY));
+        PlayerResourceService service = serviceWithDefinitionBuilder(queried, adapter,
+                builder -> builder.authoredBaseMaximum(100));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        ResourceQueryResult.Failure failure = (ResourceQueryResult.Failure) result;
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, failure.reason());
+        assertEquals(queried, failure.resourceId());
+    }
+
+    // ── Correction pass: allowed adapter-decline reasons ────────────────────────────────────
+
+    private static PlayerResourceService serviceWithAdapterFailure(Identifier resourceId, ResourceQueryFailureReason reason) {
+        FixedSnapshotAdapter adapter = new FixedSnapshotAdapter(
+                resourceId, new ResourceQueryResult.Failure(reason, resourceId), Set.of(ExternalResourceOperationSupport.QUERY));
+        return serviceWithDefinitionBuilder(resourceId, adapter, builder -> builder.authoredBaseMaximum(100));
+    }
+
+    @Test
+    void malformedOwnerStateFromAdapterPropagatesUnchanged() {
+        Identifier resourceId = id("allowed_malformed_owner_state");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.MALFORMED_OWNER_STATE);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void stateUninitializedFromAdapterPropagatesUnchanged() {
+        Identifier resourceId = id("allowed_state_uninitialized");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.STATE_UNINITIALIZED);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNINITIALIZED, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void stateUnavailableOnThisSideFromAdapterPropagatesUnchanged() {
+        Identifier resourceId = id("allowed_state_unavailable_on_this_side");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void resourceNotRegisteredReturnedByAnAdapterBecomesCorrupt() {
+        // RESOURCE_NOT_REGISTERED is a registry-layer determination — an adapter has no authority
+        // or visibility to make this call about itself (the fact that PlayerResourceService is even
+        // asking it means the resource IS registered).
+        Identifier resourceId = id("adapter_claims_not_registered");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.RESOURCE_NOT_REGISTERED);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void adapterNotRegisteredReturnedByAnAdapterBecomesCorrupt() {
+        // Self-contradictory: the adapter itself is what is being asked, so it cannot legitimately
+        // claim it isn't registered.
+        Identifier resourceId = id("adapter_claims_adapter_not_registered");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.ADAPTER_NOT_REGISTERED);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void stateNotInstantiatedReturnedByAnAdapterBecomesCorrupt() {
+        // STATE_NOT_INSTANTIATED is a GENERIC_COMPONENT-layer concept — meaningless for an
+        // EXTERNAL_ADAPTER definition, which never has generic component state to instantiate.
+        Identifier resourceId = id("adapter_claims_state_not_instantiated");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.STATE_NOT_INSTANTIATED);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void maximumUnavailableReturnedByAnAdapterBecomesCorrupt() {
+        // MAXIMUM_UNAVAILABLE is the GENERIC_COMPONENT authored-maximum-absent case — an external
+        // adapter that cannot resolve a maximum has its own reason (MALFORMED_OWNER_STATE) for
+        // exactly that situation and must use it instead.
+        Identifier resourceId = id("adapter_claims_maximum_unavailable");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.MAXIMUM_UNAVAILABLE);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void operationUnsupportedReturnedByTheAdapterItselfBecomesCorrupt() {
+        // OPERATION_UNSUPPORTED is determined by PlayerResourceService BEFORE the adapter is ever
+        // invoked (the supportedOperations() check a few lines above the snapshot() call) — an
+        // adapter that was actually invoked, by definition, already passed that check, so an
+        // adapter returning this reason from inside snapshot() itself is self-contradictory.
+        Identifier resourceId = id("adapter_claims_operation_unsupported");
+        PlayerResourceService service = serviceWithAdapterFailure(resourceId, ResourceQueryFailureReason.OPERATION_UNSUPPORTED);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void mismatchedResourceIdInSnapshotProducesCorruptAdapterSnapshotFailure() {
+        Identifier queried = id("mismatched_id");
+        ResourceSnapshot wrongId = new ResourceSnapshot(id("a_totally_different_resource"), 10, 50, 1);
+        PlayerResourceService service = serviceWithFixedSnapshot(queried, wrongId, 0);
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+        // Never silently reattributed to a different resource: the failure still names the
+        // resource that was actually queried, not the mismatched id the adapter returned.
+        assertEquals(queried, ((ResourceQueryResult.Failure) result).resourceId());
+    }
+
+    @Test
+    void mismatchedUnitScaleInSnapshotProducesCorruptAdapterSnapshotFailure() {
+        Identifier queried = id("mismatched_scale");
+        // Definition is registered with unitScale=1 (serviceWithFixedSnapshot's default), but the
+        // adapter returns a snapshot claiming unitScale=1000.
+        ResourceSnapshot wrongScale = new ResourceSnapshot(queried, 10, 50, 1000);
+        PlayerResourceService service = serviceWithFixedSnapshot(queried, wrongScale, 0);
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void maximumBelowAbsoluteMinimumInSnapshotProducesCorruptAdapterSnapshotFailure() {
+        Identifier queried = id("max_below_minimum");
+        // Definition's absoluteMinimum will be 10 (see serviceWithFixedSnapshot), but the adapter
+        // returns a maximum of 5 — structurally impossible.
+        ResourceSnapshot invalidMax = new ResourceSnapshot(queried, 7, 5, 1);
+        PlayerResourceService service = serviceWithFixedSnapshot(queried, invalidMax, 10);
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void validSnapshotStillSucceedsAfterValidation() {
+        Identifier queried = id("valid_snapshot");
+        ResourceSnapshot valid = new ResourceSnapshot(queried, 42, 100, 1);
+        PlayerResourceService service = serviceWithFixedSnapshot(queried, valid, 0);
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Success.class, result);
+        assertEquals(42, ((ResourceQueryResult.Success) result).snapshot().currentUnits());
+    }
+
+    // ── Correction pass: operation-support enforcement ──────────────────────────────────────
+
+    @Test
+    void serviceRejectsQueryWhenAdapterDoesNotDeclareQuerySupport() {
+        Identifier resourceId = id("no_query_support");
+        ExternalPlayerResourceAdapter noQueryAdapter = new FixedSnapshotAdapter(
+                resourceId, new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, 1, 2, 1)),
+                Set.of(ExternalResourceOperationSupport.RESTORE));
+
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        // Bypasses register()'s own QUERY-support enforcement (see
+        // injectAdapterBypassingRegistryValidation's Javadoc) so PlayerResourceService's
+        // independent, defensive check is what is actually under test here.
+        injectAdapterBypassingRegistryValidation(adapters, noQueryAdapter);
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR)
+                .externalAdapter(resourceId)
+                .unitScale(1)
+                .authoredBaseMaximum(10)
+                .build());
+
+        PlayerResourceService service = new PlayerResourceService(registry, adapters);
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.OPERATION_UNSUPPORTED,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    // ── Phase 2D: PARTITIONED_POOL external routing ─────────────────────────────────────────
+
+    /** A fixed-result adapter used for both scalar and partitioned routing/validation tests. */
+    private static final class FixedResultAdapter implements ExternalPlayerResourceAdapter {
+        private final Identifier id;
+        private final ResourceQueryResult fixedResult;
+
+        FixedResultAdapter(Identifier id, ResourceQueryResult fixedResult) {
+            this.id = id;
+            this.fixedResult = fixedResult;
+        }
+
+        @Override public Identifier id() { return id; }
+        @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) { return fixedResult; }
+        @Override public Set<ExternalResourceOperationSupport> supportedOperations() { return Set.of(ExternalResourceOperationSupport.QUERY); }
+        @Override public ExternalResourceClientMirrorMode clientMirrorMode() { return ExternalResourceClientMirrorMode.NATIVE_SYNCHRONIZATION; }
+    }
+
+    private static PartitionedResourceSnapshot partitionedSnapshot(Identifier resourceId, long unitScale, int... levelsWithSingleSlot) {
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        for (int level : levelsWithSingleSlot) {
+            partitions.put(level, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(1, 1));
+        }
+        return new PartitionedResourceSnapshot(resourceId, partitions, unitScale);
+    }
+
+    private static PlayerResourceService serviceWithPartitionedAdapter(Identifier resourceId, ResourceQueryResult fixedResult) {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        FixedResultAdapter adapter = new FixedResultAdapter(resourceId, fixedResult);
+        adapters.register(adapter);
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.PARTITIONED_POOL)
+                .externalAdapter(resourceId)
+                .unitScale(1)
+                .build());
+        registry.freeze(adapters);
+        return new PlayerResourceService(registry, adapters);
+    }
+
+    @Test
+    void partitionedPoolDefinitionWithValidPartitionedSuccessSucceeds() {
+        Identifier resourceId = id("valid_partitioned");
+        PartitionedResourceSnapshot snapshot = partitionedSnapshot(resourceId, 1, 1, 2, 3);
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.PartitionedSuccess.class, result);
+        assertEquals(3, ((ResourceQueryResult.PartitionedSuccess) result).snapshot().partitions().size());
+    }
+
+    @Test
+    void partitionedPoolDefinitionReceivingScalarSuccessBecomesCorruptAdapterSnapshot() {
+        Identifier resourceId = id("partitioned_but_scalar_returned");
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.Success(new ResourceSnapshot(resourceId, 1, 2, 1)));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void scalarDefinitionReceivingPartitionedSuccessBecomesCorruptAdapterSnapshot() {
+        Identifier resourceId = id("scalar_but_partitioned_returned");
+        PartitionedResourceSnapshot snapshot = partitionedSnapshot(resourceId, 1, 1);
+        FixedResultAdapter adapter = new FixedResultAdapter(resourceId, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        adapters.register(adapter);
+        registry.register(PlayerResourceDefinition.builder(resourceId, ResourceModel.SCALAR)
+                .externalAdapter(resourceId)
+                .unitScale(1)
+                .authoredBaseMaximum(10)
+                .build());
+        registry.freeze(adapters);
+        PlayerResourceService service = new PlayerResourceService(registry, adapters);
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT,
+                ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedResourceIdMismatchBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_id_mismatch");
+        PartitionedResourceSnapshot wrongId = partitionedSnapshot(id("a_totally_different_resource"), 1, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(wrongId));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedUnitScaleMismatchBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_scale_mismatch");
+        PartitionedResourceSnapshot wrongScale = partitionedSnapshot(queried, 1000, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(wrongScale));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedNegativeCurrentBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_negative_current");
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        partitions.put(1, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(-1, 5));
+        PartitionedResourceSnapshot snapshot = new PartitionedResourceSnapshot(queried, partitions, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedNegativeMaximumBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_negative_maximum");
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        partitions.put(1, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(0, -5));
+        PartitionedResourceSnapshot snapshot = new PartitionedResourceSnapshot(queried, partitions, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedCurrentGreaterThanMaximumBecomesCorruptAdapterSnapshot() {
+        Identifier queried = id("partitioned_current_over_maximum");
+        TreeMap<Integer, PartitionedResourceSnapshot.ResourcePartitionSnapshot> partitions = new TreeMap<>();
+        partitions.put(1, new PartitionedResourceSnapshot.ResourcePartitionSnapshot(9, 5));
+        PartitionedResourceSnapshot snapshot = new PartitionedResourceSnapshot(queried, partitions, 1);
+        PlayerResourceService service = serviceWithPartitionedAdapter(queried, new ResourceQueryResult.PartitionedSuccess(snapshot));
+
+        ResourceQueryResult result = service.query(null, queried);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedAllowedAdapterFailuresStillPropagate() {
+        Identifier resourceId = id("partitioned_allowed_failure");
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.Failure(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, resourceId));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.MALFORMED_OWNER_STATE, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void partitionedUnexpectedAdapterFailureReasonBecomesCorrupt() {
+        Identifier resourceId = id("partitioned_unexpected_failure");
+        PlayerResourceService service = serviceWithPartitionedAdapter(
+                resourceId, new ResourceQueryResult.Failure(ResourceQueryFailureReason.MAXIMUM_UNAVAILABLE, resourceId));
+
+        ResourceQueryResult result = service.query(null, resourceId);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.CORRUPT_ADAPTER_SNAPSHOT, ((ResourceQueryResult.Failure) result).reason());
+    }
+
+    @Test
+    void queryGenericPartitionedWithAnAuthoredResolverSucceeds() {
+        // 2026-09-15 pre-Phase-4 foundation pass: closes the gap the old
+        // "queryGenericStateStillRejectsPartitionedPoolAfterThePhase2DExternalExtension" test name
+        // described as "a documented future gap" — GENERIC_COMPONENT PARTITIONED_POOL definitions
+        // now resolve successfully once instantiated, routed through the same central
+        // resolveMaximum path as everything else (via a registered ResourceMaximumResolver, since
+        // partitioned resources have no single authoredBaseMaximum field to fall back on).
+        Identifier resourceId = id("generic_partitioned_with_resolver");
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        PlayerResourceDefinition definition = PlayerResourceDefinition
+                .builder(resourceId, ResourceModel.PARTITIONED_POOL)
+                .build();
+        registry.register(definition);
+
+        ResourceMaximumResolverRegistry resolvers = new ResourceMaximumResolverRegistry();
+        resolvers.register(resourceId, (player, def, context) -> new ResourceMaximum.Partitioned(
+                Map.of(1, 2L, 2, 1L), Map.of(1, 2L, 2, 1L)));
+
+        // Isolated resolver registry injected via the 3-arg constructor (added alongside this
+        // test) — mirrors how `registry`/`adapters` are already isolated per test, rather than
+        // reaching into the production ResourceMaximumResolverRegistry.INSTANCE singleton.
+        PlayerResourceService service = new PlayerResourceService(registry, new ExternalPlayerResourceAdapterRegistry(), resolvers);
+        PlayerResourceStateComponent state = new PlayerResourceStateComponent(null);
+        PartitionedResourceState pool = state.instantiatePartitioned(resourceId);
+        pool.setCurrent(1, 2);
+        pool.setCurrent(2, 0);
+
+        ResourceQueryResult result = service.queryGenericState(null, definition, state);
+
+        assertInstanceOf(ResourceQueryResult.PartitionedSuccess.class, result);
+        PartitionedResourceSnapshot snapshot = ((ResourceQueryResult.PartitionedSuccess) result).snapshot();
+        assertEquals(2, snapshot.partitions().size());
+        assertEquals(2L, snapshot.partition(1).orElseThrow().currentUnits());
+        assertEquals(2L, snapshot.partition(1).orElseThrow().maximumUnits());
+        assertEquals(0L, snapshot.partition(2).orElseThrow().currentUnits());
+        assertEquals(1L, snapshot.partition(2).orElseThrow().maximumUnits());
+    }
+}

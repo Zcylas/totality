@@ -39,7 +39,10 @@ public final class WizardClass {
                     Skill.RESTORATION,  1.2
             ),
             List.of(),
-            2  // Arcane Tradition chosen at class level 2
+            // Arcane Tradition chosen at class level 3 — normalized (2026-09-16) to match the
+            // D&D 2024-style subclass milestone Barbarian/Monk already use. Was previously 2,
+            // which had drifted from that normalization.
+            3
     );
     public static final SubclassData SCHOOL_OF_DESTRUCTION = new SubclassData(
             DESTRUCTION_ID, TotalityClasses.WIZARD_ID,
@@ -69,8 +72,9 @@ public final class WizardClass {
 
         ClassLevelUpRegistry.register(TotalityClasses.WIZARD_ID,
                 (player, playerLevel, classLevel) -> {
-                    // Trigger Arcane Tradition selection at class level 2
-                    if (classLevel == 2 && !ClassComponents.get(player).hasSubclass()) {
+                    // Trigger Arcane Tradition selection at the class's configured subclass milestone.
+                    if (classLevel == DATA.subclassUnlockClassLevel()
+                            && !ClassComponents.get(player).hasSubclass(TotalityClasses.WIZARD_ID)) {
                         net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
                                 new zcylas.totality.networking.classes.OpenSubclassSelectionPayload(
                                         TotalityClasses.WIZARD_ID.toString()));

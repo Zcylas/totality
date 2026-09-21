@@ -66,7 +66,7 @@ public class MobCombatStats {
         if (entity.level() instanceof net.minecraft.server.level.ServerLevel sl) {
             zcylas.totality.networking.mob.MobStatsSyncPayload payload =
                     new zcylas.totality.networking.mob.MobStatsSyncPayload(
-                            entity.getId(), this.level, this.rank.ordinal(),
+                            entity.getId(), this.level, this.rank.order(),
                             this.ac, this.spawnRarity.ordinal()); // ← add rarity
             sl.getPlayers(p -> p.distanceToSqr(entity.position()) < 1024)
                     .forEach(p -> net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p, payload));

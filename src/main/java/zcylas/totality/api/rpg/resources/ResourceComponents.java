@@ -27,5 +27,17 @@ public final class ResourceComponents {
         return RESOURCES.get((ComponentProvider) player);
     }
 
+    /**
+     * Non-throwing, non-mutating lookup — returns {@link java.util.Optional#empty()} rather than
+     * throwing if the component has not been attached to {@code player} yet, instead of {@link #get}'s
+     * throw-on-absent contract. Added for {@code ManaResourceAdapter}/{@code StaminaResourceAdapter}
+     * (Phase 2C): a read-only Generic Resource query must never throw, and must never go through
+     * {@code PlayerManaManager.getMana}/{@code PlayerStaminaManager.getStamina} (which lazily
+     * initialize the component as a side effect) just to read a value that may not exist yet.
+     */
+    public static java.util.Optional<PlayerResourceComponent> maybeGet(ServerPlayer player) {
+        return RESOURCES.maybeGet((ComponentProvider) player);
+    }
+
     private ResourceComponents() {}
 }

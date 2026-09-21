@@ -1,0 +1,206 @@
+TOTALITY GENERIC PLAYER RESOURCE API — PHASE 2E REVIEW BUNDLE MANIFEST
+========================================================================
+
+Bundle creation date (UTC): 2026-07-20 (manual-smoke-test pass — records
+  the passed manual smoke test result and marks Phase 2E READY TO COMMIT;
+  supersedes the correction-pass bundle generated earlier the same day).
+Revision: MANUAL SMOKE TEST RECORDED. No production gameplay behavior
+  changed by this pass — it is documentation-only, recording Stefan's
+  manual smoke-test result into the three canonical documents:
+    1. `Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md`
+       — §22 rewritten from the pending 18-item plan to the executed,
+       PASSED, 20-item itemized result; a new §29 "Final Status — Ready to
+       Commit" section added; the executive-result and header status lines
+       updated to READY TO COMMIT.
+    2. `Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md`
+       — top Status line, the Phase 2E record's "Manual verification" line,
+       and a new "Phase 2E Final Status (2026-07-20)" section all updated
+       to record the passed result.
+    3. `Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_IMPLEMENTATION_REPORT.md`
+       (this bundle's report copy) — kept byte-identical to (1) above.
+  Two Strength-advantage-while-raging mechanics (Strength-check advantage,
+  Strength-save advantage) were not practically testable with currently
+  available in-game tools/content; both are recorded as not practically
+  testable, not as failures, and not as Phase 2E blockers — the relevant
+  `RageEffect`/`RollModifierRegistry` production integration was untouched
+  by Phase 2E, and existing automated/code-characterization evidence
+  remains the available verification for them. No new commands,
+  encounters, debug tools, or test content were built to exercise them.
+  Test count is unchanged by this pass: 428/428, 0 failures, 0 errors.
+Branch: feature/general-resource-api
+Starting commit (Phase 2D, confirmed committed before Phase 2E):
+  1bc199f62c8fa510942df769f4775bbcac33f845 ("Add standard spell-slot resource adapter")
+HEAD commit at manifest generation time: 1bc199f62c8fa510942df769f4775bbcac33f845
+  (all Phase 2E work — original implementation, the correction pass, and
+  this manual-smoke-test-recording pass — is uncommitted working-tree
+  content at manifest generation time; nothing was staged or committed at
+  any point through manifest generation; git diff --cached is empty).
+
+Manual smoke test: PASSED (2026-07-20) for every currently practical
+  scenario — 20/20 itemized scenarios confirmed; 2 Strength-advantage
+  scenarios not practically testable in the current manual environment
+  (not failures, not blockers). See the dedicated implementation report's
+  §22 and §29 for the full itemized result. **Phase 2E is COMPLETE and
+  READY TO COMMIT.**
+
+------------------------------------------------------------------------
+git status --short (full working tree, at manifest generation time)
+------------------------------------------------------------------------
+ M Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+ M src/main/generated/data/minecraft/worldgen/noise_settings/overworld.json
+ M src/main/generated/data/totality/loot_table/blocks/apothecary_table.json
+ M src/main/generated/data/totality/loot_table/blocks/copper_cable.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/electric_furnace.json
+ M src/main/generated/data/totality/loot_table/blocks/flecked_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/generator.json
+ M src/main/generated/data/totality/loot_table/blocks/graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/limestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone_bricks.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_altar.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_dais.json
+ M src/main/generated/data/totality/loot_table/blocks/ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/tin_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/true_wheat_crop.json
+ M src/main/generated/data/totality/loot_table/blocks/whitestone.json
+ M src/main/generated/data/totality/recipe/copper_gear.json
+ M src/main/generated/data/totality/recipe/diamond_gear.json
+ M src/main/generated/data/totality/recipe/gold_gear.json
+ M src/main/generated/data/totality/recipe/iron_gear.json
+ M src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java
+ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+ M src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E.patch"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_IMPLEMENTATION_REPORT.md"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_MANIFEST.txt"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_REVIEW_BUNDLE.zip"
+?? "Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md"
+?? "Context/Trading Test/trade_screen2.png"
+?? "Context/Trading Test/trade_screen3.png"
+?? "Context/Trading Test/trade_screen4.png"
+?? "Context/Trading Test/trade_screen5.png"
+?? logs/
+?? src/main/generated/.cache/
+?? src/main/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapter.java
+?? src/test/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapterTest.java
+
+NOTE: only the files listed in the FILE INVENTORY section below are
+included in the ZIP. The pre-existing modified files under
+src/main/generated/data/** (loot tables, recipes, noise settings), the
+untracked Context/Trading Test/*.png screenshots, the untracked
+src/main/generated/.cache/ directory, and the untracked logs/ directory
+are unrelated uncommitted/generated artifacts and are deliberately
+excluded from this bundle. No Phase 1, Phase 2A, Phase 2B, Phase 2C, or
+Phase 2D review-bundle artifact (TOTALITY_RESOURCE_API_PHASE_1.*,
+TOTALITY_RESOURCE_API_PHASE_2A.*, TOTALITY_RESOURCE_API_PHASE_2B.*,
+TOTALITY_RESOURCE_API_PHASE_2C.*, TOTALITY_RESOURCE_API_PHASE_2D.*) was
+modified by this phase and none is included here. /Inspiration Mods was
+excluded from every search, decision, and artifact in this phase and every
+pass within it.
+
+------------------------------------------------------------------------
+FILE INVENTORY (11 modified files + 3 created files + bundle-local
+report + patch + manifest)
+------------------------------------------------------------------------
+
+Format: CLASSIFICATION  bytes=<size>  sha256=<hash>  <project-relative path>
+
+MODIFIED  bytes=173386   sha256=7ad2190caad4075dc81acf9dfd9097c4d960c4b3f90002aa42711843b94b705f  Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+MODIFIED  bytes=1837     sha256=64a09500daddaae0f25f609c90570a967a328f461d0fc35f5da893f611ea9acf  src/main/java/zcylas/totality/api/rpg/classes/ChargeComponents.java
+MODIFIED  bytes=4229     sha256=9dd7ecbfb19fe2808e15bc14b6743fe53d2905c1b9f84f627156f5ba7ee3be79  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+MODIFIED  bytes=19780    sha256=ed3ba06b0d02e702267e272f7a8ead88865457fbd9514fdf471b5f09d7b6d416  src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+MODIFIED  bytes=13226    sha256=f3b63d67bcb1dc2e8d4c8d4cc1058c2ee1a7cc01ad1defdde16d4473255a5ad5  src/test/java/zcylas/totality/api/rpg/classes/PlayerChargesRageCharacterizationTest.java
+MODIFIED  bytes=13434    sha256=dc7caaa3c50fde3548244a9f5b2a3b11efbc0290c01ab2eb6dc77331dc55ae67  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+MODIFIED  bytes=31849    sha256=7d7db1efd63bc5e3f67269c88dfbcba5b9eeee6c3676b0f490b67cf3b3ed0c2d  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+MODIFIED  bytes=25966    sha256=18032664181077b9ebe194117fc93948e38be8b10ab9438778d39439e606d9e1  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+MODIFIED  bytes=10603    sha256=4f22c3f79b14ef392ffb8e0c8c1b6b41315756b6930cf867f669b26a5f61462c  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+MODIFIED  bytes=12100    sha256=f9b55e80ddba8b384e6b316a057396f0f02e157365fb514ed34fc93fc3ec5c3b  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentTest.java
+MODIFIED  bytes=5309     sha256=f0bc1c145b301fd80bf987364ae6c6f8009c496c4ae6b4e09809e0f0dbe52ec2  src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+CREATED   bytes=11964    sha256=6920921302a87e6d618ea507c6d85fca4c16e5974dd72aa65994261c90106e80  src/main/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapter.java
+CREATED   bytes=13629    sha256=454dc5c49608a7cdb6760f7b1926c01ebe8a2ebaac71689e60ba2d0224bc5a8a  src/test/java/zcylas/totality/api/rpg/resources/external/RageResourceAdapterTest.java
+CREATED   bytes=37738    sha256=66a3fe7bbd6d862aca6de55f44e314ce8af545c202b25437857838c5863ac982  Context/Audit/TOTALITY_RESOURCE_API_PHASE_2E_RAGE_ADAPTER_IMPLEMENTATION_REPORT.md
+REPORT    bytes=37738    sha256=66a3fe7bbd6d862aca6de55f44e314ce8af545c202b25437857838c5863ac982  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_IMPLEMENTATION_REPORT.md
+PATCH     bytes=141342   sha256=4a9f7b9fb49ebf6f5414074d6ca504ffd5ef15be4e49f6fb390d253042610b97  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E.patch
+MANIFEST  bytes=N/A       sha256=N/A (self-referential — this row describes this file; a file cannot contain a hash of its own final byte contents without circularity)  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2E_MANIFEST.txt
+
+Canonical/bundle-local report byte-identity: CONFIRMED — both REPORT/CREATED
+rows above share bytes=37738 and identical sha256, and a direct `diff`
+between the two files at manifest generation time produced no output.
+
+------------------------------------------------------------------------
+PATCH GENERATION METHOD
+------------------------------------------------------------------------
+Same method used for every prior bundle in this series: `git diff 1bc199f
+-- <tracked modified files>` concatenated with `git diff --no-index
+/dev/null <file>` for each of the 3 new (untracked) files. Verified via
+`git apply --check --reverse` against the working tree with zero errors
+before being written to this bundle.
+
+------------------------------------------------------------------------
+TOTALS
+------------------------------------------------------------------------
+Files listed above (excluding this manifest's own self-referential row): 16
+  - MODIFIED: 11 (10 code/test files + 1 doc, the readiness audit)
+  - CREATED:  3 (2 code/test files + 1 doc, the Phase 2E implementation report)
+  - REPORT:   1 (bundle-local copy of the implementation report)
+  - PATCH:    1
+Total files packaged into the ZIP (including this manifest itself): 17
+Real-file count in ZIP: 17. This bundle was built with a real ZIP writer
+(not PowerShell's Compress-Archive), so there are zero harmless zero-byte
+directory-entry records to distinguish from real files.
+
+------------------------------------------------------------------------
+TEST COUNT
+------------------------------------------------------------------------
+390 (end of Phase 2D correction pass) -> 428 (end of Phase 2E initial
+implementation, unchanged by the correction pass and unchanged by this
+manual-smoke-test-recording pass). 428/428 passed, 0 failures, 0 errors.
+No test was weakened, removed, or added in this pass.
+
+------------------------------------------------------------------------
+BUILD/VALIDATION RESULTS (this pass)
+------------------------------------------------------------------------
+./gradlew compileJava compileTestJava   BUILD SUCCESSFUL
+./gradlew test --rerun-tasks             428/428 tests passed
+./gradlew runDatagen                      BUILD SUCCESSFUL, written: 0
+./gradlew build -x runDatagen              BUILD SUCCESSFUL
+git diff --cached                          empty throughout this phase and every pass within it
+git diff --check                            exit code 0; only pre-existing LF/CRLF warnings, no errors
+git status before/after runDatagen           byte-identical (diff produced no output)
+
+------------------------------------------------------------------------
+REVIEW-ARTIFACT INTEGRITY (this regeneration)
+------------------------------------------------------------------------
+git apply --check --reverse (patch vs. working tree): PASSED, zero errors.
+Manifest hash-verification (every listed file's SHA-256 recomputed
+  independently against this manifest's recorded value): PASSED for all
+  16 listed rows.
+ZIP integrity (archive self-check / listing): PASSED — see the bundle's
+  own listing for per-entry confirmation.
+Canonical/bundle-local report byte-identity: PASSED (see above).
+No unrelated datagen JSON, screenshot, log, cache, or /Inspiration Mods
+  content is included in this bundle.
+
+------------------------------------------------------------------------
+MANUAL SMOKE TEST
+------------------------------------------------------------------------
+PASSED (2026-07-20) for every currently practical scenario. A 20-item
+itemized result is recorded in the dedicated implementation report's §22,
+and a "Final Status — Ready to Commit" summary is recorded in its §29.
+Two Strength-advantage-while-raging mechanics (Strength-check advantage,
+Strength-save advantage) were not practically testable with currently
+available in-game tools/content — classified as not practically testable,
+not as failures, and not as Phase 2E blockers, since the relevant
+`RageEffect`/`RollModifierRegistry` production integration was untouched
+by Phase 2E and existing automated/code-characterization evidence remains
+the available verification for them. **Phase 2E is COMPLETE and READY TO
+COMMIT.**

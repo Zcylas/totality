@@ -10,13 +10,12 @@ import zcylas.totality.api.combat.damage.DamageFlags;
 import zcylas.totality.api.combat.damage.TotalityDamage;
 import zcylas.totality.api.combat.damage.TotalityDamageType;
 import zcylas.totality.api.dice.Dice;
-import zcylas.totality.api.dice.DiceBonus;
 import zcylas.totality.api.dice.RollOutcome;
 import zcylas.totality.api.dice.RollType;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.PlayerStats;
 import zcylas.totality.api.rpg.stats.StatsComponents;
-import zcylas.totality.networking.combat.DamageRollNotification;
+import zcylas.totality.networking.combat.CombatRollNotification;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 
 import java.util.List;
@@ -51,7 +50,7 @@ public final class CombatResolver {
                                      TotalityDamageType damageType) {
 
         AttackRoll.Result ar = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
-        handleHit(attacker, target, ar.outcome(), resolveWeaponName(attacker), diceCount, damageDie, damageModifier, damageType, false, abilityScore, ar.bonuses());
+        handleHit(attacker, target, ar, resolveWeaponName(attacker), diceCount, damageDie, damageModifier, damageType, false, abilityScore);
     }
 
     // convenience overload
@@ -72,7 +71,7 @@ public final class CombatResolver {
                                      TotalityDamageType damageType, String weaponName) {
         int mod = resolveAbilityMod(attacker, abilityScore);
         AttackRoll.Result ar = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
-        handleHit(attacker, target, ar.outcome(), weaponName, diceCount, damageDie, mod, damageType, false, abilityScore, ar.bonuses());
+        handleHit(attacker, target, ar, weaponName, diceCount, damageDie, mod, damageType, false, abilityScore);
     }
 
     // resolveSpellAttack — spell damage is always magical
@@ -113,17 +112,19 @@ public final class CombatResolver {
         }
 
         AttackRoll.Result ar = AttackRoll.roll(caster, target, spellcastingAbility, true, effectiveRollType);
-        handleHit(caster, target, ar.outcome(), spellName, diceCount, damageDie, 0, damageType, true, null, ar.bonuses(), extraFlags);
+        handleHit(caster, target, ar, spellName, diceCount, damageDie, 0, damageType, true, null, extraFlags);
     }
 
     // ── Shared ────────────────────────────────────────────────────────────────
 
     /**
-     * Shared hit/miss resolution for both weapon and spell attacks.
+     * Shared hit/miss resolution for both weapon and spell attacks. Sends at most one compact
+     * combined attack-and-damage notification per resolved attack (Part D) — two semantic lines on
+     * a miss (label+outcome, ATK), three on a hit or critical hit (+DMG).
      */
     private static void handleHit(LivingEntity attacker,
                                   LivingEntity target,
-                                  RollOutcome outcome,
+                                  AttackRoll.Result attackResult,
                                   String label,
                                   int diceCount,
                                   Dice damageDie,
@@ -131,12 +132,13 @@ public final class CombatResolver {
                                   TotalityDamageType damageType,
                                   boolean isMagical,
                                   @Nullable AbilityScore abilityScore,
-                                  List<DiceBonus> attackBonuses,
                                   DamageFlags... extraFlags) {
+
+        RollOutcome outcome = attackResult.outcome();
 
         if (!outcome.isHit()) {
             if (attacker instanceof ServerPlayer p)
-                SendNotificationPayload.send(p, label + " — Miss!", SendNotificationPayload.GRAY);
+                CombatRollNotification.send(p, label, attackResult, null, null, List.of());
             return;
         }
 
@@ -170,8 +172,7 @@ public final class CombatResolver {
         TotalityDamage.hurt(target, attacker, damageType, dmg.total(), allFlags);
 
         if (attacker instanceof ServerPlayer p)
-            DamageRollNotification.send(p, label + (isCrit ? " ✦ CRIT" : ""),
-                    dmg, abilityScore, extraBonuses, attackBonuses);
+            CombatRollNotification.send(p, label, attackResult, dmg, abilityScore, extraBonuses);
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────

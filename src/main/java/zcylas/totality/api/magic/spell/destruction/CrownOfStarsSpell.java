@@ -154,6 +154,15 @@ public class CrownOfStarsSpell extends Spell {
         return true;
     }
 
+    /** Firing an already-summoned mote is a follow-up action on the existing crown instance, not
+     *  a new cast — {@code ActivateAbilityHandler} uses this (checked before {@link #onActivate}
+     *  mutates {@code charges}) to skip both the slot pre-check and the post-cast spend for a
+     *  mote-fire, while a genuine re-summon (no active motes) still requires and consumes one. */
+    @Override
+    public boolean isActiveInstanceAction(ServerPlayer player) {
+        return hasMotes(player.getUUID());
+    }
+
     @Override
     public void onActivate(ServerPlayer player, @Nullable AbilityContext ctx) {
         if (!(player.level() instanceof ServerLevel sl)) return;

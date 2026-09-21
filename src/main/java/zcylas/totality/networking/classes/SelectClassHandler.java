@@ -8,7 +8,6 @@ import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
 import zcylas.totality.api.core.component.ComponentProvider;
-import zcylas.totality.api.magic.spell.SpellSlotRecalculator;
 import zcylas.totality.api.rpg.classes.*;
 
 public final class SelectClassHandler {
@@ -43,13 +42,12 @@ public final class SelectClassHandler {
         }
 
         comp.selectClass(classId, 1); // starts at 0 levels, gains levels via XP
-        if (subclassId != null) comp.selectSubclass(subclassId);
+        if (subclassId != null) comp.selectSubclass(classId, subclassId);
         if (covenantId != null) comp.selectCovenant(covenantId);
 
         comp.sync();
-        SpellSlotRecalculator.recalculate(player);
+        ClassChangeReconciler.reconcile(player);
         if (classId.equals(TotalityClasses.BARBARIAN_ID)) {
-            BarbarianRageAbility.registerChargePool(player);
             AbilityComponents.ABILITIES.get((ComponentProvider) player)
                     .unlock(BarbarianRageAbility.ID);
             AbilityComponents.ABILITIES.get((ComponentProvider) player)

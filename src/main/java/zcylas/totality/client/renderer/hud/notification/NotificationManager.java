@@ -4,8 +4,11 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.FormattedCharSequence;
 import zcylas.totality.Totality;
 
 import java.util.ArrayList;
@@ -57,6 +60,17 @@ public class NotificationManager {
     private static final int PADDING_Y = 4;
     // Gap between notifications
     private static final int LINE_HEIGHT = 11;
+
+    // ── Part C: automatic rendered-width wrapping ──────────────────────────────
+    // Preferred wrap width for a notification's rendered text, in scaled GUI pixels. Deliberately
+    // conservative and independent of MobHealthBarHud (which can reach ~320 scaled pixels near
+    // top-center) — NotificationManager is not coupled to it (see class Javadoc).
+    private static final int PREFERRED_NOTIFICATION_WIDTH = 180;
+    // Reserved horizontal space at the right edge of the screen the wrapped text must not cross.
+    private static final int RIGHT_SAFETY_MARGIN = 8;
+    // The effective wrap width must never collapse to zero or negative, even in an extremely
+    // narrow window.
+    private static final int MIN_EFFECTIVE_WIDTH = 1;
 
     private static final List<Notification> active = new ArrayList<>();
 
@@ -111,19 +125,61 @@ public class NotificationManager {
     }
 
     /** Reads current state and draws — never mutates {@code ticksLeft} (Part C: render-state
-     *  extraction gathers immutable display data, it does not advance authoritative state). */
+     *  extraction gathers immutable display data, it does not advance authoritative state).
+     *  Each notification's message is split into authored paragraphs (see
+     *  {@link #splitIntoParagraphs}), each paragraph is wrapped to the current rendered pixel
+     *  width (see {@link #wrapParagraph}), and every resulting visual line advances {@code y} by
+     *  {@link #LINE_HEIGHT} — so a later notification always starts below every wrapped visual
+     *  line of every earlier one. Recomputed every call (at most 5 active notifications), so width
+     *  stays responsive to window/GUI-scale changes without a cache. */
     private static void renderActive(GuiGraphicsExtractor graphics, Minecraft client) {
         int y = PADDING_Y;
+        int width = effectiveWidth(graphics.guiWidth());
         for (Notification n : active) {
             float alpha = computeAlpha(n.ticksLeft);
             int finalColor = ((int) (alpha * 255) << 24) | (n.color & 0x00FFFFFF);
 
-            String[] lines = n.message.split("\n");
-            for (String line : lines) {
-                graphics.text(client.font, line, PADDING_X, y, finalColor, true);
-                y += LINE_HEIGHT;
+            for (String paragraph : splitIntoParagraphs(n.message)) {
+                for (FormattedCharSequence visualLine : wrapParagraph(client.font, paragraph, width)) {
+                    graphics.text(client.font, visualLine, PADDING_X, y, finalColor, true);
+                    y += LINE_HEIGHT;
+                }
             }
         }
+    }
+
+    /**
+     * Computes the rendered-text wrap width for the given GUI-scaled screen width: the smaller of
+     * {@link #PREFERRED_NOTIFICATION_WIDTH} and the space actually available between the left
+     * origin ({@link #PADDING_X}) and {@link #RIGHT_SAFETY_MARGIN}, clamped to never return zero
+     * or negative (floor {@link #MIN_EFFECTIVE_WIDTH}), and never forcing a width larger than the
+     * screen actually has room for. Pure — no Minecraft rendering/bootstrap dependency.
+     */
+    static int effectiveWidth(int guiWidth) {
+        int availableWidth = Math.max(MIN_EFFECTIVE_WIDTH, guiWidth - PADDING_X - RIGHT_SAFETY_MARGIN);
+        return Math.min(PREFERRED_NOTIFICATION_WIDTH, availableWidth);
+    }
+
+    /**
+     * Splits a notification message at explicit authored {@code \n} boundaries into semantic
+     * paragraphs. Uses limit {@code -1} so a deliberately empty authored paragraph — including a
+     * trailing one — is preserved rather than dropped. Pure — no font/rendering dependency.
+     */
+    static String[] splitIntoParagraphs(String message) {
+        return message.split("\n", -1);
+    }
+
+    /**
+     * Wraps a single authored paragraph to {@code maxWidth} using Minecraft's own native
+     * font-splitting facility ({@link Font#split(net.minecraft.util.FormattedText, int)}) — never
+     * a raw character count. An empty paragraph (a deliberately authored blank line between two
+     * newline boundaries) is preserved as exactly one blank visual line, since the native splitter
+     * returns no lines at all for empty text.
+     */
+    private static List<FormattedCharSequence> wrapParagraph(Font font, String paragraph, int maxWidth) {
+        if (paragraph.isEmpty()) return List.of(FormattedCharSequence.EMPTY);
+        List<FormattedCharSequence> lines = font.split(Component.literal(paragraph), maxWidth);
+        return lines.isEmpty() ? List.of(FormattedCharSequence.EMPTY) : lines;
     }
 
     /** Pure fade computation: full opacity during hold, linear fade-out over the final

@@ -52,8 +52,14 @@ public final class TooltipAnimator {
         }
     }
 
-    public static void drawArtifactText(GuiGraphicsExtractor graphics, Font font, String text,
-                                        int x, int y, int color, long timeMs) {
+    /**
+     * Ancient rune-activation reveal — each letter "wakes up" from dormant aged bronze into a
+     * lost-civilization cyan/teal glow. Distinct from the old bronze/gold/cyan metallic cycle
+     * (which read as generic "shiny metal"): Ancient's active phase cycles indigo -> cyan/teal ->
+     * pale blue-white, keeping the dormant/unactivated color as restrained aged bronze.
+     */
+    public static void drawAncientText(GuiGraphicsExtractor graphics, Font font, String text,
+                                       int x, int y, int color, long timeMs) {
         if (text == null || text.isEmpty()) return;
 
         final int length = text.length();
@@ -64,27 +70,27 @@ public final class TooltipAnimator {
         long cyclePos = Math.floorMod(timeMs, cycleMs);
         int activated = (int) Math.min(length, cyclePos / charDelay);
 
-        // Metallic color cycle — bronze → gold → cyan → back
-        float metalPhase = (float)((timeMs % 5000L) / 5000.0f);
+        // Lost-civilization color cycle — indigo -> cyan/teal -> pale blue-white
+        float phase = (float)((timeMs % 5000L) / 5000.0f);
         int activeR, activeG, activeB;
-        if (metalPhase < 0.33f) {
-            // Bronze
-            float t = metalPhase / 0.33f;
-            activeR = (int)(205 + (212 - 205) * t);
-            activeG = (int)(127 + (175 - 127) * t);
-            activeB = (int)(50  + (55  - 50)  * t);
-        } else if (metalPhase < 0.66f) {
-            // Gold
-            float t = (metalPhase - 0.33f) / 0.33f;
-            activeR = (int)(212 + (100 - 212) * t);
-            activeG = (int)(175 + (220 - 175) * t);
-            activeB = (int)(55  + (220 - 55)  * t);
+        if (phase < 0.33f) {
+            // Indigo
+            float t = phase / 0.33f;
+            activeR = (int)(74  + (58  - 74)  * t);
+            activeG = (int)(74  + (219 - 74)  * t);
+            activeB = (int)(140 + (196 - 140) * t);
+        } else if (phase < 0.66f) {
+            // Cyan / teal
+            float t = (phase - 0.33f) / 0.33f;
+            activeR = (int)(58  + (159 - 58)  * t);
+            activeG = (int)(219 + (243 - 219) * t);
+            activeB = (int)(196 + (230 - 196) * t);
         } else {
-            // Cyan
-            float t = (metalPhase - 0.66f) / 0.34f;
-            activeR = (int)(100 + (205 - 100) * t);
-            activeG = (int)(220 + (127 - 220) * t);
-            activeB = (int)(220 + (50  - 220) * t);
+            // Pale blue-white
+            float t = (phase - 0.66f) / 0.34f;
+            activeR = (int)(159 + (74  - 159) * t);
+            activeG = (int)(243 + (74  - 243) * t);
+            activeB = (int)(230 + (140 - 230) * t);
         }
 
         int cursorX = x;

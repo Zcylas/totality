@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,9 +13,11 @@ import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.economy.currency.CreditPaymentHelper;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
 import zcylas.totality.api.rpg.ancestry.OriginData;
+import zcylas.totality.api.rpg.classes.ClassChangeReconciler;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.PlayerClassComponent;
 import zcylas.totality.networking.notification.SendNotificationPayload;
@@ -180,6 +183,7 @@ public class TotalityCommands {
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
                                         ClassComponents.get(player).resetClass();
+                                        ClassChangeReconciler.reconcile(player);
                                         ServerPlayNetworking.send(player, new OpenClassSelectionPayload());
                                         ctx.getSource().sendSuccess(() ->
                                                 Component.literal("Class selection reset. Reopening menu..."), false);
@@ -320,22 +324,55 @@ public class TotalityCommands {
                                                     })
                                             )
                                     )
-                                    .then(Commands.literal("give")
-                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
-                                                    .executes(ctx -> {
-                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                                        int amount = IntegerArgumentType.getInteger(ctx, "amount");
-
-                                                        for (ItemStack stack :
-                                                                zcylas.totality.init.items.CurrencyItems.CREDITS
-                                                                        .createStacks(amount)) {
-                                                            player.getInventory().add(stack);
-                                                        }
-
-                                                        String msg = "Gave " + amount + "₵ in physical Credits.";
-                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
-                                                        return 1;
-                                                    })
+                            )
+                            // ── /totality credits physical|bank give <player> <amount> ────
+                            // Targets an arbitrary online player (unlike the self-only `wallet`
+                            // commands above) through the canonical economy authorities rather
+                            // than re-deriving inventory/balance mutation here: physical Credits
+                            // go through CreditPaymentHelper.receivePhysical (the same helper the
+                            // Banker's withdraw path uses — item-stack creation, MAX_PER_STACK
+                            // splitting, and drop-on-full fallback all stay centralized there),
+                            // and banked Credits go through CreditPaymentHelper.receive, which
+                            // credits the player's WalletComponent balance (persisted via that
+                            // component's own writeData, the same path normal deposits use).
+                            .then(Commands.literal("credits")
+                                    .then(Commands.literal("physical")
+                                            .then(Commands.literal("give")
+                                                    .then(Commands.argument("player", EntityArgument.player())
+                                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                                                    .executes(ctx -> {
+                                                                        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                                                        long amount = IntegerArgumentType.getInteger(ctx, "amount");
+                                                                        CreditPaymentHelper.receivePhysical(target, amount);
+                                                                        String msg = "Gave " + amount + "₵ in physical Credits to "
+                                                                                + target.getName().getString() + ".";
+                                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), true);
+                                                                        return 1;
+                                                                    })
+                                                            )
+                                                    )
+                                            )
+                                    )
+                                    .then(Commands.literal("bank")
+                                            .then(Commands.literal("give")
+                                                    .then(Commands.argument("player", EntityArgument.player())
+                                                            .then(Commands.argument("amount", IntegerArgumentType.integer(1))
+                                                                    .executes(ctx -> {
+                                                                        ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
+                                                                        long amount = IntegerArgumentType.getInteger(ctx, "amount");
+                                                                        if (!CreditPaymentHelper.receive(target, amount)) {
+                                                                            ctx.getSource().sendFailure(Component.literal(
+                                                                                    "Could not credit " + target.getName().getString()
+                                                                                            + "'s bank balance (overflow)."));
+                                                                            return 0;
+                                                                        }
+                                                                        String msg = "Gave " + amount + "₵ in banked Credits to "
+                                                                                + target.getName().getString() + ".";
+                                                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), true);
+                                                                        return 1;
+                                                                    })
+                                                            )
+                                                    )
                                             )
                                     )
                             )
@@ -660,72 +697,6 @@ public class TotalityCommands {
                                             )
                                     )
                             )
-                            .then(Commands.literal("rolldice")
-                                    .executes(ctx -> {
-                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                        zcylas.totality.api.dice.PendingDiceRollManager.request(
-                                                player,
-                                                new zcylas.totality.api.dice.DiceRollContext(
-                                                        "Deception", "Charisma Check",
-                                                        zcylas.totality.api.dice.Dice.D20,
-                                                        14,
-                                                        zcylas.totality.api.dice.RollType.NORMAL,
-                                                        java.util.List.of(
-                                                                new zcylas.totality.api.dice.DiceBonus("Charisma", 4),
-                                                                new zcylas.totality.api.dice.DiceBonus("Proficiency", 3)
-                                                        )
-                                                ),
-                                                result -> zcylas.totality.Totality.LOGGER.info(
-                                                        "Dice result: {} (rolled {} + {} = {} vs DC {})",
-                                                        result.outcome(), result.usedRoll(), result.totalBonus(),
-                                                        result.total(), result.context().dc())
-                                        );
-                                        return 1;
-                                    })
-                            )
-                            .then(Commands.literal("rolldice_adv")
-                                    .executes(ctx -> {
-                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                        zcylas.totality.api.dice.PendingDiceRollManager.request(
-                                                player,
-                                                new zcylas.totality.api.dice.DiceRollContext(
-                                                        "Perception", "Wisdom Check",
-                                                        zcylas.totality.api.dice.Dice.D20,
-                                                        12,
-                                                        zcylas.totality.api.dice.RollType.ADVANTAGE,
-                                                        java.util.List.of(
-                                                                new zcylas.totality.api.dice.DiceBonus("Wisdom", 2),
-                                                                new zcylas.totality.api.dice.DiceBonus("Proficiency", 3)
-                                                        )
-                                                ),
-                                                result -> zcylas.totality.Totality.LOGGER.info(
-                                                        "Advantage result: {} (roll1={} roll2={} used={})",
-                                                        result.outcome(), result.roll1(), result.roll2(), result.usedRoll())
-                                        );
-                                        return 1;
-                                    })
-                            )
-                            .then(Commands.literal("rolldice_dis")
-                                    .executes(ctx -> {
-                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                        zcylas.totality.api.dice.PendingDiceRollManager.request(
-                                                player,
-                                                new zcylas.totality.api.dice.DiceRollContext(
-                                                        "Stealth", "Dexterity Check",
-                                                        zcylas.totality.api.dice.Dice.D20,
-                                                        16,
-                                                        zcylas.totality.api.dice.RollType.DISADVANTAGE,
-                                                        java.util.List.of(
-                                                                new zcylas.totality.api.dice.DiceBonus("Dexterity", 1)
-                                                        )
-                                                ),
-                                                result -> zcylas.totality.Totality.LOGGER.info(
-                                                        "Disadvantage result: {} (roll1={} roll2={} used={})",
-                                                        result.outcome(), result.roll1(), result.roll2(), result.usedRoll())
-                                        );
-                                        return 1;
-                                    })
-                            )
                             .then(Commands.literal("shortrest")
                                     .executes(ctx -> {
                                         RestManager.shortRest(ctx.getSource().getPlayerOrException());
@@ -790,6 +761,98 @@ public class TotalityCommands {
                                         return 1;
                                     })
                             )
+                            // ── /totality food get|set <value> ────────────────────────────
+                            // Dev-only debug tool for the true, authoritative totality:food
+                            // resource. 2026-09-17 correction: "set" no longer hardcodes an upper
+                            // bound of 100 — the resolved maximum (FoodMaximumResolver) is not
+                            // architecturally fixed at 100, so an input above the CURRENT resolved
+                            // maximum is legitimately clamped by PlayerResourceService.set itself
+                            // rather than rejected by the command's own argument range. Both
+                            // subcommands report the actual resolved maximum, never a literal 100.
+                            .then(Commands.literal("food")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        zcylas.totality.api.rpg.resources.ResourceQueryResult result =
+                                                zcylas.totality.api.rpg.resources.PlayerResourceService.INSTANCE
+                                                        .query(player, zcylas.totality.api.rpg.resources.PlayerResourceIds.FOOD);
+                                        if (result instanceof zcylas.totality.api.rpg.resources.ResourceQueryResult.Success success) {
+                                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                                    "Food: " + success.snapshot().currentUnits() + "/" + success.snapshot().maximumUnits()), false);
+                                            return 1;
+                                        }
+                                        ctx.getSource().sendFailure(Component.literal("Food is not queryable for this player."));
+                                        return 0;
+                                    })
+                                    .then(Commands.literal("set")
+                                            .then(Commands.argument("value", IntegerArgumentType.integer(0))
+                                                    .executes(ctx -> {
+                                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                        int value = IntegerArgumentType.getInteger(ctx, "value");
+                                                        var result = zcylas.totality.api.rpg.resources.PlayerResourceService.INSTANCE.set(
+                                                                player,
+                                                                zcylas.totality.api.rpg.resources.ResourceTarget.scalar(
+                                                                        zcylas.totality.api.rpg.resources.PlayerResourceIds.FOOD, value),
+                                                                zcylas.totality.api.rpg.resources.ResourceContext.of(
+                                                                        zcylas.totality.api.rpg.resources.ResourceCause.of(
+                                                                                zcylas.totality.api.rpg.resources.ResourceContext.CauseTypes.ADMIN_COMMAND)));
+                                                        if (!(result instanceof zcylas.totality.api.rpg.resources.ResourceOperationResult.Success success)) {
+                                                            ctx.getSource().sendFailure(Component.literal("Could not set Food."));
+                                                            return 0;
+                                                        }
+                                                        long finalCurrent = success.after().currentUnits();
+                                                        long finalMax = success.after().maximumUnits();
+                                                        ctx.getSource().sendSuccess(() ->
+                                                                Component.literal("Food set to " + finalCurrent + "/" + finalMax
+                                                                        + (value > finalMax ? " (clamped from requested " + value + ")" : "")), false);
+                                                        return 1;
+                                                    })
+                                            )
+                                    )
+                                    // ── /totality food debug ──────────────────────────────
+                                    // 2026-09-17 real-client correction: a narrowly-scoped
+                                    // diagnostic for the "real Survival sprint/jump doesn't
+                                    // deplete Food" investigation. Reports every link in the
+                                    // upstream chain (server sprint state, vanilla hunger
+                                    // exhaustion, Saturation) alongside the already-visible
+                                    // downstream state (authoritative Food, vanilla mirror) so a
+                                    // real-client tester can see exactly which link is live
+                                    // without needing a second automated test run. exhaustionLevel
+                                    // has no public vanilla getter — read via reflection, the same
+                                    // pattern FoodSystemVerification already uses for other private
+                                    // vanilla internals.
+                                    .then(Commands.literal("debug")
+                                            .executes(ctx -> {
+                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                                net.minecraft.world.food.FoodData foodData = player.getFoodData();
+                                                float exhaustionLevel;
+                                                try {
+                                                    java.lang.reflect.Field field =
+                                                            net.minecraft.world.food.FoodData.class.getDeclaredField("exhaustionLevel");
+                                                    field.setAccessible(true);
+                                                    exhaustionLevel = field.getFloat(foodData);
+                                                } catch (ReflectiveOperationException e) {
+                                                    exhaustionLevel = Float.NaN;
+                                                }
+                                                zcylas.totality.api.rpg.resources.ResourceQueryResult result =
+                                                        zcylas.totality.api.rpg.resources.PlayerResourceService.INSTANCE
+                                                                .query(player, zcylas.totality.api.rpg.resources.PlayerResourceIds.FOOD);
+                                                String foodLine = result instanceof zcylas.totality.api.rpg.resources.ResourceQueryResult.Success success
+                                                        ? success.snapshot().currentUnits() + "/" + success.snapshot().maximumUnits()
+                                                        : "unavailable";
+                                                float finalExhaustion = exhaustionLevel;
+                                                ctx.getSource().sendSuccess(() -> Component.literal(
+                                                        "Food debug — sprinting=" + player.isSprinting()
+                                                                + ", onGround=" + player.onGround()
+                                                                + ", invulnerable=" + player.getAbilities().invulnerable
+                                                                + ", exhaustionLevel=" + finalExhaustion + " (threshold 4.0)"
+                                                                + ", saturationLevel=" + foodData.getSaturationLevel()
+                                                                + ", authoritative Food=" + foodLine
+                                                                + ", vanilla mirror foodLevel=" + foodData.getFoodLevel() + "/20"
+                                                                + ", difficulty=" + player.level().getDifficulty()), false);
+                                                return 1;
+                                            })
+                                    )
+                            )
                             // ── /totality savingthrows ────────────────────────────────────
                             .then(Commands.literal("savingthrows")
                                     .executes(ctx -> {
@@ -814,31 +877,6 @@ public class TotalityCommands {
                                         }
 
                                         String msg = sb.toString().trim();
-                                        ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
-                                        return 1;
-                                    })
-                            )
-
-                            // ── /totality spellslots ──────────────────────────────────────
-                            // Temporary text readout until the Spell Slots GUI/HUD is built.
-                            .then(Commands.literal("spellslots")
-                                    .executes(ctx -> {
-                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
-                                        var slots = zcylas.totality.api.magic.spell.SpellSlotComponents.get(player);
-
-                                        StringBuilder sb = new StringBuilder("Spell Slots:");
-                                        boolean any = false;
-                                        for (int level = 1; level <= zcylas.totality.api.magic.spell.SpellSlotComponent.MAX_SPELL_LEVEL; level++) {
-                                            int max = slots.getMax(level);
-                                            if (max <= 0) continue;
-                                            any = true;
-                                            int used = slots.getUsed(level);
-                                            sb.append("\n  ").append(ordinal(level)).append(": ")
-                                              .append(max - used).append("/").append(max);
-                                        }
-                                        if (!any) sb.append(" none (no caster class levels yet).");
-
-                                        String msg = sb.toString();
                                         ctx.getSource().sendSuccess(() -> Component.literal(msg), false);
                                         return 1;
                                     })
@@ -918,15 +956,6 @@ public class TotalityCommands {
                                 return 1;
                             }));
         });
-    }
-
-    private static String ordinal(int level) {
-        return switch (level) {
-            case 1 -> "1st";
-            case 2 -> "2nd";
-            case 3 -> "3rd";
-            default -> level + "th";
-        };
     }
 
     private TotalityCommands() {}

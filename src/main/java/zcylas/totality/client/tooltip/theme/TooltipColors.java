@@ -7,21 +7,25 @@ public final class TooltipColors {
 
     public static int forRarity(ItemRarity rarity) {
         return switch (rarity) {
+            //Normal Rarities
             case COMMON     -> 0xFF888888;
             case UNCOMMON   -> 0xFF55AA55;
             case RARE       -> 0xFF5588FF;
             case EPIC       -> 0xFFAA55FF;
             case LEGENDARY  -> 0xFFFFAA00;
             case MYTHICAL   -> 0xFFFF5555;
-            case ARTIFACT   -> 0xFFD4A017;
+            case ANCIENT    -> 0xFF3ADBC4;
+            //Special Cases
             case CURSED     -> 0xFF8B1A35;
             case FORBIDDEN  -> 0xFF5A174F;
             case QUEST      -> 0xFFFFD85A;
+            //Divine Rarities
             case BLESSED    -> 0xFFFFE6A3;
             case SACRED     -> 0xFFD6A84F;
             case CELESTIAL  -> 0xFFA8DFFF;
             case DIVINE     -> 0xFFFFFFFF;
             case GODFORGED   -> 0xFFE0B94A;
+            //Engineering Rarities
             case CRUDE       -> 0xFF8A6F4D;
             case CALIBRATED  -> 0xFF6A8F9C;
             case REINFORCED  -> 0xFFB0B0B0;

@@ -384,6 +384,16 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(MagicItems.NOVICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.APPRENTICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.ARCHMAGE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/petty_soul_gem.json
+        generators.itemModelOutput.accept(
+                MagicItems.PETTY_SOUL_GEM,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/petty_soul_gem")));
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/common_soul_gem.json
+        generators.itemModelOutput.accept(
+                MagicItems.COMMON_SOUL_GEM,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/common_soul_gem")));
         generators.generateFlatItem(ToolItems.WRENCH, ModelTemplates.FLAT_ITEM);
         //Basic Weapons
             //Shuriken
@@ -392,6 +402,12 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(BasicWeaponItems.GOLD_SHURIKEN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(BasicWeaponItems.DIAMOND_SHURIKEN, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(BasicWeaponItems.NETHERITE_SHURIKEN, ModelTemplates.FLAT_ITEM);
+            //Skyrim Swords
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/iron_sword.json
+        generators.itemModelOutput.accept(
+                BasicWeaponItems.IRON_SWORD,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/iron_sword")));
         //Ingredients
             //Gears
         generators.generateFlatItem(IngredientItems.COPPER_GEAR, ModelTemplates.FLAT_ITEM);
@@ -413,7 +429,23 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(IngredientItems.TRUE_WHEAT_SEEDS, ModelTemplates.FLAT_ITEM);
         //Special Weapons
             //Zanpakutō
-        generators.generateFlatItem(BleachItems.ZANPAKUTO, ModelTemplates.FLAT_ITEM);
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/asauchi.json
+        generators.itemModelOutput.accept(
+                BleachItems.ZANPAKUTO,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/asauchi")));
+            //Shinigami Uniform
+        // Inventory-icon placeholder only — the worn appearance is the custom ShinigamiRobeArmorRenderer.
+        // Reuses the existing entity/equipment texture as-is (no repacked/duplicated PNG).
+        ModelTemplates.FLAT_ITEM.create(
+                Identifier.fromNamespaceAndPath("totality", "item/shinigami_robe"),
+                TextureMapping.layer0(new net.minecraft.client.resources.model.sprite.Material(
+                        Identifier.fromNamespaceAndPath("totality", "entity/equipment/shinigami_robe"))),
+                generators.modelOutput);
+        generators.itemModelOutput.accept(
+                BleachItems.SHINIGAMI_ROBE,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/shinigami_robe")));
         //Magic Items
         generators.generateFlatItem(SpellComponentItems.COMPONENT_POUCH, ModelTemplates.FLAT_ITEM);
         //Tools
@@ -446,6 +478,9 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(SKIngredientItems.BLUE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.PURPLE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.RED_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
+        //Food Items
+        generators.generateFlatItem(FoodItems.PIZZA_MARGHERITA, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(FoodItems.PIZZA_MARGHERITA_SLICE, ModelTemplates.FLAT_ITEM);
         //Fuels
         generators.generateFlatItem(FuelItems.TINY_COAL, ModelTemplates.FLAT_ITEM);
         //Ritual Items
@@ -589,6 +624,15 @@ public class ModModelProvider extends FabricModelProvider {
         generators.itemModelOutput.accept(
                 PotionItems.POTION_OF_ULTIMATE_STAMINA,
                 ItemModelUtils.tintedModel(ultimatePotionModel, PotionTintSource.INSTANCE)
+        );
+
+        //D&D Standalone Potions (independent of the Alchemy potion ladder above)
+        // Placeholder art: reuses the existing standard-potion base/fill texture pair with a
+        // literal dark-red tint (0xB43A3A) via vanilla's built-in constant tint source — never
+        // PotionTintSource, which is Alchemy-owned — until dedicated D&D potion art exists.
+        generators.itemModelOutput.accept(
+                DndPotionItems.POTION_OF_HEALING,
+                ItemModelUtils.tintedModel(standardPotionModel, new net.minecraft.client.color.item.Constant(0xB43A3A))
         );
     }
     //Helper Classes

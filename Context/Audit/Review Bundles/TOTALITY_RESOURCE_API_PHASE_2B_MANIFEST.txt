@@ -1,0 +1,168 @@
+TOTALITY GENERIC PLAYER RESOURCE API — PHASE 2B REVIEW BUNDLE MANIFEST
+========================================================================
+
+Bundle creation date (UTC): 2026-07-19 18:33:07
+Revision: FINAL — READY TO COMMIT. Supersedes the initial implementation-pass
+  bundle. No code changed in this revision — only documentation was updated
+  to record the manual smoke test Stefan ran on the real Minecraft 26.2
+  client, which PASSED (Conduit Power was not tested; non-blocking — see
+  the implementation report's "Final Status — Ready to Commit" section).
+  This revision also corrects wording that previously risked implying both
+  "vanilla air is persisted" and "logout/rejoin resets air to full" at the
+  same time; the checklist item now only asks to confirm vanilla air
+  behavior resumes normally on reopening, with no Resource API NBT or
+  synchronization error, and no longer claims a specific current-air value
+  must survive logout/world-reopening. Every earlier "pending"/"not
+  executed" manual-test statement in the readiness audit and implementation
+  report has been superseded in place (struck through, with a pointer to
+  the current result) rather than deleted, preserving the historical
+  record.
+Branch: feature/general-resource-api
+Starting commit (Phase 2A): 0cd2b66a993aa3e8724b093a396e154cedb9c4b1
+  ("Add health and food resource adapters")
+HEAD commit at manifest generation time: 0cd2b66a993aa3e8724b093a396e154cedb9c4b1
+  (all Phase 2B work — original implementation and this finalization/
+  documentation pass — is uncommitted working-tree content at manifest
+  generation time; see the finalization task's own staging step for what
+  gets staged immediately after this bundle is produced).
+
+------------------------------------------------------------------------
+git status --short (full working tree, at manifest generation time)
+------------------------------------------------------------------------
+ M Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+ M src/main/generated/data/minecraft/worldgen/noise_settings/overworld.json
+ M src/main/generated/data/totality/loot_table/blocks/apothecary_table.json
+ M src/main/generated/data/totality/loot_table/blocks/copper_cable.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/deepslate_ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/electric_furnace.json
+ M src/main/generated/data/totality/loot_table/blocks/flecked_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/generator.json
+ M src/main/generated/data/totality/loot_table/blocks/graphite_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/limestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone.json
+ M src/main/generated/data/totality/loot_table/blocks/polished_whitestone_bricks.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_altar.json
+ M src/main/generated/data/totality/loot_table/blocks/ritual_dais.json
+ M src/main/generated/data/totality/loot_table/blocks/ruby_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/tin_ore.json
+ M src/main/generated/data/totality/loot_table/blocks/true_wheat_crop.json
+ M src/main/generated/data/totality/loot_table/blocks/whitestone.json
+ M src/main/generated/data/totality/recipe/copper_gear.json
+ M src/main/generated/data/totality/recipe/diamond_gear.json
+ M src/main/generated/data/totality/recipe/gold_gear.json
+ M src/main/generated/data/totality/recipe/iron_gear.json
+ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+ M src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+ M src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java
+ M src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java
+ M src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2B.patch"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2B_IMPLEMENTATION_REPORT.md"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2B_MANIFEST.txt"
+?? "Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2B_REVIEW_BUNDLE.zip"
+?? Context/Audit/TOTALITY_RESOURCE_API_PHASE_2B_BREATH_IMPLEMENTATION_REPORT.md
+?? "Context/Trading Test/trade_screen2.png"
+?? "Context/Trading Test/trade_screen3.png"
+?? "Context/Trading Test/trade_screen4.png"
+?? "Context/Trading Test/trade_screen5.png"
+?? logs/
+?? src/main/generated/.cache/
+?? src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java
+?? src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java
+
+NOTE: only the files listed in the FILE INVENTORY section below are
+included in the ZIP. The pre-existing modified files under
+src/main/generated/data/** (loot tables, recipes, noise settings), the
+untracked Context/Trading Test/*.png screenshots, the untracked
+src/main/generated/.cache/ directory, and the untracked logs/ directory
+(gzipped client-session logs, an expected byproduct of running
+`./gradlew runDatagen`/`build` during validation) are unrelated
+uncommitted/generated artifacts and are deliberately excluded from this
+bundle. No Phase 1 or Phase 2A review-bundle artifact
+(TOTALITY_RESOURCE_API_PHASE_1.*, TOTALITY_RESOURCE_API_PHASE_2A.*) was
+modified by this phase and none is included here.
+
+------------------------------------------------------------------------
+FILE INVENTORY (15 modified files + 3 created files + bundle-local
+report + patch + manifest)
+------------------------------------------------------------------------
+
+Format: CLASSIFICATION  bytes=<size>  sha256=<hash>  <project-relative path>
+
+MODIFIED  bytes=132013   sha256=00b25898f581f0d6956755f0b00f836b23ee4cce4770f77c3ecc01f868ed5b0f  Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API_IMPLEMENTATION_READINESS.md
+MODIFIED  bytes=1480     sha256=df0c5557f573b164e2b9d10e08fd4b6998b52ff0584588450c1acadcdde6590d  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceIds.java
+MODIFIED  bytes=10634    sha256=19566e4892fe36c5abdb0d9dc3a0515955373f8c6a00d545d5fdaf697fe29c57  src/main/java/zcylas/totality/api/rpg/resources/PlayerResourceService.java
+MODIFIED  bytes=7554     sha256=d3dfa161fc2e14804c2860281ef022875b06d02b663967e833d204f291efcbcf  src/main/java/zcylas/totality/api/rpg/resources/ProductionResourceDefinitions.java
+MODIFIED  bytes=4905     sha256=82e79f2718decfba9d9ce7e6c33d1674247d0f070539422e74035cae6cf25155  src/main/java/zcylas/totality/api/rpg/resources/ResourceQueryFailureReason.java
+MODIFIED  bytes=2945     sha256=8258fdcba3ea08fb8c8e8fce38c76ee0dcd9a8a4a60ef7f9458afe579c04b9f1  src/main/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapter.java
+MODIFIED  bytes=2260     sha256=6f0469855f6c05ad193cdea49992a53b0c504ac4150b947b4b5580e24574eae7  src/main/java/zcylas/totality/api/rpg/resources/external/FoodResourceAdapter.java
+MODIFIED  bytes=5622     sha256=f49f4771919645e27540fe1704114934f6864069b7bd94704f52333fb68f46a3  src/main/java/zcylas/totality/api/rpg/resources/external/HealthResourceAdapter.java
+MODIFIED  bytes=6525     sha256=81e5f6aaf136909e409488f9b69c968e0175f8b6afaebd9cb64660bd3dd2dc47  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryExternalAdapterFreezeTest.java
+MODIFIED  bytes=22387    sha256=8f1031e021c401665c57f1056e7cd285acde466c516dd8f5daa1bfa0fff5f693  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceRegistryTest.java
+MODIFIED  bytes=21904    sha256=44930f84d7f2fb0814580b404edb6f1427f66317ce129d64298aa42d278a08b4  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceServiceTest.java
+MODIFIED  bytes=17211    sha256=a529939e4d05c0f520b2ccad2e83bfc9496ebda4bd803b41956de3641603a7c1  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalEntryPathTest.java
+MODIFIED  bytes=5574     sha256=de9cb5f20896c6452952903483c769678f9ecee745c703c16cfb62bef0a7aa7e  src/test/java/zcylas/totality/api/rpg/resources/PlayerResourceStateComponentExternalSafetyTest.java
+MODIFIED  bytes=9152     sha256=79d8c67e78e6061ea126df080926d5862a05f63ccd5e32240192ecb65d358738  src/test/java/zcylas/totality/api/rpg/resources/external/ExternalPlayerResourceAdapterRegistryTest.java
+MODIFIED  bytes=3916     sha256=9522c9395b2cfd01621f687883fddc8ce73fea25e735fdd88ee389b7981e10ba  src/test/java/zcylas/totality/api/rpg/resources/presentation/ResourceValueFormatterRegistryTest.java
+CREATED   bytes=6326     sha256=e3ffeaf9bade494cc9ef67bb270755b0e72e037fe3d0b2a4dee9fa10c0eb259f  src/main/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapter.java
+CREATED   bytes=6092     sha256=703f7b9dab05d7bd10769e34397ce566eafd970012248d54519694965cb62559  src/test/java/zcylas/totality/api/rpg/resources/external/BreathResourceAdapterTest.java
+DOC       bytes=27826    sha256=7a8f8cea143e7cef5a0dca2cfeb48150520756c30e304f57d1cb89551697cfa3  Context/Audit/TOTALITY_RESOURCE_API_PHASE_2B_BREATH_IMPLEMENTATION_REPORT.md
+REPORT    bytes=27826    sha256=7a8f8cea143e7cef5a0dca2cfeb48150520756c30e304f57d1cb89551697cfa3  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2B_IMPLEMENTATION_REPORT.md
+PATCH     bytes=96272    sha256=3f5f444e8d0db11540836e99c7e12325feb9514c2040a30c239c0bd935f9c580  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2B.patch
+MANIFEST  bytes=N/A       sha256=N/A (self-referential — this row describes this file; a file cannot contain a hash of its own final byte contents without circularity)  Context/Audit/Review Bundles/TOTALITY_RESOURCE_API_PHASE_2B_MANIFEST.txt
+
+------------------------------------------------------------------------
+TOTALS
+------------------------------------------------------------------------
+Files listed above (excluding this manifest's own self-referential row): 20
+  - MODIFIED: 15 (14 code/test files + 1 doc, the readiness audit)
+  - CREATED:  3 (2 code/test files + 1 doc, the Phase 2B implementation report)
+  - REPORT:   1 (bundle-local copy of the implementation report)
+  - PATCH:    1
+Total files packaged into the ZIP (including this manifest itself): 21
+
+------------------------------------------------------------------------
+TEST COUNT
+------------------------------------------------------------------------
+214 (end of Phase 2A) -> 240 (end of Phase 2B). 240/240 passed, 0 failures.
+
+------------------------------------------------------------------------
+BUILD/VALIDATION RESULTS
+------------------------------------------------------------------------
+./gradlew compileJava        BUILD SUCCESSFUL
+./gradlew test                240/240 tests passed
+./gradlew runDatagen           BUILD SUCCESSFUL, written: 0
+./gradlew build -x runDatagen  BUILD SUCCESSFUL
+git diff --cached              empty throughout this phase
+
+------------------------------------------------------------------------
+MANUAL SMOKE TEST
+------------------------------------------------------------------------
+PASSED (executed by Stefan on the real Minecraft 26.2 client, existing
+test world). Client launch, no Resource API component/NBT/query/sync
+error, no unexpected air bubbles on land, normal underwater air-bubble
+behavior and depletion, normal refill on surfacing, normal drowning
+damage onset, Water Breathing correctly prevented depletion, no new
+Totality Breath bar/number, Health/Hunger/Stamina/Mana/Rage unchanged,
+clean save/exit, reopening produced no Resource API error and vanilla
+breathing resumed normally, dimension travel produced no regression,
+death/respawn restored ordinary breathing without errors, clean final
+shutdown. No exception observed for totality:breath, BreathResourceAdapter,
+PlayerResourceService, or resource_state.
+
+Conduit Power was NOT tested. Non-blocking: Water Breathing already
+exercises the same underlying MobEffectUtil.shouldEffectsRefillAirsupply
+code path Conduit Power also relies on.
+
+Full detail: the implementation report's "Final Status — Ready to Commit"
+section.

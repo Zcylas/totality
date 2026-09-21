@@ -52,6 +52,14 @@ public class BlessEffect extends MobEffect {
             public List<DiceBonus> getSaveBonusList(AbilityScore score) {
                 return List.of(new DiceBonus("Bless", Dice.D4.roll(sp.getRandom())));
             }
+
+            @Override
+            public boolean isActive() {
+                // The authoritative liveness check: Minecraft's own active-effects state, correct
+                // the instant the effect's duration ends regardless of whether onEffectRemoved's
+                // removal callback fired for this particular removal path.
+                return sp.hasEffect(zcylas.totality.init.ModEffects.BLESS);
+            }
         });
 
         SendNotificationPayload.send(sp, "✦ Blessed — +1d4 to attacks & saves", 0xFFFFCC33);

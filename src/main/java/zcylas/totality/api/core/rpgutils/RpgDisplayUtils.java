@@ -1,5 +1,8 @@
 package zcylas.totality.api.core.rpgutils;
 
+import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
+import zcylas.totality.api.rpg.resources.presentation.ResourceDisplayConversion;
+
 /**
  * Utility class for converting between vanilla internal values and
  * Totality's display values.
@@ -13,11 +16,36 @@ package zcylas.totality.api.core.rpgutils;
  *   - Boss bars
  *   - Damage numbers (when added)
  *   - Potion tooltips
+ *
+ * {@link #toDisplayHp}/{@link #toVanillaHp} now delegate to the shared, registered
+ * {@code totality:health} {@link ResourceDisplayConversion} (see
+ * {@code Context/Audit/TOTALITY_GENERIC_PLAYER_RESOURCE_API.md} §19.2) instead of hand-rolling
+ * their own multiplication, so there remains exactly one authoritative ×5 Health conversion. Kept
+ * as public static methods (not deleted) because callers throughout the codebase still depend on
+ * them (see the readiness audit's migration matrix).
  */
 public final class RpgDisplayUtils {
 
-    /** Multiplier between vanilla HP and display HP. */
-    public static final int HP_DISPLAY_MULTIPLIER = 5;
+    /**
+     * Multiplier between vanilla HP and display HP. Correction pass: derived from
+     * {@link ResourceDisplayConversion#HEALTH_FOOD} at class-init time rather than maintained as
+     * an independent literal — {@code HEALTH_FOOD} is the single authoritative declaration of
+     * Health's {@code 5/1} ratio. This field assumes {@code HEALTH_FOOD} is a whole-number
+     * multiplier (denominator {@code 1}); {@link #deriveMultiplier()} fails loudly rather than
+     * silently if that ever stops being true, instead of this field quietly drifting from it.
+     */
+    public static final int HP_DISPLAY_MULTIPLIER = deriveMultiplier();
+
+    private static int deriveMultiplier() {
+        ResourceDisplayConversion conversion = ResourceDisplayConversion.HEALTH_FOOD;
+        if (conversion.denominator() != 1) {
+            throw new IllegalStateException(
+                    "HP_DISPLAY_MULTIPLIER assumes a whole-number multiplier (denominator=1), but "
+                            + "ResourceDisplayConversion.HEALTH_FOOD is "
+                            + conversion.numerator() + "/" + conversion.denominator());
+        }
+        return Math.toIntExact(conversion.numerator());
+    }
 
     private RpgDisplayUtils() {}
 
@@ -28,15 +56,20 @@ public final class RpgDisplayUtils {
      * e.g. 20 vanilla → 100 display, 10 vanilla → 50 display.
      */
     public static int toDisplayHp(float vanillaHp) {
-        return Math.round(vanillaHp * HP_DISPLAY_MULTIPLIER);
+        long units = HealthResourceAdapter.toUnits(vanillaHp, HealthResourceAdapter.UNIT_SCALE);
+        long display = ResourceDisplayConversion.HEALTH_FOOD.convertUnitsToDisplay(units, HealthResourceAdapter.UNIT_SCALE);
+        return Math.toIntExact(display);
     }
 
     /**
      * Converts display HP back to vanilla HP.
      * e.g. 100 display → 20 vanilla, 50 display → 10 vanilla.
+     * Derived from {@link ResourceDisplayConversion#HEALTH_FOOD}'s own tested inverse
+     * ({@link ResourceDisplayConversion#invertToMechanical(double)}), not a second division by
+     * {@link #HP_DISPLAY_MULTIPLIER} — one authoritative conversion object backs both directions.
      */
     public static float toVanillaHp(int displayHp) {
-        return (float) displayHp / HP_DISPLAY_MULTIPLIER;
+        return (float) ResourceDisplayConversion.HEALTH_FOOD.invertToMechanical(displayHp);
     }
 
     /**

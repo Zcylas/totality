@@ -11,7 +11,8 @@ import java.util.List;
  * Rolls multi-die damage server-side and returns a {@link DamageRollResult}.
  *
  * Unlike attack rolls and saving throws, damage rolls do not open the dice screen —
- * results are shown as a lightweight HUD notification via {@link DamageRollNotification}.
+ * results are shown as part of the combined attack-and-damage HUD notification via
+ * {@code zcylas.totality.networking.combat.CombatRollNotification}.
  *
  * Usage:
  *   DamageRollResult dmg = DamageRoll.roll(caster, 8, Dice.D6);

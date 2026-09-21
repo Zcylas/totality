@@ -12,15 +12,20 @@ import java.util.Map;
 public final class ClientClassManager {
 
     private static final Map<Identifier, Integer> classLevels = new LinkedHashMap<>();
-    private static @Nullable Identifier subclassId = null;
+    /** Per-class subclass mirror: {@code classId -> subclassId}. See {@code
+     *  PlayerClassComponent}'s own field Javadoc for the full migration rationale (2026-09-16) —
+     *  a single global subclass slot could not represent two different owned classes each having
+     *  their own subclass. */
+    private static final Map<Identifier, Identifier> subclassIds = new LinkedHashMap<>();
     private static @Nullable Identifier covenantId = null;
 
     public static void apply(Map<Identifier, Integer> levels,
-                             @Nullable Identifier subclass,
+                             Map<Identifier, Identifier> subclasses,
                              @Nullable Identifier covenant) {
         classLevels.clear();
         classLevels.putAll(levels);
-        subclassId = subclass;
+        subclassIds.clear();
+        subclassIds.putAll(subclasses);
         covenantId = covenant;
     }
 
@@ -35,7 +40,9 @@ public final class ClientClassManager {
                 .orElse(null);
     }
 
-    public static @Nullable Identifier getSubclassId() { return subclassId; }
+    /** The subclass chosen for {@code classId}, or {@code null} — never any other class's. */
+    public static @Nullable Identifier getSubclassId(Identifier classId) { return subclassIds.get(classId); }
+    public static boolean hasSubclass(Identifier classId) { return subclassIds.containsKey(classId); }
     public static @Nullable Identifier getCovenantId() { return covenantId; }
     public static boolean hasClass()                   { return !classLevels.isEmpty(); }
 
@@ -44,8 +51,10 @@ public final class ClientClassManager {
         return id != null ? ClassRegistry.get(id).orElse(null) : null;
     }
 
-    public static @Nullable SubclassData getSubclassData() {
-        return subclassId != null ? SubclassRegistry.get(subclassId).orElse(null) : null;
+    /** The subclass data chosen for {@code classId}, or {@code null} — never any other class's. */
+    public static @Nullable SubclassData getSubclassData(Identifier classId) {
+        Identifier id = subclassIds.get(classId);
+        return id != null ? SubclassRegistry.get(id).orElse(null) : null;
     }
 
     public static @Nullable CovenantData getCovenantData() {

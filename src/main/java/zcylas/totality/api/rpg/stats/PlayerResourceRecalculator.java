@@ -4,8 +4,10 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.combat.damage.DamageResistanceRecalculator;
 import zcylas.totality.api.rpg.mana.PlayerManaManager;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.networking.mana.SyncManaPayload;
+import zcylas.totality.networking.resource.ResourceSyncManager;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 
 /**
@@ -65,6 +67,16 @@ public final class PlayerResourceRecalculator {
         ServerPlayNetworking.send(player, new SyncManaPayload(
                 PlayerManaManager.getMana(player),
                 PlayerManaManager.getMaxMana(player)));
+
+        // Non-authoritative dirty notification for the parallel Phase 3A generic Resource sync path.
+        // This legacy sync boundary already observes both current and maximum unconditionally (a
+        // stat/equipment change can raise or lower the maximum without necessarily changing current,
+        // e.g. 80/100 becoming 80/150 — the clamp above only fires when current now exceeds the new
+        // maximum), so it is marked dirty here regardless of whether either clamp fired above. The
+        // diff layer (PlayerResourceSyncState.computeDeltaAndApply) suppresses an unchanged snapshot
+        // without sending a packet or bumping the revision, so this adds no packet spam.
+        ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.MANA);
+        ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.STAMINA);
     }
 
     /**
@@ -93,5 +105,9 @@ public final class PlayerResourceRecalculator {
         ServerPlayNetworking.send(player, new SyncManaPayload(
                 PlayerManaManager.getMana(player),
                 PlayerManaManager.getMaxMana(player)));
+
+        // See the matching comment in recalculate() above — same maximum-only-change seam.
+        ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.MANA);
+        ResourceSyncManager.markDirty(player.getUUID(), PlayerResourceIds.STAMINA);
     }
 }

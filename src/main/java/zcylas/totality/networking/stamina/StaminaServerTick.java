@@ -10,7 +10,7 @@ import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.movement.*;
 import zcylas.totality.api.rpg.combat.CombatStateManager;
 import zcylas.totality.api.rpg.combat.bow.BowStaminaHandler;
-import zcylas.totality.api.rpg.combat.exhaustion.ExhaustionManager;
+import zcylas.totality.api.rpg.combat.stamina.depletion.StaminaDepletionManager;
 import zcylas.totality.api.rpg.resources.ResourceComponents;
 import zcylas.totality.api.rpg.stamina.PlayerStaminaManager;
 import zcylas.totality.networking.movement.MovementStaminaHandler;
@@ -20,11 +20,11 @@ public class StaminaServerTick {
     private static int tickCounter = 0;
 
     private static final Identifier SPEED_MODIFIER_ID =
-            Identifier.fromNamespaceAndPath("totality", "exhaustion_speed");
+            Identifier.fromNamespaceAndPath("totality", "stamina_depleted_movement_penalty");
     private static final double SPEED_PENALTY = -0.20;
 
     private static final Identifier ATTACK_MODIFIER_ID =
-            Identifier.fromNamespaceAndPath("totality", "exhaustion_attack");
+            Identifier.fromNamespaceAndPath("totality", "stamina_depleted_attack_penalty");
     private static final double ATTACK_PENALTY = -0.25;
 
     public static void register() {
@@ -113,11 +113,11 @@ public class StaminaServerTick {
                 // ── Bow stamina drain ─────────────────────────────────────────
                 BowStaminaHandler.tick(player, tickCounter);
 
-                // ── Exhaustion state tick ─────────────────────────────────────
-                ExhaustionManager.tick(player);
+                // ── Stamina depletion state tick ──────────────────────────────
+                StaminaDepletionManager.tick(player);
 
-                // ── Exhaustion attribute penalties ────────────────────────────
-                boolean penalized = ExhaustionManager.isPenalized(player) && !player.isCreative();
+                // ── Stamina depletion attribute penalties ─────────────────────
+                boolean penalized = StaminaDepletionManager.isPenalized(player) && !player.isCreative();
 
                 var speedAttr = player.getAttribute(Attributes.MOVEMENT_SPEED);
                 if (speedAttr != null) {
@@ -158,13 +158,16 @@ public class StaminaServerTick {
                         int current = PlayerStaminaManager.getStamina(player);
                         int max     = PlayerStaminaManager.getMaxStamina(player);
                         if (current < max) {
-                            float regenMultiplier = ExhaustionManager.getRegenMultiplier(player);
+                            float regenMultiplier = StaminaDepletionManager.getRegenMultiplier(player);
                             int regenAmount = Math.max(1,
                                     (int)(PlayerStaminaManager.calculateRegenAmount(player)
                                             * regenMultiplier));
                             PlayerStaminaManager.addStamina(player, regenAmount);
-                            PlayerStaminaManager.setStamina(player,
-                                    PlayerStaminaManager.getStamina(player));
+                            // The re-set that used to live here was truly redundant even before
+                            // this migration (nested inside the same current<max branch that just
+                            // called addStamina, which already clamps to max) — unlike Mana's
+                            // equivalent line (kept — see ManaServerTick), it never covered a
+                            // current>max case, since nothing else here calls it unconditionally.
                             syncStamina(player);
                         }
                     }

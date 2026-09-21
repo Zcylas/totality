@@ -236,6 +236,18 @@ public abstract class Spell extends Ability {
     public boolean isRitual()         { return ritual; }
 
     /**
+     * True when THIS activation is a secondary/follow-up action on an already-active instance of
+     * this spell (e.g. Crown of Stars firing one of its already-summoned motes) rather than a
+     * brand-new cast. {@link zcylas.totality.networking.ability.ActivateAbilityHandler} checks
+     * this once, before {@link #onActivate}, and uses the same value for both the spell-slot
+     * pre-check and the post-cast spend, so a follow-up action never requires or consumes another
+     * slot and the two can never disagree with each other. Defaults to {@code false} — every
+     * activation is an ordinary new cast unless a spell explicitly overrides this, so no other
+     * spell's slot-spending behavior changes.
+     */
+    public boolean isActiveInstanceAction(ServerPlayer player) { return false; }
+
+    /**
      * Human-readable spell level for the UI.
      * e.g. "Cantrip", "1st-level", "2nd-level", "3rd-level", "4th-level" ...
      */

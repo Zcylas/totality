@@ -45,6 +45,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
             //Arcane Foci
         translationBuilder.add("item.totality.arcane_orb", "Arcane Orb");
         translationBuilder.add("item.totality.bard_guitar", "Bard's Guitar");
+            //Soul Gems
+        translationBuilder.add("item.totality.petty_soul_gem", "Petty Soul Gem");
+        translationBuilder.add("item.totality.common_soul_gem", "Common Soul Gem");
             //Rune Items - Blanks
         translationBuilder.add("item.totality.blank_form", "Blank Form Rune");
         translationBuilder.add("item.totality.blank_effect", "Blank Effect Rune");
@@ -89,6 +92,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         //Special Weapons
             //Zanpakutō
         translationBuilder.add("item.totality.zanpakuto", "Zanpakutō");
+            //Shinigami Uniform
+        translationBuilder.add("item.totality.shinigami_robe", "Shinigami Robe");
         //Basic Weapons
             //Shuriken
         translationBuilder.add("item.totality.copper_shuriken", "Copper Shuriken");
@@ -96,6 +101,9 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.gold_shuriken", "Gold Shuriken");
         translationBuilder.add("item.totality.diamond_shuriken", "Diamond Shuriken");
         translationBuilder.add("item.totality.netherite_shuriken", "Netherite Shuriken");
+            //Skyrim Swords
+        translationBuilder.add("item.totality.iron_sword", "Iron Sword");
+        translationBuilder.add("item.totality.steel_sword", "Steel Sword");
         //Blocks
             //Ores
         translationBuilder.add("block.totality.tin_ore", "Tin Ore");
@@ -140,6 +148,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.diamond_gear", "Diamond Gear");
         translationBuilder.add("item.totality.netherite_gear", "Netherite Gear");
             //Raw Items
+        translationBuilder.add("item.totality.raw_tin", "Raw Tin");
         translationBuilder.add("item.totality.graphite", "Graphite");
         translationBuilder.add("item.totality.whitestone_chunk", "Whitestone Chunk");
         translationBuilder.add("item.totality.residuum_flecked_chunk", "Residuum-Flecked Chunk");
@@ -156,23 +165,33 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.purple_mountain_flower","Purple Mountain Flower");
         translationBuilder.add("item.totality.true_wheat_seeds","True Wheat Seeds");
         translationBuilder.add("item.totality.true_wheat","True Wheat");
+        translationBuilder.add("block.totality.true_wheat_crop","True Wheat");
         translationBuilder.add("item.totality.rock_warbler_egg","Rock Warbler Egg");
         translationBuilder.add("item.totality.garlic","Garlic");
+        //Food Items
+        translationBuilder.add("item.totality.pizza_margherita", "Pizza Margherita");
+        translationBuilder.add("item.totality.pizza_margherita_slice", "Pizza Margherita Slice");
         //Spell Materials
         translationBuilder.add("item.totality.bat_guano", "Bat Guano");
         translationBuilder.add("item.totality.sulphur_dust", "Sulphur Dust");
+        translationBuilder.add("item.totality.fur", "Fur");
+        translationBuilder.add("item.totality.glass_rod", "Glass Rod");
+            //Caster Equipment
+        translationBuilder.add("item.totality.component_pouch", "Component Pouch");
+        translationBuilder.add("item.totality.arcane_focus", "Arcane Focus");
         //Fuel
         translationBuilder.add("item.totality.tiny_coal", "Tiny Coal");
         //Ritual Items
         translationBuilder.add("item.totality.blessed_incense", "Blessed Incense");
         translationBuilder.add("item.totality.incense","Incense");
         translationBuilder.add("item.totality.white_chalk", "White Chalk");
-        translationBuilder.add("item.totality.gold_chalk", "Golden Chalk");
+        translationBuilder.add("item.totality.gold_chalk", "Gold Chalk");
         translationBuilder.add("item.totality.blue_chalk", "Blue Chalk");
         translationBuilder.add("item.totality.purple_chalk", "Purple Chalk");
         translationBuilder.add("item.totality.red_chalk", "Red Chalk");
         translationBuilder.add("item.totality.residuum_chalk", "Residuum Chalk");
         //Ritual Blocks
+        translationBuilder.add("block.totality.chalk", "Chalk");
         translationBuilder.add("block.totality.ritual_altar", "Ritual Altar");
         translationBuilder.add("block.totality.ritual_dais", "Ritual Dais");
 
@@ -181,6 +200,13 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
                 //Shuriken
         translationBuilder.add("item.totality.shuriken.tooltip", "A razor-sharp throwing star. Deadly at range.");
         translationBuilder.add("item.totality.shuriken.damage", "Throw Damage: %s ❤");
+
+        //Creative Tabs
+        translationBuilder.add("itemGroup.totality.materials", "Totality: Materials");
+        translationBuilder.add("itemGroup.totality.equipment", "Totality: Equipment");
+        translationBuilder.add("itemGroup.totality.machines", "Totality: Machines");
+        translationBuilder.add("itemGroup.totality.magic", "Totality: Magic");
+        translationBuilder.add("itemGroup.totality.food", "Totality: Food");
 
         //Keys
         translationBuilder.add("key.category.totality.totality", "Totality");
@@ -194,10 +220,28 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("key.totality.attune_item", "Attune Item");
         //Effects
         translationBuilder.add("effect.totality.glide", "Glide");
+        translationBuilder.add("effect.totality.hex", "Hex");
+        translationBuilder.add("effect.totality.shocked", "Shocked");
+        translationBuilder.add("effect.totality.summoning_sickness", "Summoning Sickness");
+        translationBuilder.add("effect.totality.fortify_health", "Fortify Health");
+        translationBuilder.add("effect.totality.fortify_mana", "Fortify Mana");
+        translationBuilder.add("effect.totality.fortify_stamina", "Fortify Stamina");
+        translationBuilder.add("effect.totality.regenerate_mana", "Regenerate Mana");
+        translationBuilder.add("effect.totality.regenerate_stamina", "Regenerate Stamina");
+        translationBuilder.add("effect.totality.rage", "Rage");
+        translationBuilder.add("effect.totality.bless", "Bless");
         //Entities
         translationBuilder.add("entity.totality.totality_npc", "NPC");
         translationBuilder.add("entity.totality.banker", "Banker");
         translationBuilder.add("entity.totality.provisioner", "Provisioner");
+        translationBuilder.add("entity.totality.summon_skeleton", "Summoned Skeleton");
+        translationBuilder.add("entity.totality.linger", "Lingering Effect");
+        translationBuilder.add("entity.totality.thrown_shuriken", "Thrown Shuriken");
+        translationBuilder.add("entity.totality.grimoire_projectile", "Grimoire Projectile");
+        translationBuilder.add("entity.totality.orbit_projectile", "Orbit Projectile");
+        translationBuilder.add("entity.totality.spell_bolt", "Spell Bolt");
+        translationBuilder.add("entity.totality.fireball_projectile", "Fireball");
+        translationBuilder.add("entity.totality.rest_seat", "Rest Seat");
 
         //Trading Screen (Phase 4)
         translationBuilder.add("totality.trading.title", "Trading");
@@ -248,5 +292,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("totality.trading.reject.confirmation_required", "Confirmation required for a reduced payout");
         translationBuilder.add("totality.trading.reject.stale_confirmation", "Terms changed — please review and confirm again");
         translationBuilder.add("totality.trading.reject.generic", "That didn't work");
+
+        //D&D standalone potions (independent of the Alchemy potion ladder above)
+        translationBuilder.add("item.totality.dnd_potion_of_healing", "Potion of Healing");
     }
 }

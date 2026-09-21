@@ -16,6 +16,17 @@
 		"LivingEntityHurtMixin",
 		"LivingEntityRestSleepMixin",
 		"PlayerRestSleepMixin",
+		"FoodDataNaturalRegenerationMixin",
+		"ServerPlayerPeacefulRegenerationMixin",
+		"FoodDataExhaustionAuthorityMixin",
+		"FoodDataPeacefulExhaustionDepletionAuthorityMixin",
+		"ServerPlayerPeacefulFoodRestoreAuthorityMixin",
+		"ServerPlayerPeacefulSaturationRestoreAuthorityMixin",
+		"FoodPropertiesEatAuthorityMixin",
+		"FoodDataStarvationDamageAuthorityMixin",
+		"CakeBlockEatAuthorityMixin",
+		"SaturationMobEffectEatAuthorityMixin",
+		"PlayerFoodSprintGateAuthorityMixin",
 		"InventoryCreditsMergeMixin",
 		"MultiNoiseBiomeSourceParameterListMixin",
 		"client.LivingEntityMixin",
@@ -39,7 +50,12 @@
 		"client.ItemInHandRendererMixin",
 		"client.MultiPlayerGameModeMixin",
 		"client.MinecraftMiningMixin",
-		"client.MiningHandRenderMixin"
+		"client.MiningHandRenderMixin",
+		"client.chat.ChatComponentBottomMarginMixin",
+		"client.chat.ChatScreenInputBackgroundMixin",
+		"client.chat.ChatScreenInputPositionMixin",
+		"client.chat.CommandSuggestionsListPositionMixin",
+		"client.chat.CommandSuggestionsUsagePositionMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

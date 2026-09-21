@@ -18,6 +18,7 @@ import zcylas.totality.networking.classes.OpenClassSelectionPayload;
 import zcylas.totality.networking.classes.AddClassLevelPayload;
 import zcylas.totality.networking.classes.OpenSubclassSelectionPayload;
 import zcylas.totality.networking.classes.SelectClassPayload;
+import zcylas.totality.networking.classes.SelectSubclassPayload;
 import zcylas.totality.networking.combat.CombatTextPayload;
 import zcylas.totality.networking.combat.PowerAttackPayload;
 import zcylas.totality.networking.config.ItemSideModePayload;
@@ -103,6 +104,7 @@ public class TotalityPackets {
         registry.register(DiceRollClickPayload.TYPE, DiceRollClickPayload.STREAM_CODEC);
         registry.register(SelectClassPayload.TYPE, SelectClassPayload.STREAM_CODEC);
         registry.register(AddClassLevelPayload.TYPE, AddClassLevelPayload.STREAM_CODEC);
+        registry.register(SelectSubclassPayload.TYPE, SelectSubclassPayload.STREAM_CODEC);
         registry.register(
                 zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.TYPE,
                 zcylas.totality.networking.equipment.OpenAccessoryInventoryPayload.CODEC);
@@ -130,6 +132,8 @@ public class TotalityPackets {
                 zcylas.totality.networking.rest.CancelRestPayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.rest.ResumeRestPayload.TYPE,
                 zcylas.totality.networking.rest.ResumeRestPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.resource.ResourceResyncRequestPayload.TYPE,
+                zcylas.totality.networking.resource.ResourceResyncRequestPayload.CODEC);
     }
 
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
@@ -164,6 +168,10 @@ public class TotalityPackets {
                 zcylas.totality.networking.rest.OpenRestChoicePayload.STREAM_CODEC);
         registry.register(zcylas.totality.networking.rest.RestTimeSyncPayload.TYPE,
                 zcylas.totality.networking.rest.RestTimeSyncPayload.STREAM_CODEC);
+        registry.register(zcylas.totality.networking.resource.ResourceFullSyncPayload.TYPE,
+                zcylas.totality.networking.resource.ResourceFullSyncPayload.CODEC);
+        registry.register(zcylas.totality.networking.resource.ResourceDeltaSyncPayload.TYPE,
+                zcylas.totality.networking.resource.ResourceDeltaSyncPayload.CODEC);
     }
 
     private TotalityPackets() {}

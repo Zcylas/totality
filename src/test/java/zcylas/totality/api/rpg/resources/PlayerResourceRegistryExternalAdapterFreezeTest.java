@@ -1,0 +1,262 @@
+package zcylas.totality.api.rpg.resources;
+
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.player.Player;
+import org.junit.jupiter.api.Test;
+import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.ExternalPlayerResourceAdapterRegistry;
+import zcylas.totality.api.rpg.resources.external.ExternalResourceClientMirrorMode;
+import zcylas.totality.api.rpg.resources.external.ExternalResourceOperationSupport;
+import zcylas.totality.api.rpg.resources.external.HealthResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.FoodResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.BreathResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.ManaResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.RageResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.StaminaResourceAdapter;
+import zcylas.totality.api.rpg.resources.external.StandardSpellSlotsResourceAdapter;
+
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Cross-registry validation: a {@link PlayerResourceDefinition} declaring {@code EXTERNAL_ADAPTER}
+ * authority must resolve to a real, registered {@link ExternalPlayerResourceAdapter} by the time
+ * {@link PlayerResourceRegistry#freeze(ExternalPlayerResourceAdapterRegistry)} runs. Uses isolated
+ * registries throughout so it never touches production {@code INSTANCE} state.
+ */
+class PlayerResourceRegistryExternalAdapterFreezeTest {
+
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath("totality", path);
+    }
+
+    private static ExternalPlayerResourceAdapter fakeAdapter(Identifier id) {
+        return new ExternalPlayerResourceAdapter() {
+            @Override public Identifier id() { return id; }
+            @Override public ResourceQueryResult snapshot(Player player, PlayerResourceDefinition definition) {
+                return new ResourceQueryResult.Success(new ResourceSnapshot(id, 1, 2, 1));
+            }
+            @Override public Set<ExternalResourceOperationSupport> supportedOperations() {
+                return Set.of(ExternalResourceOperationSupport.QUERY);
+            }
+            @Override public ExternalResourceClientMirrorMode clientMirrorMode() {
+                return ExternalResourceClientMirrorMode.NATIVE_SYNCHRONIZATION;
+            }
+        };
+    }
+
+    @Test
+    void definitionResolvesARegisteredAdapterAndFreezeSucceeds() {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        adapters.register(fakeAdapter(id("fake")));
+
+        registry.register(PlayerResourceDefinition.builder(id("fake"), ResourceModel.SCALAR)
+                .externalAdapter(id("fake"))
+                .authoredBaseMaximum(100)
+                .build());
+
+        assertDoesNotThrow(() -> registry.freeze(adapters));
+        assertTrue(registry.isFrozen());
+    }
+
+    @Test
+    void missingAdapterCausesFreezeValidationFailure() {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+        // Deliberately never registered into `adapters`.
+
+        registry.register(PlayerResourceDefinition.builder(id("missing_adapter"), ResourceModel.SCALAR)
+                .externalAdapter(id("missing_adapter"))
+                .authoredBaseMaximum(100)
+                .build());
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> registry.freeze(adapters));
+        assertTrue(ex.getMessage().contains("missing_adapter"));
+        // Left unfrozen — the definition registered so far remains intact and inspectable.
+        assertFalse(registry.isFrozen());
+        assertTrue(registry.isRegistered(id("missing_adapter")));
+    }
+
+    @Test
+    void genericComponentDefinitionsNeedNoAdapterAndDoNotBlockFreeze() {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        ExternalPlayerResourceAdapterRegistry adapters = new ExternalPlayerResourceAdapterRegistry();
+
+        registry.register(PlayerResourceDefinition.builder(id("generic_only"), ResourceModel.SCALAR)
+                .authoredBaseMaximum(100)
+                .build());
+
+        assertDoesNotThrow(() -> registry.freeze(adapters));
+    }
+
+    @Test
+    void nullAdapterRegistryIsRejected() {
+        PlayerResourceRegistry registry = new PlayerResourceRegistry();
+        assertThrows(NullPointerException.class, () -> registry.freeze(null));
+    }
+
+    @Test
+    void productionHealthDefinitionResolvesItsRegisteredAdapter() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition health = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.HEALTH).orElseThrow();
+
+        assertEquals(HealthResourceAdapter.ID, health.externalAdapterId().orElseThrow());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(health.externalAdapterId().orElseThrow()));
+    }
+
+    @Test
+    void foodDefinitionNoLongerDeclaresAnExternalAdapterAfterTheFoodMigrationButTheOldAdapterRemainsRegistered() {
+        // 2026-09-17 Food migration: the definition itself declares no external adapter anymore
+        // (GENERIC_COMPONENT authority), but FoodResourceAdapter stays registered in
+        // ExternalPlayerResourceAdapterRegistry — deferred-cleanup precedent, matching
+        // Mana/Stamina/Rage/Spell Slots' own now-unreferenced adapters (see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc).
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition food = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.FOOD).orElseThrow();
+        assertTrue(food.externalAdapterId().isEmpty());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
+    }
+
+    @Test
+    void productionBreathDefinitionResolvesItsRegisteredAdapter() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition breath = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.BREATH).orElseThrow();
+
+        assertEquals(BreathResourceAdapter.ID, breath.externalAdapterId().orElseThrow());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(breath.externalAdapterId().orElseThrow()));
+        assertSame(BreathResourceAdapter.INSTANCE,
+                ExternalPlayerResourceAdapterRegistry.INSTANCE.get(breath.externalAdapterId().orElseThrow()).orElseThrow());
+    }
+
+    @Test
+    void productionManaAndStaminaDefinitionsNoLongerReferenceAnAdapterAfterPhase4Migration() {
+        // Phase 4 migration (2026-09-15): Mana/Stamina are now GENERIC_COMPONENT-authority — see
+        // productionManaAndStaminaDefinitionsResolveTheirRegisteredAdapters's own removal note. The
+        // adapter classes/registrations themselves remain (ManaResourceAdapter/StaminaResourceAdapter
+        // are still counted in productionAdapterRegistryContainsExactlySevenAdapters below — see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc for why removal is deferred), but
+        // neither definition references either anymore.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition mana = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.MANA).orElseThrow();
+        PlayerResourceDefinition stamina = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.STAMINA).orElseThrow();
+
+        assertTrue(mana.externalAdapterId().isEmpty());
+        assertTrue(stamina.externalAdapterId().isEmpty());
+        assertEquals(2, mana.definitionVersion(), "the Phase 4 authority migration must bump this, never silently redefine the id");
+        assertEquals(2, stamina.definitionVersion());
+    }
+
+    @Test
+    void productionAdapterRegistryContainsExactlySevenAdapters() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        assertEquals(7, ExternalPlayerResourceAdapterRegistry.INSTANCE.size());
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(HealthResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(FoodResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(BreathResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(ManaResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StaminaResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(StandardSpellSlotsResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isRegistered(RageResourceAdapter.ID));
+        assertTrue(ExternalPlayerResourceAdapterRegistry.INSTANCE.isFrozen());
+    }
+
+    @Test
+    void productionRageDefinitionNoLongerReferencesAnAdapterAfterPhase5Migration() {
+        // Phase 5 migration (2026-09-15): Rage is now GENERIC_COMPONENT-authority — see
+        // productionManaAndStaminaDefinitionsNoLongerReferenceAnAdapterAfterPhase4Migration above for
+        // the identical Phase 4 precedent. RageResourceAdapter itself remains registered (still
+        // counted in productionAdapterRegistryContainsExactlySevenAdapters above — see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc for why removal is deferred), but
+        // the definition no longer references it.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition rage = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.RAGE).orElseThrow();
+
+        assertTrue(rage.externalAdapterId().isEmpty());
+        assertEquals(2, rage.definitionVersion(), "the Phase 5 authority migration must bump this, never silently redefine the id");
+    }
+
+    @Test
+    void productionRageQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
+        // Exercises the FULL production query path end to end — since the Phase 5 migration,
+        // PlayerResourceService.query -> queryGeneric (GENERIC_COMPONENT authority, no adapter
+        // anymore) -- using `null` as the player, exactly like the Mana/Stamina tests above. The
+        // exact same failure reason/id this test pins was already correct pre-migration too.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.RAGE);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
+                ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(PlayerResourceIds.RAGE, ((ResourceQueryResult.Failure) result).resourceId());
+    }
+
+    @Test
+    void productionSpellSlotsDefinitionNoLongerReferencesAnAdapterAfterPhase6Migration() {
+        // Phase 6 migration (2026-09-16): Standard Spell Slots is now GENERIC_COMPONENT-authority —
+        // see productionRageDefinitionNoLongerReferencesAnAdapterAfterPhase5Migration above for the
+        // identical Phase 5 precedent. StandardSpellSlotsResourceAdapter itself remains registered
+        // (still counted in productionAdapterRegistryContainsExactlySevenAdapters above — see
+        // ProductionResourceDefinitions#registerAdapters's Javadoc for why removal is deferred), but
+        // the definition no longer references it.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        PlayerResourceDefinition spellSlots = PlayerResourceRegistry.INSTANCE.get(PlayerResourceIds.SPELL_SLOTS).orElseThrow();
+
+        assertTrue(spellSlots.externalAdapterId().isEmpty());
+        assertEquals(2, spellSlots.definitionVersion(), "the Phase 6 authority migration must bump this, never silently redefine the id");
+    }
+
+    @Test
+    void productionSpellSlotsQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
+        // Exercises the FULL production query path end to end — since the Phase 6 migration,
+        // PlayerResourceService.query -> queryGeneric (GENERIC_COMPONENT authority, no adapter
+        // anymore) -- using `null` as the player, exactly like the Mana/Stamina/Rage tests above/below.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.SPELL_SLOTS);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
+                ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(PlayerResourceIds.SPELL_SLOTS, ((ResourceQueryResult.Failure) result).resourceId());
+    }
+
+    @Test
+    void productionManaQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
+        // Exercises the FULL production query path end to end — since the Phase 4 migration,
+        // PlayerResourceService.query -> queryGeneric (GENERIC_COMPONENT authority, no adapter
+        // anymore) -- using `null` as the player, which fails the `instanceof ServerPlayer` check
+        // exactly like a real client-side LocalPlayer would. The exact same failure reason/id this
+        // test pins was already correct pre-migration too — queryGeneric's null-player guard returns
+        // the identical STATE_UNAVAILABLE_ON_THIS_SIDE reason queryExternal's did.
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.MANA);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
+                ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(PlayerResourceIds.MANA, ((ResourceQueryResult.Failure) result).resourceId());
+    }
+
+    @Test
+    void productionStaminaQueryOnANonServerPlayerReturnsStateUnavailableOnThisSideNotAnException() {
+        TestResourceBootstrap.ensureProductionResourcesRegistered();
+
+        ResourceQueryResult result = PlayerResourceService.INSTANCE.query(null, PlayerResourceIds.STAMINA);
+
+        assertInstanceOf(ResourceQueryResult.Failure.class, result);
+        assertEquals(ResourceQueryFailureReason.STATE_UNAVAILABLE_ON_THIS_SIDE,
+                ((ResourceQueryResult.Failure) result).reason());
+        assertEquals(PlayerResourceIds.STAMINA, ((ResourceQueryResult.Failure) result).resourceId());
+    }
+}

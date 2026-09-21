@@ -5,12 +5,12 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
-import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.rpg.classes.*;
 import zcylas.totality.api.rpg.classes.covenant.CovenantData;
 import zcylas.totality.api.rpg.combat.armor.ArmorProficiency;
 import zcylas.totality.api.rpg.combat.weapon.WeaponCategory;
+import zcylas.totality.api.rpg.resources.PlayerResourceIds;
+import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.api.rpg.stats.ClientStatsManager;
 import zcylas.totality.screen.character.BaseCharacterScreen;
@@ -24,11 +24,24 @@ public class ClassTab extends CharacterScreenTab {
     private int progScroll    = 0;
     private int resourceScroll = 0;
     private int identScroll   = 0;
+    /** Scroll offset for the right-side owned-class list — mirrors {@code progScroll}'s own
+     *  pattern (a plain int offset subtracted from the drawing cursor, clamped on both ends,
+     *  reset in {@link #onOpen}), added so a multiclass character with more owned classes than
+     *  fit in the visible box can reach every row and its "+" button. */
+    private int mcListScroll  = 0;
 
     // Cached bounds for scroll hit testing
     private int progPanelX, progPanelY, progPanelW, progPanelH;
     private int resPanelX,  resPanelY,  resPanelW,  resPanelH;
     private int identDescX,  identDescY,  identDescW,  identDescH;
+    /** Viewport of the scrollable owned-class list only (below the CLASS LEVEL header / SPEND
+     *  CLASS POINT button, which never scroll) — used both for {@code mouseScrolled} hit-testing
+     *  and to decide whether a given "+" button is fully visible (see {@link #drawQuickLevelButton}). */
+    private int mcListPanelX, mcListPanelY, mcListPanelW, mcListPanelH;
+    /** Recomputed every frame in {@link #drawProgressionPanel} from the list's actual content
+     *  height, so a change in the number of owned classes (or a class gaining a subclass) is
+     *  reflected — and {@code mcListScroll} re-clamped against it — on the very next frame. */
+    private int mcListMaxScroll = 0;
 
     // ── Button state ──────────────────────────────────────────────────────────────
     private int lvlUpBtnX, lvlUpBtnY, lvlUpBtnW, lvlUpBtnH;
@@ -69,7 +82,7 @@ public class ClassTab extends CharacterScreenTab {
         screen.drawPanelHdr(g, x, y, w, "CLASS IDENTITY");
 
         ClassData classData     = ClientClassManager.getPrimaryClassData();
-        SubclassData subclass   = ClientClassManager.getSubclassData();
+        SubclassData subclass   = classData != null ? ClientClassManager.getSubclassData(classData.id()) : null;
         CovenantData covenant   = ClientClassManager.getCovenantData();
 
         int ix = x + PAD;
@@ -237,6 +250,8 @@ public class ClassTab extends CharacterScreenTab {
         screen.esc(g); // end left column scissor
 
         // ── RIGHT column ──────────────────────────────────────────────────────────
+        // The CLASS LEVEL header and SPEND CLASS POINT button never scroll — only the owned-class
+        // list below them does (see the second, independent sc()/esc() pair further down).
         screen.sc(g, rightX, topY, rightW, clipH);
         int rcy = topY + PAD;
 
@@ -258,8 +273,9 @@ public class ClassTab extends CharacterScreenTab {
         int totalSpent = ClientClassManager.getClassLevels().values()
                 .stream().mapToInt(Integer::intValue).sum();
         int available  = PlayerClassComponent.toClassLevel(playerLevel);
-        if (available > totalSpent) {
-            int unspent = available - totalSpent;
+        int unspentPoints = available - totalSpent;
+        if (unspentPoints > 0) {
+            int unspent = unspentPoints;
             String pts = "✦ " + unspent + (unspent > 1 ? " pts" : " pt") + " to spend!";
             int ptW = Math.round(font.width(pts) * TINY);
             screen.drawTinyAt(g, pts,
@@ -284,28 +300,130 @@ public class ClassTab extends CharacterScreenTab {
         } else {
             lvlUpBtnW = 0; mcBtnW = 0; // no buttons this frame
         }
+        screen.esc(g); // end header (CLASS LEVEL label + SPEND CLASS POINT button) scissor
 
-        // Class level — big number or multiclass list
+        // ── Owned-class list — independently scrollable ────────────────────────────
+        // Mirrors the LEFT column's progScroll pattern exactly (plain int offset subtracted from
+        // the drawing cursor, its own sc()/esc() pair, clamped in mouseScrolled) — added because a
+        // multiclass character can own more classes than fit in the remaining vertical space.
+        int listTopY = rcy;
+        int listH    = Math.max(0, (y + h) - listTopY);
+        mcListPanelX = rightX; mcListPanelY = listTopY; mcListPanelW = rightW; mcListPanelH = listH;
+
+        // Clamp BEFORE drawing (not just in mouseScrolled) so a content-height change — leveling a
+        // class, gaining a subclass, or simply reopening the tab with a different character —
+        // never leaves mcListScroll pointing past the new content on the very frame it changes.
+        mcListMaxScroll = Math.max(0, measureOwnedClassListContentHeight() - listH);
+        mcListScroll    = Math.clamp(mcListScroll, 0, mcListMaxScroll);
+
+        screen.sc(g, mcListPanelX, mcListPanelY, mcListPanelW, mcListPanelH);
+        int mcy = listTopY - mcListScroll;
+        quickLevelButtons.clear();
+        boolean canSpendAPoint = unspentPoints > 0;
         if (ClientClassManager.getClassLevels().size() == 1) {
             String lvlStr = String.valueOf(classLevel);
             g.pose().pushMatrix();
             g.pose().scale(3f, 3f);
             g.text(font, Component.literal(lvlStr),
                     (int)((rightX + rightW / 2f) / 3f - font.width(lvlStr) / 2f),
-                    (int)(rcy / 3f), classColor, true);
+                    (int)(mcy / 3f), classColor, true);
             g.pose().popMatrix();
-            rcy += 28;
+            mcy += 28 + 3;
+            if (primaryId != null) {
+                int btnSz = QUICK_LVL_BTN_SZ;
+                drawQuickLevelButton(g, font, mx, my,
+                        rightX + rightW / 2 - btnSz / 2, mcy, btnSz, primaryId, canSpendAPoint);
+                mcy += btnSz;
+            }
         } else {
             for (Map.Entry<Identifier, Integer> entry : ClientClassManager.getClassLevels().entrySet()) {
                 ClassData cd = ClassRegistry.get(entry.getKey()).orElse(null);
                 if (cd == null) continue;
                 String line = cd.displayName() + "  Lv. " + entry.getValue();
-                screen.drawSmallAt(g, line, rightX, rcy, getClassColor(cd.category()));
-                rcy += SLH + 3;
+                int btnSz = QUICK_LVL_BTN_SZ;
+                int rowH = Math.max(SLH, btnSz);
+                screen.drawSmallAt(g, line, rightX, mcy + (rowH - SLH) / 2, getClassColor(cd.category()));
+                drawQuickLevelButton(g, font, mx, my,
+                        rightX + rightW - btnSz, mcy + (rowH - btnSz) / 2, btnSz,
+                        entry.getKey(), canSpendAPoint);
+                mcy += rowH + 2;
+                // Each class shows its OWN subclass only — never another class's (per-class
+                // subclass migration, 2026-09-16).
+                SubclassData sub = ClientClassManager.getSubclassData(entry.getKey());
+                if (sub != null) {
+                    screen.drawTinyAt(g, sub.displayName(), rightX + 4, mcy, COLOR_LABEL);
+                    mcy += TLH + 1;
+                }
+                mcy += 3;
             }
         }
-        screen.esc(g); // end right column scissor
+        screen.esc(g); // end owned-class list scissor
     }
+
+    /**
+     * The owned-class list's total content height at {@code mcListScroll == 0} — mirrors, term for
+     * term, the vertical advances the draw loop above actually performs, so the clamp computed from
+     * it can never drift from what is actually rendered. Deliberately a pure measurement with no
+     * drawing side effects, so it is cheap to call once per frame before the real draw pass.
+     */
+    private int measureOwnedClassListContentHeight() {
+        if (ClientClassManager.getClassLevels().size() == 1) {
+            return 28 + 3 + QUICK_LVL_BTN_SZ;
+        }
+        int total = 0;
+        int rowH = Math.max(SLH, QUICK_LVL_BTN_SZ);
+        for (Identifier classId : ClientClassManager.getClassLevels().keySet()) {
+            total += rowH + 2;
+            if (ClientClassManager.getSubclassData(classId) != null) {
+                total += TLH + 1;
+            }
+            total += 3;
+        }
+        return total;
+    }
+
+    // ── Quick level-up ("+") buttons ─────────────────────────────────────────────
+
+    private static final int QUICK_LVL_BTN_SZ = 13;
+
+    /**
+     * One "+" per owned class, beside its existing level display — generic across every class
+     * (no per-class branching), following the class-progression audit's own conclusion that the
+     * only gate on continuing to level ANY specific class is the player's shared pool of unspent
+     * class points (canonical: no per-class maximum field exists in {@code ClassData}; the total
+     * is already capped at 30 by {@code PlayerClassComponent#toClassLevel}). Pressing it sends the
+     * exact same {@code AddClassLevelPayload} the existing "SPEND CLASS POINT" → Class Screen flow
+     * already sends for an already-owned class — the server-authoritative {@code
+     * AddClassLevelHandler} performs all validation and fires the normal {@code
+     * ClassLevelUpRegistry} hooks unchanged. If the level-up crosses that class's subclass-unlock
+     * milestone, the server pushes {@code OpenSubclassSelectionPayload} exactly as it already does
+     * today — this button never bypasses that, and never mutates class-level state itself.
+     */
+    private void drawQuickLevelButton(GuiGraphicsExtractor g, Font font, int mx, int my,
+                                      int x, int y, int size, Identifier classId, boolean enabled) {
+        boolean hov = enabled && screen.inB(mx, my, x, y, size, size);
+        int fill = !enabled ? 0x22444444 : (hov ? 0x4466DD66 : 0x2266DD66);
+        int border = enabled ? 0xFF66DD66 : COLOR_BORDER_INNER;
+        int textColor = enabled ? 0xFF66DD66 : COLOR_LABEL;
+        g.fill(x, y, x + size, y + size, fill);
+        screen.drawBorder(g, x, y, size, size, border);
+        String plus = "+";
+        screen.drawTinyAt(g, plus,
+                x + size / 2 - Math.round(font.width(plus) * TINY) / 2,
+                y + (size - TLH) / 2, textColor);
+        // A row scrolled outside the owned-class list's viewport is still drawn at its raw,
+        // off-screen coordinates (harmless — the GL scissor above already makes it invisible), but
+        // its stored hitbox must not remain clickable there: those coordinates can still fall
+        // within the CLASS LEVEL header/SPEND CLASS POINT button area directly above this list, or
+        // simply past the bottom of the panel — either way, a click there must never be mistaken
+        // for pressing a "+" that is not actually visible.
+        boolean fullyVisible = y >= mcListPanelY && y + size <= mcListPanelY + mcListPanelH;
+        quickLevelButtons.add(new QuickLevelButton(classId, x, y, size, size, enabled && fullyVisible));
+    }
+
+    private record QuickLevelButton(Identifier classId, int x, int y, int w, int h, boolean enabled) {}
+
+    private final java.util.List<QuickLevelButton> quickLevelButtons = new java.util.ArrayList<>();
 
     // ── RIGHT: Features + Resource ────────────────────────────────────────────
 
@@ -348,23 +466,22 @@ public class ClassTab extends CharacterScreenTab {
 
         int cx = x + w / 2;
 
-        // Read charge data
-        int currentCharges = 0;
-        int maxCharges     = 0;
+        // Read charge data.
+        // Phase 3C: presentation source migrated to the trusted Generic client Resource view,
+        // falling back to the legacy PlayerChargesComponent mirror only when the Generic query is
+        // unavailable — see ClientResourcePresentationResolver.
         String resourceName = "—";
         String rechargeNote = "";
 
-        try {
-            var chargeComp = ChargeComponents.PLAYER_CHARGES.get(
-                    (ComponentProvider) Minecraft.getInstance().player);
-            Identifier rageId = BarbarianRageAbility.CHARGE_ID;
-            currentCharges = chargeComp.getCurrent(rageId);
-            maxCharges     = chargeComp.getMax(rageId);
-            if (maxCharges > 0) {
-                resourceName = "BARBARIAN RAGE";
-                rechargeNote = "+1 Short Rest  ·  All on Long Rest";
-            }
-        } catch (Exception ignored) {}
+        ClientResourcePresentationResolver.ScalarPresentation rageView =
+                ClientResourcePresentationResolver.INSTANCE.resolveScalar(PlayerResourceIds.RAGE,
+                        ClassTab::legacyRageCurrent, ClassTab::legacyRageMax);
+        int currentCharges = (int) rageView.current();
+        int maxCharges     = (int) rageView.maximum();
+        if (maxCharges > 0) {
+            resourceName = "BARBARIAN RAGE";
+            rechargeNote = "+1 Short Rest  ·  All on Long Rest";
+        }
 
         screen.sc(g, x + 1, y + HDR_H + 1, w - 2, h - HDR_H - 2);
         int cy = y + HDR_H + PAD - resourceScroll;
@@ -410,6 +527,18 @@ public class ClassTab extends CharacterScreenTab {
         screen.esc(g);
     }
 
+    /**
+     * External-review correction (Phase 5, 2026-09-15, finding 3) — see {@code
+     * TotalityClient#legacyRageCurrent}'s Javadoc for the full reasoning: reading the legacy {@code
+     * PlayerChargesComponent} mirror here is no longer safe now that Generic Rage is independently
+     * authoritative and an existing migrated Barbarian's legacy pool is frozen at a possibly-stale
+     * value. Returns 0 unconditionally so this fallback can never present a wrong nonzero number.
+     */
+    private static int legacyRageCurrent() { return 0; }
+
+    /** See {@link #legacyRageCurrent} — same correction, same reasoning, applied to the maximum. */
+    private static int legacyRageMax() { return 0; }
+
     @Override
     public void mouseClicked(int mx, int my) {
         // Single "Spend Class Point" button — opens ClassSelectionScreen.
@@ -419,18 +548,35 @@ public class ClassTab extends CharacterScreenTab {
             zcylas.totality.screen.classes.ClassScreenMode.IS_MULTICLASSING = true;
             net.minecraft.client.Minecraft.getInstance().gui.setScreen(
                     new zcylas.totality.screen.classes.ClassSelectionScreen());
+            return;
+        }
+
+        // Per-class "+" quick level-up — sends the exact same server-authoritative
+        // AddClassLevelPayload the full Class Screen flow sends; never mutates class state here.
+        for (QuickLevelButton btn : quickLevelButtons) {
+            if (btn.enabled() && screen.inB(mx, my, btn.x(), btn.y(), btn.w(), btn.h())) {
+                net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+                        new zcylas.totality.networking.classes.AddClassLevelPayload(btn.classId().toString()));
+                return;
+            }
         }
     }
 
     @Override
     public void onOpen() {
-        progScroll = resourceScroll = identScroll = 0;
+        progScroll = resourceScroll = identScroll = mcListScroll = 0;
     }
 
     @Override
     public void mouseScrolled(int mx, int my, double delta) {
         int amount = (int)(delta * 12);
-        if (screen.inB(mx, my, progPanelX, progPanelY, progPanelW, progPanelH)) {
+        // Checked before the (wider) progPanel region below: the owned-class list's viewport is a
+        // geometric subset of the whole progression panel, so checking it first is what makes
+        // hovering the right/multiclass list scroll only that list rather than also matching the
+        // left column's own region.
+        if (screen.inB(mx, my, mcListPanelX, mcListPanelY, mcListPanelW, mcListPanelH)) {
+            mcListScroll = Math.clamp(mcListScroll - amount, 0, mcListMaxScroll);
+        } else if (screen.inB(mx, my, progPanelX, progPanelY, progPanelW, progPanelH)) {
             progScroll = Math.max(0, progScroll - amount);
         } else if (screen.inB(mx, my, resPanelX, resPanelY, resPanelW, resPanelH)) {
             resourceScroll = Math.max(0, resourceScroll - amount);

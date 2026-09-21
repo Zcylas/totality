@@ -40,3 +40,10 @@ replay_*.log
 *.jfr
 
 /Inspiration Mods/
+
+# local/runtime
+logs/
+src/main/generated/.cache/
+.claude/settings.local.json
+Context/Audit/Review Bundles/
+Context/Audit/Review/*.zip

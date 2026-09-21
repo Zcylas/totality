@@ -71,12 +71,17 @@ public record TooltipTheme(
         );
     }
 
-    public static TooltipTheme artifact(int borderStyle, int typeStyle) {
+    /**
+     * Ancient — lost advanced-civilization identity, distinct from Legendary gold/orange and
+     * from a generic diamond-blue: dark slate/indigo ground, luminous cyan/teal primary accent,
+     * pale blue-white highlight, muted indigo secondary, restrained aged-bronze minor detail.
+     */
+    public static TooltipTheme ancient(int borderStyle, int typeStyle) {
         return new TooltipTheme(
-                0xFFD4A017, 0xFF8A6A00, 0xFF3D2A00, 0xFF281C00,
-                0xFFD4A017, 0xFF8A6A00, 0xFF281C00, 0xFFD4A017,
-                0xFFE6C87A, 0xFF8A6A00, 0xFFD4A017, 0xFF3D2A00,
-                0xFF8A6A00, borderStyle, typeStyle
+                0xFF3ADBC4, 0xFF4A4A8C, 0xFF12143A, 0xFF0A0B24,
+                0xFF9FF3E6, 0xFF1C4A46, 0xFFE8F6FF, 0xFF3ADBC4,
+                0xFFC3D9DE, 0xFF4A4A8C, 0xFF3ADBC4, 0xFF2A2A5C,
+                0xFF8A6F4D, borderStyle, typeStyle
         );
     }
 

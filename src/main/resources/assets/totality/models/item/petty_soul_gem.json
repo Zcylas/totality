@@ -1,0 +1,113 @@
+{
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
+	"texture_size": [64, 64],
+	"textures": {
+		"0": "totality:item/petty_soul_gem",
+		"particle": "totality:item/petty_soul_gem"
+	},
+	"elements": [
+		{
+			"name": "Clouded violet body",
+			"from": [5.9, 2.9, 6.65],
+			"to": [10.1, 11.6, 9.35],
+			"rotation": {"angle": 0, "axis": "y", "origin": [8, 7.25, 8]},
+			"faces": {
+				"north": {"uv": [3.25, 0.25, 6, 5.75], "texture": "#0"},
+				"east": {"uv": [6.25, 0.25, 8, 5.75], "texture": "#0"},
+				"south": {"uv": [0.25, 0.25, 3, 5.75], "texture": "#0"},
+				"west": {"uv": [8.25, 0.25, 10, 5.75], "texture": "#0"},
+				"up": {"uv": [10.25, 0.25, 13, 2], "texture": "#0"},
+				"down": {"uv": [0.25, 6, 3, 7.75], "texture": "#0"}
+			}
+		},
+		{
+			"name": "Upper crystal facets",
+			"from": [6.51508, 10.11508, 6.66],
+			"to": [9.48492, 13.08492, 9.34],
+			"rotation": {"angle": 45, "axis": "z", "origin": [8, 11.6, 8]},
+			"faces": {
+				"north": {"uv": [5.5, 6, 7.5, 8], "texture": "#0"},
+				"east": {"uv": [7.75, 6, 9.5, 8], "texture": "#0"},
+				"south": {"uv": [3.25, 6, 5.25, 8], "texture": "#0"},
+				"west": {"uv": [9.75, 6, 11.5, 8], "texture": "#0"},
+				"up": {"uv": [11.75, 6, 13.75, 7.75], "texture": "#0"},
+				"down": {"uv": [0.25, 8.25, 2.25, 10], "texture": "#0"}
+			}
+		},
+		{
+			"name": "Lower crystal facets",
+			"from": [6.51508, 1.41508, 6.66],
+			"to": [9.48492, 4.38492, 9.34],
+			"rotation": {"angle": 45, "axis": "z", "origin": [8, 2.9, 8]},
+			"faces": {
+				"north": {"uv": [4.75, 8.25, 6.75, 10.25], "texture": "#0"},
+				"east": {"uv": [7, 8.25, 8.75, 10.25], "texture": "#0"},
+				"south": {"uv": [2.5, 8.25, 4.5, 10.25], "texture": "#0"},
+				"west": {"uv": [9, 8.25, 10.75, 10.25], "texture": "#0"},
+				"up": {"uv": [11, 8.25, 13, 10], "texture": "#0"},
+				"down": {"uv": [13.25, 8.25, 15.25, 10], "texture": "#0"}
+			}
+		}
+	],
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [0, -25, 0],
+			"translation": [0, 0.75, 0],
+			"scale": [0.6, 0.6, 0.6]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [0, -25, 0],
+			"translation": [0, 0.75, 0],
+			"scale": [0.6, 0.6, 0.6]
+		},
+		"firstperson_righthand": {
+			"rotation": [0, -25, 0],
+			"translation": [0, 0.75, 0],
+			"scale": [0.6, 0.6, 0.6]
+		},
+		"firstperson_lefthand": {
+			"rotation": [0, -25, 0],
+			"translation": [0, 0.75, 0],
+			"scale": [0.6, 0.6, 0.6]
+		},
+		"ground": {
+			"translation": [0, 2, 0],
+			"scale": [0.45, 0.45, 0.45]
+		},
+		"gui": {
+			"rotation": [0, 0, 45],
+			"scale": [0.8, 0.8, 0.8]
+		},
+		"fixed": {
+			"rotation": [0, 0, -45],
+			"scale": [0.8, 0.8, 0.8]
+		},
+		"on_shelf": {
+			"translation": [0, 0, -2.5]
+		}
+	},
+	"groups": [
+		{
+			"name": "Crystal body",
+			"origin": [8, 7.25, 8],
+			"scope": 0,
+			"color": 0,
+			"children": [0]
+		},
+		{
+			"name": "Upper facets",
+			"origin": [8, 7.25, 8],
+			"scope": 0,
+			"color": 0,
+			"children": [1]
+		},
+		{
+			"name": "Lower facets",
+			"origin": [8, 7.25, 8],
+			"scope": 0,
+			"color": 0,
+			"children": [2]
+		}
+	]
+}

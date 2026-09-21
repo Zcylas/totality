@@ -10,6 +10,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import zcylas.totality.init.ModTags;
 import zcylas.totality.init.items.BasicWeaponItems;
+import zcylas.totality.init.items.BleachItems;
+import zcylas.totality.init.items.DndPotionItems;
 import zcylas.totality.init.items.MagicItems;
 import zcylas.totality.init.items.PotionItems;
 import zcylas.totality.item.base_weapons.ShurikenItem;
@@ -41,6 +43,14 @@ public class ModItemTagProvider extends FabricTagsProvider.ItemTagsProvider {
                 .add(key(Items.DIAMOND_SPEAR))
                 .add(key(Items.NETHERITE_SPEAR))
                 .add(key(Items.MACE))
+                // Totality's own one-handed melee weapons — root cause of the Asauchi/Zanpakutō
+                // (and Iron/Steel Sword) Power Attack bug: this tag previously listed only vanilla
+                // items, so MinecraftAttackMixin's `hasWeapon` gate (ModTags.ONE_HANDED_WEAPONS /
+                // TWO_HANDED_WEAPONS) never matched any custom melee weapon and Power Attack's
+                // hold-charge never started for them at all, regardless of weapon-specific logic.
+                .add(key(BasicWeaponItems.IRON_SWORD))
+                .add(key(BasicWeaponItems.STEEL_SWORD))
+                .add(key(BleachItems.ZANPAKUTO))
 
         // Add your custom one-handed weapons here as they are registered
         ;
@@ -139,6 +149,7 @@ public class ModItemTagProvider extends FabricTagsProvider.ItemTagsProvider {
                 .add(key(PotionItems.SOLUTION_OF_LASTING_POTENCY))
                 .add(key(PotionItems.SOLUTION_OF_REGENERATION))
                 .add(key(PotionItems.POTION_OF_WATERBREATHING))
+                .add(key(DndPotionItems.POTION_OF_HEALING))
         // add custom potions here as you make them
         ;
 

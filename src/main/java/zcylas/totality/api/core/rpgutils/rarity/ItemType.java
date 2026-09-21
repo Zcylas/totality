@@ -25,6 +25,7 @@ public enum ItemType implements StringRepresentable {
     INDUSTRIAL,
     CABLE,
     BATTERY,
+    ENERGY,
     MACHINE,
     COMPONENT,
 
