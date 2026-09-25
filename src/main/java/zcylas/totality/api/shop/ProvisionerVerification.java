@@ -73,6 +73,7 @@ public final class ProvisionerVerification {
     private static final int SMOKE_TEST_DELAY_TICKS = 40;
 
     public static void register() {
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         ServerLifecycleEvents.SERVER_STARTED.register(ProvisionerVerification::runSelfTestIfDev);
         ServerLifecycleEvents.SERVER_STARTED.register(ProvisionerVerification::scheduleDelayedEntityBackedSmokeTest);
     }
@@ -627,8 +628,16 @@ public final class ProvisionerVerification {
      */
     private static void scheduleDelayedEntityBackedSmokeTest(MinecraftServer server) {
         if (!VerificationReporter.isDevEnvironment()) return;
-        ServerScheduler.getInstance().queue(
-                ProvisionerVerification::runDelayedEntityBackedSmokeTest, SMOKE_TEST_DELAY_TICKS);
+        // The fake players/entities in this suite sit at the world origin. 26.x keeps no spawn chunks
+        // loaded, so on a player-less (disposable) server the origin chunk must be held entity-ticking
+        // for the delay, or Level#getEntity(int) never resolves them. Released afterwards unless it was
+        // already force-loaded before this suite ran.
+        net.minecraft.server.level.ServerLevel level = server.overworld();
+        boolean wasForced = level.getForceLoadedChunks().contains(net.minecraft.world.level.ChunkPos.pack(0, 0));
+        level.setChunkForced(0, 0, true);
+        ServerScheduler.getInstance().queue(s -> {
+            try { runDelayedEntityBackedSmokeTest(s); } finally { if (!wasForced) level.setChunkForced(0, 0, false); }
+        }, SMOKE_TEST_DELAY_TICKS);
     }
 
     private static void runDelayedEntityBackedSmokeTest(MinecraftServer server) {

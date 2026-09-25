@@ -157,7 +157,7 @@ public class TotalityRegistry {
         return expected.equals(actual);
     }
 
-    public static FluidTankBlock registerFluidTank(String name, long capacityMb) {
+    public static FluidTankBlock registerFluidTank(String name, long capacityMb, ItemRarity rarity) {
         FluidTankBlock block = registerBlock(
                 name,
                 properties -> new FluidTankBlock(properties, capacityMb),
@@ -173,6 +173,7 @@ public class TotalityRegistry {
                 BuiltInRegistries.ITEM,
                 itemKey,
                 new FluidTankItem(block, new Item.Properties()
+                        .component(ItemComponents.RARITY, new RarityComponent(rarity))
                         .setId(itemKey)
                         .useBlockDescriptionPrefix())
         );
@@ -181,7 +182,7 @@ public class TotalityRegistry {
     }
 
     public static EnergyCellBlock registerEnergyCell(String name, long capacity,
-                                                     long maxInput, long maxOutput) {
+                                                     long maxInput, long maxOutput, ItemRarity rarity) {
         ResourceKey<Item> itemKey = keyOfItem(name);
         EnergyCellBlock block = registerBlock(
                 name,
@@ -198,6 +199,7 @@ public class TotalityRegistry {
                 BuiltInRegistries.ITEM,
                 itemKey,
                 new EnergyCellItem(block, new Item.Properties()
+                        .component(ItemComponents.RARITY, new RarityComponent(rarity))
                         .setId(itemKey)
                         .useBlockDescriptionPrefix())
         );
@@ -205,7 +207,7 @@ public class TotalityRegistry {
         return block;
     }
 
-    public static CableBlock registerCable(String name, long transferPerTick) {
+    public static CableBlock registerCable(String name, long transferPerTick, ItemRarity rarity) {
         return registerBlock(
                 name,
                 properties -> new CableBlock(properties, transferPerTick),
@@ -213,11 +215,18 @@ public class TotalityRegistry {
                         .mapColor(MapColor.METAL)
                         .strength(1.0f)
                         .noOcclusion(),
-                true
+                new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(rarity))
         );
     }
 
     // ── Potions ───────────────────────────────────────────────────────────────
+
+    /**
+     * Authored rarity of every alchemy potion registered through these helpers. Deliberately one Standard value
+     * for the whole family (Tooltip V2 Pass 1 rarity coverage): a per-tier/per-effect rarity ladder is an open
+     * design decision, and the D&D Potion of Healing keeps its own authored rarity.
+     */
+    private static final ItemRarity ALCHEMY_POTION_RARITY = ItemRarity.COMMON;
 
     /**
      * Registers a standard tiered potion with a custom effect name for the title.
@@ -249,6 +258,7 @@ public class TotalityRegistry {
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
                 new net.minecraft.world.item.Item.Properties()
                         .stacksTo(64)
+                        .component(ItemComponents.RARITY, new RarityComponent(ALCHEMY_POTION_RARITY))
                         .food(new net.minecraft.world.food.FoodProperties.Builder().alwaysEdible().build(),
                                 Consumables.DEFAULT_DRINK));
     }
@@ -281,6 +291,7 @@ public class TotalityRegistry {
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
                 new net.minecraft.world.item.Item.Properties()
                         .stacksTo(64)
+                        .component(ItemComponents.RARITY, new RarityComponent(ALCHEMY_POTION_RARITY))
                         .food(new FoodProperties.Builder().alwaysEdible().build(),
                                 Consumables.DEFAULT_DRINK));
     }
@@ -311,6 +322,7 @@ public class TotalityRegistry {
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
                 new net.minecraft.world.item.Item.Properties()
                         .stacksTo(64)
+                        .component(ItemComponents.RARITY, new RarityComponent(ALCHEMY_POTION_RARITY))
                         .food(new FoodProperties.Builder().alwaysEdible().build(),
                                 Consumables.DEFAULT_DRINK));
     }
@@ -338,6 +350,7 @@ public class TotalityRegistry {
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
                 new net.minecraft.world.item.Item.Properties()
                         .stacksTo(64)
+                        .component(ItemComponents.RARITY, new RarityComponent(ALCHEMY_POTION_RARITY))
                         .food(new net.minecraft.world.food.FoodProperties.Builder().alwaysEdible().build(),
                                 net.minecraft.world.item.component.Consumables.DEFAULT_DRINK));
     }
@@ -365,6 +378,7 @@ public class TotalityRegistry {
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
                 new net.minecraft.world.item.Item.Properties()
                         .stacksTo(64)
+                        .component(ItemComponents.RARITY, new RarityComponent(ALCHEMY_POTION_RARITY))
                         .food(new net.minecraft.world.food.FoodProperties.Builder().alwaysEdible().build(),
                                 net.minecraft.world.item.component.Consumables.DEFAULT_DRINK));
     }
@@ -390,6 +404,7 @@ public class TotalityRegistry {
                 props -> new zcylas.totality.item.potion.AlchemyPotionItem(data, props),
                 new net.minecraft.world.item.Item.Properties()
                         .stacksTo(64)
+                        .component(ItemComponents.RARITY, new RarityComponent(ALCHEMY_POTION_RARITY))
                         .food(new FoodProperties.Builder().alwaysEdible().build(),
                                 Consumables.DEFAULT_DRINK));
     }

@@ -1,6 +1,8 @@
 package zcylas.totality.client.tooltip.contributor;
 
 import zcylas.totality.api.core.rpgutils.RpgDisplayUtils;
+import zcylas.totality.client.tooltip.group.TooltipGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroups;
 import zcylas.totality.client.tooltip.TooltipContext;
 import zcylas.totality.client.tooltip.TooltipDisclosureLevel;
 import zcylas.totality.client.tooltip.section.TooltipSection;
@@ -36,7 +38,7 @@ public final class HealingPotionContributor implements TooltipContributor {
         sections.add(new TooltipSection.StatRow(null, 0xFF888888, "Use Time",
                 String.format(Locale.ROOT, "%.1f seconds", useSeconds), 0xFF888888));
 
-        if (ctx.disclosure().atLeast(TooltipDisclosureLevel.DETAILS) && amount instanceof HealingAmount.DiceHealing dice) {
+        if (ctx.disclosure().includes(TooltipDisclosureLevel.DETAILS) && amount instanceof HealingAmount.DiceHealing dice) {
             int minVanilla = dice.diceCount() * 1 + dice.bonus();
             int maxVanilla = dice.diceCount() * dice.die().getSides() + dice.bonus();
             sections.add(new TooltipSection.StatRow(null, 0xFF888888, "Min Roll",
@@ -70,5 +72,10 @@ public final class HealingPotionContributor implements TooltipContributor {
             case HealingAmount.DiceHealing dice -> dice.diceCount() + dice.die().getLabel()
                     + (dice.bonus() > 0 ? " + " + dice.bonus() : "");
         };
+    }
+
+    @Override
+    public TooltipGroup bodyGroup(TooltipContext ctx) {
+        return TooltipGroups.EFFECTS;
     }
 }

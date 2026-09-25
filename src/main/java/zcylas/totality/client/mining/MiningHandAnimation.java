@@ -133,6 +133,11 @@ public final class MiningHandAnimation {
         begin(Mode.NORMAL, Tuning.BLEND_TICKS);
     }
 
+    /** The server corrected the recovery of the normal swing in flight (its actual target differed); ignored otherwise. */
+    public void correctRecovery(int recoveryTicks) {
+        if (mode == Mode.NORMAL) this.recovery = Math.max(1, recoveryTicks);
+    }
+
     public void startPowerCharge(Style style) {
         this.style = style;
         begin(Mode.POWER_CHARGE, Tuning.BLEND_TICKS);

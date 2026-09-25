@@ -35,6 +35,7 @@ public class BleachItems {
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "A nameless Zanpakutō — an Asauchi — awaiting the soul strong enough to awaken it."
                     ))
+                    .component(ItemComponents.getContentOrigin(), new ContentOriginComponent(ContentOrigins.BLEACH))
     );
 
     // ── Shinigami Uniform ─────────────────────────────────────────────────────
@@ -48,6 +49,12 @@ public class BleachItems {
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "A plain Shinigami uniform robe — worn by every soul reaper, awakened or not."
                     ))
+                    .component(ItemComponents.getContentOrigin(), new ContentOriginComponent(ContentOrigins.BLEACH))
+                    // Tooltip presentation only: turntable model preview + "worn by you" companion card.
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD
+                            .withPreview(TooltipPreviewMode.ITEM_MODEL)
+                            .withMotion(TooltipPreviewMotion.SLOW_ROTATE)
+                            .withCompanion(TooltipCompanionPreview.EQUIPPED_PLAYER))
     );
 
     private BleachItems() {}

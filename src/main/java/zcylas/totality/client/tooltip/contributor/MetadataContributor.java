@@ -1,11 +1,13 @@
 package zcylas.totality.client.tooltip.contributor;
 
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.core.rpgutils.rarity.Classification;
+import zcylas.totality.api.core.rpgutils.rarity.ItemClassificationResolver;
 import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
-import zcylas.totality.api.core.rpgutils.rarity.ItemType;
+import zcylas.totality.api.core.rpgutils.rarity.ItemRarityResolver;
 import zcylas.totality.api.core.rpgutils.rarity.LoreComponent;
-import zcylas.totality.api.core.rpgutils.rarity.RarityComponent;
 import zcylas.totality.client.tooltip.TooltipContext;
+import zcylas.totality.client.tooltip.TooltipDisclosureLevel;
 import zcylas.totality.client.tooltip.TooltipSectionGroup;
 import zcylas.totality.client.tooltip.TooltipVisibility;
 import zcylas.totality.client.tooltip.section.TooltipSection;
@@ -15,9 +17,9 @@ import java.util.List;
 
 /**
  * Header, rarity badge, ordered classification badges, and lore/description — the generic
- * "panel shell" content. Never invents a rarity or classification for an item that doesn't have
- * one: an explicitly opted-in item without an authored rarity simply gets no
- * {@link TooltipSection.RarityBadge}, and the renderer falls back to a neutral theme.
+ * "panel shell" content. Rarity comes from {@link ItemRarityResolver} (authored, else Standard COMMON for
+ * vanilla items) and classification from {@link ItemClassificationResolver} (authored, else exact vanilla
+ * mapping, else reliable inference); anything genuinely unknown is omitted — never a placeholder.
  *
  * Per the locked unidentified-item policy, exact rarity and lore/history are identified-only
  * ({@link TooltipVisibility#WHEN_IDENTIFIED}) — the item's classification badges (a plainly
@@ -43,18 +45,13 @@ public final class MetadataContributor implements TooltipContributor {
 
         sections.add(new TooltipSection.Header(stack.getHoverName()));
 
-        var rarityType = ItemComponents.getRarity();
-        if (rarityType != null && stack.has(rarityType)) {
-            RarityComponent rarity = stack.get(rarityType);
-            if (rarity != null) {
-                sections.add(new TooltipSection.RarityBadge(rarity.rarity())
-                        .withVisibility(TooltipVisibility.WHEN_IDENTIFIED));
-            }
-        }
+        ItemRarityResolver.resolve(stack).ifPresent(rarity -> sections.add(new TooltipSection.RarityBadge(rarity)
+                .withVisibility(TooltipVisibility.WHEN_IDENTIFIED)));
 
-        List<ItemType> classifications = ItemComponents.classificationsOf(stack);
+        List<Classification> classifications = ItemClassificationResolver.resolve(stack);
         if (!classifications.isEmpty()) {
-            sections.add(new TooltipSection.ClassificationBadges(classifications));
+            sections.add(new TooltipSection.ClassificationBadges(classifications,
+                    TooltipVisibility.ALWAYS, TooltipDisclosureLevel.DEFAULT));
         }
 
         var loreType = ItemComponents.getLore();

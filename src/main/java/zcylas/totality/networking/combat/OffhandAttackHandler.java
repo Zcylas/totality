@@ -70,12 +70,13 @@ public final class OffhandAttackHandler {
 
         WeaponDataResolver.Resolved offData = WeaponDataResolver.resolve(player, target, offWeapon, rollType);
 
+        // Melee-weapon-durability review pass: the old hard-coded "offWeapon.hurtAndBreak(1, ...)"
+        // below applied durability regardless of hit or miss, and never respected the weapon's own
+        // real per-attack cost. CombatResolver#resolveAttack now applies the correct, hit-gated,
+        // enchantment-aware (Unbreaking-respecting) amount itself, read live from the weapon's own
+        // Weapon data component — see its own Javadoc.
         CombatResolver.resolveAttack(player, target, offData.ability(), offData.proficient(), offData.rollType(),
-                offData.diceCount(), offData.damageDie(), offData.damageType(), offWeapon.getHoverName().getString());
-
-        if (!offWeapon.isEmpty()) {
-            offWeapon.hurtAndBreak(1, player, EquipmentSlot.OFFHAND);
-        }
+                offData.diceCount(), offData.damageDie(), offData.damageType(), offWeapon, EquipmentSlot.OFFHAND);
 
         if (!player.isCreative()) {
             int cost = usePower ? PowerAttackManager.getOffhandStaminaCost(player) : VanillaWeaponTypes.getAttackCost(offWeapon);

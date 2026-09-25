@@ -64,7 +64,7 @@ public final class StandardSpellSlotMigrationVerification {
     private StandardSpellSlotMigrationVerification() {}
 
     public static void register() {
-        if (!VerificationReporter.isDevEnvironment()) return;
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         // Finding 4 correction pass (2026-09-16): registered here, inside the same dev-environment
         // gate as everything else in this class — never in a static initializer, which would run
         // (loading this class at all) unconditionally regardless of environment.

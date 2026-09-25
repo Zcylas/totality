@@ -8,6 +8,10 @@ import zcylas.totality.block.energy.ElectricFurnaceBlock;
 import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.generator.GeneratorBlock;
 import zcylas.totality.init.TotalityRegistry;
+import net.minecraft.world.item.Item;
+import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
+import zcylas.totality.api.core.rpgutils.rarity.ItemRarity;
+import zcylas.totality.api.core.rpgutils.rarity.RarityComponent;
 
 public class EnergyBlocks {
 
@@ -19,7 +23,7 @@ public class EnergyBlocks {
                     .sound(SoundType.METAL)
                     .strength(3.5f, 3.5f)
                     .requiresCorrectToolForDrops(),
-            true
+            new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(ItemRarity.CRUDE))
     );
     public static final ElectricFurnaceBlock ELECTRIC_FURNACE = TotalityRegistry.registerBlock(
             "electric_furnace",
@@ -29,11 +33,11 @@ public class EnergyBlocks {
                     .sound(SoundType.METAL)
                     .strength(3.5f, 3.5f)
                     .requiresCorrectToolForDrops(),
-            true
+            new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(ItemRarity.CRUDE))
     );
     public static final EnergyCellBlock COPPER_ENERGY_CELL = TotalityRegistry.registerEnergyCell(
-            "copper_energy_cell", 500_000, 64, 64);
-    public static final CableBlock COPPER_CABLE = TotalityRegistry.registerCable("copper_cable", 32L);
+            "copper_energy_cell", 500_000, 64, 64, ItemRarity.CRUDE);
+    public static final CableBlock COPPER_CABLE = TotalityRegistry.registerCable("copper_cable", 32L, ItemRarity.CRUDE);
 
     public static void register(){}
 

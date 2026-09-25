@@ -139,6 +139,8 @@ public class TotalityPackets {
     private static void clientbound(PayloadTypeRegistry<RegistryFriendlyByteBuf> registry) {
         registry.register(zcylas.totality.networking.mining.MiningSwingPayload.TYPE,
                 zcylas.totality.networking.mining.MiningSwingPayload.CODEC);
+        registry.register(zcylas.totality.networking.mining.MiningRecoveryPayload.TYPE,
+                zcylas.totality.networking.mining.MiningRecoveryPayload.CODEC);
         registry.register(SideModeSyncPayload.TYPE, SideModeSyncPayload.CODEC);
         registry.register(SyncStaminaPayload.TYPE, SyncStaminaPayload.CODEC);
         registry.register(SyncManaPayload.TYPE, SyncManaPayload.CODEC);

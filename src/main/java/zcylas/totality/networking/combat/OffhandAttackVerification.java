@@ -71,12 +71,22 @@ public final class OffhandAttackVerification {
     private OffhandAttackVerification() {}
 
     public static void register() {
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         ServerLifecycleEvents.SERVER_STARTED.register(OffhandAttackVerification::scheduleDelayed);
     }
 
     private static void scheduleDelayed(MinecraftServer server) {
         if (!VerificationReporter.isDevEnvironment()) return;
-        ServerScheduler.getInstance().queue(OffhandAttackVerification::runSelfTest, SUITE_DELAY_TICKS);
+        // The fake players/entities in this suite sit at the world origin. 26.x keeps no spawn chunks
+        // loaded, so on a player-less (disposable) server the origin chunk must be held entity-ticking
+        // for the delay, or Level#getEntity(int) never resolves them. Released afterwards unless it was
+        // already force-loaded before this suite ran.
+        net.minecraft.server.level.ServerLevel level = server.overworld();
+        boolean wasForced = level.getForceLoadedChunks().contains(net.minecraft.world.level.ChunkPos.pack(0, 0));
+        level.setChunkForced(0, 0, true);
+        ServerScheduler.getInstance().queue(s -> {
+            try { runSelfTest(s); } finally { if (!wasForced) level.setChunkForced(0, 0, false); }
+        }, SUITE_DELAY_TICKS);
     }
 
     private static void runSelfTest(MinecraftServer server) {
@@ -265,7 +275,7 @@ public final class OffhandAttackVerification {
     }
 
     private static Zombie freshZombie(MinecraftServer server, ServerPlayer near) {
-        Zombie zombie = new Zombie(EntityTypes.ZOMBIE, server.overworld());
+        Zombie zombie = zcylas.totality.api.core.util.VerificationMobs.lootlessZombie(server.overworld());
         zombie.setPos(near.getX() + 1, near.getY(), near.getZ());
         server.overworld().addFreshEntity(zombie);
         return zombie;

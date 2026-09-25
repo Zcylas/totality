@@ -84,6 +84,7 @@ public class Totality implements ModInitializer {
 		// ── Ticks ─────────────────────────────────────────────────────────────
 		registerServerTickEvents();
 		zcylas.totality.api.mining.PlayerMiningManager.register();
+		zcylas.totality.api.mining.BlockDurabilityDefinitions.register();
 		zcylas.totality.api.mining.MiningVerification.register();
 
 		// ── World ─────────────────────────────────────────────────────────────
@@ -94,6 +95,8 @@ public class Totality implements ModInitializer {
 		ModComponents.register();
 		ModItems.register();
 		ModBlocks.register();
+		VanillaItemPresentation.register();
+		zcylas.totality.api.core.rpgutils.rarity.RarityCoverage.register();
 		ModGroups.register();
 		zcylas.totality.worldgen.ModFeatures.register();
 		ModBlockEntities.register();
@@ -124,6 +127,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.shop.TradingScreenVerification.register();
 		zcylas.totality.api.rpg.combat.PowerAttackVerification.register();
 		zcylas.totality.networking.combat.OffhandAttackVerification.register();
+		zcylas.totality.api.mining.DurabilityRegressionVerification.register();
 		zcylas.totality.api.rpg.resources.verification.ResourceFoundationVerification.register();
 		zcylas.totality.api.rpg.resources.verification.BaselineResourceMigrationVerification.register();
 		zcylas.totality.api.rpg.resources.verification.BarbarianRageMigrationVerification.register();

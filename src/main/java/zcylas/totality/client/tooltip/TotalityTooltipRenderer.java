@@ -4,29 +4,49 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.item.TrackingItemStackRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.client.util.CloseableScissor;
-import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
+import zcylas.totality.api.core.rpgutils.rarity.Classification;
+import zcylas.totality.api.core.rpgutils.rarity.ClassificationTypes;
 import zcylas.totality.api.core.rpgutils.rarity.ItemRarity;
 import zcylas.totality.api.core.rpgutils.rarity.ItemType;
+import zcylas.totality.client.tooltip.group.TooltipGlyphSupport;
+import zcylas.totality.client.tooltip.group.TooltipGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroupIcon;
+import zcylas.totality.client.tooltip.group.TooltipGroupOrdering;
+import zcylas.totality.api.core.rpgutils.rarity.TooltipCompanionPreview;
 import zcylas.totality.client.renderer.gui.TotalityGuiGraphics;
 import zcylas.totality.client.tooltip.contributor.TooltipContributor;
 import zcylas.totality.client.tooltip.contributor.TooltipContributorRegistry;
+import zcylas.totality.client.tooltip.footer.TooltipFooter;
 import zcylas.totality.client.tooltip.renderer.*;
+import zcylas.totality.client.tooltip.presentation.TooltipIdentityLines;
+import zcylas.totality.client.tooltip.presentation.TooltipPresentation;
+import zcylas.totality.client.tooltip.preview.TooltipCompanionCard;
+import zcylas.totality.client.tooltip.preview.TooltipGroupLayout;
+import zcylas.totality.client.tooltip.preview.TooltipHeaderPreview;
+import zcylas.totality.client.tooltip.preview.TooltipPreviewLayout;
 import zcylas.totality.client.tooltip.section.TooltipSection;
 import zcylas.totality.client.tooltip.theme.TooltipBorderStyle;
 import zcylas.totality.client.tooltip.theme.TooltipColors;
 import zcylas.totality.client.tooltip.theme.TooltipTheme;
+import zcylas.totality.util.color.ColorUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -40,7 +60,8 @@ import java.util.Set;
  * The renderer contains no direct gameplay capability checks against {@code UEItem},
  * {@code TotalityWeaponItem}, or similar interfaces — those checks live inside the relevant
  * contributor instead. It also contains no classification-driven theme/border decision — only
- * {@link ItemRarity} selects the panel theme; classifications only ever produce badges.
+ * {@link ItemRarity} selects the panel theme; classifications only ever produce the header's
+ * category/type text line.
  *
  * <p><b>Visual-correction pass — compact shrink-to-content width (Finding 1):</b> the panel width
  * used to be a single stable preferred value ({@code MAX_WIDTH}, unconditionally clamped down only
@@ -62,17 +83,36 @@ public class TotalityTooltipRenderer {
     /** Finding 1: hard ceiling as a fraction of the current scaled screen width, regardless of content. */
     private static final float MAX_SCREEN_WIDTH_FRACTION = 0.38f;
     private static final int SCREEN_MARGIN = 6;
-    private static final int ROW_GAP = 3;
+    /** Tooltip-layout-cleanup pass (2026-09-22): tightened from 3 to 2 — a modest, conservative
+     *  reduction, not a crush; most of the new vertical compactness comes from {@link #BODY_TEXT_SCALE}
+     *  shrinking row heights themselves, not from this gap. Stays a fixed VISUAL gap regardless of
+     *  whether the row above/below it is text-scaled — spacing between rows is a layout-density
+     *  concern, deliberately independent of any one row's own font scale. */
+    private static final int ROW_GAP = 2;
     /** Absolute floor for the panel's inner content width — guarantees a positive, drawable width even on a tiny screen. */
     private static final int MIN_SAFE_INNER_WIDTH = 60;
-    /** Finding 2: horizontal gap between adjacent badges in the flowing rarity/classification row. */
-    private static final int BADGE_GAP = 4;
-    /** Finding 2: vertical gap between wrapped badge rows. */
-    private static final int BADGE_ROW_GAP = 3;
-    /** Finding 2: compact per-side badge padding — replaces the old forced 60px minimum badge width. */
-    private static final int BADGE_PADDING = 10;
-    /** Finding 4/8: width reserved for the scroll indicator so body text can never sit under it, overflowing or not. */
-    private static final int SCROLLBAR_GUTTER = 6;
+    /**
+     * Tooltip V2 header: row height of each centred classification line (font line + 1). The lines stay at
+     * full, pixel-crisp size (a fractional scale drops glyph rows at GUI scale 1) and are kept quieter than
+     * the name and the rarity plaque by the muted {@link #SECONDARY_TEXT_COLOR}.
+     */
+    private static final int IDENTITY_LINE_H = 10;
+    /** Tooltip V2 header: gap above the rarity plaque. */
+    private static final int PLAQUE_GAP_ABOVE = 2;
+    /** Tooltip V2 header: gap below the rarity plaque. */
+    private static final int PLAQUE_GAP_BELOW = 3;
+    /** Tooltip V2 header: gap between the preview viewport and the item name (no divider there). */
+    private static final int PREVIEW_NAME_GAP = 3;
+    /** Tooltip V2 header: gap between the last identity line and the body (the first group heading supplies the divider). */
+    private static final int HEADER_BOTTOM_GAP = 2;
+    /** Extra space between the last semantic group and the unheaded tail (lore, vanilla lines, technical info). */
+    private static final int UNHEADED_TAIL_GAP = 5;
+    /**
+     * Lead before a body that starts with unheaded content (e.g. lore only): the same space a group heading reserves
+     * above its title, so the first content always starts at the same offset under the header now that there is no
+     * universal header divider (Tooltip V2 Pass 1 final corrections). Spacing only — not a separator.
+     */
+    private static final int UNHEADED_BODY_LEAD = TooltipGroupHeadingPainter.GAP_ABOVE;
     /** Finding 6: shared secondary-text color (stat labels) — a touch lighter than the old 0xFF888888 for readability. */
     private static final int SECONDARY_TEXT_COLOR = 0xFF9CA3AF;
     /**
@@ -82,21 +122,54 @@ public class TotalityTooltipRenderer {
      * its label. Compact but clearly visible.
      */
     private static final int ICON_LABEL_GAP = 5;
+    /** Real-sprite IconStatRow (§9/§11 of the V2 balance pass): 16px icon + gap, and a row tall enough for it. */
+    private static final int REAL_ICON_SIZE = 16;
+    private static final int REAL_ICON_BOX_W = REAL_ICON_SIZE + ICON_LABEL_GAP;
+    private static final int REAL_ICON_ROW_H = REAL_ICON_SIZE + 2;
+    private static final int PROVENANCE_INDENT = 10;
+    private static final int PROVENANCE_VALUE_COLOR = 0xFFAAAAAA;
     /**
      * Presentation-cleanup pass, Finding 2: small extra breathing room between the body's last
      * row and the footer's own text — previously exactly zero (the footer's reserved chrome
      * height began immediately where the body viewport ended). Light polish only, not a return to
      * a larger panel: this adds a few pixels, not a new row of content.
+     *
+     * <p>Tooltip-layout-cleanup pass (2026-09-22): tightened from 4 to 3 as part of the overall
+     * vertical-density pass — modest, conservative, alongside the body text scale-down below
+     * (which already shrinks most row heights on its own).
      */
-    private static final int BODY_FOOTER_GAP = 4;
+    private static final int BODY_FOOTER_GAP = 3;
 
     /**
-     * Explicit opt-in check — the single gate deciding custom vs. vanilla rendering. Delegates
-     * to {@link ItemComponents#hasTooltipPresentation}, which documents the temporary rarity
-     * compatibility fallback for pre-existing registrations.
+     * Tooltip-layout-cleanup pass (2026-09-22): every "stat"-shaped body row (Heading, StatRow,
+     * StatBlock, PropertyBadges, Requirement, IconStatRow, ProvenanceGroup) — including its own
+     * stat icon — now renders at this fraction of its previous (1.0x) size, ~87.5%, within the
+     * requested 85-90% range. This single transform is what also satisfies §10's icon-size ask:
+     * an {@link TooltipSection.IconStatRow}'s icon is drawn INSIDE the same scaled block as its
+     * label/value (see the body draw loop in {@link #render}), so the Jump Boost effect icon and
+     * every real item icon shrink together with the text, proportionally, with no separate
+     * icon-specific constant to keep in sync.
+     *
+     * <p>Deliberately NOT applied to {@link TooltipSection.Description} (lore — keeps its own
+     * existing hierarchy, per this pass's own instruction), {@link TooltipSection.ExternalContent}
+     * (preserved vanilla/third-party lines, e.g. "When in Main Hand" + attack attributes — kept at
+     * their real vanilla size so they read exactly as vanilla itself would show them, and so they
+     * visually stay distinct from the now-smaller custom stat rows rather than blending into them),
+     * {@link TooltipSection.TechnicalInfo} (diagnostic, Ctrl-only), or {@link TooltipSection.ProgressBar}
+     * (not text) — see {@link #isScaledSection}. The title/name and rarity/classification badges
+     * are not {@code TooltipSection}s at all (handled separately in {@link #render}) and are
+     * therefore automatically unaffected, preserving the title's normal intended prominence.
+     */
+    private static final float BODY_TEXT_SCALE = 0.875f;
+
+    /**
+     * Whether the hovered stack is drawn by Tooltip V2 — see {@link TooltipRouting}: every item is, except a stack
+     * whose structured tooltip component or hidden tooltip keeps vanilla's own path. Depends on the stack alone, so
+     * SHIFT/CTRL change disclosure but never the renderer (Tooltip V2 Pass 1; previously the gate was
+     * content-driven and CTRL's technical section could flip an otherwise-vanilla item into V2).
      */
     public static boolean isEligible(ItemStack stack) {
-        return ItemComponents.hasTooltipPresentation(stack);
+        return TooltipRouting.of(stack) == TooltipRouting.TOTALITY;
     }
 
     /**
@@ -126,7 +199,7 @@ public class TotalityTooltipRenderer {
         TooltipDocument.Builder builder = TooltipDocument.builder();
         Component title = stack.getHoverName();
         ItemRarity authoredRarity = null;
-        List<ItemType> classifications = List.of();
+        List<Classification> classifications = List.of();
         List<ContributorBlock> blocks = new ArrayList<>();
 
         for (TooltipContributor contributor : TooltipContributorRegistry.ordered()) {
@@ -140,16 +213,21 @@ public class TotalityTooltipRenderer {
                 switch (section) {
                     case TooltipSection.Header header -> title = header.title();
                     case TooltipSection.RarityBadge badge -> authoredRarity = badge.rarity();
-                    case TooltipSection.ClassificationBadges badges -> classifications = badges.classifications();
+                    case TooltipSection.ClassificationBadges badges -> classifications = badges.entries();
                     default -> bodySections.add(section);
                 }
             }
             if (!bodySections.isEmpty()) {
-                blocks.add(new ContributorBlock(contributor.sectionGroup(), bodySections));
+                blocks.add(new ContributorBlock(contributor.sectionGroup(), contributor.bodyGroup(ctx), bodySections));
             }
         }
         TooltipDocument document = builder.build();
-        List<TooltipSection> body = orderedBody(blocks);
+        // Semantic body groups (Mining, Combat, ...): contributors naming the same group are merged under
+        // one centred heading; groups are ordered by the item's authored order, then its primary
+        // classification, then default priority. Unheaded content (lore, vanilla, technical) follows.
+        List<BodyPart> bodyParts = groupedBody(blocks, TooltipGroupOrdering.authoredOrder(stack), primaryCategory(classifications));
+        List<TooltipSection> body = flattenWithHeadings(bodyParts);
+        int unheadedTailStart = headedLength(bodyParts);
 
         // Neutral fallback theme for explicitly opted-in items without an authored rarity —
         // never invented, just a stable default appearance (COMMON's flat frame/no animation).
@@ -159,103 +237,118 @@ public class TotalityTooltipRenderer {
 
         int screenW = mc.getWindow().getGuiScaledWidth();
         int screenH = mc.getWindow().getGuiScaledHeight();
+        // Compact body text only where it stays pixel-intact (see TooltipTextScale): unscaled at GUI scale 1.
+        float bodyScale = TooltipTextScale.pixelSafe(BODY_TEXT_SCALE, mc.getWindow().getGuiScale());
+
+        // Detached SHIFT / ALT / CTRL panels under the tooltip, offered from the explicit disclosure-capability
+        // model (never by scanning which sections the current level happened to emit). ALT has no interaction
+        // system yet, so it is never offered. The panels are part of the tooltip's vertical footprint.
+        List<TooltipModifierPanels.Panel> modifierPanels = TooltipModifierPanels.visible(
+                document.availableLevels().contains(TooltipDisclosureLevel.DETAILS), false,
+                document.availableLevels().contains(TooltipDisclosureLevel.TECHNICAL), disclosure);
+        int panelsBlockH = TooltipModifierPanels.blockHeight(modifierPanels);
+        int maxViewportH = Math.max(0, screenH - SCREEN_MARGIN * 2 - panelsBlockH);
+
+        // Tooltip V2 presentation: HOW this tooltip is presented (preview mode/motion, companion card,
+        // vignette, divider) — resolved from the item's authored TooltipProfileComponent, falling back to
+        // AUTO inference from its own GUI model and then Totality defaults. Never WHAT the content is.
+        // The item's GUI render state is resolved once here and reused for inference and drawing.
+        TrackingItemStackRenderState previewState = TooltipHeaderPreview.resolveRenderState(stack);
+        TooltipPresentation presentation = TooltipHeaderPreview.resolvePresentation(stack, previewState);
+        int rarityColor = TooltipColors.forRarity(themeRarity);
 
         String titleText = title.getString();
-        int iconSize = 16;
-        int iconAreaW = iconSize + 8;
+        String rarityText = TooltipIdentityLines.rarityLine(authoredRarity);
+        List<String> classificationTexts = TooltipIdentityLines.classificationLines(classifications,
+                type -> Component.translatableWithFallback(ClassificationTypes.translationKey(type),
+                        ClassificationTypes.fallbackName(type)).getString());
 
         // Width policy (Finding 1): measure the actual semantic content's natural (unwrapped)
         // width, then clamp into a compact preferred range and the current screen's constraints.
         // Long-form content (lore, preserved external lines, technical info) is deliberately
-        // excluded from this measurement — see measureNaturalContentWidth.
-        int naturalContentW = measureNaturalContentWidth(font, title, authoredRarity, classifications, body, iconAreaW);
+        // excluded from this measurement — see measureNaturalContentWidth. The V2 preview never
+        // decides the width: it spans whatever width the content decided.
+        int naturalContentW = measureNaturalContentWidth(font, title, rarityText, classificationTexts, body, bodyScale);
         int contentW = effectiveContentWidth(screenW, naturalContentW);
         int panelW = PADDING + contentW + PADDING;
         int innerW = panelW - PADDING * 2;
-        // Body content never sits under the scroll indicator's reserved gutter, overflowing or not.
-        int bodyContentW = Math.max(1, innerW - SCROLLBAR_GUTTER);
+        // No scroll indicator is drawn (scrolling stays wheel-only and visually unobtrusive), so the body spans the
+        // full inner width — no gutter is reserved.
+        int bodyContentW = Math.max(1, innerW);
 
-        // Title: native Font wrapping against the final (already-decided) width — never a single
-        // unbounded line, never crosses the panel boundary.
-        int titleAreaW = Math.max(1, innerW - iconAreaW);
-        List<FormattedCharSequence> titleLines = font.split(title, titleAreaW);
-        if (titleLines.isEmpty()) titleLines = font.split(Component.literal(" "), titleAreaW);
+        // V2 identity header, composed vertically: large preview, then centred Name / rarity plaque /
+        // one line per classification pair. No icon column beside the name any more, so every line wraps
+        // against the full inner width. The header stays fixed (never scrolls), exactly like V1's header did.
+        List<FormattedCharSequence> titleLines = font.split(title, innerW);
+        if (titleLines.isEmpty()) titleLines = font.split(Component.literal(" "), innerW);
         int titleLineCount = Math.max(1, titleLines.size());
         int titleLineH = font.lineHeight + 1;
-
-        // Header badges (Finding 2): rarity and every classification flow together in one ordered
-        // row, wrapping only when the next badge genuinely doesn't fit — never forced onto their
-        // own separate rows.
-        List<BadgeSpec> badgeSpecs = buildBadgeSpecs(authoredRarity, classifications);
-        List<List<BadgeSpec>> badgeRows = badgeSpecs.isEmpty() ? List.of() : wrapBadges(badgeSpecs, font, titleAreaW);
-        int badgeRowH = font.lineHeight + 4;
-        int headerContentH = titleLineCount * titleLineH
-                + (badgeRows.isEmpty() ? 0 : badgeRows.size() * (badgeRowH + BADGE_ROW_GAP));
-        int headerH = PADDING + Math.max(iconSize, headerContentH) + PADDING;
+        int plaqueH = rarityText.isEmpty() ? 0 : PLAQUE_GAP_ABOVE + TooltipRarityPlaquePainter.HEIGHT + PLAQUE_GAP_BELOW;
+        List<FormattedCharSequence> categoryLines = new ArrayList<>();
+        for (String text : classificationTexts) categoryLines.addAll(font.split(Component.literal(text), innerW));
+        int classificationH = categoryLines.size() * IDENTITY_LINE_H;
+        int previewH = TooltipPreviewLayout.viewportHeight(maxViewportH);
+        int identityH = titleLineCount * titleLineH + plaqueH + classificationH;
+        int headerH = headerHeight(previewH, identityH);
 
         // Lay out body sections against the final content width — long-form sections wrap to
         // fit rather than growing the panel, fixing the old width/wrap mismatch. StatRow/StatBlock
         // values that don't fit alongside their label wrap onto following lines instead of
         // overlapping or being silently clipped.
+        // Tooltip-layout-cleanup pass (2026-09-22): a text-scaled row (see isScaledSection/
+        // BODY_TEXT_SCALE) must be WRAPPED against its logical (pre-scale) width — the space it
+        // will actually occupy once rendered smaller is larger in logical font units than the
+        // visual budget it's given — and its logical height converted back to a visual (screen
+        // pixel) contribution for the body's own vertical accounting. An unscaled row (lore,
+        // preserved vanilla content, technical info, the progress bar) is laid out exactly as
+        // before, untouched.
         List<LaidOutSection> laidOut = new ArrayList<>();
         int bodyContentH = 0;
         for (TooltipSection section : body) {
-            LaidOutSection laid = layout(section, font, bodyContentW);
+            if (laidOut.size() == unheadedTailStart && unheadedTailStart > 0) bodyContentH += UNHEADED_TAIL_GAP;
+            if (laidOut.isEmpty() && unheadedTailStart == 0) bodyContentH += UNHEADED_BODY_LEAD;
+            boolean scaled = isScaledSection(section);
+            int wrapWidth = scaled ? logicalForScale(bodyContentW, bodyScale) : bodyContentW;
+            LaidOutSection laid = layout(section, font, wrapWidth);
             laidOut.add(laid);
-            bodyContentH += laid.height() + ROW_GAP;
+            int visualHeight = scaled ? visualForScale(laid.height(), bodyScale) : laid.height();
+            bodyContentH += visualHeight + ROW_GAP;
         }
 
-        // Presentation-cleanup pass, Finding 2: separatorH grew from 7 to 9 for a touch more
-        // breathing room at the header/body transition (light polish only, per the finding).
-        int separatorH = 9;
+        // No universal header/body divider (Tooltip V2 Pass 1 final corrections): the body starts right after the
+        // header, and each semantic group heading draws its own divider lines, so the first group's heading is the
+        // only divider under the header. A bodiless item's panel therefore simply ends after its header and footer.
         int footerRowH = font.lineHeight + 2;
         int footerPadding = 3;
-        int maxViewportH = Math.max(0, screenH - SCREEN_MARGIN * 2);
 
-        // Footer capacity is derived from the explicit disclosure-capability model — never by
-        // scanning which sections happen to be present at the current level (contributors often
-        // only emit Details/Technical content when that level is already selected).
-        FooterHintFlags hintFlags = footerHintFlags(ctx.disclosure(), document.availableLevels());
-        List<String> staticHints = new ArrayList<>();
-        if (hintFlags.showShift()) staticHints.add("SHIFT: Details");
-        if (hintFlags.showCtrl()) staticHints.add("CTRL: Technical");
+        // Footer: Weight left, content Origin centred, Price right — each omitted when unknown. The SHIFT/CTRL
+        // hints are no longer here (detached panels), and there is no scrolling hint row.
+        TooltipFooter.Info footerInfo = TooltipFooter.resolve(stack);
+        Component footerWeight = footerInfo.weight() == null ? null
+                : TotalityIcons.iconLabel(TotalityIcons.WEIGHT, FOOTER_WEIGHT_COLOR, footerInfo.weight());
+        List<TooltipFooter.Placement> footerPlacements = TooltipFooter.layout(innerW, footerWeight == null ? -1 : font.width(footerWeight),
+                footerWidth(font, footerInfo.origin()), footerWidth(font, footerInfo.price()));
+        int footerH = BODY_FOOTER_GAP + footerPadding + footerRowH * TooltipFooter.rows(footerPlacements);
 
-        // Two-pass footer/viewport sizing to break the circular dependency between "does the
-        // scroll hint need to be shown" and "how tall is the footer" (which affects how much
-        // room the body viewport has, which affects whether scrolling is needed at all). Pass 1
-        // sizes the footer from the hints we already know about (Shift/Ctrl); pass 2 adds the
-        // Scroll hint if that provisional sizing already implies overflow. The tiny (~1 footer
-        // row) difference between the two passes can only disagree in an extreme edge case where
-        // content height sits within a few pixels of the threshold either way.
-        List<FormattedCharSequence> hintLines1 = footerHintLines(staticHints, font, innerW);
-        int footerH1 = footerRowH * (1 + hintLines1.size()) + footerPadding + BODY_FOOTER_GAP;
-        int availableBodyH1 = availableBodyHeight(maxViewportH, headerH, separatorH, footerH1);
-        boolean overflowingGuess = bodyContentH > availableBodyH1;
-
-        List<String> finalHints = new ArrayList<>(staticHints);
-        if (overflowingGuess) finalHints.add("Scroll: More");
-        List<FormattedCharSequence> hintLines = footerHintLines(finalHints, font, innerW);
-        // + BODY_FOOTER_GAP reserves the extra breathing room between the body's last row and
-        // the footer's own text (drawFooter offsets its draw position down by the same amount).
-        int footerH = footerRowH * (1 + hintLines.size()) + footerPadding + BODY_FOOTER_GAP;
-
-        int chromeH = headerH + separatorH + footerH;
+        int chromeH = headerH + footerH;
         // Never force a minimum body height beyond what's actually available — a tiny window
         // fails safely (clamped to zero) rather than drawing the panel past the screen edge.
-        int availableBodyH = availableBodyHeight(maxViewportH, headerH, separatorH, footerH);
+        int availableBodyH = availableBodyHeight(maxViewportH, headerH, footerH);
         int bodyViewportH = Math.max(0, Math.min(bodyContentH, availableBodyH));
 
         int panelH = chromeH + bodyViewportH;
 
-        int panelX = x + 12;
-        int panelY = y - 12;
-        if (panelX + panelW > screenW - SCREEN_MARGIN) panelX = x - panelW - 12;
-        if (panelX < SCREEN_MARGIN) panelX = SCREEN_MARGIN;
-        if (panelY + panelH > screenH - SCREEN_MARGIN) panelY = screenH - panelH - SCREEN_MARGIN;
-        if (panelY < SCREEN_MARGIN) panelY = SCREEN_MARGIN;
+        // Placement: the main panel plus an optional companion card are positioned as one group, so
+        // neither is pushed off-screen. Without a companion this is exactly V1's placement rule. All
+        // sizes are fixed for the hovered item, so an animating preview never moves the group.
+        boolean withCompanion = presentation.companionPreview() == TooltipCompanionPreview.EQUIPPED_PLAYER;
+        TooltipGroupLayout.Placement placement = TooltipGroupLayout.place(x, y, panelW, panelH + panelsBlockH,
+                withCompanion ? TooltipCompanionCard.WIDTH : 0, withCompanion ? TooltipCompanionCard.HEIGHT : 0,
+                screenW, screenH, SCREEN_MARGIN);
+        int panelX = placement.panelX();
+        int panelY = placement.panelY();
 
-        int separatorY = panelY + headerH;
-        int bodyTop = separatorY + separatorH;
+        int bodyTop = panelY + headerH;
         int bodyLeft = panelX + PADDING;
 
         // Scroll state/target is registered only now that the panel position and viewport bounds
@@ -264,61 +357,95 @@ public class TotalityTooltipRenderer {
         TooltipScrollController.onRender(screen, slot, stack, disclosure, bodyContentH, bodyViewportH,
                 bodyLeft, bodyTop, bodyContentW, bodyViewportH);
         int scrollOffset = TooltipScrollController.scrollOffset();
-        boolean overflowing = TooltipScrollController.isOverflowing();
 
+        long timeMs = System.currentTimeMillis();
+
+        // Companion card (e.g. the player wearing hovered armor): its own content-sized card beside
+        // the main tooltip, drawn first so the main panel always wins if anything ever touched.
+        if (withCompanion && placement.cardSide() != TooltipGroupLayout.CardSide.HIDDEN) {
+            int cardX = placement.cardX(), cardY = placement.cardY();
+            int cardW = TooltipCompanionCard.WIDTH, cardH = TooltipCompanionCard.HEIGHT;
+            TooltipPainter.drawBackground(graphics, cardX, cardY, cardW, cardH, theme);
+            TooltipVignettePainter.draw(graphics, presentation.vignetteStyle(), cardX, cardY, cardW, cardH, rarityColor);
+            TooltipFrameRenderer.drawBorder(graphics, cardX, cardY, cardW, cardH, theme, themeRarity);
+            TooltipCompanionCard.drawPlayer(graphics, stack, cardX, cardY);
+        }
+
+        // Layer order: background -> whole-tooltip vignette -> frame -> preview -> identity text ->
+        // body -> footer (no universal divider). The vignette sits under the frame and every piece of text.
         TooltipPainter.drawBackground(graphics, panelX, panelY, panelW, panelH, theme);
+        TooltipVignettePainter.draw(graphics, presentation.vignetteStyle(), panelX, panelY, panelW, panelH, rarityColor);
         TooltipFrameRenderer.drawBorder(graphics, panelX, panelY, panelW, panelH, theme, themeRarity);
 
-        int iconX = panelX + PADDING;
-        int iconY = panelY + PADDING;
-        TooltipPainter.drawItem(graphics, stack, iconX, iconY);
+        int previewY = panelY + PADDING;
+        TooltipHeaderPreview.draw(graphics, stack, previewState, presentation, panelX + PADDING, previewY, innerW, previewH, timeMs);
 
-        int nameX = iconX + iconAreaW;
-        int nameY = panelY + PADDING;
-        long timeMs = System.currentTimeMillis();
+        // Identity block — no divider between the preview and the name.
+        int centerX = panelX + panelW / 2;
+        int lineY = previewY + previewH + PREVIEW_NAME_GAP;
         if (titleLineCount == 1) {
-            drawAnimatedTitle(graphics, font, titleText, nameX, nameY, theme.name(), authoredRarity, timeMs);
+            drawAnimatedTitle(graphics, font, titleText, centerX - font.width(titleText) / 2, lineY,
+                    theme.name(), authoredRarity, timeMs);
+            lineY += titleLineH;
         } else {
-            int lineY = nameY;
             for (FormattedCharSequence line : titleLines) {
-                TotalityGuiGraphics.of(graphics).drawString(line, nameX, lineY, theme.name(), 0, true);
+                TotalityGuiGraphics.of(graphics).drawString(line, centerX - font.width(line) / 2, lineY, theme.name(), 0, true);
                 lineY += titleLineH;
             }
         }
-
-        if (!badgeRows.isEmpty()) {
-            int badgeY = nameY + titleLineCount * titleLineH + 2;
-            for (List<BadgeSpec> row : badgeRows) {
-                drawBadgeRow(graphics, font, row, nameX, badgeY);
-                badgeY += badgeRowH + BADGE_ROW_GAP;
-            }
+        if (!rarityText.isEmpty()) {
+            TooltipRarityPlaquePainter.draw(graphics, font, rarityText, centerX, lineY + PLAQUE_GAP_ABOVE, rarityColor);
+            lineY += plaqueH;
         }
-
-        TooltipPainter.drawSeparator(graphics, panelX + PADDING, separatorY, innerW, theme);
+        for (FormattedCharSequence line : categoryLines) {
+            TotalityGuiGraphics.of(graphics).drawString(line, centerX - font.width(line) / 2, lineY, SECONDARY_TEXT_COLOR, 0, true);
+            lineY += IDENTITY_LINE_H;
+        }
 
         if (bodyViewportH > 0) {
             try (var ignored = new CloseableScissor(graphics, bodyLeft - 2, bodyTop, bodyContentW + 4, bodyViewportH)) {
                 int cursorY = bodyTop - scrollOffset;
-                for (LaidOutSection laid : laidOut) {
-                    draw(graphics, font, laid, bodyLeft, cursorY, bodyContentW, theme);
-                    cursorY += laid.height() + ROW_GAP;
+                for (int i = 0; i < laidOut.size(); i++) {
+                    LaidOutSection laid = laidOut.get(i);
+                    if (i == unheadedTailStart && unheadedTailStart > 0) cursorY += UNHEADED_TAIL_GAP;
+                    if (i == 0 && unheadedTailStart == 0) cursorY += UNHEADED_BODY_LEAD;
+                    boolean scaled = isScaledSection(laid.section());
+                    if (scaled) {
+                        // Same pushMatrix/scale/popMatrix idiom this codebase already uses
+                        // extensively for scaled text elsewhere (e.g. the character-screen tabs'
+                        // drawSmallAt/drawTinyAt helpers) — draw at the LOGICAL (pre-scale)
+                        // position so the transform lands it back at the correct VISUAL position,
+                        // exactly like every other scaled-text call site in this codebase.
+                        graphics.pose().pushMatrix();
+                        graphics.pose().scale(bodyScale, bodyScale);
+                        draw(graphics, font, laid, logicalForScale(bodyLeft, bodyScale),
+                                logicalForScale(cursorY, bodyScale),
+                                logicalForScale(bodyContentW, bodyScale), theme, rarityColor);
+                        graphics.pose().popMatrix();
+                        cursorY += visualForScale(laid.height(), bodyScale) + ROW_GAP;
+                    } else {
+                        draw(graphics, font, laid, bodyLeft, cursorY, bodyContentW, theme, rarityColor);
+                        cursorY += laid.height() + ROW_GAP;
+                    }
                 }
-            }
-            // Scroll indicator is drawn AFTER the scissor closes so it is never itself clipped,
-            // and lives entirely inside SCROLLBAR_GUTTER — outside the clipped text column, so it
-            // can never cover or clip body content (Finding 8).
-            if (overflowing) {
-                drawScrollIndicator(graphics, bodyLeft, bodyTop, bodyContentW, bodyViewportH, bodyContentH, scrollOffset);
             }
         }
 
-        drawFooter(graphics, font, panelX, panelY, panelW, panelH, footerH, hintLines);
+        drawFooter(graphics, font, panelX, panelY, panelH, footerH, footerInfo, footerWeight, footerPlacements);
+
+        if (!modifierPanels.isEmpty()) {
+            int modifierPanelW = TooltipModifierPanels.panelWidth(font, modifierPanels);
+            int rowW = TooltipModifierPanels.rowWidth(modifierPanelW, modifierPanels.size());
+            int rowX = TooltipModifierPanels.rowX(panelX, panelW, rowW, screenW, SCREEN_MARGIN);
+            TooltipModifierPanels.draw(graphics, font, modifierPanels, theme, rarityColor, rowX,
+                    panelY + panelH + TooltipModifierPanels.GAP_ABOVE, modifierPanelW);
+        }
     }
 
     // ── Section visibility / ordering ────────────────────────────────────────
 
     private static boolean isVisible(TooltipSection section, TooltipContext ctx) {
-        return ctx.disclosure().atLeast(section.minDisclosure())
+        return ctx.disclosure().includes(section.minDisclosure())
                 && ctx.knowledge().isVisible(section.visibility(), ctx.disclosure());
     }
 
@@ -329,7 +456,86 @@ public class TotalityTooltipRenderer {
      * be unit-tested directly with real {@link TooltipSection} records — no {@code ItemStack} or
      * {@code Font} required.
      */
-    record ContributorBlock(TooltipSectionGroup group, List<TooltipSection> sections) {}
+    record ContributorBlock(TooltipSectionGroup group, @Nullable TooltipGroup bodyGroup, List<TooltipSection> sections) {
+        /** A block shown without a semantic group heading, at its {@link TooltipSectionGroup} position. */
+        ContributorBlock(TooltipSectionGroup group, List<TooltipSection> sections) {
+            this(group, null, sections);
+        }
+    }
+
+    /** One part of the body: a semantic group and its merged entries, or ({@code group == null}) the unheaded tail. */
+    record BodyPart(@Nullable TooltipGroup group, List<TooltipSection> sections) {}
+
+    /**
+     * Merges and orders the body. Blocks naming the same semantic group are merged into one part, in
+     * contributor-registration order — so a stat row and its SHIFT breakdown, emitted together, stay together
+     * — and an entry identical to one already in that group is not shown twice. Only groups with content
+     * exist, so an empty group never gets a heading, while a single populated group keeps its heading. Groups
+     * are ordered by {@link TooltipGroupOrdering}; blocks without a group follow as one unheaded part, ordered
+     * exactly as before by {@link #orderedBody}. Pure — unit-tested.
+     */
+    static List<BodyPart> groupedBody(List<ContributorBlock> blocks, List<Identifier> authoredOrder,
+                                      @Nullable ItemType primaryCategory) {
+        Map<TooltipGroup, List<TooltipSection>> merged = new LinkedHashMap<>();
+        List<ContributorBlock> unheaded = new ArrayList<>();
+        for (ContributorBlock block : blocks) {
+            if (block.sections().isEmpty()) continue;
+            if (block.bodyGroup() == null) {
+                unheaded.add(block);
+                continue;
+            }
+            List<TooltipSection> entries = merged.computeIfAbsent(block.bodyGroup(), g -> new ArrayList<>());
+            for (TooltipSection section : block.sections()) {
+                if (!entries.contains(section)) entries.add(section);
+            }
+        }
+        List<BodyPart> parts = new ArrayList<>();
+        for (TooltipGroup group : TooltipGroupOrdering.order(merged.keySet(), authoredOrder, primaryCategory)) {
+            parts.add(new BodyPart(group, List.copyOf(merged.get(group))));
+        }
+        List<TooltipSection> tail = orderedBody(unheaded);
+        if (!tail.isEmpty()) parts.add(new BodyPart(null, tail));
+        return parts;
+    }
+
+    /**
+     * Number of body entries (headings included) before the unheaded tail — where {@link #UNHEADED_TAIL_GAP}
+     * separates lore/vanilla/technical content from the last group, so it never reads as part of that group.
+     */
+    static int headedLength(List<BodyPart> parts) {
+        int n = 0;
+        for (BodyPart part : parts) if (part.group() != null) n += 1 + part.sections().size();
+        return n;
+    }
+
+    /** The body as drawn: each group's heading followed by its entries, then the unheaded tail. */
+    static List<TooltipSection> flattenWithHeadings(List<BodyPart> parts) {
+        List<TooltipSection> body = new ArrayList<>();
+        for (BodyPart part : parts) {
+            if (part.group() != null) body.add(new TooltipSection.GroupHeading(part.group()));
+            body.addAll(part.sections());
+        }
+        return body;
+    }
+
+    /** A group's localized, upper-cased heading title. */
+    private static String groupTitle(TooltipGroup group) {
+        return Component.translatableWithFallback(group.translationKey(), group.fallbackName()).getString()
+                .toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Lore text color: the theme's body color pulled a third of the way toward a neutral gray — quieter than the
+     * mechanical rows above it, never mistaken for another stat group.
+     */
+    static int loreColor(int bodyColor) {
+        return ColorUtils.blend(bodyColor | 0xFF000000, 0xFF8A8F98, 0.35f);
+    }
+
+    /** The item's primary (first) classification category, which picks its leading body group. */
+    static @Nullable ItemType primaryCategory(List<Classification> classifications) {
+        return classifications.isEmpty() ? null : classifications.get(0).category();
+    }
 
     /**
      * Orders contributor blocks by {@link TooltipSectionGroup#ordinal()} and flattens them into
@@ -349,7 +555,7 @@ public class TotalityTooltipRenderer {
 
     /**
      * Measures the widest single-line natural width any piece of <em>compact</em> content would
-     * need to avoid wrapping — title, the flowing badge row, and every one-line-capable body
+     * need to avoid wrapping — the centred identity lines (name, rarity plaque, classification pairs), and every one-line-capable body
      * section (StatRow/StatBlock/PropertyBadges/Requirement/Heading). Each candidate is
      * individually capped at {@link #PREFERRED_MAX_WIDTH} before comparison, so one unusually long
      * row can never blow the whole panel past the compact ceiling — it simply wraps that one row
@@ -358,29 +564,84 @@ public class TotalityTooltipRenderer {
      * deliberately excluded: these are meant to wrap at whatever width the rest of the content
      * decided, never to drive the panel wider themselves.
      */
-    static int measureNaturalContentWidth(Font font, Component title, @Nullable ItemRarity authoredRarity,
-                                          List<ItemType> classifications, List<TooltipSection> body, int iconAreaW) {
+    static int measureNaturalContentWidth(Font font, Component title, String rarityLine, List<String> classificationLines,
+                                          List<TooltipSection> body, float bodyScale) {
+        // V2 identity header: the name, the rarity plaque and each classification line are centred on
+        // their own row (no icon column beside them any more), so each contributes only its own width —
+        // the plaque its full ornamental width, flourishes included, so they are never clipped.
         int natural = 0;
-        natural = Math.max(natural, Math.min(font.width(title) + iconAreaW, PREFERRED_MAX_WIDTH));
-
-        int badgeRowW = naturalBadgeRowWidth(font, authoredRarity, classifications);
-        if (badgeRowW > 0) {
-            natural = Math.max(natural, Math.min(badgeRowW + iconAreaW, PREFERRED_MAX_WIDTH));
+        natural = Math.max(natural, Math.min(font.width(title), PREFERRED_MAX_WIDTH));
+        if (!rarityLine.isEmpty()) {
+            natural = Math.max(natural, Math.min(TooltipRarityPlaquePainter.totalWidth(font.width(rarityLine)), PREFERRED_MAX_WIDTH));
+        }
+        for (String line : classificationLines) {
+            natural = Math.max(natural, Math.min(font.width(line), PREFERRED_MAX_WIDTH));
         }
 
         for (TooltipSection section : body) {
             int rowW = naturalRowWidth(section, font);
             if (rowW > 0) {
-                natural = Math.max(natural, Math.min(rowW, PREFERRED_MAX_WIDTH));
+                // Body rows are laid out against bodyContentW, which is the full inner width (no
+                // scroll gutter is reserved any more), so a row's natural width decides the panel
+                // width directly.
+                //
+                // Tooltip-layout-cleanup pass (2026-09-22): naturalRowWidth measures a row's width
+                // in LOGICAL (pre-scale) font units. A text-scaled row (isScaledSection) visually
+                // needs less room than that — its real on-screen contribution is
+                // visualForScale(rowW, BODY_TEXT_SCALE), never the raw logical rowW — so the panel
+                // is sized to the row's actual visual footprint, not an oversized one that would
+                // leave unwanted empty space around every scaled row.
+                int visualRowW = isScaledSection(section) ? visualForScale(rowW, bodyScale) : rowW;
+                natural = Math.max(natural, Math.min(visualRowW, PREFERRED_MAX_WIDTH));
             }
         }
         return natural;
+    }
+
+    /**
+     * Tooltip-layout-cleanup pass (2026-09-22): whether a body section kind participates in the
+     * body-text-scale-down ({@link #BODY_TEXT_SCALE}) — every "stat"-shaped row does; long-form or
+     * preserved content does not. See {@link #BODY_TEXT_SCALE}'s own Javadoc for the full
+     * per-kind rationale.
+     */
+    private static boolean isScaledSection(TooltipSection section) {
+        return switch (section) {
+            case TooltipSection.GroupHeading ignored -> false;
+            case TooltipSection.ExternalContent ignored -> false;
+            case TooltipSection.TechnicalInfo ignored -> false;
+            case TooltipSection.ProgressBar ignored -> false;
+            default -> true;
+        };
+    }
+
+    /**
+     * Converts a LOGICAL (pre-scale) pixel width or height into its VISUAL (on-screen) size once
+     * rendered at {@code scale} — pure arithmetic, directly unit-testable (unlike the Font-dependent
+     * layout functions around it).
+     */
+    static int visualForScale(int logical, float scale) {
+        return Math.round(logical * scale);
+    }
+
+    /**
+     * Converts a VISUAL (on-screen) pixel budget into the LOGICAL (pre-scale) size a scaled row's
+     * own {@code Font.split}/{@code Font.width} measurements must be evaluated against, so wrapping
+     * is decided relative to the space the text will actually occupy once scaled down — never the
+     * raw, larger visual budget, which would under-wrap and let scaled text overflow it. Floored at
+     * 1 so a degenerate (zero or negative) visual budget never produces a zero/negative wrap width.
+     */
+    static int logicalForScale(int visual, float scale) {
+        return Math.max(1, Math.round(visual / scale));
     }
 
     /** Natural (unwrapped) full width one section would need on a single line, or 0 if excluded from measurement. */
     private static int naturalRowWidth(TooltipSection section, Font font) {
         return switch (section) {
             case TooltipSection.Heading h -> font.width(h.label());
+            case TooltipSection.ResourceGauge r -> font.width(r.figures());
+            case TooltipSection.GroupHeading g -> TooltipGroupHeadingPainter.naturalWidth(
+                    TooltipGroupHeadingPainter.iconWidth(font, TooltipGlyphSupport.resolveIcon(font, g.group().icon())),
+                    font.width(groupTitle(g.group())));
             case TooltipSection.StatRow r -> {
                 int iconW = r.iconGlyph() != null ? font.width(r.iconGlyph()) + ICON_LABEL_GAP : 0;
                 yield iconW + font.width(r.label()) + 4 + font.width(r.value());
@@ -399,81 +660,27 @@ public class TotalityTooltipRenderer {
                 yield w;
             }
             case TooltipSection.Requirement r -> font.width(r.text());
+            case TooltipSection.IconStatRow r -> REAL_ICON_BOX_W + font.width(r.label()) + 4 + font.width(r.value());
+            case TooltipSection.ProvenanceGroup g -> {
+                int max = 0;
+                for (TooltipSection.ProvenanceLine line : g.lines()) {
+                    max = Math.max(max, PROVENANCE_INDENT + font.width("└ " + line.label() + ": ") + font.width(line.value()));
+                }
+                yield max;
+            }
             default -> 0;
         };
     }
 
-    private static int naturalBadgeRowWidth(Font font, @Nullable ItemRarity authoredRarity, List<ItemType> classifications) {
-        int w = 0;
-        boolean any = false;
-        if (authoredRarity != null) {
-            w += badgeWidth(font, authoredRarity.getSerializedName().toUpperCase()) + BADGE_GAP;
-            any = true;
-        }
-        for (ItemType t : classifications) {
-            w += badgeWidth(font, t.getSerializedName().toUpperCase()) + BADGE_GAP;
-            any = true;
-        }
-        return any ? w - BADGE_GAP : 0;
-    }
-
-    // ── Header badges (Finding 2) ────────────────────────────────────────────
-
-    private record BadgeSpec(String text, int color) {}
-
-    private static List<BadgeSpec> buildBadgeSpecs(@Nullable ItemRarity authoredRarity, List<ItemType> classifications) {
-        if (authoredRarity == null && classifications.isEmpty()) return List.of();
-        List<BadgeSpec> specs = new ArrayList<>();
-        if (authoredRarity != null) {
-            specs.add(new BadgeSpec(authoredRarity.getSerializedName().toUpperCase(), TooltipColors.forRarity(authoredRarity)));
-        }
-        for (ItemType type : classifications) {
-            specs.add(new BadgeSpec(type.getSerializedName().toUpperCase(), TooltipColors.forType(type)));
-        }
-        return specs;
-    }
-
-    private static int badgeWidth(Font font, String text) {
-        return font.width(text) + BADGE_PADDING;
-    }
+    // ── V2 identity header ───────────────────────────────────────────────────
 
     /**
-     * Flows rarity and every classification badge into one ordered row (preserving authored
-     * order — rarity first, then classifications exactly as registered), wrapping only when the
-     * next badge genuinely doesn't fit within {@code maxWidth}. Rarity never gets a mandatory
-     * separate row.
+     * Fixed header height: top padding, the fixed-height preview viewport, the preview-to-name gap, the
+     * identity lines, and a small gap before the body. Depends only on the screen and the text, never
+     * on the preview's animation, so it cannot change from frame to frame.
      */
-    static List<List<BadgeSpec>> wrapBadges(List<BadgeSpec> badges, Font font, int maxWidth) {
-        List<List<BadgeSpec>> rows = new ArrayList<>();
-        List<BadgeSpec> current = new ArrayList<>();
-        int currentWidth = 0;
-        for (BadgeSpec badge : badges) {
-            int w = badgeWidth(font, badge.text());
-            int candidateWidth = current.isEmpty() ? w : currentWidth + BADGE_GAP + w;
-            if (!current.isEmpty() && candidateWidth > maxWidth) {
-                rows.add(current);
-                current = new ArrayList<>();
-                currentWidth = w;
-            } else {
-                currentWidth = candidateWidth;
-            }
-            current.add(badge);
-        }
-        if (!current.isEmpty()) rows.add(current);
-        return rows;
-    }
-
-    private static void drawBadgeRow(GuiGraphicsExtractor graphics, Font font, List<BadgeSpec> row, int x, int y) {
-        int cursorX = x;
-        int h = font.lineHeight + 4;
-        for (BadgeSpec badge : row) {
-            int w = badgeWidth(font, badge.text());
-            int bg = darken(badge.color(), 0.4f);
-            graphics.fill(cursorX, y, cursorX + w, y + h, bg);
-            TooltipPainter.drawText(graphics, font, badge.text(), cursorX + (w - font.width(badge.text())) / 2, y + 2,
-                    lighten(badge.color(), 0.4f));
-            cursorX += w + BADGE_GAP;
-        }
+    static int headerHeight(int previewH, int identityH) {
+        return PADDING + previewH + PREVIEW_NAME_GAP + identityH + HEADER_BOTTOM_GAP;
     }
 
     // ── Layout ────────────────────────────────────────────────────────────────
@@ -489,6 +696,8 @@ public class TotalityTooltipRenderer {
         int rowH = font.lineHeight + 1;
         return switch (section) {
             case TooltipSection.Heading h -> new LaidOutSection(h, rowH, List.of(), List.of(), List.of());
+            case TooltipSection.GroupHeading g -> new LaidOutSection(g, TooltipGroupHeadingPainter.HEIGHT, List.of(), List.of(), List.of());
+            case TooltipSection.ResourceGauge r -> new LaidOutSection(r, TooltipResourceGaugePainter.height(font.lineHeight), List.of(), List.of(), List.of());
             case TooltipSection.StatRow r -> {
                 int iconW = r.iconGlyph() != null ? font.width(r.iconGlyph()) + ICON_LABEL_GAP : 0;
                 if (fitsOnOneLine(iconW, font.width(r.label()), font.width(r.value()), 4, width)) {
@@ -549,24 +758,132 @@ public class TotalityTooltipRenderer {
                 for (String s : t.lines()) lines.addAll(font.split(Component.literal(s), width));
                 yield new LaidOutSection(t, lines.size() * rowH + 3, lines, List.of(), List.of());
             }
+            case TooltipSection.IconStatRow r -> {
+                if (fitsOnOneLine(REAL_ICON_BOX_W, font.width(r.label()), font.width(r.value()), 4, width)) {
+                    yield new LaidOutSection(r, REAL_ICON_ROW_H, List.of(), List.of(), List.of());
+                }
+                int labelAreaW = Math.max(1, width - REAL_ICON_BOX_W);
+                List<FormattedCharSequence> labelLines = font.split(Component.literal(r.label()), labelAreaW);
+                if (labelLines.isEmpty()) labelLines = font.split(Component.literal(" "), labelAreaW);
+                List<FormattedCharSequence> valueLines = font.split(Component.literal(r.value()), Math.max(1, width));
+                int h = iconRowValueTop(labelLines.size(), rowH) + valueLines.size() * rowH;
+                yield new LaidOutSection(r, h, valueLines, labelLines, List.of());
+            }
+            case TooltipSection.ProvenanceGroup g -> new LaidOutSection(g, g.lines().size() * rowH, List.of(), List.of(), List.of());
             default -> new LaidOutSection(section, 0, List.of(), List.of(), List.of());
         };
     }
 
     private static void draw(GuiGraphicsExtractor graphics, Font font, LaidOutSection laid,
-                             int x, int y, int width, TooltipTheme theme) {
+                             int x, int y, int width, TooltipTheme theme, int rarityColor) {
         switch (laid.section()) {
+            case TooltipSection.GroupHeading g -> TooltipGroupHeadingPainter.draw(graphics, font,
+                    TooltipGlyphSupport.resolveIcon(font, g.group().icon()), groupTitle(g.group()), x, y, width, rarityColor);
+            case TooltipSection.ResourceGauge r -> TooltipResourceGaugePainter.draw(graphics, font, r.current(), r.max(), r.fillColor(),
+                    r.figures(), r.figuresColor(), x, y, width);
             case TooltipSection.Heading h -> TooltipPainter.drawText(graphics, font, h.label(), x, y, theme.sectionHeader());
             case TooltipSection.StatRow r -> drawStatRow(graphics, font, r, x, y, width, laid.wrapped(), laid.labelLines());
             case TooltipSection.StatBlock ignored -> drawStatBlock(graphics, font, laid.statLines(), x, y, width, theme);
             case TooltipSection.ProgressBar p -> drawProgressBar(graphics, p, x, y, width);
             case TooltipSection.PropertyBadges p -> drawPropertyBadges(graphics, font, p, x, y, width);
-            case TooltipSection.Description ignored -> drawWrapped(graphics, font, laid.wrapped(), x, y, theme.body());
+            case TooltipSection.Description ignored -> drawWrapped(graphics, font, laid.wrapped(), x, y, loreColor(theme.body()));
             case TooltipSection.Requirement r -> drawWrapped(graphics, font, laid.wrapped(), x, y,
                     r.warning() ? 0xFFFF5555 : 0xFFAAAAAA);
             case TooltipSection.ExternalContent ignored -> drawWrapped(graphics, font, laid.wrapped(), x, y, 0xFFAAAAAA);
             case TooltipSection.TechnicalInfo ignored -> drawWrapped(graphics, font, laid.wrapped(), x, y, 0xFF888888);
+            case TooltipSection.IconStatRow r -> drawIconStatRow(graphics, font, r, x, y, width, laid.wrapped(), laid.labelLines());
+            case TooltipSection.ProvenanceGroup g -> drawProvenanceGroup(graphics, font, g, x, y, width);
             default -> {}
+        }
+    }
+
+    /** A real item/status-effect sprite (Block Breaking V2 §11) — never the {@link TotalityIcons} glyph font. */
+    private static void drawStatIcon(GuiGraphicsExtractor graphics, TooltipSection.StatIcon icon, int x, int y) {
+        switch (icon) {
+            case TooltipSection.StatIcon.Item i -> TooltipPainter.drawItem(graphics, i.stack(), x, y);
+            case TooltipSection.StatIcon.Effect e -> e.effect().unwrapKey().ifPresent(key -> {
+                // Status-effect icons are stitched into the "gui" sprite atlas from textures/mob_effect/*
+                // under the "mob_effect/" prefix (assets/minecraft/atlases/gui.json) — same sprite the
+                // vanilla effects HUD/inventory panel draws for this effect.
+                Identifier sprite = Identifier.fromNamespaceAndPath(key.identifier().getNamespace(),
+                        "mob_effect/" + key.identifier().getPath());
+                graphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, REAL_ICON_SIZE, REAL_ICON_SIZE);
+            });
+        }
+    }
+
+    private static void drawIconStatRow(GuiGraphicsExtractor graphics, Font font, TooltipSection.IconStatRow row,
+                                        int x, int y, int width, List<FormattedCharSequence> wrappedValue,
+                                        List<FormattedCharSequence> wrappedLabel) {
+        int rowH = font.lineHeight + 1;
+        int textY = y + (REAL_ICON_ROW_H - font.lineHeight) / 2;
+        drawStatIcon(graphics, row.icon(), x, y + iconTop());
+        int labelX = x + REAL_ICON_BOX_W;
+
+        if (wrappedLabel.isEmpty()) {
+            graphics.text(font, row.label(), labelX, textY, SECONDARY_TEXT_COLOR, false);
+            if (wrappedValue.isEmpty()) {
+                String value = row.value();
+                graphics.text(font, value, x + width - font.width(value), textY, row.valueColor(), true);
+            } else {
+                int valueY = y + REAL_ICON_ROW_H;
+                for (FormattedCharSequence line : wrappedValue) {
+                    TotalityGuiGraphics.of(graphics).drawString(line, x, valueY, row.valueColor(), 0, false);
+                    valueY += rowH;
+                }
+            }
+            return;
+        }
+
+        // Label + value didn't fit on one line — icon stays with the first label line, following label
+        // lines start flush at x. Final correction pass: the label is centred on the icon row exactly
+        // like the one-line case, and the value starts below the full icon row (the height layout()
+        // reserves, max(icon row, label lines)) in the right-aligned value column — it previously
+        // started one text row down at x, under the icon sprite, and overlapped it.
+        int lineY = y + iconRowLabelTop(wrappedLabel.size(), rowH);
+        boolean first = true;
+        for (FormattedCharSequence labelLine : wrappedLabel) {
+            int cursorX = first ? labelX : x;
+            TotalityGuiGraphics.of(graphics).drawString(labelLine, cursorX, lineY, SECONDARY_TEXT_COLOR, 0, false);
+            lineY += rowH;
+            first = false;
+        }
+        int valueY = y + iconRowValueTop(wrappedLabel.size(), rowH);
+        for (FormattedCharSequence valueLine : wrappedValue) {
+            TotalityGuiGraphics.of(graphics).drawString(valueLine, x + width - font.width(valueLine), valueY, row.valueColor(), 0, false);
+            valueY += rowH;
+        }
+    }
+
+    /** Offset of a wrapped IconStatRow's first label line: centred on the icon row, like the one-line row's text. */
+    static int iconRowLabelTop(int labelLines, int rowH) {
+        return Math.max(0, (REAL_ICON_ROW_H - labelLines * rowH) / 2);
+    }
+
+    /** Offset of a wrapped IconStatRow's first value line: below both the full icon row and the full wrapped label. */
+    static int iconRowValueTop(int labelLines, int rowH) {
+        return Math.max(REAL_ICON_ROW_H, iconRowLabelTop(labelLines, rowH) + labelLines * rowH);
+    }
+
+    /** Icon sprite's vertical offset inside its row (drawn centred in {@link #REAL_ICON_ROW_H}). */
+    static int iconTop() {
+        return (REAL_ICON_ROW_H - REAL_ICON_SIZE) / 2;
+    }
+
+    /** Indented "├/└ Label: value" provenance lines under the {@link TooltipSection.IconStatRow} above them. */
+    private static void drawProvenanceGroup(GuiGraphicsExtractor graphics, Font font, TooltipSection.ProvenanceGroup group,
+                                            int x, int y, int width) {
+        int rowH = font.lineHeight + 1;
+        int cursorY = y;
+        int count = group.lines().size();
+        for (int i = 0; i < count; i++) {
+            TooltipSection.ProvenanceLine line = group.lines().get(i);
+            String connector = (i == count - 1) ? "└ " : "├ ";
+            String label = connector + line.label() + ":";
+            graphics.text(font, label, x + PROVENANCE_INDENT, cursorY, PROVENANCE_VALUE_COLOR, false);
+            String value = line.value();
+            graphics.text(font, value, x + width - font.width(value), cursorY, PROVENANCE_VALUE_COLOR, false);
+            cursorY += rowH;
         }
     }
 
@@ -590,7 +907,7 @@ public class TotalityTooltipRenderer {
                 graphics.text(font, TotalityIcons.icon(row.iconGlyph(), row.iconColor()), x, y, row.iconColor(), false);
                 cursorX += font.width(row.iconGlyph()) + ICON_LABEL_GAP;
             }
-            graphics.text(font, row.label(), cursorX, y, SECONDARY_TEXT_COLOR, false);
+            graphics.text(font, row.label(), cursorX, y, labelColor(row), false);
 
             if (wrappedValue.isEmpty()) {
                 String value = row.value();
@@ -619,7 +936,7 @@ public class TotalityTooltipRenderer {
                 graphics.text(font, TotalityIcons.icon(row.iconGlyph(), row.iconColor()), x, lineY, row.iconColor(), false);
                 cursorX += font.width(row.iconGlyph()) + ICON_LABEL_GAP;
             }
-            TotalityGuiGraphics.of(graphics).drawString(labelLine, cursorX, lineY, SECONDARY_TEXT_COLOR, 0, false);
+            TotalityGuiGraphics.of(graphics).drawString(labelLine, cursorX, lineY, labelColor(row), 0, false);
             lineY += rowH;
             first = false;
         }
@@ -627,6 +944,10 @@ public class TotalityTooltipRenderer {
             TotalityGuiGraphics.of(graphics).drawString(valueLine, x, lineY, row.valueColor(), 0, false);
             lineY += rowH;
         }
+    }
+
+    private static int labelColor(TooltipSection.StatRow row) {
+        return row.labelColor() == TooltipSection.StatRow.DEFAULT_LABEL_COLOR ? SECONDARY_TEXT_COLOR : row.labelColor();
     }
 
     private static void drawStatBlock(GuiGraphicsExtractor graphics, Font font, List<StatBlockLine> lines,
@@ -728,88 +1049,36 @@ public class TotalityTooltipRenderer {
         return rows;
     }
 
-    // ── Scroll indicator ─────────────────────────────────────────────────────
-
-    /**
-     * A restrained track + thumb drawn inside {@link #SCROLLBAR_GUTTER} — the reserved region
-     * immediately to the right of the body content column — only when the body is overflowing.
-     * Must be called after the body's {@link CloseableScissor} has closed — drawing it inside
-     * that scissor region would clip it out of view for exactly the case it exists to signal.
-     */
-    private static void drawScrollIndicator(GuiGraphicsExtractor graphics, int bodyLeft, int bodyTop,
-                                            int bodyContentW, int viewportH, int contentH, int scrollOffset) {
-        int trackW = 2;
-        int trackX = bodyLeft + bodyContentW + (SCROLLBAR_GUTTER - trackW) / 2;
-        graphics.fill(trackX, bodyTop, trackX + trackW, bodyTop + viewportH, 0x40FFFFFF);
-
-        int maxScroll = Math.max(1, contentH - viewportH);
-        int thumbH = Math.min(viewportH, Math.max(6, (int) ((long) viewportH * viewportH / contentH)));
-        int thumbTravel = Math.max(0, viewportH - thumbH);
-        int thumbY = bodyTop + (int) ((long) scrollOffset * thumbTravel / maxScroll);
-        graphics.fill(trackX, thumbY, trackX + trackW, thumbY + thumbH, 0xCCFFFFFF);
-    }
-
     // ── Footer ────────────────────────────────────────────────────────────────
 
-    /**
-     * Greedily packs hint strings onto as few lines as fit within {@code maxWidth}, then runs
-     * every packed line through the native {@link Font#split} splitter. This is what lets a
-     * single hint that is itself wider than {@code maxWidth} (e.g. "CTRL: Technical" under
-     * {@link #MIN_SAFE_INNER_WIDTH}) still wrap safely instead of drawing past the panel edge —
-     * the old packing-only version left an over-wide single hint unsplit.
-     */
-    static List<FormattedCharSequence> footerHintLines(List<String> hints, Font font, int maxWidth) {
-        List<FormattedCharSequence> lines = new ArrayList<>();
-        if (hints.isEmpty()) return lines;
-        int safeWidth = Math.max(1, maxWidth);
+    private static final int FOOTER_WEIGHT_COLOR = 0xFF8E949C;
+    private static final int FOOTER_ORIGIN_COLOR = 0xFF5588FF;
+    private static final int FOOTER_PRICE_COLOR = 0xFFD9B24C;
 
-        StringBuilder current = new StringBuilder();
-        for (String hint : hints) {
-            String candidate = current.isEmpty() ? hint : current + "   " + hint;
-            if (font.width(candidate) > safeWidth && !current.isEmpty()) {
-                lines.addAll(splitHintLine(current.toString(), font, safeWidth));
-                current = new StringBuilder(hint);
-            } else {
-                current = new StringBuilder(candidate);
-            }
-        }
-        if (!current.isEmpty()) lines.addAll(splitHintLine(current.toString(), font, safeWidth));
-        return lines;
-    }
-
-    private static List<FormattedCharSequence> splitHintLine(String text, Font font, int maxWidth) {
-        List<FormattedCharSequence> split = font.split(Component.literal(text), maxWidth);
-        return split.isEmpty() ? font.split(Component.literal(" "), maxWidth) : split;
+    /** Text width of an optional footer field, or -1 when the field is absent. */
+    private static int footerWidth(Font font, @Nullable String text) {
+        return text == null ? -1 : font.width(text);
     }
 
     /**
-     * "Totality" always occupies its own first footer row; hint lines (already wrapped by the
-     * caller) are drawn below it, right-aligned, one per line — this guarantees hints can never
-     * overlap the credit line by construction, regardless of how many hints are showing. Each
-     * line's right-aligned X is clamped to never sit left of the panel's own inner padding, so an
-     * (already-wrapped) line wider than the panel still draws from a valid, positive X rather
-     * than a negative/left-of-panel one.
-     *
-     * <p>Finding 6: the decorative three-dot footer marker (no informational value) has been
-     * removed entirely, and the footer's own padding tightened — the footer is now exactly as
-     * tall as "Totality" plus however many hint lines are actually showing, plus
-     * {@link #BODY_FOOTER_GAP} of breathing room above it (presentation-cleanup pass, Finding 2).
+     * The footer: Weight (left; the Weight icon then the value), content Origin (centred, italic — the old fixed
+     * "Totality" credit's style, now the item's actual origin), Price (right), laid out by {@link TooltipFooter#layout}.
+     * {@link #BODY_FOOTER_GAP} of breathing room sits above it.
      */
-    private static void drawFooter(GuiGraphicsExtractor graphics, Font font, int panelX, int panelY,
-                                   int panelW, int panelH, int footerH, List<FormattedCharSequence> hintLines) {
+    private static void drawFooter(GuiGraphicsExtractor graphics, Font font, int panelX, int panelY, int panelH, int footerH,
+                                   TooltipFooter.Info info, @Nullable Component weight, List<TooltipFooter.Placement> placements) {
         int footerRowH = font.lineHeight + 2;
         int footerTop = panelY + panelH - footerH + BODY_FOOTER_GAP;
-
-        Component totalityLine = Component.literal("Totality")
-                .withStyle(s -> s.withColor(0xFF5588FF).withItalic(true).withFont(FontDescription.DEFAULT));
-        TooltipPainter.drawText(graphics, font, totalityLine, panelX + PADDING, footerTop, 0xFF5588FF);
-
-        int minX = panelX + PADDING;
-        int lineY = footerTop + footerRowH;
-        for (FormattedCharSequence hintLine : hintLines) {
-            int lineX = Math.max(minX, panelX + panelW - PADDING - font.width(hintLine));
-            TotalityGuiGraphics.of(graphics).drawString(hintLine, lineX, lineY, 0xFF666666, 0, false);
-            lineY += footerRowH;
+        int innerX = panelX + PADDING;
+        for (TooltipFooter.Placement placement : placements) {
+            int x = innerX + placement.x(), y = footerTop + placement.row() * footerRowH;
+            switch (placement.slot()) {
+                case LEFT -> TooltipPainter.drawText(graphics, font, weight, x, y, FOOTER_WEIGHT_COLOR);
+                case CENTER -> TooltipPainter.drawText(graphics, font, Component.literal(info.origin())
+                        .withStyle(s -> s.withColor(FOOTER_ORIGIN_COLOR).withItalic(true).withFont(FontDescription.DEFAULT)),
+                        x, y, FOOTER_ORIGIN_COLOR);
+                case RIGHT -> graphics.text(font, info.price(), x, y, FOOTER_PRICE_COLOR, false);
+            }
         }
     }
 
@@ -875,13 +1144,6 @@ public class TotalityTooltipRenderer {
         };
     }
 
-    private static int darken(int color, float factor) {
-        int r = (int) (((color >> 16) & 0xFF) * factor);
-        int g = (int) (((color >> 8) & 0xFF) * factor);
-        int b = (int) ((color & 0xFF) * factor);
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
-    }
-
     private static int lighten(int color, float factor) {
         int r = Math.min(255, (int) (((color >> 16) & 0xFF) + (255 - ((color >> 16) & 0xFF)) * factor));
         int g = Math.min(255, (int) (((color >> 8) & 0xFF) + (255 - ((color >> 8) & 0xFF)) * factor));
@@ -945,12 +1207,12 @@ public class TotalityTooltipRenderer {
     }
 
     /**
-     * How much vertical space is left for the scrollable body after the header, separator, and
-     * footer chrome, bounded by the current scaled screen height. Never negative — a tiny window
+     * How much vertical space is left for the scrollable body after the header and footer
+     * chrome, bounded by the current scaled screen height. Never negative — a tiny window
      * fails safely (zero body height) rather than a negative/overflowing viewport.
      */
-    static int availableBodyHeight(int maxViewportH, int headerH, int separatorH, int footerH) {
-        int chromeH = headerH + separatorH + footerH;
+    static int availableBodyHeight(int maxViewportH, int headerH, int footerH) {
+        int chromeH = headerH + footerH;
         return Math.max(0, maxViewportH - chromeH);
     }
 
@@ -959,23 +1221,6 @@ public class TotalityTooltipRenderer {
         return iconW + labelW + gap + valueW <= maxWidth;
     }
 
-    /** Which footer hints apply at the given disclosure level — Ctrl outranks Shift by construction. */
-    record FooterHintFlags(boolean showShift, boolean showCtrl) {}
-
-    /**
-     * Decides SHIFT/CTRL footer hint visibility purely from the explicit
-     * {@link TooltipDocument#availableLevels()} capability set and the current disclosure level
-     * — never by inspecting which sections a contributor happened to emit. Shift is only offered
-     * at {@code DEFAULT} (no point suggesting it once already viewing Details); Ctrl is offered
-     * at both {@code DEFAULT} and {@code DETAILS} (hidden only once already at {@code TECHNICAL}).
-     */
-    static FooterHintFlags footerHintFlags(TooltipDisclosureLevel disclosure, Set<TooltipDisclosureLevel> availableLevels) {
-        boolean showShift = disclosure == TooltipDisclosureLevel.DEFAULT
-                && availableLevels.contains(TooltipDisclosureLevel.DETAILS);
-        boolean showCtrl = disclosure != TooltipDisclosureLevel.TECHNICAL
-                && availableLevels.contains(TooltipDisclosureLevel.TECHNICAL);
-        return new FooterHintFlags(showShift, showCtrl);
-    }
 
     private TotalityTooltipRenderer() {}
 }

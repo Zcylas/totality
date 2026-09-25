@@ -12,6 +12,27 @@ loom {
 			programArg "--username"
 			programArg "Zcylas"
 		}
+		// Live-world verification suites (fake players, entity spawns, block/saved-data edits) run ONLY here:
+		// a separate, disposable run directory whose world is wiped before every launch. Never run/.
+		verificationServer {
+			server()
+			name "Minecraft Server (disposable verification world)"
+			runDir "build/verification-run"
+			vmArg "-Dtotality.liveWorldVerification=true"
+		}
+	}
+}
+
+tasks.named("runVerificationServer") {
+	doFirst {
+		def dir = file("build/verification-run")
+		delete(new File(dir, "world"))
+		dir.mkdirs()
+		// Reuse the EULA acceptance already given for the normal dev run directory; never accept it on its own.
+		def devEula = file("run/eula.txt")
+		if (devEula.exists() && devEula.text.contains("eula=true")) {
+			new File(dir, "eula.txt").text = devEula.text
+		}
 	}
 }
 
@@ -28,6 +49,16 @@ repositories {
 fabricApi {
 	configureDataGeneration {
 		client = true
+	}
+	// Real registered-item tests (Tooltip V2 Pass 1): client game tests in src/gametest, run by runClientGameTest in
+	// the disposable build/run/clientGameTest directory with a fresh test world. Never touches run/.
+	configureTests {
+		createSourceSet = true
+		modId = "totality-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = false
+		clearRunDirectory = true
 	}
 }
 

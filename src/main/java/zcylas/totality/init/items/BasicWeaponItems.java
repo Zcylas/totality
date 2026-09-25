@@ -113,6 +113,7 @@ public class BasicWeaponItems {
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "Smelted and shaped in a thousand forges across Tamriel. It has no legend, no name — only edge and purpose."
                     ))
+                    .component(ItemComponents.getContentOrigin(), new ContentOriginComponent(ContentOrigins.SKYRIM))
     );
     public static final SkyrimSwordItem STEEL_SWORD = TotalityRegistry.registerItem(
             "steel_sword",
@@ -128,6 +129,7 @@ public class BasicWeaponItems {
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "A blade trusted by soldiers, hunters, and wanderers alike. Steel holds its edge longer than iron and costs no one their pride."
                     ))
+                    .component(ItemComponents.getContentOrigin(), new ContentOriginComponent(ContentOrigins.SKYRIM))
     );
     public static void register() {}
 

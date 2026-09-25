@@ -34,6 +34,15 @@ public interface UEItem {
     long getEnergyMaxOutput(ItemStack stack);
 
     /**
+     * Tooltip presentation hint (no gameplay effect): whether this item's I/O rates are shown in the normal
+     * tooltip. By default (batteries included) they are secondary detail revealed with SHIFT; an item family may
+     * override this to {@code true} when its rates are justified as always-visible information.
+     */
+    default boolean showsEnergyRatesByDefault() {
+        return false;
+    }
+
+    /**
      * Return the energy stored in this stack.
      */
     default long getStoredEnergy(ItemStack stack) {

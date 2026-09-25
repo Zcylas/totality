@@ -19,6 +19,7 @@ public class ModWorldGenProvider extends FabricDynamicRegistryProvider {
         entries.addAll(provider.lookupOrThrow(Registries.PLACED_FEATURE));
         entries.addAll(provider.lookupOrThrow(Registries.BIOME));
         entries.addAll(provider.lookupOrThrow(Registries.NOISE));
+        entries.addAll(provider.lookupOrThrow(Registries.ENCHANTMENT));
     }
 
     @Override

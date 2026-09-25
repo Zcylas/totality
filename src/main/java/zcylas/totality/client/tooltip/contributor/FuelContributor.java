@@ -4,6 +4,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
 import zcylas.totality.api.core.rpgutils.rarity.ItemType;
+import zcylas.totality.client.tooltip.group.TooltipGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroups;
 import zcylas.totality.client.tooltip.TooltipContext;
 import zcylas.totality.client.tooltip.TooltipSectionGroup;
 import zcylas.totality.client.tooltip.TotalityIcons;
@@ -37,5 +39,10 @@ public final class FuelContributor implements TooltipContributor {
         int seconds = ticks / 20;
         return List.of(new TooltipSection.StatRow(TotalityIcons.FLAME, 0xFFFF6600, "Burn Time",
                 seconds + "s", 0xFFFF6600));
+    }
+
+    @Override
+    public TooltipGroup bodyGroup(TooltipContext ctx) {
+        return TooltipGroups.PROPERTIES;
     }
 }

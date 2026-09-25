@@ -108,19 +108,19 @@ class TotalityTooltipRendererLayoutPolicyTest {
 
     @Test
     void bodyHeightIsScreenMinusChromeWhenThereIsRoom() {
-        int available = TotalityTooltipRenderer.availableBodyHeight(1000, 40, 10, 30);
-        assertEquals(1000 - (40 + 10 + 30), available);
+        int available = TotalityTooltipRenderer.availableBodyHeight(1000, 40, 30);
+        assertEquals(1000 - (40 + 30), available, "chrome is header + footer only — no header divider band");
     }
 
     @Test
     void bodyHeightNeverGoesNegativeWhenChromeExceedsTheScreen() {
-        int available = TotalityTooltipRenderer.availableBodyHeight(50, 40, 10, 30);
-        assertEquals(0, available, "chrome alone (80) exceeds the tiny viewport (50) — must fail safely to zero, not negative");
+        int available = TotalityTooltipRenderer.availableBodyHeight(50, 40, 30);
+        assertEquals(0, available, "chrome alone (70) exceeds the tiny viewport (50) — must fail safely to zero, not negative");
     }
 
     @Test
     void bodyHeightIsZeroOnAZeroHeightScreen() {
-        assertEquals(0, TotalityTooltipRenderer.availableBodyHeight(0, 10, 5, 10));
+        assertEquals(0, TotalityTooltipRenderer.availableBodyHeight(0, 10, 10));
     }
 
     // ── fitsOnOneLine ─────────────────────────────────────────────────────────
@@ -146,51 +146,51 @@ class TotalityTooltipRendererLayoutPolicyTest {
         assertFalse(TotalityTooltipRenderer.fitsOnOneLine(0, 50, 51, 0, 100));
     }
 
-    // ── footerHintFlags ───────────────────────────────────────────────────────
+    // ── visualForScale / logicalForScale (tooltip-layout-cleanup pass, 2026-09-22) ───────────
+    // Pure arithmetic, unlike measureNaturalContentWidth/layout (which need a real Font and are
+    // therefore only source-regression-testable) — directly unit-tested here.
 
     @Test
-    void defaultViewOffersShiftHintWhenDetailsIsAvailable() {
-        var flags = TotalityTooltipRenderer.footerHintFlags(
-                TooltipDisclosureLevel.DEFAULT, Set.of(TooltipDisclosureLevel.DETAILS));
-        assertTrue(flags.showShift());
+    void visualForScaleShrinksALogicalMeasurementByTheGivenFraction() {
+        assertEquals(14, TotalityTooltipRenderer.visualForScale(16, 0.875f),
+                "16 logical px at 0.875 scale must visually render as 14px (round(16*0.875)=14)");
     }
 
     @Test
-    void detailsViewNeverOffersTheShiftHintAgain() {
-        var flags = TotalityTooltipRenderer.footerHintFlags(
-                TooltipDisclosureLevel.DETAILS, Set.of(TooltipDisclosureLevel.DETAILS));
-        assertFalse(flags.showShift(), "already viewing Details — no reason to suggest pressing Shift again");
+    void visualForScaleAtFullScaleIsIdentity() {
+        assertEquals(123, TotalityTooltipRenderer.visualForScale(123, 1.0f));
     }
 
     @Test
-    void defaultAndDetailsViewsBothOfferTheCtrlHintWhenTechnicalIsAvailable() {
-        var atDefault = TotalityTooltipRenderer.footerHintFlags(
-                TooltipDisclosureLevel.DEFAULT, Set.of(TooltipDisclosureLevel.TECHNICAL));
-        var atDetails = TotalityTooltipRenderer.footerHintFlags(
-                TooltipDisclosureLevel.DETAILS, Set.of(TooltipDisclosureLevel.TECHNICAL));
-        assertTrue(atDefault.showCtrl());
-        assertTrue(atDetails.showCtrl());
+    void logicalForScaleGrowsAVisualBudgetSoWrappedTextHasRoomToBeSmaller() {
+        // A scaled row needs MORE logical-unit room than its visual budget, since the text will
+        // render smaller than the logical measurement implies.
+        int logical = TotalityTooltipRenderer.logicalForScale(140, 0.875f);
+        assertTrue(logical > 140, "the logical wrap width for scaled text must exceed the visual budget");
+        assertEquals(160, logical, "round(140/0.875)=160");
     }
 
     @Test
-    void technicalViewNeverOffersTheCtrlHintAgain() {
-        var flags = TotalityTooltipRenderer.footerHintFlags(
-                TooltipDisclosureLevel.TECHNICAL, Set.of(TooltipDisclosureLevel.TECHNICAL));
-        assertFalse(flags.showCtrl());
+    void logicalForScaleAtFullScaleIsIdentity() {
+        assertEquals(200, TotalityTooltipRenderer.logicalForScale(200, 1.0f));
     }
 
     @Test
-    void noHintsShownWhenNothingIsDeclaredAvailable() {
-        var flags = TotalityTooltipRenderer.footerHintFlags(TooltipDisclosureLevel.DEFAULT, Set.of());
-        assertFalse(flags.showShift());
-        assertFalse(flags.showCtrl());
+    void logicalForScaleNeverProducesAZeroOrNegativeWidth() {
+        assertTrue(TotalityTooltipRenderer.logicalForScale(0, 0.875f) > 0);
+        assertTrue(TotalityTooltipRenderer.logicalForScale(-50, 0.875f) > 0);
     }
 
     @Test
-    void bothHintsCanShowSimultaneouslyAtDefaultView() {
-        var flags = TotalityTooltipRenderer.footerHintFlags(TooltipDisclosureLevel.DEFAULT,
-                Set.of(TooltipDisclosureLevel.DETAILS, TooltipDisclosureLevel.TECHNICAL));
-        assertTrue(flags.showShift());
-        assertTrue(flags.showCtrl());
+    void visualAndLogicalForScaleAreApproximateInversesOfEachOther() {
+        // Converting visual -> logical -> visual should land back within 1px of the original
+        // (rounding at each step means it is not always bit-exact, but it must never drift by
+        // more than a pixel).
+        for (int visual : new int[]{20, 50, 75, 100, 140, 200}) {
+            int logical = TotalityTooltipRenderer.logicalForScale(visual, 0.875f);
+            int roundTripped = TotalityTooltipRenderer.visualForScale(logical, 0.875f);
+            assertTrue(Math.abs(roundTripped - visual) <= 1,
+                    "visual=" + visual + " logical=" + logical + " roundTripped=" + roundTripped);
+        }
     }
 }

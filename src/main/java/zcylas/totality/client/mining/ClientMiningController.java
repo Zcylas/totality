@@ -15,6 +15,7 @@ import zcylas.totality.api.mining.MiningTier;
 import zcylas.totality.api.mining.MiningTuning;
 import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.networking.mining.MiningIntentPayload;
+import zcylas.totality.networking.mining.MiningRecoveryPayload;
 import zcylas.totality.networking.mining.MiningSwingPayload;
 
 /**
@@ -47,6 +48,9 @@ public final class ClientMiningController {
         // The server tells us the real schedule of every normal swing (cadence included); we animate exactly that.
         ClientPlayNetworking.registerGlobalReceiver(MiningSwingPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> onSwing(context.client(), payload)));
+        // ...and, when the actual target at contact changed the swing's cadence, its corrected recovery.
+        ClientPlayNetworking.registerGlobalReceiver(MiningRecoveryPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> ANIM.correctRecovery(payload.recoveryTicks())));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { reset(); ANIM.reset(); });
         PowerMiningMeterHud.register();
     }
@@ -124,7 +128,9 @@ public final class ClientMiningController {
             return;
         }
 
-        boolean alt = ModKeybinds.isPhysicallyDown(ModKeybinds.RADIAL_MODIFIER);
+        // Swords/Shears are excluded from Power Mining: Alt does nothing special with them (ordinary hold instead).
+        boolean alt = ModKeybinds.isPhysicallyDown(ModKeybinds.RADIAL_MODIFIER)
+                && !MiningTier.excludedFromPowerMining(mc.player.getMainHandItem());
         if (!prevDown) {
             pressedWithAlt = alt;
             cancelledUntilRelease = false;

@@ -59,8 +59,9 @@ class TooltipApiFoundationSourceRegressionTest {
             Path.of("src/main/java/zcylas/totality/client/tooltip/contributor/TechnicalInfoContributor.java");
     private static final Path FUEL_CONTRIBUTOR =
             Path.of("src/main/java/zcylas/totality/client/tooltip/contributor/FuelContributor.java");
-    private static final Path WEIGHT_CONTRIBUTOR =
-            Path.of("src/main/java/zcylas/totality/client/tooltip/contributor/WeightContributor.java");
+    /** Weight moved from its body contributor to the footer (Tooltip V2 bottom-presentation slice). */
+    private static final Path WEIGHT_FOOTER =
+            Path.of("src/main/java/zcylas/totality/client/tooltip/footer/TooltipFooter.java");
     private static final Path TOTALITY_ITEM =
             Path.of("src/main/java/zcylas/totality/api/item/TotalityItem.java");
     private static final Path TRADING_SCREEN =
@@ -81,6 +82,42 @@ class TooltipApiFoundationSourceRegressionTest {
             Path.of("src/main/java/zcylas/totality/client/tooltip/renderer/TooltipPainter.java");
     private static final Path MIXINS_JSON =
             Path.of("src/main/resources/totality.mixins.json");
+    private static final Path MINING_TOOL_CONTRIBUTOR =
+            Path.of("src/main/java/zcylas/totality/client/tooltip/contributor/MiningToolContributor.java");
+    private static final Path BLOCK_DURABILITY_CONTRIBUTOR =
+            Path.of("src/main/java/zcylas/totality/client/tooltip/contributor/BlockDurabilityContributor.java");
+    private static final Path TOOLTIP_PROFILE_COMPONENT =
+            Path.of("src/main/java/zcylas/totality/api/core/rpgutils/rarity/TooltipProfileComponent.java");
+    private static final Path VANILLA_ITEM_PRESENTATION =
+            Path.of("src/main/java/zcylas/totality/init/VanillaItemPresentation.java");
+    private static final Path TOTALITY_MAIN =
+            Path.of("src/main/java/zcylas/totality/Totality.java");
+    private static final Path TARGET_EFFECTIVENESS =
+            Path.of("src/main/java/zcylas/totality/api/mining/TargetEffectiveness.java");
+    private static final Path MINING_DAMAGE_CALCULATOR =
+            Path.of("src/main/java/zcylas/totality/api/mining/MiningDamageCalculator.java");
+    private static final Path MINING_SPEED_CALCULATOR =
+            Path.of("src/main/java/zcylas/totality/api/mining/MiningSpeedCalculator.java");
+    private static final Path PLAYER_MINING_POWER =
+            Path.of("src/main/java/zcylas/totality/api/mining/PlayerMiningPower.java");
+    private static final Path MINING_SOURCE_PROFILE =
+            Path.of("src/main/java/zcylas/totality/api/mining/MiningSourceProfile.java");
+    private static final Path RESOLVED_MINING_SOURCE =
+            Path.of("src/main/java/zcylas/totality/api/mining/ResolvedMiningSource.java");
+    private static final Path MINING_TIER =
+            Path.of("src/main/java/zcylas/totality/api/mining/MiningTier.java");
+    private static final Path MINING_TUNING =
+            Path.of("src/main/java/zcylas/totality/api/mining/MiningTuning.java");
+    private static final Path BLOCK_DURABILITY_DEFINITIONS =
+            Path.of("src/main/java/zcylas/totality/api/mining/BlockDurabilityDefinitions.java");
+    private static final Path COMBAT_TEXT_RENDERER =
+            Path.of("src/main/java/zcylas/totality/client/combat/CombatTextRenderer.java");
+    private static final Path POWER_MINING_METER_HUD =
+            Path.of("src/main/java/zcylas/totality/client/mining/PowerMiningMeterHud.java");
+    private static final Path GUI_GRAPHICS_EXTRACTOR_MIXIN =
+            Path.of("src/main/java/zcylas/totality/mixin/client/GuiGraphicsExtractorMixin.java");
+    private static final Path TOTALITY_GUI_GRAPHICS =
+            Path.of("src/main/java/zcylas/totality/client/renderer/gui/TotalityGuiGraphics.java");
 
     private static String read(Path path) throws Exception {
         assertTrue(Files.exists(path), "expected to find source file at " + path);
@@ -109,25 +146,24 @@ class TooltipApiFoundationSourceRegressionTest {
     }
 
     @Test
-    void onlyCopperBatteryHasAnAuthoredRarityWeightAndLore() throws Exception {
-        // Documents the deliberate "do not invent missing data" scope decision: Iron/Gold/Diamond/
-        // Netherite have no canonical rarity/weight/lore anywhere in the repository, so none is
-        // fabricated for them even though they now render through the custom panel.
+    void batteryTiersAuthorRarityButNoInventedWeightOrLore() throws Exception {
+        // Tooltip V2 Pass 1 (+ final corrections): every battery tier authors the canonical Industrial construction
+        // progression. The earlier "do not invent missing data" decision still holds for weight and lore: none is
+        // fabricated for Iron/Gold/Diamond/Netherite. (Real registered values are asserted in the client game test.)
         String source = read(ENERGY_ITEMS);
-        int copperStart = source.indexOf("COPPER_BATTERY");
-        int ironStart = source.indexOf("IRON_BATTERY");
-        String copperBlock = source.substring(copperStart, ironStart);
-        assertTrue(copperBlock.contains("RarityComponent(ItemRarity.CRUDE)"));
+        String[][] tiers = {{"COPPER_BATTERY", "IRON_BATTERY", "CRUDE"}, {"IRON_BATTERY", "GOLD_BATTERY", "CALIBRATED"},
+                {"GOLD_BATTERY", "DIAMOND_BATTERY", "PROTOTYPE"}, {"DIAMOND_BATTERY", "NETHERITE_BATTERY", "OVERCHARGED"},
+                {"NETHERITE_BATTERY", "UMBRA_VISOR", "MASTERWORK"}};
+        for (String[] t : tiers) {
+            String block = source.substring(source.indexOf(t[0]), source.indexOf(t[1]));
+            assertTrue(block.contains("RarityComponent(ItemRarity." + t[2] + ")"), t[0] + " must author " + t[2]);
+        }
 
         int netheriteStart = source.indexOf("NETHERITE_BATTERY");
         int umbraStart = source.indexOf("UMBRA_VISOR");
         String netheriteBlock = source.substring(netheriteStart, umbraStart);
-        assertFalse(netheriteBlock.contains("RarityComponent"),
-                "Netherite Battery must not have an invented rarity");
-        assertFalse(netheriteBlock.contains("WeightComponent"),
-                "Netherite Battery must not have an invented weight");
-        assertFalse(netheriteBlock.contains("LoreComponent"),
-                "Netherite Battery must not have invented lore");
+        assertFalse(netheriteBlock.contains("WeightComponent"), "Netherite Battery must not have an invented weight");
+        assertFalse(netheriteBlock.contains("LoreComponent"), "Netherite Battery must not have invented lore");
     }
 
     // ── Renderer architecture constraints ────────────────────────────────────────
@@ -209,12 +245,16 @@ class TooltipApiFoundationSourceRegressionTest {
     }
 
     @Test
-    void itemComponentsDocumentsTheRarityFallbackAsTemporary() throws Exception {
+    void itemComponentsDocumentsThatHasTooltipPresentationIsNoLongerTheEligibilityGate() throws Exception {
+        // Superseded by the tooltip-eligibility review-fix pass: the renderer's isEligible check is
+        // now content-driven (any registered contributor with real content), not rarity/lore-gated —
+        // this replaces the old "temporary rarity fallback" test, which documented the mechanism
+        // this pass deliberately retired as the eligibility gate.
         String source = read(ITEM_COMPONENTS);
         assertTrue(source.contains("hasTooltipPresentation"));
         assertTrue(source.contains("TooltipProfileComponent"));
-        assertTrue(source.toLowerCase(java.util.Locale.ROOT).contains("temporary"),
-                "the rarity compatibility fallback must be documented as temporary, not a permanent hidden gate");
+        assertTrue(source.contains("No longer the Totality tooltip renderer's eligibility"),
+                "hasTooltipPresentation's Javadoc must document that it is no longer consulted by isEligible");
     }
 
     @Test
@@ -350,7 +390,7 @@ class TooltipApiFoundationSourceRegressionTest {
 
     @Test
     void everyStringFormatCallInHealingPotionAndWeightContributorsUsesLocaleRoot() throws Exception {
-        for (Path path : List.of(HEALING_POTION_CONTRIBUTOR, WEIGHT_CONTRIBUTOR)) {
+        for (Path path : List.of(HEALING_POTION_CONTRIBUTOR, WEIGHT_FOOTER)) {
             String source = read(path);
             List<String> badCalls = source.lines()
                     .filter(l -> l.contains("String.format(") && !l.contains("Locale.ROOT"))
@@ -363,12 +403,14 @@ class TooltipApiFoundationSourceRegressionTest {
     // ── Correction pass: documentation accuracy ──────────────────────────────────────────────
 
     @Test
-    void tooltipProfileComponentDocumentsTheTemporaryRarityFallback() throws Exception {
+    void tooltipProfileComponentDocumentsThatItIsNoLongerTheEligibilityGate() throws Exception {
+        // Updated for the tooltip-eligibility review-fix pass — see the matching update to
+        // itemComponentsDocumentsThatHasTooltipPresentationIsNoLongerTheEligibilityGate above.
         Path path = Path.of("src/main/java/zcylas/totality/api/core/rpgutils/rarity/TooltipProfileComponent.java");
         String source = read(path);
-        assertTrue(source.toLowerCase(java.util.Locale.ROOT).contains("temporary"),
-                "TooltipProfileComponent's own Javadoc must acknowledge the rarity compatibility fallback, "
-                        + "not just ItemComponents' — a reader of this file alone should not be misled");
+        assertTrue(source.contains("Superseded as the eligibility gate"),
+                "TooltipProfileComponent's own Javadoc must acknowledge it is no longer the renderer's "
+                        + "eligibility gate — a reader of this file alone should not be misled");
     }
 
     // ── Final correction pass, Finding 1: TooltipKnowledgeView.of() default-identified compat ──
@@ -488,32 +530,25 @@ class TooltipApiFoundationSourceRegressionTest {
     }
 
     @Test
-    void footerHintLinesSplitsAnIndividualHintThatIsWiderThanMaxWidth() throws Exception {
+    void modifierHintsAreDetachedPanelsNotFooterText() throws Exception {
+        // Tooltip V2 bottom-presentation slice: the SHIFT/CTRL hints moved out of the footer into detached panels.
         String source = read(RENDERER);
-        assertTrue(source.contains("private static List<FormattedCharSequence> splitHintLine"),
-                "expected a dedicated helper that runs a packed hint line through the native splitter");
-        int helperStart = source.indexOf("private static List<FormattedCharSequence> splitHintLine");
-        String helperBody = source.substring(helperStart, Math.min(source.length(), helperStart + 250));
-        assertTrue(helperBody.contains("font.split(Component.literal(text), maxWidth)"),
-                "splitHintLine must use the native Font#split splitter — the same mechanism used "
-                        + "everywhere else in this file for safe wrapping");
-
-        int packerStart = source.indexOf("static List<FormattedCharSequence> footerHintLines");
-        int packerEnd = source.indexOf("private static List<FormattedCharSequence> splitHintLine");
-        String packerBody = source.substring(packerStart, packerEnd);
-        assertTrue(packerBody.contains("splitHintLine("),
-                "every packed line — including a single hint too wide to pack with anything else — "
-                        + "must be routed through splitHintLine before being added to the result");
+        assertFalse(source.contains("\"SHIFT: Details\"") || source.contains("\"CTRL: Technical\""),
+                "no SHIFT/CTRL instruction text inside the main tooltip any more");
+        assertTrue(source.contains("TooltipModifierPanels.draw("), "the detached modifier panels are drawn");
     }
 
     @Test
-    void drawFooterClampsHintLineXSoItNeverDrawsLeftOfThePanel() throws Exception {
+    void drawFooterPlacesEveryFieldFromThePanelsInnerPaddingViaTheTestedLayout() throws Exception {
+        // Tooltip V2 final corrections: the right-aligned hint line this used to guard is gone. Every remaining
+        // footer field is offset from the inner padding by TooltipFooter.layout's placement, which clamps each
+        // x to >= 0 (see TooltipBottomPresentationTest), so nothing can sit left of the panel's padding.
         String source = read(RENDERER);
         int footerStart = source.indexOf("private static void drawFooter");
-        String footerBody = source.substring(footerStart, Math.min(source.length(), footerStart + 900));
-        assertTrue(footerBody.contains("Math.max(minX,"),
-                "the footer hint line's right-aligned X must be clamped so it can never sit left of "
-                        + "the panel's own inner padding, even for an (already-wrapped) line as wide as the panel");
+        String footerBody = source.substring(footerStart, source.indexOf("\n    }\n", footerStart));
+        assertTrue(footerBody.contains("int innerX = panelX + PADDING;"));
+        assertTrue(footerBody.contains("int x = innerX + placement.x()"));
+        assertFalse(footerBody.contains("Scroll"), "no scrolling hint row in the footer");
     }
 
     // ── Micro-correction: AttunementContributor's missing sectionGroup() override ───────────
@@ -558,7 +593,9 @@ class TooltipApiFoundationSourceRegressionTest {
         String source = read(RENDERER);
         int methodStart = source.indexOf("private static int naturalRowWidth(TooltipSection section, Font font)");
         assertTrue(methodStart >= 0, "expected the naturalRowWidth measurement method to exist");
-        String body = source.substring(methodStart, source.indexOf("naturalBadgeRowWidth", methodStart));
+        // Tooltip V2 presentation slice: the old end marker (naturalBadgeRowWidth) went away with the
+        // badge header; the method's own closing brace bounds the body just as tightly.
+        String body = source.substring(methodStart, source.indexOf("\n    }\n", methodStart));
 
         assertFalse(body.contains("case TooltipSection.Description"),
                 "Description (lore) must not have its own naturalRowWidth case — it must fall through to the default 0");
@@ -572,58 +609,35 @@ class TooltipApiFoundationSourceRegressionTest {
                 "expected an explicit default -> 0 arm excluding every unlisted (long-form) section kind");
     }
 
-    // ── Visual correction pass, Finding 2: flowing badge row ─────────────────────────────────
+    // ── Visual correction pass, Finding 2: flowing badge row — superseded ───────────────────
+    // Tooltip V2 presentation slice replaced the rarity/classification badge row with centred text
+    // lines under the large preview. The two badge-row source checks that lived here
+    // (badgeSpecsPlaceRarityBeforeClassificationsPreservingAuthoredOrder,
+    // rarityNeverGetsAMandatorySeparateBadgeRow) are superseded by behavioural tests of the same
+    // intent — rarity first, then classifications in authored order, never a fabricated second
+    // value — in presentation/TooltipIdentityLinesTest.
+
+    // ── Visual correction pass, Finding 4/8: scrollbar gutter — superseded ──────────────────
+    // Tooltip V2 final corrections: the visible scrollbar (track + thumb) and the "Scroll: More" footer row
+    // were removed; scrolling stays wheel-only, so no gutter is reserved and the body spans the inner width.
 
     @Test
-    void badgeSpecsPlaceRarityBeforeClassificationsPreservingAuthoredOrder() throws Exception {
+    void noVisibleScrollIndicatorOrScrollHintIsDrawn() throws Exception {
         String source = read(RENDERER);
-        int methodStart = source.indexOf("private static List<BadgeSpec> buildBadgeSpecs");
-        assertTrue(methodStart >= 0);
-        String body = source.substring(methodStart, source.indexOf("private static int badgeWidth", methodStart));
-
-        int rarityIdx = body.indexOf("authoredRarity != null");
-        int classificationsIdx = body.indexOf("for (ItemType type : classifications)");
-        assertTrue(rarityIdx >= 0 && classificationsIdx >= 0, "expected both a rarity and a classifications branch");
-        assertTrue(rarityIdx < classificationsIdx,
-                "the rarity badge must be appended before classification badges, preserving 'rarity first, "
-                        + "then classifications in authored order'");
+        assertFalse(source.contains("drawScrollIndicator"), "no scrollbar track/thumb");
+        assertFalse(source.contains("SCROLLBAR_GUTTER"), "no width reserved for a scrollbar that is no longer drawn");
+        assertFalse(source.contains("Scroll: More"), "no scrolling hint text");
+        assertTrue(source.contains("int bodyContentW = Math.max(1, innerW);"), "the body spans the full inner width");
     }
 
     @Test
-    void rarityNeverGetsAMandatorySeparateBadgeRow() throws Exception {
-        // The old header drew the rarity badge on its own row, then classification rows below it
-        // unconditionally. The new flow builds ONE combined badge list and wraps it together —
-        // confirmed by the absence of any code path that draws rarity separately from wrapBadges.
+    void wheelScrollingAndBodyClippingArePreserved() throws Exception {
         String source = read(RENDERER);
-        assertFalse(source.contains("drawRarityBadge"),
-                "the old dedicated drawRarityBadge method/call must be gone — rarity now flows through "
-                        + "the same wrapBadges/drawBadgeRow path as every classification badge");
-        assertFalse(source.contains("drawClassificationRow"),
-                "the old dedicated per-classification-row draw method must be gone for the same reason");
-        assertTrue(source.contains("wrapBadges(badgeSpecs, font, titleAreaW)"),
-                "expected rarity and classifications to be wrapped together as one combined badge list");
-    }
-
-    // ── Visual correction pass, Finding 4/8: scrollbar gutter reservation ───────────────────
-
-    @Test
-    void bodyContentWidthReservesADedicatedScrollbarGutter() throws Exception {
-        String source = read(RENDERER);
-        assertTrue(source.contains("private static final int SCROLLBAR_GUTTER"),
-                "expected a named constant reserving scrollbar width so text can never sit under it");
-        assertTrue(source.contains("innerW - SCROLLBAR_GUTTER"),
-                "body content width must be computed by subtracting the scrollbar gutter from the panel's inner width");
-    }
-
-    @Test
-    void scrollIndicatorDrawsInsideTheReservedGutterNotOverTheBodyContentColumn() throws Exception {
-        String source = read(RENDERER);
-        int methodStart = source.indexOf("private static void drawScrollIndicator");
-        assertTrue(methodStart >= 0);
-        String body = source.substring(methodStart, Math.min(source.length(), methodStart + 700));
-        assertTrue(body.contains("bodyLeft + bodyContentW + (SCROLLBAR_GUTTER - trackW) / 2"),
-                "the scroll track must sit inside the gutter reserved outside the body content column, "
-                        + "not overlapping it");
+        assertTrue(source.contains("TooltipScrollController.onRender(screen, slot, stack, disclosure, bodyContentH, bodyViewportH,"),
+                "the scroll target (content height vs viewport) is still registered every frame");
+        assertTrue(source.contains("int cursorY = bodyTop - scrollOffset;"), "the body is still drawn at the scroll offset");
+        assertTrue(source.contains("new CloseableScissor(graphics, bodyLeft - 2, bodyTop, bodyContentW + 4, bodyViewportH)"),
+                "the body is still clipped to its viewport");
     }
 
     // ── Visual correction pass, Finding 6: visual hierarchy cleanup ─────────────────────────
@@ -640,15 +654,12 @@ class TooltipApiFoundationSourceRegressionTest {
     }
 
     @Test
-    void panelPaddingAndSeparatorHeightWereTightened() throws Exception {
+    void panelPaddingWasTightened() throws Exception {
         String source = read(RENDERER);
         assertTrue(source.contains("private static final int PADDING = 8"),
                 "PADDING must be reduced from the old 10px for a less heavy panel");
-        // separatorH: 10 (foundation) -> 7 (visual-correction pass) -> 9 (presentation-cleanup
-        // pass, Finding 2 — a touch more header/body breathing room, still tighter than the
-        // original 10px). See headerToBodySeparatorGapWasLightlyIncreased for the dedicated check.
-        assertTrue(source.contains("int separatorH = 9"),
-                "the header-to-body separator gap must still be tighter than the original 10px");
+        // The header-to-body separator band (10 -> 7 -> 9 -> 8px) was removed entirely in the Tooltip V2 Pass 1
+        // final corrections — see universalHeaderDividerIsRemovedEntirely.
     }
 
     @Test
@@ -870,24 +881,30 @@ class TooltipApiFoundationSourceRegressionTest {
     // ── Presentation-cleanup pass, Finding 2: light vertical breathing room ──────────────────
 
     @Test
-    void headerToBodySeparatorGapWasLightlyIncreased() throws Exception {
+    void universalHeaderDividerIsRemovedEntirely() throws Exception {
+        // Tooltip V2 Pass 1 final corrections (supersedes the separatorH 10 -> 7 -> 9 -> 8 history): no universal
+        // header/body divider — not merely hidden for bodiless items. Semantic group headings draw their own divider
+        // lines, so the first group heading is the only divider under the header, and no band is reserved for it.
         String source = read(RENDERER);
-        assertTrue(source.contains("int separatorH = 9;"),
-                "expected separatorH raised from 7 to 9 for a touch more header/body breathing room");
+        assertFalse(source.contains("TooltipDividerPainter.draw("), "the universal divider must not be drawn");
+        assertFalse(source.contains("separatorH") || source.contains("separatorY"), "no divider band may be reserved");
+        assertTrue(source.contains("int chromeH = headerH + footerH;"), "chrome is header + footer only");
+        assertTrue(source.contains("int bodyTop = panelY + headerH;"), "the body starts directly after the header");
+        assertTrue(source.contains("private static final int UNHEADED_BODY_LEAD = TooltipGroupHeadingPainter.GAP_ABOVE;"),
+                "a body starting with unheaded content (lore only) gets the same lead a group heading reserves — spacing, not a divider");
     }
 
     @Test
     void bodyToFooterGapIsANamedConstantAppliedToBothFooterHeightAndItsDrawPosition() throws Exception {
+        // Tooltip-layout-cleanup pass (2026-09-22): tightened from 4 to 3.
         String source = read(RENDERER);
-        assertTrue(source.contains("private static final int BODY_FOOTER_GAP = 4;"),
+        assertTrue(source.contains("private static final int BODY_FOOTER_GAP = 3;"),
                 "expected a named body-to-footer breathing-room constant");
 
-        // Must be reserved in the footer's own height calculation (both sizing passes)...
-        long footerHeightUses = source.lines()
-                .filter(l -> l.contains("footerPadding + BODY_FOOTER_GAP"))
-                .count();
-        assertEquals(2, footerHeightUses,
-                "expected BODY_FOOTER_GAP added to both the provisional (pass 1) and final footer height calculations");
+        // Must be reserved in the footer's own height calculation...
+        // Tooltip V2 final corrections: with the "Scroll: More" row gone there is a single sizing pass.
+        assertTrue(source.contains("int footerH = BODY_FOOTER_GAP + footerPadding"),
+                "expected BODY_FOOTER_GAP reserved in the footer height");
 
         // ...and actually applied to where the footer's own text is drawn, not just reserved as
         // dead space nobody uses.
@@ -986,5 +1003,518 @@ class TooltipApiFoundationSourceRegressionTest {
                         + "via Minecraft.execute(), which can batch several onScroll calls per gesture");
         assertTrue(source.contains("lambda$setup$4"),
                 "expected the Javadoc to cite the specific decompiled lambda that performs the deferral");
+    }
+
+    // ── Tooltip-eligibility + wrong-tool review-fix pass ─────────────────────────────────────
+
+    @Test
+    void isEligibleNoLongerDelegatesToHasTooltipPresentation() throws Exception {
+        String source = read(RENDERER);
+        assertFalse(source.contains("ItemComponents.hasTooltipPresentation"),
+                "isEligible must no longer gate on Rarity/Lore presence — it must be content-driven");
+        assertFalse(source.contains("import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;"),
+                "the now-unused ItemComponents import must be removed, not left dangling");
+    }
+
+    // Tooltip V2 Pass 1 superseded the content-driven gate (universal routing): the three checks that pinned it
+    // (walks the contributor registry / excludes the Header / reuses isVisible) are replaced below. Behavioural proof
+    // with real registered items and real SHIFT/CTRL holds lives in the client game test
+    // (src/gametest/.../TooltipV2Pass1ClientGameTest), not in these source-text checks.
+
+    @Test
+    void isEligibleIsTheUniversalStackOnlyRoutingDecision() throws Exception {
+        String source = read(RENDERER);
+        int methodStart = source.indexOf("public static boolean isEligible(ItemStack stack)");
+        assertTrue(methodStart >= 0, "expected to find the isEligible(ItemStack) method");
+        String body = source.substring(methodStart, source.indexOf("\n    }\n", methodStart));
+        assertTrue(body.contains("TooltipRouting.of(stack) == TooltipRouting.TOTALITY"));
+        assertFalse(body.contains("TooltipDisclosureLevel") || body.contains("contribute("),
+                "renderer selection must not depend on disclosure (SHIFT/CTRL) or on contributor content");
+    }
+
+    @Test
+    void routingKeepsFunctionalVanillaTooltipComponentsAndHiddenTooltips() throws Exception {
+        String source = read(Path.of("src/main/java/zcylas/totality/client/tooltip/TooltipRouting.java"));
+        assertTrue(source.contains("stack.getTooltipImage().isPresent()"), "bundle-style tooltip images keep vanilla's path");
+        assertTrue(source.contains("display.hideTooltip()"), "a hidden tooltip must stay hidden");
+        assertTrue(source.contains("return \"minecraft\".equals(namespace) || Totality.MOD_ID.equals(namespace);"),
+                "Universal V2 is scoped to the minecraft and totality item namespaces; third-party items keep their own tooltip");
+        assertFalse(source.contains("TotalityKeyHelper") || source.contains("TooltipDisclosureLevel.resolve"),
+                "routing must not read modifier keys");
+    }
+
+    @Test
+    void metadataContributorAlwaysEmitsAnUnconditionalHeader() throws Exception {
+        // Documents the exact fact isEligibleExcludesTheUnconditionalHeaderSectionFromCountingAsContent
+        // depends on: MetadataContributor.contribute() adds a Header before any gated check.
+        String source = read(METADATA_CONTRIBUTOR);
+        int contributeStart = source.indexOf("public List<TooltipSection> contribute(TooltipContext ctx)");
+        int headerAdd = source.indexOf("sections.add(new TooltipSection.Header(stack.getHoverName()));", contributeStart);
+        int firstGate = source.indexOf("if (", contributeStart);
+        assertTrue(headerAdd >= 0, "expected MetadataContributor to unconditionally add a Header");
+        assertTrue(firstGate < 0 || headerAdd < firstGate,
+                "the Header add must happen before any rarity/lore/classification gate, confirming it really "
+                        + "is unconditional for every item");
+    }
+
+    @Test
+    void miningToolContributorGatesOnAuthoredProfileNotRarityOrLore() throws Exception {
+        String source = read(MINING_TOOL_CONTRIBUTOR);
+        assertTrue(source.contains("MiningSourceProfile.resolve(stack).isEmpty()) return List.of()"),
+                "MiningToolContributor's only applicability gate must be the authored profile, "
+                        + "so a vanilla Diamond Pickaxe with no Rarity/Lore still gets mining rows");
+        assertFalse(source.contains("ItemComponents.RARITY") && source.contains("getRarity"),
+                "MiningToolContributor must not additionally require a Rarity component");
+    }
+
+    @Test
+    void blockDurabilityContributorGatesOnBlockItemNotRarityOrLore() throws Exception {
+        String source = read(BLOCK_DURABILITY_CONTRIBUTOR);
+        assertTrue(source.contains("instanceof BlockItem blockItem"),
+                "BlockDurabilityContributor's only applicability gate must be BlockItem-ness, "
+                        + "so a vanilla Stone block with no Rarity/Lore still gets Durability rows");
+        assertFalse(source.contains("ItemComponents.RARITY"),
+                "BlockDurabilityContributor must not additionally require a Rarity component");
+    }
+
+    @Test
+    void tooltipProfileComponentIsNoLongerReferencedByTheEligibilityCheck() throws Exception {
+        String source = read(RENDERER);
+        assertFalse(source.contains("ItemComponents.TOOLTIP_PROFILE") && source.contains("isEligible"),
+                "the eligibility check must not reference the old explicit-opt-in marker component");
+    }
+
+    // ── Wrong-tool / target effectiveness architecture ───────────────────────────────────────
+
+    @Test
+    void targetEffectivenessUsesVanillaMineableTagsNotAHardcodedBlockList() throws Exception {
+        String source = read(TARGET_EFFECTIVENESS);
+        assertTrue(source.contains("BlockTags.MINEABLE_WITH_PICKAXE"));
+        assertTrue(source.contains("BlockTags.MINEABLE_WITH_AXE"));
+        assertFalse(source.contains("Blocks.STONE") || source.contains("Blocks.DIRT")
+                        || source.contains("Blocks.GRASS"),
+                "must resolve effectiveness from the semantic mineable tags, never a hand-enumerated "
+                        + "per-block list");
+    }
+
+    @Test
+    void targetEffectivenessExposesExactlyTheRequiredThreeFields() throws Exception {
+        String source = read(TARGET_EFFECTIVENESS);
+        int declStart = source.indexOf("public record TargetEffectiveness(");
+        assertTrue(declStart >= 0);
+        int declEnd = source.indexOf(") {", declStart);
+        String decl = source.substring(declStart, declEnd);
+        assertTrue(decl.contains("damageMultiplier"));
+        assertTrue(decl.contains("speedMultiplier"));
+        assertTrue(decl.contains("preferred"));
+    }
+
+    @Test
+    void targetEffectivenessConstantsMatchTheAuthored10And50PercentRule() throws Exception {
+        String source = read(TARGET_EFFECTIVENESS);
+        assertTrue(source.contains("new TargetEffectiveness(1.00f, 1.00f, true)"),
+                "matching/effective target must be 100% damage and 100% speed");
+        assertTrue(source.contains("new TargetEffectiveness(0.10f, 0.50f, false)"),
+                "wrong-tool-but-breakable target must be exactly 10% damage and 50% speed "
+                        + "(tightened from 25% in the playtest-correction pass)");
+    }
+
+    @Test
+    void miningDamageCalculatorHasNoTargetOrBlockStateSpecificLogic() throws Exception {
+        // §6 of the fix pass: do not bake Pickaxe-vs-Stone conditionals into the damage calculator.
+        String source = read(MINING_DAMAGE_CALCULATOR);
+        assertFalse(source.contains("BlockState"), "MiningDamageCalculator must stay target-independent");
+        assertFalse(source.contains("TargetEffectiveness"),
+                "target effectiveness must be applied by the caller (PlayerMiningPower), never inside "
+                        + "the damage calculator itself");
+    }
+
+    @Test
+    void miningSpeedCalculatorHasNoTargetOrBlockStateSpecificLogic() throws Exception {
+        String source = read(MINING_SPEED_CALCULATOR);
+        assertFalse(source.contains("BlockState"), "MiningSpeedCalculator must stay target-independent");
+        assertFalse(source.contains("TargetEffectiveness"),
+                "target effectiveness must be applied by the caller (PlayerMiningPower), never inside "
+                        + "the speed calculator itself");
+    }
+
+    @Test
+    void playerMiningPowerAppliesTargetEffectivenessAfterImpactAndPowerStr() throws Exception {
+        String source = read(PLAYER_MINING_POWER);
+        int impactIdx = source.indexOf("MiningDamageCalculator.compute(source, impactLevel)");
+        int powerIdx = source.indexOf("powerZoneDamageBonus(band, strModifier)");
+        int effectivenessIdx = source.indexOf("TargetEffectiveness.resolve(held, state).damageMultiplier()");
+        assertTrue(impactIdx >= 0 && powerIdx >= 0 && effectivenessIdx >= 0,
+                "expected to find Impact, Power STR, and target-effectiveness application in compute()");
+        assertTrue(impactIdx < effectivenessIdx && powerIdx < effectivenessIdx,
+                "target effectiveness must be applied AFTER both Impact and the Power STR contribution "
+                        + "have already resolved into the pre-effectiveness damage value");
+    }
+
+    @Test
+    void effectiveMiningSpeedAppliesTargetEffectivenessAfterTheSpeedCap() throws Exception {
+        String source = read(PLAYER_MINING_POWER);
+        int methodStart = source.indexOf("public static float effectiveMiningSpeed(");
+        assertTrue(methodStart >= 0);
+        String body = source.substring(methodStart, Math.min(source.length(), methodStart + 700));
+        int capIdx = body.indexOf("MiningSpeedCalculator.compute(");
+        int effectivenessIdx = body.indexOf("TargetEffectiveness.resolve(tool, state).speedMultiplier()");
+        assertTrue(capIdx >= 0 && effectivenessIdx >= 0);
+        assertTrue(capIdx < effectivenessIdx,
+                "the target speed multiplier must be applied to the already-capped usable speed — "
+                        + "'final mining cadence = effective authored speed x target effectiveness' — "
+                        + "never before the cap, so a wrong tool can never retain the same capped rate "
+                        + "a matching tool would");
+    }
+
+    @Test
+    void wrongToolStillUsesTheOrdinaryWearPolicyNoExtraPenalty() throws Exception {
+        // §5: wrong-tool successful impacts must still be ordinary DAMAGED/BROKEN outcomes that flow
+        // through the existing, unmodified base-wear/Power-zone-wear rules — no new penalty path.
+        String managerSource = read(Path.of("src/main/java/zcylas/totality/api/mining/PlayerMiningManager.java"));
+        assertFalse(managerSource.toLowerCase(java.util.Locale.ROOT).contains("wrong tool") &&
+                        managerSource.contains("wear ="),
+                "no separate wrong-tool wear calculation should exist — wear stays outcome-based only");
+        assertTrue(managerSource.contains("MiningTuning.baseWear(result.outcome(), tool)"),
+                "the ordinary outcome-based base wear policy must be unchanged");
+    }
+
+    // ── COMMON Rarity + Lore for six vanilla blocks ───────────────────────────────────────────
+
+    @Test
+    void sixVanillaBlocksAreRegisteredWithCommonRarityAndLoreViaDefaultItemComponentEvents() throws Exception {
+        String source = read(VANILLA_ITEM_PRESENTATION);
+        assertTrue(source.contains("DefaultItemComponentEvents.MODIFY"),
+                "must use Fabric's standard mechanism for modifying an already-registered vanilla item's "
+                        + "default components, not a second lore/rarity system");
+        for (String item : List.of("Items.OAK_LOG", "Items.STONE", "Items.DIORITE", "Items.ANDESITE",
+                "Items.GRANITE", "Items.COBBLESTONE")) {
+            assertTrue(source.contains(item), "expected " + item + " to be registered");
+        }
+        assertTrue(source.contains("ItemRarity.COMMON"), "all six items must use COMMON rarity");
+        long loreLines = source.lines().filter(l -> l.contains("Items.") && l.contains(",")
+                && !l.contains("DefaultItemComponentEvents") && !l.contains("import")).count();
+        assertTrue(loreLines >= 6, "expected each of the six items to carry its own lore string");
+    }
+
+    @Test
+    void vanillaItemPresentationIsRegisteredFromMainInit() throws Exception {
+        String source = read(TOTALITY_MAIN);
+        assertTrue(source.contains("VanillaItemPresentation.register();"),
+                "expected VanillaItemPresentation.register() to actually be called from mod init");
+    }
+
+    @Test
+    void vanillaItemPresentationLoreContainsNoGameplayStatStrings() throws Exception {
+        // §9: lore must be flavor text, not a restatement of a structural tooltip row.
+        String source = read(VANILLA_ITEM_PRESENTATION);
+        String lower = source.toLowerCase(java.util.Locale.ROOT);
+        assertFalse(lower.contains("durability: 100") || lower.contains("100 durability"),
+                "lore must not restate the Block Durability stat, which already has its own tooltip row");
+        assertFalse(lower.contains("required mining tier"),
+                "lore must not restate the Required Mining Tier stat either");
+    }
+
+    // ── Mining Tier vs Target Effectiveness fix pass ─────────────────────────────────────────
+
+    @Test
+    void miningSourceProfileComputesTierFromEachMaterialsOwnPickaxeNeverHardcoded() throws Exception {
+        // Playtest-correction pass: the probe moved from an eager static-init-time factory method
+        // to a lazy call inside resolve() (a real datagen-bootstrap crash fix — see
+        // miningSourceProfileTierProbeIsLazyNotEagerAtClassLoadTime) — still MiningTier.ofTool
+        // against the material's own Pickaxe, never a hand-typed number, just no longer eager.
+        String source = read(MINING_SOURCE_PROFILE);
+        assertTrue(source.contains("MiningTier.ofTool(new ItemStack(m.pickaxe()))"),
+                "each material's authored Tier must be probed from its own Pickaxe via the "
+                        + "existing MiningTier.ofTool, never a hand-typed number — this is what "
+                        + "guarantees it matches the pre-existing, already-authoritative progression");
+        int declStart = source.indexOf("public record Entry(");
+        assertTrue(declStart >= 0);
+        String declLine = source.substring(declStart, source.indexOf(")", declStart) + 1);
+        assertTrue(declLine.contains("tier"), "Entry must now expose tier alongside miningDamage/miningSpeed");
+    }
+
+    @Test
+    void resolvedMiningSourceReadsAuthoredTierForProfiledAndLegacyOfToolOtherwise() throws Exception {
+        String source = read(RESOLVED_MINING_SOURCE);
+        int methodStart = source.indexOf("public static ResolvedMiningSource of(");
+        assertTrue(methodStart >= 0);
+        String body = source.substring(methodStart, Math.min(source.length(), methodStart + 700));
+        assertTrue(body.contains("profile.map(MiningSourceProfile.Entry::tier)"),
+                "a profiled source's Tier must come from the authored MiningSourceProfile entry");
+        assertTrue(body.contains(".orElseGet(() -> MiningTier.ofTool(tool))"),
+                "a non-profiled (legacy) source must still fall back to MiningTier.ofTool, unchanged");
+        // Exactly one Tier value is ever constructed for the returned record — never two competing ones.
+        long tierAssignments = body.lines().filter(l -> l.trim().startsWith("int tier =")).count();
+        assertEquals(1, tierAssignments, "expected exactly one local Tier resolution, not two competing values");
+    }
+
+    @Test
+    void miningTierOfToolItselfIsUnchangedButDocumentsItIsNotForProfiledSources() throws Exception {
+        // ofTool's own probing logic (Stone/Iron Ore/Diamond Ore/Obsidian) must be byte-for-byte
+        // unchanged — this pass corrects WHO calls it for a profiled source, never the function itself.
+        String source = read(MINING_TIER);
+        assertTrue(source.contains("if (!tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState())) return 0;"));
+        assertTrue(source.contains("if (!tool.isCorrectToolForDrops(Blocks.IRON_ORE.defaultBlockState())) return 1;"));
+        assertTrue(source.contains("if (!tool.isCorrectToolForDrops(Blocks.DIAMOND_ORE.defaultBlockState())) return 2;"));
+        assertTrue(source.contains("if (!tool.isCorrectToolForDrops(Blocks.OBSIDIAN.defaultBlockState())) return 3;"));
+        assertTrue(source.contains("return 4;"));
+        assertTrue(source.contains("Do not call this directly for a PROFILED Pickaxe/Axe"),
+                "ofTool's Javadoc must steer callers toward ResolvedMiningSource for profiled sources");
+    }
+
+    @Test
+    void resolvedMiningSourceNoLongerClaimsProfiledToolsHaveNoWrongToolPenalty() throws Exception {
+        // The stale TODO this pass removes: it predates TargetEffectiveness (added in PASS3) and
+        // claimed no wrong-tool-category penalty existed at all.
+        String source = read(RESOLVED_MINING_SOURCE);
+        assertFalse(source.contains("there is currently NO wrong-tool-category penalty"),
+                "the stale pre-PASS3 TODO claiming no wrong-tool penalty exists must be removed");
+        assertFalse(source.contains("TODO (tracked, not decided this pass)"),
+                "the stale TODO marker itself must be gone — target effectiveness is now implemented, not pending");
+        assertTrue(source.contains("TargetEffectiveness"),
+                "the class Javadoc must reference the now-implemented TargetEffectiveness, not merely "
+                        + "note its absence");
+    }
+
+    @Test
+    void miningVerificationNoLongerClaimsIronAxeVsStoneIsAlwaysIneffective() throws Exception {
+        // §4 of the Tier fix pass: the manual-test/review documentation must not simultaneously
+        // claim "Axe vs Stone uses the wrong-tool multiplier" and "Axe vs Stone is always
+        // Tier-INEFFECTIVE" — after this fix, Iron Axe vs Stone is a genuine wrong-tool DAMAGED hit.
+        Path miningVerification = Path.of("src/main/java/zcylas/totality/api/mining/MiningVerification.java");
+        String source = read(miningVerification);
+        assertFalse(source.contains("always INEFFECTIVE, confirming the note above"),
+                "the old 'Iron Axe vs Stone is always INEFFECTIVE' assertion must be gone");
+        assertTrue(source.contains("Tier passes -> wrong-tool DAMAGED, 50 x 0.10 = 5 (not INEFFECTIVE)"),
+                "expected the corrected live assertion proving Iron Axe vs Stone is now a reachable "
+                        + "wrong-tool DAMAGED case (playtest-correction pass: wrong-tool Damage is now x0.10, not x0.25)");
+    }
+
+    @Test
+    void vanillaItemPresentationLoreAvoidsBedrockCollisionAndImpliedProcessing() throws Exception {
+        // §5: "bedrock material" collides with the distinct Bedrock block; "squared" implies
+        // already-hewn timber rather than a plain cut log.
+        String source = read(VANILLA_ITEM_PRESENTATION);
+        String lower = source.toLowerCase(java.util.Locale.ROOT);
+        assertFalse(lower.contains("bedrock material"), "Stone's lore must not say \"bedrock material\"");
+        assertFalse(lower.contains("squared"), "Oak Log's lore must not say \"squared\"");
+        assertTrue(source.contains("ItemRarity.COMMON"), "rarity must remain COMMON for all six items");
+    }
+
+    // ── Playtest-correction pass: wrong-tool x0.10, Dirt/Grass=100, Shovels, four Power bands,
+    //    floating-text colors, tooltip width fix, JEI z-order ──────────────────────────────────
+
+    @Test
+    void targetEffectivenessResolvesShovelViaTheSemanticShovelTags() throws Exception {
+        String source = read(TARGET_EFFECTIVENESS);
+        assertTrue(source.contains("ItemTags.SHOVELS"), "Shovel must be resolved via the semantic ItemTags.SHOVELS tag");
+        assertTrue(source.contains("BlockTags.MINEABLE_WITH_SHOVEL"),
+                "Shovel matching must be resolved via the semantic BlockTags.MINEABLE_WITH_SHOVEL tag");
+    }
+
+    @Test
+    void miningSourceProfileIncludesShovelInTheAuthoredMaterialTable() throws Exception {
+        String source = read(MINING_SOURCE_PROFILE);
+        assertTrue(source.contains("Item shovel"), "the Material record must carry a Shovel item alongside Pickaxe/Axe");
+        assertTrue(source.contains("Items.COPPER_SHOVEL"), "Copper Shovel must be included, exactly like the other Copper tools");
+        assertTrue(source.contains("Items.NETHERITE_SHOVEL") && source.contains("Items.WOODEN_SHOVEL"),
+                "every material's Shovel must be included, not just a subset");
+    }
+
+    @Test
+    void miningSourceProfileTierProbeIsLazyNotEagerAtClassLoadTime() throws Exception {
+        // A real regression found and fixed this pass: probing MiningTier.ofTool(new ItemStack(...))
+        // at MATERIALS' static-init time crashes during datagen bootstrap ("Components not bound
+        // yet") — the probe must happen lazily inside resolve(), never at class-load time.
+        String source = read(MINING_SOURCE_PROFILE);
+        assertFalse(source.contains("private static Material material("),
+                "the eager tier-probing factory method must be gone — MATERIALS now stores plain "
+                        + "Material records with no tier field");
+        int resolveIdx = source.indexOf("public static Optional<Entry> resolve(");
+        assertTrue(resolveIdx >= 0, "resolve(ItemStack) must still exist");
+        assertTrue(source.indexOf("MiningTier.ofTool(new ItemStack(m.pickaxe()))", resolveIdx) > resolveIdx,
+                "the tier probe must happen inside resolve(), lazily, on every real call");
+    }
+
+    @Test
+    void blockDurabilityDefinitionsRegistersDirtAndGrassBlockAt100() throws Exception {
+        String source = read(BLOCK_DURABILITY_DEFINITIONS);
+        assertTrue(source.contains("BlockDurability.register(Blocks.DIRT, oneHundred)"), "Dirt must be registered at 100 Durability");
+        assertTrue(source.contains("BlockDurability.register(Blocks.GRASS_BLOCK, oneHundred)"), "Grass Block must be registered at 100 Durability");
+        assertFalse(source.contains("Blocks.SAND") || source.contains("Blocks.GRAVEL") || source.contains("Blocks.CLAY")
+                        || source.contains("Blocks.FARMLAND"),
+                "Sand/Gravel/Clay/Farmland must NOT be registered this pass — deliberately deferred");
+    }
+
+    @Test
+    void targetEffectivenessWrongToolDamageIsTightenedToTenPercent() throws Exception {
+        String source = read(TARGET_EFFECTIVENESS);
+        assertTrue(source.contains("new TargetEffectiveness(0.10f, 0.50f, false)"),
+                "wrong-tool damage must be exactly x0.10 (tightened from x0.25), speed unchanged at x0.50");
+    }
+
+    @Test
+    void miningTuningHasFourRealPowerBandsWithWhiteGivingNoStrBonus() throws Exception {
+        String source = read(MINING_TUNING);
+        assertTrue(source.contains("BAND_WHITE") && source.contains("BAND_GREEN")
+                        && source.contains("BAND_ORANGE") && source.contains("BAND_RED"),
+                "all four real Power bands (WHITE/GREEN/ORANGE/RED) must be named constants");
+        assertTrue(source.contains("STR_ZONE_WHITE = 0"), "WHITE must contribute zero STR bonus");
+        assertTrue(source.contains("case BAND_GREEN -> STR_ZONE_GREEN"),
+                "GREEN must be its own switch case now, no longer collapsed into WHITE's default");
+    }
+
+    @Test
+    void combatTextRendererNormalAndWhiteBandFloatingDamageIsWhite() throws Exception {
+        String source = read(COMBAT_TEXT_RENDERER);
+        assertTrue(source.contains("case 1 -> 0xFFFFFF"), "the WHITE Power band (1) must render white");
+        assertTrue(source.contains("default -> 0xFFFFFF"), "an ordinary, non-Power hit (band 0) must now render white, not the old yellow-ish default");
+    }
+
+    @Test
+    void powerMiningMeterHudDrawsFourDistinctZonesFromSharedTuningConstants() throws Exception {
+        String source = read(POWER_MINING_METER_HUD);
+        assertTrue(source.contains("MiningTuning.WHITE_ZONE_MAX") && source.contains("MiningTuning.GREEN_ZONE_MAX")
+                        && source.contains("MiningTuning.RED_ZONE"),
+                "the four meter zones must be split at the same tuning constants gameplay resolves bands from, never invented literals");
+    }
+
+    @Test
+    void naturalRowWidthMeasurementMatchesTheGutterlessBodyWidth() throws Exception {
+        // §16: the natural-width measurement must reserve exactly what bodyContentW reserves at layout
+        // time, or rows wrap unnecessarily. Since the scrollbar's removal that is nothing: the visual
+        // (scale-adjusted) row width alone decides the panel width.
+        String source = read(RENDERER);
+        int methodIdx = source.indexOf("static int measureNaturalContentWidth(");
+        assertTrue(methodIdx >= 0, "measureNaturalContentWidth must still exist");
+        assertTrue(source.indexOf("Math.min(visualRowW, PREFERRED_MAX_WIDTH)", methodIdx) > methodIdx);
+    }
+
+    @Test
+    void jeiZOrderFixDefersTotalityTooltipToTheSameStratumVanillaTooltipsUse() throws Exception {
+        // §18: painting immediately inside onSetTooltip put the Totality panel in the same render
+        // stratum an overlay mod's ingredient panel paints into. The fix defers the actual draw to
+        // GuiGraphicsExtractor#extractDeferredElements — the exact point/stratum vanilla's own
+        // tooltip already renders from — via a small Runnable handoff, never a hard JEI dependency.
+        String mixinSource = read(ABSTRACT_CONTAINER_SCREEN_MIXIN);
+        assertTrue(mixinSource.contains("totality$deferTooltip("),
+                "the Totality tooltip render call must be deferred, not painted immediately in onSetTooltip");
+        assertFalse(mixinSource.contains("TotalityTooltipRenderer.render(graphics, font, stack, x, y, text, data, (Screen) (Object) this, this.hoveredSlot);"),
+                "the old immediate render call must be gone");
+
+        String extractorSource = read(GUI_GRAPHICS_EXTRACTOR_MIXIN);
+        assertTrue(extractorSource.contains("extractDeferredElements"),
+                "the flush must be injected into extractDeferredElements — the same method that flushes vanilla's own deferred tooltip");
+        assertTrue(extractorSource.contains("nextStratum()"),
+                "the deferred Totality tooltip must push a new stratum, exactly like vanilla's own deferred tooltip does");
+
+        String interfaceSource = read(TOTALITY_GUI_GRAPHICS);
+        assertTrue(interfaceSource.contains("void totality$deferTooltip(Runnable render)"),
+                "the defer entry point must be exposed on the shared TotalityGuiGraphics interface");
+
+        // No hard JEI dependency: "JEI" may appear in explanatory comments (why this fix exists),
+        // but never an import of, or a call into, an actual JEI class/package.
+        assertFalse(mixinSource.contains("import mezz.jei") || extractorSource.contains("import mezz.jei"),
+                "the fix must not introduce a hard dependency on JEI's classes");
+    }
+
+    // ── Tooltip layout/presentation cleanup pass (2026-09-22) ────────────────────────────────
+
+    @Test
+    void bodyTextScaleConstantExistsAndIsWithinTheRequestedEightyFiveToNinetyPercentRange() throws Exception {
+        String source = read(RENDERER);
+        assertTrue(source.contains("private static final float BODY_TEXT_SCALE = 0.875f;"),
+                "expected a single named body-text-scale constant at 87.5%, within the requested 85-90% range");
+    }
+
+    @Test
+    void statIconsScaleWithBodyTextViaTheSameTransformNoSeparateIconConstant() throws Exception {
+        // §10: icon size must be proportional to the smaller body text, without a second,
+        // independently-tuned icon-size constant to keep in sync — achieved by scaling the whole
+        // row (icon included) through one shared pose transform, never a dedicated icon scale.
+        String source = read(RENDERER);
+        assertFalse(source.contains("ICON_SCALE") || source.contains("iconScale"),
+                "no separate icon-specific scale constant should exist — icons scale via the same "
+                        + "row-level BODY_TEXT_SCALE transform as their row's text");
+        int drawLoopIdx = source.indexOf("boolean scaled = isScaledSection(laid.section());");
+        assertTrue(drawLoopIdx >= 0, "expected the scale-aware body draw loop");
+        String drawLoopRegion = source.substring(drawLoopIdx, Math.min(source.length(), drawLoopIdx + 1200));
+        assertTrue(drawLoopRegion.contains("graphics.pose().pushMatrix()")
+                        && drawLoopRegion.contains("graphics.pose().scale(bodyScale, bodyScale)")
+                        && drawLoopRegion.contains("graphics.pose().popMatrix()"),
+                "the whole row (icon + label + value, via the single draw(...) call) must be "
+                        + "wrapped in one pose scale transform, the same pushMatrix/scale/popMatrix "
+                        + "idiom already used extensively elsewhere in this codebase");
+    }
+
+    @Test
+    void naturalWidthMeasurementAccountsForScaledTextAndTheScrollbarGutterTogether() throws Exception {
+        String source = read(RENDERER);
+        int methodIdx = source.indexOf("static int measureNaturalContentWidth(");
+        assertTrue(methodIdx >= 0);
+        assertTrue(source.indexOf("isScaledSection(section) ? visualForScale(rowW, bodyScale) : rowW", methodIdx) > methodIdx,
+                "a scaled row's contribution to the panel's natural width must be its VISUAL "
+                        + "(scaled-down) width, never the larger logical one — otherwise the panel "
+                        + "would be sized wider than the scaled content actually needs");
+    }
+
+    @Test
+    void preservedVanillaAndTechnicalContentKeepRealSizeWhileLoreUsesTheQuieterBodyScale() throws Exception {
+        // §9/§14: preserved vanilla/third-party lines stay at real vanilla size so they read exactly as vanilla
+        // shows them. Tooltip V2 bottom-presentation slice: lore was too large next to the compact rows, so it now
+        // uses the (pixel-safe) body text scale too — it is no longer in the excluded list.
+        String source = read(RENDERER);
+        int methodIdx = source.indexOf("private static boolean isScaledSection(");
+        assertTrue(methodIdx >= 0, "expected the isScaledSection classifier");
+        String methodBody = source.substring(methodIdx, source.indexOf("\n    }\n", methodIdx));
+        assertTrue(methodBody.contains("case TooltipSection.ExternalContent ignored -> false")
+                        && methodBody.contains("case TooltipSection.TechnicalInfo ignored -> false"),
+                "ExternalContent (preserved vanilla lines) and TechnicalInfo must stay excluded from the body text scale");
+        assertFalse(methodBody.contains("case TooltipSection.Description ignored -> false"),
+                "lore now uses the quieter body scale");
+    }
+
+    @Test
+    void titleAndRarityBadgesAreNeverScaledTheyAreNotTooltipSectionsAtAll() throws Exception {
+        // §9: "Keep the ITEM NAME/title at its normal intended prominence" — title/badges are
+        // handled entirely outside the body TooltipSection list (drawAnimatedTitle/drawBadgeRow),
+        // so isScaledSection (which only ever examines body-list TooltipSections) structurally
+        // cannot reach them — confirmed here rather than merely assumed.
+        String source = read(RENDERER);
+        int titleCallIdx = source.indexOf("drawAnimatedTitle(graphics, font, titleText,");
+        assertTrue(titleCallIdx >= 0, "expected the title draw call");
+        String beforeTitle = source.substring(Math.max(0, titleCallIdx - 200), titleCallIdx);
+        assertFalse(beforeTitle.contains("pose().scale(BODY_TEXT_SCALE"),
+                "the title must never be drawn inside a BODY_TEXT_SCALE pose transform");
+    }
+
+    @Test
+    void miningToolContributorStillNeverAppliesTargetEffectivenessToTheStaticTooltip() throws Exception {
+        // Unrelated to this pass's layout changes, but explicitly re-confirmed per this pass's own
+        // "preserve the content-driven eligibility / do not regress prior tooltip fixes" scope —
+        // MiningToolContributor itself was not touched, so this is a straightforward carry-over
+        // check, not new behavior.
+        String source = read(MINING_TOOL_CONTRIBUTOR);
+        assertFalse(source.contains("TargetEffectiveness"),
+                "the tool tooltip must remain target-independent — MiningToolContributor must never reference TargetEffectiveness");
+        assertTrue(source.contains("\"/s\""), "Mining Speed's provenance must still carry /s units");
+        assertTrue(source.contains("TooltipDisclosureLevel.DETAILS"),
+                "the Shift provenance rows must remain DETAILS-gated");
+        // Block Breaking V2 Pass 2: the misleading numeric Force Tolerance row is hidden entirely (field preserved).
+        assertFalse(source.contains("\"Force Tolerance\""), "Force Tolerance must not be displayed as a number");
+    }
+
+    @Test
+    void tooltipEligibilityRemainsContentDrivenNeverGatedOnAuthoredRarityOrLore() throws Exception {
+        String source = read(RENDERER);
+        int methodIdx = source.indexOf("public static boolean isEligible(");
+        assertTrue(methodIdx >= 0);
+        String methodBody = source.substring(methodIdx, source.indexOf("\n    }\n", methodIdx));
+        assertFalse(methodBody.contains("hasTooltipPresentation") || methodBody.contains("RarityComponent")
+                        || methodBody.contains("LoreComponent"),
+                "isEligible must stay content-driven (any visible contributor section) and never "
+                        + "reintroduce Rarity/Lore as a mandatory gate — future universal Item "
+                        + "Durability will also be a plain contributor, relying on this staying true");
     }
 }

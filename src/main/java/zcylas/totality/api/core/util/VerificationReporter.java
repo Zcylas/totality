@@ -15,12 +15,16 @@ import java.util.List;
  * failures always print individually regardless of this setting, so a broken build is never
  * silently summarized away.
  *
- * <p>Every consuming suite must still gate its own entry point on {@link #isDevEnvironment()}
- * — this class only controls verbosity, not whether verification runs at all.
+ * <p>Every consuming suite must still gate its own entry point: read-only suites on
+ * {@link #isDevEnvironment()}, and any suite that runs against the live server/world (fake players,
+ * spawned entities, block edits, saved data, live registries) on {@link #liveWorldVerificationEnabled()}
+ * — off by default, so an ordinary dev launch never touches the development save.
  */
 public final class VerificationReporter {
 
     private static final String VERBOSE_PROPERTY = "totality.verboseVerification";
+    private static final String LIVE_WORLD_PROPERTY = "totality.liveWorldVerification";
+    private static boolean liveWorldWarned = false;
 
     private final Logger logger;
     private final String suiteName;
@@ -38,6 +42,23 @@ public final class VerificationReporter {
 
     public static boolean verbose() {
         return Boolean.getBoolean(VERBOSE_PROPERTY);
+    }
+
+    /**
+     * Explicit opt-in ({@code -Dtotality.liveWorldVerification=true}, dev environment only) for suites
+     * that run against the live server and may change the loaded world. Use the disposable
+     * {@code runVerificationServer} Gradle task rather than enabling this on a normal dev save.
+     */
+    public static synchronized boolean liveWorldVerificationEnabled() {
+        if (!isDevEnvironment() || !Boolean.getBoolean(LIVE_WORLD_PROPERTY)) return false;
+        if (!liveWorldWarned) {
+            liveWorldWarned = true;
+            zcylas.totality.Totality.LOGGER.warn(
+                    "[Verification] -D{}=true: live-world verification suites are ENABLED. They create fake "
+                            + "players, spawn/discard entities, edit blocks and block-damage saved data in the "
+                            + "loaded world. Only run this against a disposable world.", LIVE_WORLD_PROPERTY);
+        }
+        return true;
     }
 
     /** Records one check's outcome. Only prints on failure, unless verbose mode is on. */

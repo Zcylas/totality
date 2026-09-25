@@ -80,8 +80,14 @@ class CombatRollNotificationSourceRegressionTest {
         // straight through — never construct a second one.
         String source = read(COMBAT_RESOLVER);
         long attackRollCallSites = source.lines().filter(l -> l.contains("AttackRoll.roll(")).count();
-        assertEquals(3, attackRollCallSites,
-                "expected exactly three AttackRoll.roll(...) call sites (the two weapon overloads plus resolveSpellAttack), none inside handleHit itself");
+        // Melee-weapon-durability review pass (2026-09-22): resolveAttack gained a fourth overload
+        // (ItemStack + EquipmentSlot, so a confirmed hit can apply real vanilla weapon durability to
+        // the actual wielded stack) alongside the pre-existing three (explicit-modifier, the
+        // name-only overload, and resolveSpellAttack) — one more legitimate call site, not a
+        // reroll of an existing one.
+        assertEquals(4, attackRollCallSites,
+                "expected exactly four AttackRoll.roll(...) call sites (the three weapon overloads "
+                        + "plus resolveSpellAttack), none inside handleHit itself");
 
         String handleHitBody = extractMethodBody(source, "private static void handleHit");
         assertFalse(handleHitBody.isEmpty(), "expected to find handleHit's method body");

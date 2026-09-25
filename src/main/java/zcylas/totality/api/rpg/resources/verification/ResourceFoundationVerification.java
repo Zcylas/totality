@@ -51,7 +51,7 @@ public final class ResourceFoundationVerification {
     private ResourceFoundationVerification() {}
 
     public static void register() {
-        if (!VerificationReporter.isDevEnvironment()) return;
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         ServerLifecycleEvents.SERVER_STARTED.register(ResourceFoundationVerification::scheduleDelayed);
     }
 

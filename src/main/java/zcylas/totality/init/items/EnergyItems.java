@@ -12,9 +12,10 @@ import zcylas.totality.screen.phone.PhoneFrame;
 public class EnergyItems {
 
     // All five battery tiers explicitly opt into Totality tooltip presentation and carry the
-    // ordered [BATTERY, ENERGY] classification. Only Copper has a canonical authored rarity,
-    // weight, and lore — Iron/Gold/Diamond/Netherite have none in the repository, so none is
-    // invented here; they render with the neutral opted-in-without-rarity panel theme instead.
+    // ordered [BATTERY, ENERGY] classification. Each authors its Industrial rarity from the canonical
+    // construction progression (Copper CRUDE, Iron CALIBRATED, Gold PROTOTYPE, Diamond OVERCHARGED,
+    // Netherite MASTERWORK) — presentation only; capacities and I/O are unchanged. Only Copper has
+    // authored weight and lore; none is invented for the other tiers.
     public static final BatteryItem COPPER_BATTERY = TotalityRegistry.registerItem(
             "copper_battery",
             properties -> new BatteryItem(48_000, 32, 32, properties),
@@ -31,6 +32,7 @@ public class EnergyItems {
             "iron_battery",
             properties -> new BatteryItem(320_000, 32, 32, properties),
             new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.CALIBRATED))
                     .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.BATTERY))
                     .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.BATTERY, ItemType.ENERGY))
@@ -40,6 +42,7 @@ public class EnergyItems {
             "gold_battery",
             properties -> new BatteryItem(128_000, 128, 128, properties),
             new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.PROTOTYPE))
                     .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.BATTERY))
                     .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.BATTERY, ItemType.ENERGY))
@@ -49,6 +52,7 @@ public class EnergyItems {
             "diamond_battery",
             properties -> new BatteryItem(1_000_000, 256, 256, properties),
             new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.OVERCHARGED))
                     .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.BATTERY))
                     .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.BATTERY, ItemType.ENERGY))
@@ -58,6 +62,7 @@ public class EnergyItems {
             "netherite_battery",
             properties -> new BatteryItem(5_000_000, 512, 512, properties),
             new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.MASTERWORK))
                     .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.BATTERY))
                     .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.BATTERY, ItemType.ENERGY))
@@ -67,6 +72,7 @@ public class EnergyItems {
             "umbra_visor",
             properties -> new UmbraVisorItem(properties, 32_000, 32, 32),
             new Item.Properties()
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.CALIBRATED))
     );
 
     public static final PhoneItem BASIC_COPPER_PHONE = TotalityRegistry.registerItem(

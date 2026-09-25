@@ -20,6 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.jspecify.annotations.Nullable;
 import zcylas.totality.client.item.AttunementClientManager;
 import zcylas.totality.client.item.AttunementHud;
+import zcylas.totality.client.renderer.gui.TotalityGuiGraphics;
 import zcylas.totality.client.tooltip.TooltipScrollController;
 import zcylas.totality.client.tooltip.TotalityTooltipRenderer;
 
@@ -61,7 +62,14 @@ public class AbstractContainerScreenMixin {
         // Totality panel — falling back to vanilla here preserves that content instead of
         // silently discarding it, per the Tooltip API's compatibility policy.
         if (!stack.isEmpty() && data.isEmpty() && TotalityTooltipRenderer.isEligible(stack)) {
-            TotalityTooltipRenderer.render(graphics, font, stack, x, y, text, data, (Screen) (Object) this, this.hoveredSlot);
+            // JEI z-order fix (§18): deferred to the same topmost render stratum vanilla's own
+            // tooltip uses, instead of painted immediately here (mid-screen-render, the same
+            // stratum an overlay mod's ingredient panel paints into) — see
+            // TotalityGuiGraphics#totality$deferTooltip and GuiGraphicsExtractorMixin.
+            Slot hoveredSlotAtCall = this.hoveredSlot;
+            Screen screen = (Screen) (Object) this;
+            TotalityGuiGraphics.of(graphics).totality$deferTooltip(() ->
+                    TotalityTooltipRenderer.render(graphics, font, stack, x, y, text, data, screen, hoveredSlotAtCall));
             return;
         }
 

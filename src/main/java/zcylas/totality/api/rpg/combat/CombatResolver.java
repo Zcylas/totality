@@ -1,9 +1,13 @@
 package zcylas.totality.api.rpg.combat;
 
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.Weapon;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
 import zcylas.totality.api.combat.damage.DamageFlags;
@@ -65,6 +69,16 @@ public final class CombatResolver {
         int mod = resolveAbilityMod(attacker, abilityScore);
         resolveAttack(attacker, target, abilityScore, proficient, rollType, diceCount, damageDie, mod, damageType);
     }
+    /**
+     * Name-only overload — deliberately does NOT apply any weapon durability itself. For a caller
+     * that already owns a separate, unrelated durability mechanism for the same conceptual item
+     * (e.g. {@code ThrownShurikenEntity}, whose thrown-and-landed pickup stack takes its own
+     * dedicated wear right where it lands, independent of melee semantics entirely) — using the
+     * {@code ItemStack}-based overload below there would double-apply durability. Ordinary
+     * held-weapon melee attacks (Totality's own {@code VanillaDamageInterceptor}/
+     * {@code OffhandAttackHandler}) use the {@code ItemStack}-based overload instead, specifically
+     * so the real wielded stack's durability is worn down automatically.
+     */
     public static void resolveAttack(LivingEntity attacker, LivingEntity target,
                                      AbilityScore abilityScore, boolean proficient,
                                      RollType rollType, int diceCount, Dice damageDie,
@@ -72,6 +86,52 @@ public final class CombatResolver {
         int mod = resolveAbilityMod(attacker, abilityScore);
         AttackRoll.Result ar = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
         handleHit(attacker, target, ar, weaponName, diceCount, damageDie, mod, damageType, false, abilityScore);
+    }
+
+    /**
+     * Melee-weapon-durability review pass (2026-09-22): the weapon dealing this attack is now the
+     * {@code ItemStack} actually wielded (in {@code slot}), not merely a display name — after a
+     * confirmed hit (never a miss, matching vanilla's own semantics: {@code ItemStack#postHurtEnemy}
+     * only ever fires once {@code target.hurt(...)} has already returned {@code true}), it is worn
+     * down through the exact same normal, enchantment-aware mechanism vanilla itself uses — see
+     * {@link #applyMeleeWeaponDurability}. This is what actually restores Pickaxe/Axe/Shovel (and
+     * any other {@code DataComponents.WEAPON}-bearing item) durability loss on a landed melee hit —
+     * Totality's own damage/roll pipeline (below) never touched item durability at all before this.
+     */
+    public static void resolveAttack(LivingEntity attacker, LivingEntity target,
+                                     AbilityScore abilityScore, boolean proficient,
+                                     RollType rollType, int diceCount, Dice damageDie,
+                                     TotalityDamageType damageType, ItemStack weapon, EquipmentSlot slot) {
+        int mod = resolveAbilityMod(attacker, abilityScore);
+        AttackRoll.Result ar = AttackRoll.roll(attacker, target, abilityScore, proficient, rollType);
+        String weaponName = weapon.isEmpty() ? "Unarmed Strike" : weapon.getHoverName().getString();
+        handleHit(attacker, target, ar, weaponName, diceCount, damageDie, mod, damageType, false, abilityScore);
+        if (ar.outcome().isHit() && attacker instanceof ServerPlayer player) {
+            applyMeleeWeaponDurability(weapon, player, slot);
+        }
+    }
+
+    /**
+     * The standard vanilla melee-weapon durability cost — read live from the weapon's own
+     * {@link Weapon} data component (never a hard-coded amount; every vanilla tool/weapon already
+     * carries one, e.g. {@code ToolMaterial#applyToolProperties} attaches
+     * {@code new Weapon(2, ...)} to every Pickaxe/Axe/Shovel/Hoe) — applied through
+     * {@link ItemStack#hurtAndBreak(int, LivingEntity, EquipmentSlot)}, the exact same
+     * enchantment-aware path (Unbreaking included, via {@code EnchantmentHelper.processDurabilityChange}
+     * internally) both vanilla's own {@code ItemStack#postHurtEnemy} and Totality's own mining wear
+     * ({@code PlayerMiningManager}) already use — no custom Totality Unbreaking logic, no
+     * reimplementation. Deliberately not simply {@code weapon.postHurtEnemy(target, player)} itself:
+     * that vanilla method always reports a broken item against {@code EquipmentSlot.MAINHAND}
+     * regardless of which hand actually swung, which is wrong for Totality's own offhand attacks —
+     * this takes {@code slot} explicitly so an offhand weapon breaking is reported correctly. A
+     * weapon with no {@link Weapon} component (or an empty stack, i.e. an unarmed strike) takes no
+     * durability, exactly like vanilla.
+     */
+    private static void applyMeleeWeaponDurability(ItemStack weapon, ServerPlayer player, EquipmentSlot slot) {
+        if (weapon.isEmpty()) return;
+        Weapon weaponData = weapon.get(DataComponents.WEAPON);
+        if (weaponData == null) return;
+        weapon.hurtAndBreak(weaponData.itemDamagePerAttack(), player, slot);
     }
 
     // resolveSpellAttack — spell damage is always magical

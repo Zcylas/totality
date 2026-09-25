@@ -1,6 +1,7 @@
 package zcylas.totality.api.mining;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -23,6 +24,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Server-owned mining swings for survival players. Only sessions of players who are actually
@@ -33,6 +35,11 @@ import java.util.UUID;
  * </pre>
  * At the contact frame the server raycasts from the player's CURRENT eye/rotation/reach; the
  * target is never locked at click time and the client never says what it hit.
+ *
+ * <p>RECOVERY completing and IDLE re-scheduling the next WINDUP happen in the SAME server tick
+ * while the player is still legitimately mining ({@link #tryStartSwing} is called directly from
+ * RECOVERY's own completion, not left for a following IDLE tick) — a nominal N-tick cycle must
+ * contact every N ticks, not N+1.
  */
 public final class PlayerMiningManager {
 
@@ -48,7 +55,14 @@ public final class PlayerMiningManager {
         float swingForce;                // force of the swing in flight (0 = normal)
         boolean swingIsPower;
         ItemStack swingSource = ItemStack.EMPTY;   // the held source at swing start; the target block is NOT snapshotted
-        int recoveryTicks = MiningTuning.RECOVERY_TICKS;   // cadence-scaled at swing start (normal swings only)
+        int recoveryTicks = MiningTuning.RECOVERY_TICKS;   // cadence-scaled at swing start, corrected at contact (normal swings only)
+        float speedCarryTicks;   // profiled tools only: fractional cycle-length remainder so authored Mining
+                                 // Speed (e.g. 2.25/s) averages correctly over many cycles instead of rounding every one
+        // What the contact-frame correction needs to re-derive the swing from its ACTUAL target (normal swings only):
+        float carryBeforeSwing;  // speedCarryTicks before this swing's cycle was taken from it
+        int swingWindUpTicks;    // wind-up already spent when contact happens
+        int swingDuration;       // held item's swing animation duration at swing start
+        boolean swingProfiled;
     }
 
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
@@ -63,6 +77,14 @@ public final class PlayerMiningManager {
         // Persisted cracks must reach a player the moment they (re)appear, not at the next sweep.
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> BlockDamageStorage.syncTo(handler.getPlayer()));
         ServerPlayerEvents.AFTER_RESPAWN.register((old, player, alive) -> BlockDamageStorage.syncTo(player));
+        // Old-save reconciliation that needs no position (records only, never the world); the rest is lazy.
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            for (ServerLevel level : server.getAllLevels()) {
+                int removed = BlockDamageStorage.get(level).reconcileRecords();
+                if (removed > 0) zcylas.totality.Totality.LOGGER.info("[BlockDamage] {}: dropped {} Integrity record(s) no longer valid for their block",
+                        level.dimension().identifier(), removed);
+            }
+        });
     }
 
     /** Test hook: the force the server has queued for this player's next power swing, or -1. */
@@ -73,6 +95,25 @@ public final class PlayerMiningManager {
 
     /** Test seam: sees every body-strain amount the moment the server applies it (test fake players are invulnerable). */
     static java.util.function.BiConsumer<ServerPlayer, Float> bodyStrainObserver;
+
+    /** Test seam: fires once per real contact FRAME (WINDUP completing and {@link #contact} running,
+     *  regardless of strike outcome), AFTER the strike — lets tests drive the actual tick-by-tick
+     *  state machine ({@link #debugTick}) and measure real contact-to-contact tick spacing, rather
+     *  than re-deriving it from the pure {@code MiningTuning}/{@code MiningSpeedCalculator} formulas. */
+    static Runnable contactFrameObserver;
+
+    /**
+     * Test seam: runs exactly one tick of the real scheduling state machine ({@link #tickSession})
+     * directly for {@code player} — creating its {@link Session} on first use exactly like a real
+     * intent would. A fake test player is never registered in the server's real
+     * {@code PlayerList}, so the production {@link #tick} (which looks players up there) can never
+     * drive one; this calls the exact same per-player transition logic {@link #tick} calls,
+     * skipping only the PlayerList existence/liveness lookup and the unrelated block-damage sweep.
+     */
+    static void debugTickPlayer(ServerPlayer player) {
+        Session s = SESSIONS.computeIfAbsent(player.getUUID(), id -> new Session());
+        tickSession(player, s);
+    }
 
     static void forget(ServerPlayer player) { SESSIONS.remove(player.getUUID()); }
 
@@ -94,6 +135,7 @@ public final class PlayerMiningManager {
                 if (s != null) s.holding = false;
             }
             case POWER_START -> {
+                if (MiningTier.excludedFromPowerMining(player.getMainHandItem())) return;   // Swords/Shears: no Power Mining
                 Session s = SESSIONS.computeIfAbsent(player.getUUID(), id -> new Session());
                 s.powerStartTick = player.level().getGameTime();
             }
@@ -104,6 +146,7 @@ public final class PlayerMiningManager {
                 long held = player.level().getGameTime() - s.powerStartTick;
                 s.powerStartTick = -1;
                 if (held > MiningTuning.MAX_POWER_HOLD_TICKS) return;
+                if (MiningTier.excludedFromPowerMining(player.getMainHandItem())) return;   // swapped to a Sword/Shears mid-hold
                 s.queuedForce = MiningTuning.meterValue(held);
             }
             case POWER_CANCEL -> {
@@ -139,31 +182,7 @@ public final class PlayerMiningManager {
 
     private static void tickSession(ServerPlayer player, Session s) {
         switch (s.phase) {
-            case IDLE -> {
-                boolean power = s.queuedForce >= 0f;
-                if (!power && !s.holding && !s.startRequested) return;
-                BlockHitResult target = pickBlock(player);
-                s.startRequested = false;
-                if (target == null || !ownsMining(player, (ServerLevel) player.level(), target.getBlockPos())) {
-                    if (power) s.queuedForce = -1f;          // nothing to swing at: drop the request
-                    return;
-                }
-                s.swingIsPower = power;
-                s.swingForce = power ? s.queuedForce : 0f;
-                s.queuedForce = -1f;
-                int duration = player.getMainHandItem().getSwingAnimation().duration();
-                // Cadence is the only place the vanilla break-speed stack (Efficiency/Haste/Fatigue...) matters,
-                // and a deliberate power swing is never sped up or slowed down by it.
-                float cadence = power ? 1f
-                        : PlayerMiningPower.cadenceRatio(player, ((ServerLevel) player.level()).getBlockState(target.getBlockPos()));
-                s.ticksLeft = MiningTuning.windUpTicks(duration, power, cadence);
-                s.recoveryTicks = power ? MiningTuning.RECOVERY_TICKS : MiningTuning.recoveryTicks(cadence);
-                s.swingSource = player.getMainHandItem().copy();
-                if (!power) ServerPlayNetworking.send(player,
-                        new zcylas.totality.networking.mining.MiningSwingPayload(s.ticksLeft, s.recoveryTicks));
-                s.phase = Phase.WINDUP;
-                player.swing(InteractionHand.MAIN_HAND, true);
-            }
+            case IDLE -> tryStartSwing(player, s);
             case WINDUP -> {
                 if (--s.ticksLeft > 0) return;
                 contact(player, s);
@@ -171,14 +190,118 @@ public final class PlayerMiningManager {
                 s.ticksLeft = s.recoveryTicks;
             }
             case RECOVERY -> {
-                if (--s.ticksLeft <= 0) s.phase = Phase.IDLE;
+                if (--s.ticksLeft <= 0) {
+                    s.phase = Phase.IDLE;
+                    // Start the next swing in THIS SAME tick, not the next server tick: a fresh
+                    // IDLE tick that does nothing but transition to WINDUP would otherwise add one
+                    // dead tick per cycle (a nominal N-tick cycle contacting every N+1 ticks),
+                    // silently breaking the authored Mining Speed contact-to-contact cadence.
+                    tryStartSwing(player, s);
+                }
             }
         }
     }
 
+    /**
+     * Attempts to begin a new swing right now — called from a fresh IDLE tick, or immediately
+     * after RECOVERY completes in the same tick (see {@link #tickSession}'s RECOVERY case). Server
+     * authority, the fresh re-raycast, the source snapshot, and the normal-swing animation payload
+     * are unchanged from before this was extracted; only WHEN this logic runs changed.
+     */
+    private static void tryStartSwing(ServerPlayer player, Session s) {
+        boolean power = s.queuedForce >= 0f;
+        if (!power && !s.holding && !s.startRequested) return;
+        BlockHitResult target = pickBlock(player);
+        s.startRequested = false;
+        if (target == null || !ownsMining(player, (ServerLevel) player.level(), target.getBlockPos())) {
+            if (power) s.queuedForce = -1f;          // nothing to swing at: drop the request
+            return;
+        }
+        ItemStack heldTool = player.getMainHandItem();
+        if (power && MiningTier.excludedFromPowerMining(heldTool)) {
+            // A Power swing queued with another source can never be released through a Sword/Shears: drop it.
+            s.queuedForce = -1f;
+            return;
+        }
+        s.swingIsPower = power;
+        s.swingForce = power ? s.queuedForce : 0f;
+        s.queuedForce = -1f;
+        int duration = heldTool.getSwingAnimation().duration();
+        if (power) {
+            // A deliberate power swing is never sped up or slowed down by cadence.
+            s.ticksLeft = MiningTuning.windUpTicks(duration, true, 1f);
+            s.recoveryTicks = MiningTuning.RECOVERY_TICKS;
+        } else {
+            BlockState targetState = ((ServerLevel) player.level()).getBlockState(target.getBlockPos());
+            var profile = MiningSourceProfile.resolve(heldTool);
+            s.swingProfiled = profile.isPresent();
+            s.swingDuration = duration;
+            s.carryBeforeSwing = s.speedCarryTicks;
+            if (profile.isPresent()) {
+                scheduleProfiledCycle(player, s, heldTool, targetState, duration);
+            } else {
+                // Legacy cadence (bare hands, swords, shears, any other non-profiled tool) — UNCHANGED from V1.
+                float cadence = PlayerMiningPower.cadenceRatio(player, targetState);
+                s.ticksLeft = MiningTuning.windUpTicks(duration, false, cadence);
+                s.recoveryTicks = MiningTuning.recoveryTicks(cadence);
+            }
+            s.swingWindUpTicks = s.ticksLeft;
+        }
+        s.swingSource = heldTool.copy();
+        if (!power) ServerPlayNetworking.send(player,
+                new zcylas.totality.networking.mining.MiningSwingPayload(s.ticksLeft, s.recoveryTicks));
+        s.phase = Phase.WINDUP;
+        player.swing(InteractionHand.MAIN_HAND, true);
+    }
+
+    /**
+     * Normal-swing timing for a PROFILED tool: total cycle ticks come from its authored/Efficiency/Haste/
+     * environment Mining Speed (§6-8) instead of the legacy {@code cadenceRatio}. A small carry-over
+     * accumulator on the session keeps fractional authored speeds (2.25/s, 2.4/s...) averaging correctly
+     * over many cycles rather than silently rounding every single one. The windUp/recovery split within
+     * that total preserves the existing swing-duration-based proportion (cadence-aware animation, §13).
+     */
+    private static void scheduleProfiledCycle(ServerPlayer player, Session s, ItemStack tool, BlockState state, int duration) {
+        MiningCadence.Cycle cycle = profiledCycle(player, s.speedCarryTicks, tool, state, duration);
+        s.speedCarryTicks = cycle.carry();
+        s.ticksLeft = cycle.windUpTicks();
+        s.recoveryTicks = cycle.recoveryTicks();
+    }
+
+    private static MiningCadence.Cycle profiledCycle(ServerPlayer player, float carry, ItemStack tool, BlockState state, int duration) {
+        ResolvedMiningSource source = ResolvedMiningSource.of(tool, state);
+        float speed = PlayerMiningPower.effectiveMiningSpeed(player, tool, state, source);
+        return MiningCadence.profiled(carry, MiningCadence.idealTicks(speed), MiningTuning.windUpTicks(duration, false, 1f));
+    }
+
     /** The contact frame: fresh raycast, then exactly one impact if (and only if) a block is really hit. */
     private static void contact(ServerPlayer player, Session s) {
-        contactNow(player, s.swingIsPower, s.swingForce, s.swingSource);
+        contactNow(player, s.swingIsPower, s.swingForce, s.swingSource,
+                s.swingIsPower ? null : actual -> correctRecovery(player, s, actual));
+        if (contactFrameObserver != null) contactFrameObserver.run();
+    }
+
+    /**
+     * Stale-target cadence correction: the swing was timed from the block under the crosshair at swing start, but
+     * it struck {@code actual}. The wind-up already happened (contact moment unchanged); the remaining recovery is
+     * re-derived so the whole swing lasts the cycle of the ACTUAL target, with the fractional carry rewound to
+     * before this swing so long-run averages stay exact. Runs before the strike, so it sees the block (and the
+     * tool) as struck. Misses, voided swings and Power swings never get here and keep their scheduled cycle.
+     */
+    private static void correctRecovery(ServerPlayer player, Session s, BlockState actual) {
+        ItemStack tool = player.getMainHandItem();
+        int cycleTicks;
+        if (s.swingProfiled) {
+            MiningCadence.Cycle cycle = profiledCycle(player, s.carryBeforeSwing, tool, actual, s.swingDuration);
+            s.speedCarryTicks = cycle.carry();
+            cycleTicks = cycle.cycleTicks();
+        } else {
+            cycleTicks = MiningTuning.cycleTicks(s.swingDuration, PlayerMiningPower.cadenceRatio(player, actual));
+        }
+        int recovery = MiningCadence.correctedRecovery(s.swingWindUpTicks, cycleTicks);
+        if (recovery == s.recoveryTicks) return;
+        s.recoveryTicks = recovery;
+        ServerPlayNetworking.send(player, new zcylas.totality.networking.mining.MiningRecoveryPayload(recovery));
     }
 
     /** Is {@code current} still the source that began the swing? See {@link MiningSourceIdentity}. */
@@ -189,6 +312,13 @@ public final class PlayerMiningManager {
     /** @return the result, or null when the swing missed (no block hit / obstructed / not owned) */
     @Nullable
     static MiningResult contactNow(ServerPlayer player, boolean power, float force, ItemStack swingSource) {
+        return contactNow(player, power, force, swingSource, null);
+    }
+
+    /** @param onActualTarget told the block really hit, just before it is struck (null: nothing to tell) */
+    @Nullable
+    private static MiningResult contactNow(ServerPlayer player, boolean power, float force, ItemStack swingSource,
+                                           @Nullable Consumer<BlockState> onActualTarget) {
         // The swing was started by one source; if the hand now holds a different one, that swing is void:
         // no damage, wear, stress, crack, text or break. (The next swing starts with the new item's own properties.)
         if (!sameSource(swingSource, player.getMainHandItem())) return null;
@@ -196,6 +326,7 @@ public final class PlayerMiningManager {
         if (hit == null) return null;                              // the swing missed
         ServerLevel level = (ServerLevel) player.level();
         if (!ownsMining(player, level, hit.getBlockPos())) return null;
+        if (onActualTarget != null) onActualTarget.accept(level.getBlockState(hit.getBlockPos()));
         return strike(player, hit, power, force);
     }
 
@@ -211,10 +342,11 @@ public final class PlayerMiningManager {
         BlockState state = level.getBlockState(pos);
         ItemStack tool = player.getMainHandItem();
 
-        PlayerMiningPower.Result r = PlayerMiningPower.compute(player, state, force);
+        // The manager already knows whether this is a Power swing — never re-inferred from force>0
+        // (a legitimate Power release can land at force exactly 0; see PlayerMiningPower.compute).
+        PlayerMiningPower.Result r = PlayerMiningPower.compute(player, state, power, force);
         boolean toolSource = r.kind() == MiningSource.Kind.PLAYER_TOOL;
-        boolean overloaded = power && toolSource && r.forceLoad() > MiningTuning.forceTolerance(tool);
-        int band = power ? MiningTuning.presentationBand(force, overloaded) : 0;
+        int band = r.band();
 
         MiningImpact impact = new MiningImpact(pos, hit.getDirection(), hit.getLocation(), r.damage(), r.tier(),
                 MiningSource.of(r.kind(), player), band);
@@ -223,7 +355,10 @@ public final class PlayerMiningManager {
         if (toolSource) {
             int wear = MiningTuning.baseWear(result.outcome(), tool);
             boolean effective = result.outcome() == MiningResult.Outcome.DAMAGED || result.outcome() == MiningResult.Outcome.BROKEN;
-            int stress = power && effective ? MiningTuning.toolStress(tool, r.forceLoad()) : 0;
+            // Profiled tools: new zone-based STR extra wear (§3). Non-profiled (swords, shears...): the old Force Stress formula, unchanged.
+            int stress = power && effective
+                    ? (r.profiled() ? MiningTuning.powerZoneExtraWear(band, r.strModifier()) : MiningTuning.toolStress(tool, r.forceLoad()))
+                    : 0;
             if (wear + stress > 0) tool.hurtAndBreak(wear + stress, player, EquipmentSlot.MAINHAND);
         }
         if (power && !toolSource) {

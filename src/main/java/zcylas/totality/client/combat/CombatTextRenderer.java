@@ -78,14 +78,20 @@ public final class CombatTextRenderer {
         return ColorUtils.setAlpha(dimmed, (int)(alpha * 255));
     }
 
-    /** Structural damage colour by presentation band: default, then increasingly bright/hot Power force, then danger red. */
+    /**
+     * Structural damage colour by presentation band (playtest-correction pass §13): an ordinary,
+     * non-Power hit ({@code MiningTuning.BAND_DEFAULT}, 0) is now WHITE, not the old yellow-ish
+     * default — and a genuine Power swing's colour always matches its resolved
+     * WHITE/GREEN/ORANGE/RED band exactly, never guessed independently from charge timing on the
+     * client. Orange/Red are unchanged from before this pass.
+     */
     private static int blockDamageColor(int band) {
         return switch (band) {
-            case 1 -> 0xF2D88A;
-            case 2 -> 0xFFC24A;
-            case 3 -> 0xFF8A2A;
-            case 4 -> 0xFF3030;
-            default -> 0xE8C46A;
+            case 1 -> 0xFFFFFF;   // MiningTuning.BAND_WHITE — released too weak for a Power bonus
+            case 2 -> 0x6BE05A;   // MiningTuning.BAND_GREEN
+            case 3 -> 0xFF8A2A;   // MiningTuning.BAND_ORANGE — unchanged
+            case 4 -> 0xFF3030;   // MiningTuning.BAND_RED — unchanged
+            default -> 0xFFFFFF;  // MiningTuning.BAND_DEFAULT — an ordinary, non-Power hit is now WHITE
         };
     }
 

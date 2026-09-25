@@ -54,7 +54,7 @@ public final class CrownOfStarsActiveInstanceActionVerification {
     private CrownOfStarsActiveInstanceActionVerification() {}
 
     public static void register() {
-        if (!VerificationReporter.isDevEnvironment()) return;
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         // Never in a static initializer — see StandardSpellSlotMigrationVerification's own
         // established precedent for why: a static block would run unconditionally as soon as this
         // class is loaded, regardless of isDevEnvironment().
@@ -71,6 +71,7 @@ public final class CrownOfStarsActiveInstanceActionVerification {
         ServerLevel level = server.overworld();
 
         ServerPlayer wizard = TotalityFakePlayer.create(level, "[CrownOfStarsActiveInstanceActionVerification-wizard]");
+        int boltsRemoved = 0;
         try {
             UUID uuid = wizard.getUUID();
             // Class level 13: SpellSlotTable.FULL_CASTER row 13 tier 7 = 1 — exactly one 7th-level
@@ -193,8 +194,20 @@ public final class CrownOfStarsActiveInstanceActionVerification {
                 return result(pass, "before=" + before + ", after=" + after);
             });
         } finally {
+            // Firing a mote adds a real SpellBoltEntity to the world. In this suite's non-entity-ticking chunk the
+            // bolts never tick (so never expire) and were saved into the world. Remove exactly the bolts this
+            // suite's own wizard owns — before the wizard itself is discarded — and nothing else.
+            for (var e : com.google.common.collect.Lists.newArrayList(level.getAllEntities())) {   // copy: discard() while iterating
+                if (e instanceof zcylas.totality.entity.magic.SpellBoltEntity bolt && !bolt.isRemoved() && bolt.getOwner() == wizard) {
+                    bolt.discard();
+                    boltsRemoved++;
+                }
+            }
             wizard.discard();
         }
+        r.check("cleanup: every spell bolt fired by this suite's wizard (" + CrownOfStarsSpell.TOTAL_MOTES
+                        + " motes) was found and removed", boltsRemoved == CrownOfStarsSpell.TOTAL_MOTES,
+                "removed=" + boltsRemoved);
 
         r.summarize();
     }

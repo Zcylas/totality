@@ -2,6 +2,8 @@ package zcylas.totality.client.tooltip.contributor;
 
 import zcylas.totality.api.magic.grimoire.GrimoireCaster;
 import zcylas.totality.api.magic.grimoire.MagicComponents;
+import zcylas.totality.client.tooltip.group.TooltipGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroups;
 import zcylas.totality.client.tooltip.TooltipContext;
 import zcylas.totality.client.tooltip.TooltipVisibility;
 import zcylas.totality.client.tooltip.section.TooltipSection;
@@ -58,5 +60,10 @@ public final class GrimoireContributor implements TooltipContributor {
             case 5 -> "V";
             default -> String.valueOf(number);
         };
+    }
+
+    @Override
+    public TooltipGroup bodyGroup(TooltipContext ctx) {
+        return TooltipGroups.MAGIC;
     }
 }

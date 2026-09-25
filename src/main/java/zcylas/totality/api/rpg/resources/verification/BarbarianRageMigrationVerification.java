@@ -44,7 +44,7 @@ public final class BarbarianRageMigrationVerification {
     private BarbarianRageMigrationVerification() {}
 
     public static void register() {
-        if (!VerificationReporter.isDevEnvironment()) return;
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         ServerLifecycleEvents.SERVER_STARTED.register(BarbarianRageMigrationVerification::scheduleDelayed);
     }
 

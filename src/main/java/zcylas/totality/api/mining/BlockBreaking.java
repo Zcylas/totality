@@ -34,8 +34,13 @@ public final class BlockBreaking {
             purge(storage, pos, state);
             return MiningResult.of(MiningResult.Outcome.INVALID);
         }
-        BlockDurability.Resolved durability = BlockDurability.resolve(level, pos, state);
-        if (durability.unbreakable()) return MiningResult.of(MiningResult.Outcome.INVALID);
+        // Integrity is owned by the assembly owner (e.g. a door's lower half), whose profile is the assembly's.
+        BlockPos owner = BlockProfiles.integrityOwner(level, pos, state);
+        BlockState ownerState = owner.equals(pos) ? state : level.getBlockState(owner);
+        BlockProfile.Resolved profile = BlockProfiles.resolve(level, owner, ownerState);
+        // Only ORDINARY blocks hold finite Integrity; SPECIAL/UNBREAKABLE/NOT_APPLICABLE are never struck.
+        if (!profile.ordinary()) return MiningResult.of(MiningResult.Outcome.INVALID);
+        BlockDurability.Resolved durability = new BlockDurability.Resolved(profile.maxDurability(), profile.requiredTier());
 
         Entity actor = impact.source().actor();
         ServerPlayer player = actor instanceof ServerPlayer sp ? sp : null;
@@ -53,11 +58,11 @@ public final class BlockBreaking {
         if (impact.tier() < durability.requiredTier()) {
             MiningFeedback.contact(level, state, impact.hitLocation());
             MiningFeedback.ineffectiveText(level, impact.hitLocation());
-            return new MiningResult(MiningResult.Outcome.INEFFECTIVE, 0, currentOrMax(storage, pos, state, durability, level), durability.max());
+            return new MiningResult(MiningResult.Outcome.INEFFECTIVE, 0, currentOrMax(storage, owner, ownerState, durability, level), durability.max());
         }
 
         long now = level.getGameTime();
-        Entry entry = storage.get(pos, state);
+        Entry entry = storage.get(owner, ownerState);
         float before = entry != null ? entry.currentIntegrity(now) : durability.max();
         float applied = Math.min(impact.damage(), before);
         float after = before - impact.damage();
@@ -66,7 +71,7 @@ public final class BlockBreaking {
         MiningFeedback.damageText(level, impact.hitLocation(), impact.damage(), impact.presentationBand());
 
         if (after > 0f) {
-            if (entry == null) entry = storage.create(pos, state, durability.max(), now);
+            if (entry == null) entry = storage.create(owner, ownerState, durability.max(), now);
             storage.update(entry, after, now);
             return new MiningResult(MiningResult.Outcome.DAMAGED, applied, after, durability.max());
         }
@@ -80,7 +85,7 @@ public final class BlockBreaking {
             return new MiningResult(MiningResult.Outcome.BROKEN, applied, 0, durability.max());
         }
         // Refused: keep the block, leave it one impact from breaking. No bypass.
-        if (entry == null) entry = storage.create(pos, state, durability.max(), now);
+        if (entry == null) entry = storage.create(owner, ownerState, durability.max(), now);
         storage.update(entry, Math.min(MiningTuning.DENIED_BREAK_INTEGRITY, durability.max()), now);
         return new MiningResult(MiningResult.Outcome.DENIED, applied, entry.integrity, durability.max());
     }

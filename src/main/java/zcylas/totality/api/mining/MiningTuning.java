@@ -183,23 +183,45 @@ public final class MiningTuning {
         return outcome == MiningResult.Outcome.DAMAGED && tool.isDamageableItem() ? BASE_WEAR_PER_IMPACT : 0;
     }
 
-    // ── Power force bands: ONE mapping, used by text presentation, bare-hand body strain and the future HUD ──
+    // ── Power force bands: ONE mapping, used by text presentation, bare-hand body strain and the HUD ──
+    /**
+     * Four REAL Power Mining presentation/result bands (playtest-correction pass, §11-12) plus
+     * {@link #BAND_DEFAULT} for an ordinary, non-Power swing (which never goes through this
+     * function — {@code PlayerMiningPower} assigns it directly). A genuine Power swing always
+     * resolves to WHITE/GREEN/ORANGE/RED, never {@code BAND_DEFAULT}:
+     * <ul>
+     *   <li><b>WHITE</b> — released too weak to earn a Power bonus (including force exactly 0 — a
+     *       legitimate Power release can land there; see {@link PlayerMiningPower#compute}). Normal
+     *       Mining Damage, no STR bonus, no extra wear. NOT a miss — still a real, damaging hit.</li>
+     *   <li><b>GREEN</b> — normal Mining Damage + 1x STR modifier, no extra wear.</li>
+     *   <li><b>ORANGE</b> — + 2x STR modifier, extra wear = max(0, 1x STR modifier).</li>
+     *   <li><b>RED</b> — + 5x STR modifier, extra wear = max(0, 5x STR modifier).</li>
+     * </ul>
+     * WHITE/GREEN boundary reuses the pre-existing {@code LOW_FORCE_MAX} value (0.35) — the
+     * smallest conservative choice, since a real White/Green split already existed in the force
+     * thresholds (the old BAND_LOW/BAND_MID split), only the STR-bonus code hadn't been separating
+     * them; see {@link #powerZoneDamageBonus}. GREEN/ORANGE and ORANGE/RED boundaries
+     * ({@code GREEN_ZONE_MAX} = 0.65, {@link #RED_ZONE} = 0.8) are UNCHANGED from before this pass.
+     */
     public static final int BAND_DEFAULT = 0;   // normal mining (no Power force)
-    public static final int BAND_LOW = 1;       // force  0 .. LOW_FORCE_MAX      "safe"
-    public static final int BAND_MID = 2;       // force LOW_FORCE_MAX .. MID_FORCE_MAX   "safe"
-    public static final int BAND_ORANGE = 3;    // force MID_FORCE_MAX .. RED_ZONE        "orange"
-    public static final int BAND_RED = 4;       // force >= RED_ZONE, or a tool overloaded   "red / danger"
-    public static final float LOW_FORCE_MAX = 0.35f;
-    public static final float MID_FORCE_MAX = 0.65f;
-    /* ORANGE begins at MID_FORCE_MAX (0.65) and RED begins at RED_ZONE (0.8). Boundaries are PROVISIONAL. */
+    public static final int BAND_WHITE = 1;     // force  0 .. WHITE_ZONE_MAX        "released too weak"
+    public static final int BAND_GREEN = 2;     // force WHITE_ZONE_MAX .. GREEN_ZONE_MAX   "safe bonus"
+    public static final int BAND_ORANGE = 3;    // force GREEN_ZONE_MAX .. RED_ZONE          "orange"
+    public static final int BAND_RED = 4;       // force >= RED_ZONE, or a tool overloaded    "red / danger"
+    public static final float WHITE_ZONE_MAX = 0.35f;
+    public static final float GREEN_ZONE_MAX = 0.65f;
 
-    /** Band of a force 0..1 (a tool that is overloaded is always RED). Presentation AND body-strain classification. */
+    /**
+     * Band of a force 0..1 (a tool that is overloaded is always RED). Presentation, zone-STR AND
+     * body-strain classification. Only ever called for a genuine Power swing ({@code power == true}
+     * at every call site) — force exactly 0 therefore resolves to WHITE, not {@link #BAND_DEFAULT}
+     * (which a non-Power swing gets directly, without going through this function at all).
+     */
     public static int presentationBand(float force, boolean overloaded) {
         float f = clamp01(force);
         if (overloaded || f >= RED_ZONE) return BAND_RED;
-        if (f <= 0f) return BAND_DEFAULT;
-        if (f < LOW_FORCE_MAX) return BAND_LOW;
-        if (f < MID_FORCE_MAX) return BAND_MID;
+        if (f < WHITE_ZONE_MAX) return BAND_WHITE;
+        if (f < GREEN_ZONE_MAX) return BAND_GREEN;
         return BAND_ORANGE;
     }
 
@@ -219,6 +241,51 @@ public final class MiningTuning {
             default -> 0f;
         };
     }
+
+    // ── Power Mining zone-based STR (V2 authored tools only; §3 of the balance pass) ───────────
+    /** Mining Damage multiplier on the STR modifier per zone: WHITE x0 (no bonus at all — released
+     *  too weak), GREEN x1, ORANGE x2, RED x5 (playtest-correction pass, §11: WHITE and GREEN used
+     *  to collapse into the same x1 "safe" bonus here — this is what actually separates them).
+     *  Replaces the old generic "1 + force" multiplier for PROFILED tools only; non-profiled tools
+     *  (Gold, bare hands) keep using {@link #powerDamageMultiplier} unchanged. */
+    public static final int STR_ZONE_WHITE = 0;
+    public static final int STR_ZONE_GREEN = 1;
+    public static final int STR_ZONE_ORANGE = 2;
+    public static final int STR_ZONE_RED = 5;
+
+    /** Extra-wear multiplier on the STR modifier per zone — DELIBERATELY not the same numbers as the
+     *  damage multiplier above: WHITE/GREEN never wear the tool extra, ORANGE is x1 (not x2), RED is x5. */
+    private static final int STR_ZONE_WEAR_ORANGE = 1;
+    private static final int STR_ZONE_WEAR_RED = 5;
+
+    private static int strZoneDamageMultiplier(int band) {
+        return switch (band) {
+            case BAND_RED -> STR_ZONE_RED;
+            case BAND_ORANGE -> STR_ZONE_ORANGE;
+            case BAND_GREEN -> STR_ZONE_GREEN;
+            default -> STR_ZONE_WHITE;   // BAND_WHITE (released too weak) and BAND_DEFAULT (non-power): no bonus
+        };
+    }
+
+    /** Power Mining Mining Damage bonus for a profiled tool: zoneMultiplier x STR modifier (can be negative). */
+    public static float powerZoneDamageBonus(int band, int strModifier) {
+        return strZoneDamageMultiplier(band) * strModifier;
+    }
+
+    /** Extra tool durability for a profiled tool's Power impact: WHITE/GREEN never wear the tool extra;
+     *  ORANGE costs 1x STR modifier, RED costs 5x, clamped so a negative STR modifier never repairs it. */
+    public static int powerZoneExtraWear(int band, int strModifier) {
+        int mult = switch (band) {
+            case BAND_RED -> STR_ZONE_WEAR_RED;
+            case BAND_ORANGE -> STR_ZONE_WEAR_ORANGE;
+            default -> 0;
+        };
+        return Math.max(0, mult * strModifier);
+    }
+
+    // ── Mining Speed cap (V2; §8 of the balance pass) ───────────────────────────────────────────
+    /** Usable Mining Speed never exceeds this — exactly the 2-tick ordinary-swing floor (20 ticks/s / 10). */
+    public static final float SPEED_CAP = 10f;
 
     // ── Recovery (lazy, timestamp based). Exact policy is NOT decided. PROVISIONAL. ──────────
     /** Ticks after the last impact before integrity starts to recover. */

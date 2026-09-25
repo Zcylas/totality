@@ -143,12 +143,15 @@ public final class VanillaDamageInterceptor {
 
                 WeaponDataResolver.Resolved data = WeaponDataResolver.resolve(player, entity, weapon, baseRollType);
 
-                String weaponName = weapon.isEmpty()
-                        ? "Unarmed Strike" : weapon.getHoverName().getString();
-
+                // Melee-weapon-durability review pass: CombatResolver now takes the real weapon
+                // stack (not merely its display name) and applies the standard vanilla,
+                // enchantment-aware durability cost itself on a confirmed hit — see
+                // CombatResolver#resolveAttack's own Javadoc. This is what restores
+                // Pickaxe/Axe/Shovel (and any other DataComponents.WEAPON-bearing item) durability
+                // loss on a landed melee hit.
                 CombatResolver.resolveAttack(player, entity,
                         data.ability(), data.proficient(), data.rollType(),
-                        data.diceCount(), data.damageDie(), data.damageType(), weaponName);
+                        data.diceCount(), data.damageDie(), data.damageType(), weapon, net.minecraft.world.entity.EquipmentSlot.MAINHAND);
 
                 // Dual-wield power attack: both weapons strike together as one finisher.
                 // Normal attacks don't auto-mirror the offhand — that's RMB-triggered
@@ -157,11 +160,11 @@ public final class VanillaDamageInterceptor {
                     ItemStack offWeapon = player.getOffhandItem();
                     WeaponDataResolver.Resolved offData =
                             WeaponDataResolver.resolve(player, entity, offWeapon, RollType.ADVANTAGE);
+                    // The old hard-coded "offWeapon.hurtAndBreak(1, ...)" here (regardless of hit
+                    // or miss, and never respecting the weapon's own real per-attack cost) is gone
+                    // — resolveAttack now applies the correct, hit-gated, Unbreaking-aware amount.
                     CombatResolver.resolveAttack(player, entity, offData.ability(), offData.proficient(), offData.rollType(),
-                            offData.diceCount(), offData.damageDie(), offData.damageType(), offWeapon.getHoverName().getString());
-                    if (!offWeapon.isEmpty()) {
-                        offWeapon.hurtAndBreak(1, player, net.minecraft.world.entity.EquipmentSlot.OFFHAND);
-                    }
+                            offData.diceCount(), offData.damageDie(), offData.damageType(), offWeapon, net.minecraft.world.entity.EquipmentSlot.OFFHAND);
                 }
 
                 return false;

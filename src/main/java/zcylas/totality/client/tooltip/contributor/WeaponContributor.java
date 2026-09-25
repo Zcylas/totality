@@ -2,6 +2,8 @@ package zcylas.totality.client.tooltip.contributor;
 
 import zcylas.totality.api.rpg.combat.weapon.TotalityWeaponItem;
 import zcylas.totality.api.rpg.combat.weapon.WeaponType;
+import zcylas.totality.client.tooltip.group.TooltipGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroups;
 import zcylas.totality.client.tooltip.TooltipContext;
 import zcylas.totality.client.tooltip.TotalityIcons;
 import zcylas.totality.client.tooltip.section.TooltipSection;
@@ -31,7 +33,6 @@ public final class WeaponContributor implements TooltipContributor {
         if (!(ctx.stack().getItem() instanceof TotalityWeaponItem weapon)) return List.of();
 
         List<TooltipSection> sections = new ArrayList<>();
-        sections.add(new TooltipSection.Heading("Weapon"));
 
         String dice = weapon.getDiceCount() + weapon.getDamageDie().getLabel();
         String damageType = capitalize(weapon.getDamageType().getId().getPath());
@@ -68,5 +69,10 @@ public final class WeaponContributor implements TooltipContributor {
     private static String capitalize(String path) {
         if (path.isEmpty()) return path;
         return Character.toUpperCase(path.charAt(0)) + path.substring(1);
+    }
+
+    @Override
+    public TooltipGroup bodyGroup(TooltipContext ctx) {
+        return TooltipGroups.COMBAT;
     }
 }

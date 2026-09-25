@@ -15,6 +15,9 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import zcylas.totality.client.renderer.gui.TotalityGuiGraphics;
 
 @Environment(EnvType.CLIENT)
@@ -26,6 +29,44 @@ public abstract class GuiGraphicsExtractorMixin implements TotalityGuiGraphics {
     @Shadow @Final public GuiGraphicsExtractor.ScissorStack scissorStack;
 
     @Shadow public abstract Matrix3x2fStack pose();
+
+    /**
+     * JEI z-order fix (playtest-correction pass, §18): the Totality tooltip panel used to be
+     * painted immediately inside {@code AbstractContainerScreenMixin#onSetTooltip}, which runs
+     * mid-screen-render — the same "main content" render stratum overlay mods like JEI's ingredient
+     * panel paint into, so a later-drawn overlay could cover it. Vanilla's OWN tooltip never has
+     * this problem because {@code setTooltipForNextFrame} only stores a {@code Runnable} and the
+     * real draw happens later, from {@link #totality$flushDeferredTooltip}, in the same dedicated
+     * topmost stratum {@code extractDeferredElements} already uses for vanilla's tooltip (see its
+     * {@code nextStratum()} call — a screen's own render state is layered in strata, later strata
+     * always drawn over earlier ones, regardless of insertion order within a stratum). Totality's
+     * tooltip now uses that exact same mechanism instead of a parallel, earlier one, so it gets the
+     * identical "always on top of ordinary screen content" guarantee vanilla tooltips already have.
+     */
+    @Unique
+    private Runnable totality$deferredTooltip;
+
+    @Override @Unique
+    public void totality$deferTooltip(Runnable render) {
+        this.totality$deferredTooltip = render;
+    }
+
+    /**
+     * Mirrors vanilla's own {@code deferredTooltip} handling immediately above this injection
+     * point in {@code extractDeferredElements}: one more {@code nextStratum()} call, then run and
+     * clear. Vanilla's block and this one are mutually exclusive per hover target — Totality's
+     * redirect in {@code AbstractContainerScreenMixin} never calls {@code setTooltipForNextFrame}
+     * when it is about to show its own panel, so the two can never fire for the same tooltip.
+     */
+    @Inject(method = "extractDeferredElements", at = @At("TAIL"))
+    private void totality$flushDeferredTooltip(int mouseX, int mouseY, float a, CallbackInfo ci) {
+        if (this.totality$deferredTooltip != null) {
+            this.as().nextStratum();
+            Runnable render = this.totality$deferredTooltip;
+            this.totality$deferredTooltip = null;
+            render.run();
+        }
+    }
 
     @Override @Unique
     public GuiGraphicsExtractor as() {

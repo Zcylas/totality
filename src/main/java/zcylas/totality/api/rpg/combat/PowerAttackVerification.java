@@ -40,6 +40,7 @@ public final class PowerAttackVerification {
     private PowerAttackVerification() {}
 
     public static void register() {
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         ServerLifecycleEvents.SERVER_STARTED.register(PowerAttackVerification::runSelfTestIfDev);
     }
 
@@ -88,7 +89,7 @@ public final class PowerAttackVerification {
     private static void checkInvulnerableTargetRejectedByAttackerLegality(
             VerificationReporter r, ServerPlayer player, MinecraftServer server) {
         safe(r, "An invulnerable target is never attacker-legal, spending no Stamina", () -> {
-            Zombie zombie = new Zombie(EntityTypes.ZOMBIE, server.overworld());
+            Zombie zombie = zcylas.totality.api.core.util.VerificationMobs.lootlessZombie(server.overworld());
             zombie.setPos(player.getX() + 2, player.getY(), player.getZ());
             zombie.setInvulnerable(true);
             try {
@@ -104,7 +105,7 @@ public final class PowerAttackVerification {
             VerificationReporter r, ServerPlayer player, MinecraftServer server) {
         safe(r, "An ordinary attackable mob remains attacker-legal even with PvP disabled — "
                 + "no blanket restriction against neutral/allied non-player mobs is invented", () -> {
-            Zombie zombie = new Zombie(EntityTypes.ZOMBIE, server.overworld());
+            Zombie zombie = zcylas.totality.api.core.util.VerificationMobs.lootlessZombie(server.overworld());
             zombie.setPos(player.getX() + 2, player.getY(), player.getZ());
             boolean pvpBefore = server.overworld().getGameRules().get(GameRules.PVP);
             server.overworld().getGameRules().set(GameRules.PVP, false, server);
@@ -136,7 +137,7 @@ public final class PowerAttackVerification {
     private static void checkValidHostileLivingTargetPermitsPowerAttack(
             VerificationReporter r, ServerPlayer player, MinecraftServer server) {
         safe(r, "A valid hostile living target within melee reach is a legal Power Attack target", () -> {
-            Zombie zombie = new Zombie(EntityTypes.ZOMBIE, server.overworld());
+            Zombie zombie = zcylas.totality.api.core.util.VerificationMobs.lootlessZombie(server.overworld());
             zombie.setPos(player.getX() + 2, player.getY(), player.getZ());
             boolean pass = PowerAttackManager.isValidTarget(player, zombie);
             return result(pass, "isValidTarget=" + pass);
@@ -176,7 +177,7 @@ public final class PowerAttackVerification {
 
     private static void checkDeadEntityRejected(VerificationReporter r, ServerPlayer player, MinecraftServer server) {
         safe(r, "A dead/no-longer-alive entity is never a legal Power Attack target", () -> {
-            Zombie zombie = new Zombie(EntityTypes.ZOMBIE, server.overworld());
+            Zombie zombie = zcylas.totality.api.core.util.VerificationMobs.lootlessZombie(server.overworld());
             zombie.setPos(player.getX() + 2, player.getY(), player.getZ());
             zombie.hurtServer(server.overworld(), server.overworld().damageSources().generic(), 1000.0f);
             boolean pass = !PowerAttackManager.isValidTarget(player, zombie);
@@ -186,7 +187,7 @@ public final class PowerAttackVerification {
 
     private static void checkOutOfRangeEntityRejected(VerificationReporter r, ServerPlayer player, MinecraftServer server) {
         safe(r, "An entity beyond melee reach is never a legal Power Attack target", () -> {
-            Zombie zombie = new Zombie(EntityTypes.ZOMBIE, server.overworld());
+            Zombie zombie = zcylas.totality.api.core.util.VerificationMobs.lootlessZombie(server.overworld());
             zombie.setPos(player.getX() + PowerAttackManager.MELEE_TARGET_RANGE + 5, player.getY(), player.getZ());
             boolean pass = !PowerAttackManager.isValidTarget(player, zombie);
             return result(pass, "isValidTarget=" + PowerAttackManager.isValidTarget(player, zombie));
@@ -195,7 +196,7 @@ public final class PowerAttackVerification {
 
     private static void checkExactRangeBoundaryAccepted(VerificationReporter r, ServerPlayer player, MinecraftServer server) {
         safe(r, "An entity exactly at melee reach is still a legal Power Attack target (inclusive boundary)", () -> {
-            Zombie zombie = new Zombie(EntityTypes.ZOMBIE, server.overworld());
+            Zombie zombie = zcylas.totality.api.core.util.VerificationMobs.lootlessZombie(server.overworld());
             zombie.setPos(player.getX() + PowerAttackManager.MELEE_TARGET_RANGE, player.getY(), player.getZ());
             boolean pass = PowerAttackManager.isValidTarget(player, zombie);
             return result(pass, "isValidTarget=" + pass);

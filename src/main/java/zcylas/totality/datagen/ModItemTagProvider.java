@@ -158,6 +158,16 @@ public class ModItemTagProvider extends FabricTagsProvider.ItemTagsProvider {
                 .add(key(MagicItems.APPRENTICE_GRIMOIRE))
                 .add(key(MagicItems.ARCHMAGE_GRIMOIRE))
         ;
+
+        // ── Impact enchantment applicability ────────────────────────────────────
+        // Generated directly from MiningSourceProfile.participatingItems() — the exact table
+        // MiningSourceProfile.resolve() reads from — so an item can never be Impact-enchantable
+        // without also having an authored Mining Damage for Impact to add to (e.g. Gold Pickaxe/Axe
+        // are excluded because they have no authored row).
+        var miningDamageTag = builder(ModTags.ENCHANTABLE_MINING_DAMAGE);
+        for (Item item : zcylas.totality.api.mining.MiningSourceProfile.participatingItems()) {
+            miningDamageTag.add(key(item));
+        }
     }
 
     /** MC 26.2's BlockItemTagAppender.add() takes a ResourceKey, not the Item itself. */

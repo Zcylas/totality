@@ -26,6 +26,8 @@ public class ItemComponents {
             Identifier.fromNamespaceAndPath(Totality.MOD_ID, "classifications");
     public static final Identifier TOOLTIP_PROFILE_ID =
             Identifier.fromNamespaceAndPath(Totality.MOD_ID, "tooltip_profile");
+    public static final Identifier CONTENT_ORIGIN_ID =
+            Identifier.fromNamespaceAndPath(Totality.MOD_ID, "content_origin");
 
     public static DataComponentType<WeightComponent> WEIGHT;
     public static DataComponentType<RarityComponent> RARITY;
@@ -33,6 +35,7 @@ public class ItemComponents {
     public static DataComponentType<LoreComponent> LORE;
     public static DataComponentType<ClassificationsComponent> CLASSIFICATIONS;
     public static DataComponentType<TooltipProfileComponent> TOOLTIP_PROFILE;
+    public static DataComponentType<ContentOriginComponent> CONTENT_ORIGIN;
 
     public static void register() {
         RARITY = Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
@@ -72,6 +75,12 @@ public class ItemComponents {
                 DataComponentType.<TooltipProfileComponent>builder()
                         .persistent(TooltipProfileComponent.CODEC)
                         .networkSynchronized(TooltipProfileComponent.STREAM_CODEC)
+                        .build());
+        CONTENT_ORIGIN = Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+                CONTENT_ORIGIN_ID,
+                DataComponentType.<ContentOriginComponent>builder()
+                        .persistent(ContentOriginComponent.CODEC)
+                        .networkSynchronized(ContentOriginComponent.STREAM_CODEC)
                         .build());
     }
 
@@ -122,6 +131,14 @@ public class ItemComponents {
                 .orElse(null);
     }
 
+    @SuppressWarnings("unchecked")
+    public static DataComponentType<ContentOriginComponent> getContentOrigin() {
+        return (DataComponentType<ContentOriginComponent>) BuiltInRegistries.DATA_COMPONENT_TYPE
+                .get(CONTENT_ORIGIN_ID)
+                .map(Holder.Reference::value)
+                .orElse(null);
+    }
+
     /**
      * Reads the item's ordered classifications, preferring the new {@link ClassificationsComponent}
      * and falling back to the legacy singleton {@link ItemTypeComponent} (wrapped as a one-element
@@ -143,14 +160,26 @@ public class ItemComponents {
     }
 
     /**
-     * Explicit opt-in check for the Totality custom tooltip renderer. Prefers the new
-     * {@link TooltipProfileComponent} marker. Also honors a temporary, documented compatibility
-     * fallback for items registered before the opt-in system existed: an item that already
-     * carries {@link #RARITY} but no explicit profile is still treated as opted-in, so no
-     * previously-supported item silently loses its Totality tooltip. New registrations should
-     * set {@link #TOOLTIP_PROFILE} explicitly rather than relying on this fallback — see
-     * Context/Audit/TOTALITY_TOOLTIP_API_FOUNDATION_IMPLEMENTATION_REPORT.md for the full
-     * migration inventory of items still relying on it.
+     * Reads the item's ordered classification entries with their category/type pairing intact — the
+     * pair-aware counterpart of {@link #classificationsOf}, with the same legacy {@link ItemTypeComponent}
+     * fallback (a category-only entry). Empty if the item was never authored with a classification.
+     */
+    public static List<Classification> classificationEntriesOf(ItemStack stack) {
+        var classificationsType = getClassifications();
+        if (classificationsType != null && stack.has(classificationsType)) {
+            return stack.get(classificationsType).entries();
+        }
+        return classificationsOf(stack).stream().map(Classification::of).toList();
+    }
+
+    /**
+     * Whether {@code stack} carries an explicit presentation marker ({@link #TOOLTIP_PROFILE}) or
+     * an authored {@link #RARITY}. <b>No longer the Totality tooltip renderer's eligibility
+     * gate</b> — {@code TotalityTooltipRenderer.isEligible} is content-driven (any registered
+     * contributor with real content) since the tooltip-eligibility review-fix pass, precisely so a
+     * vanilla item with neither of these needs no special-casing to get its Totality tooltip.
+     * Kept as a plain, narrower predicate for anything that still wants to ask this specific
+     * question.
      */
     public static boolean hasTooltipPresentation(ItemStack stack) {
         var profileType = getTooltipProfile();

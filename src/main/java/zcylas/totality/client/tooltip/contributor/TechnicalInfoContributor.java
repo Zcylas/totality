@@ -26,7 +26,7 @@ public final class TechnicalInfoContributor implements TooltipContributor {
 
     @Override
     public List<TooltipSection> contribute(TooltipContext ctx) {
-        if (!ctx.disclosure().atLeast(TooltipDisclosureLevel.TECHNICAL)) return List.of();
+        if (!ctx.disclosure().includes(TooltipDisclosureLevel.TECHNICAL)) return List.of();
 
         ItemStack stack = ctx.stack();
         var id = BuiltInRegistries.ITEM.getKey(stack.getItem());

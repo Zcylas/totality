@@ -38,14 +38,6 @@ public class TooltipPainter {
         return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-    public static void drawSeparator(GuiGraphicsExtractor graphics, int x, int y, int width, TooltipTheme theme) {
-        int lineY = y + 4;
-        int midX = x + width / 2;
-        graphics.fill(x + 4, lineY, midX - 5, lineY + 1, theme.separator());
-        graphics.fill(midX + 5, lineY, x + width - 4, lineY + 1, theme.separator());
-        drawSmallDiamond(graphics, midX, lineY, theme.border());
-    }
-
     public static void drawText(GuiGraphicsExtractor graphics, Font font, String text, int x, int y, int color) {
         graphics.text(font, text, x, y, color, true);
     }

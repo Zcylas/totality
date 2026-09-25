@@ -16,10 +16,10 @@ import java.util.List;
  * the custom renderer. The old renderer discarded this list entirely and silently; this
  * contributor is what makes that no longer happen. Only the exact duplicate of the item's own
  * display name (already drawn by the Header section), and the two recognized vanilla
- * "Advanced Tooltips" (F3+H) debug lines described below, are filtered — everything else survives
- * unfiltered, including enchantment lines, dyed-item info, trim info, attribute modifiers, and
- * any other mod's appended lines. No broad filtering by color, indentation, or translation-key
- * guessing is performed here.
+ * "Advanced Tooltips" (F3+H) debug lines described below, and the exact vanilla enchantment lines the
+ * ENCHANTMENTS group now represents (see {@link #representedEnchantmentLines}), are filtered — everything
+ * else survives unfiltered, including dyed-item info, trim info, attribute modifiers, and any other mod's
+ * appended lines. No broad filtering by color, indentation, or translation-key guessing is performed here.
  *
  * <p><b>Advanced-tooltip line ownership (visual-correction pass, Finding 3; made
  * language-independent in the micro-correction):</b> when Minecraft's own Advanced Tooltips
@@ -52,6 +52,8 @@ public final class ExternalContentContributor implements TooltipContributor {
 
     private static final String COMPONENT_COUNT_TRANSLATION_KEY = "item.components";
 
+    private static final String DURABILITY_TRANSLATION_KEY = "item.durability";
+
     @Override
     public TooltipSectionGroup sectionGroup() {
         return TooltipSectionGroup.EXTERNAL;
@@ -63,18 +65,47 @@ public final class ExternalContentContributor implements TooltipContributor {
 
         String title = ctx.stack().getHoverName().getString();
         String registryId = BuiltInRegistries.ITEM.getKey(ctx.stack().getItem()).toString();
+        List<Component> representedEnchantments = representedEnchantmentLines(ctx);
 
         List<Component> preserved = new ArrayList<>();
         for (Component line : ctx.originalLines()) {
             if (line.getString().equals(title)) continue;
             if (isRegistryIdLine(line, registryId)) continue;
             if (isComponentCountLine(line)) continue;
+            if (isDurabilityLine(line)) continue;
+            if (representedEnchantments.remove(line)) continue;
             preserved.add(line);
         }
         if (preserved.isEmpty()) return List.of();
 
         return List.of(new TooltipSection.ExternalContent(preserved)
                 .withVisibility(TooltipVisibility.WHEN_IDENTIFIED));
+    }
+
+    /**
+     * True only for vanilla's advanced-tooltip {@code Component.translatable("item.durability", remaining, max)} —
+     * recognized by translation key, language-independently. The DURABILITY section already shows those exact
+     * figures, so the preserved vanilla line would duplicate them.
+     */
+    private static boolean isDurabilityLine(Component line) {
+        return line.getContents() instanceof TranslatableContents tc
+                && DURABILITY_TRANSLATION_KEY.equals(tc.getKey());
+    }
+
+    /**
+     * The exact components vanilla prints for the stack's enchantments ({@code Enchantment#getFullname}), which the
+     * ENCHANTMENTS group ({@link EnchantmentsContributor}) now represents. A raw line is dropped only when it is
+     * {@link Component#equals equal} to one of them — same translation key, level, style (gray, or red for a curse) —
+     * and each represented enchantment removes at most one line. Anything that does not match exactly (another mod's
+     * rephrased line, unrelated text) is preserved.
+     */
+    private static List<Component> representedEnchantmentLines(TooltipContext ctx) {
+        List<Component> lines = new ArrayList<>();
+        for (TooltipEnchantments.Entry entry : TooltipEnchantments.of(ctx.stack(),
+                ctx.level() == null ? null : ctx.level().registryAccess())) {
+            lines.add(entry.vanillaLine());
+        }
+        return lines;
     }
 
     /** True only for an exact registry-id string match — this line is never translated by vanilla. */

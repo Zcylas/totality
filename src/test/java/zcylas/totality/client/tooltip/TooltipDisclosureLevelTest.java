@@ -3,33 +3,51 @@ package zcylas.totality.client.tooltip;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static zcylas.totality.client.tooltip.TooltipDisclosureLevel.*;
 
-/** Pure tests for the disclosure ordering contract — no Minecraft bootstrap involved. */
+/**
+ * Pure tests for the disclosure contract — no Minecraft bootstrap involved. Details (Shift) and
+ * Technical (Ctrl) are independent: each shows only its own content, and holding both shows both
+ * (Tooltip V2 bottom-presentation slice; previously Ctrl was a superset of Shift).
+ */
 class TooltipDisclosureLevelTest {
 
     @Test
-    void defaultIsNotAtLeastDetails() {
-        assertFalse(TooltipDisclosureLevel.DEFAULT.atLeast(TooltipDisclosureLevel.DETAILS));
+    void defaultShowsOnlyDefaultContent() {
+        assertTrue(DEFAULT.includes(DEFAULT));
+        assertFalse(DEFAULT.includes(DETAILS));
+        assertFalse(DEFAULT.includes(TECHNICAL));
     }
 
     @Test
-    void detailsIsAtLeastDefaultAndDetailsButNotTechnical() {
-        assertTrue(TooltipDisclosureLevel.DETAILS.atLeast(TooltipDisclosureLevel.DEFAULT));
-        assertTrue(TooltipDisclosureLevel.DETAILS.atLeast(TooltipDisclosureLevel.DETAILS));
-        assertFalse(TooltipDisclosureLevel.DETAILS.atLeast(TooltipDisclosureLevel.TECHNICAL));
+    void shiftShowsDetailsButNotTechnical() {
+        assertTrue(DETAILS.includes(DEFAULT));
+        assertTrue(DETAILS.includes(DETAILS));
+        assertFalse(DETAILS.includes(TECHNICAL));
     }
 
     @Test
-    void technicalIsAtLeastEveryLevel() {
-        assertTrue(TooltipDisclosureLevel.TECHNICAL.atLeast(TooltipDisclosureLevel.DEFAULT));
-        assertTrue(TooltipDisclosureLevel.TECHNICAL.atLeast(TooltipDisclosureLevel.DETAILS));
-        assertTrue(TooltipDisclosureLevel.TECHNICAL.atLeast(TooltipDisclosureLevel.TECHNICAL));
+    void ctrlShowsTechnicalButNotTheShiftDetails() {
+        assertTrue(TECHNICAL.includes(DEFAULT));
+        assertTrue(TECHNICAL.includes(TECHNICAL));
+        assertFalse(TECHNICAL.includes(DETAILS));
     }
 
     @Test
-    void ordinalOrderMatchesDefaultThenDetailsThenTechnical() {
-        assertEquals(0, TooltipDisclosureLevel.DEFAULT.ordinal());
-        assertEquals(1, TooltipDisclosureLevel.DETAILS.ordinal());
-        assertEquals(2, TooltipDisclosureLevel.TECHNICAL.ordinal());
+    void shiftPlusCtrlShowsBoth() {
+        assertTrue(DETAILS_AND_TECHNICAL.includes(DEFAULT));
+        assertTrue(DETAILS_AND_TECHNICAL.includes(DETAILS));
+        assertTrue(DETAILS_AND_TECHNICAL.includes(TECHNICAL));
+        assertTrue(DETAILS_AND_TECHNICAL.includes(DETAILS_AND_TECHNICAL));
+        assertFalse(DETAILS.includes(DETAILS_AND_TECHNICAL));
+        assertFalse(TECHNICAL.includes(DETAILS_AND_TECHNICAL));
+    }
+
+    @Test
+    void heldModifiersMapToTheirLevel() {
+        assertEquals(DEFAULT, TooltipDisclosureLevel.of(false, false));
+        assertEquals(DETAILS, TooltipDisclosureLevel.of(true, false));
+        assertEquals(TECHNICAL, TooltipDisclosureLevel.of(false, true));
+        assertEquals(DETAILS_AND_TECHNICAL, TooltipDisclosureLevel.of(true, true));
     }
 }

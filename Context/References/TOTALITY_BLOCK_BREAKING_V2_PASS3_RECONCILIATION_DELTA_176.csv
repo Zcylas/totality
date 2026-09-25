@@ -1,0 +1,177 @@
+registry_id,group,new_classification,new_default_hp,effective_tool,material_identity,form,ownership,notes,prior_coverage_category,prior_classification,prior_default_hp,prior_tools
+minecraft:coarse_dirt,Soil,ORDINARY,100,SHOVEL,soil,full,POSITION,In-place cultivation/reversion preserves percentage only via event-safe transaction; farmland moisture same-ID change.,UNRESOLVED_DESIGN,ORDINARY,33.333332,SHOVEL
+minecraft:podzol,Soil,ORDINARY,100,SHOVEL,soil,full,POSITION,In-place cultivation/reversion preserves percentage only via event-safe transaction; farmland moisture same-ID change.,UNRESOLVED_DESIGN,ORDINARY,33.333332,SHOVEL
+minecraft:suspicious_sand,Archaeology,SPECIAL,,,,,POSITION,"Brushing, archaeology block entity and loot vanilla-authoritative.",UNRESOLVED_DESIGN,ORDINARY,16.666666,SHOVEL
+minecraft:suspicious_gravel,Archaeology,SPECIAL,,,,,POSITION,"Brushing, archaeology block entity and loot vanilla-authoritative.",UNRESOLVED_DESIGN,ORDINARY,16.666666,SHOVEL
+minecraft:mangrove_roots,Mangrove roots,ORDINARY,50,AXE,mangrove_roots,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,46.666664,AXE
+minecraft:muddy_mangrove_roots,Muddy mangrove roots,ORDINARY,100,SHOVEL,muddy_mangrove_roots,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,46.666664,SHOVEL
+minecraft:acacia_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:bamboo_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:birch_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:cherry_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:dark_oak_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:jungle_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:mangrove_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:oak_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:pale_oak_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:spruce_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:warped_shelf,Wooden shelves,ORDINARY,100,AXE,species_wood,functional,POSITION,"Independent Integrity, preserve item contents and block entity; Crimson/Warped use nether_wood identity.",UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:fire,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:soul_fire,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:creaking_heart,Creaking heart,SPECIAL,,,,,POSITION,"Preserve Creaking linkage, activation, Silk Touch and loot.",UNRESOLVED_DESIGN,ORDINARY,666.6666,AXE
+minecraft:farmland,Soil,ORDINARY,100,SHOVEL,soil,full,POSITION,In-place cultivation/reversion preserves percentage only via event-safe transaction; farmland moisture same-ID change.,UNRESOLVED_DESIGN,ORDINARY,40,SHOVEL
+minecraft:cactus_flower,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:copper_torch,Copper torch,SPECIAL,,,,,POSITION,Do not inherit Lantern value.,UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:copper_wall_torch,Copper torch,SPECIAL,,,,,POSITION,Do not inherit Lantern value.,UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:cake,Interaction-specific,SPECIAL,,,,,POSITION,Preserve eating or face attachment/waterlogging/shears.,UNRESOLVED_DESIGN,ORDINARY,33.333332,NONE
+minecraft:copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:exposed_copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:weathered_copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:oxidized_copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_exposed_copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_weathered_copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_oxidized_copper_bars,Copper bars,ORDINARY,100,PICKAXE,copper_bars,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:exposed_copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:weathered_copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:oxidized_copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_exposed_copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_weathered_copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:waxed_oxidized_copper_chain,Copper chains,ORDINARY,50,PICKAXE,copper_chain,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. ,UNRESOLVED_DESIGN,ORDINARY,333.3333,PICKAXE
+minecraft:glow_lichen,Interaction-specific,SPECIAL,,,,,POSITION,Preserve eating or face attachment/waterlogging/shears.,UNRESOLVED_DESIGN,ORDINARY,13.333333,AXE
+minecraft:resin_clump,Raw resin,SPECIAL,,,,,POSITION,"Raw zero-hardness forms, vanilla-owned.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:mycelium,Soil,ORDINARY,100,SHOVEL,soil,full,POSITION,In-place cultivation/reversion preserves percentage only via event-safe transaction; farmland moisture same-ID change.,UNRESOLVED_DESIGN,ORDINARY,40,SHOVEL
+minecraft:resin_block,Raw resin,SPECIAL,,,,,POSITION,"Raw zero-hardness forms, vanilla-owned.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:resin_bricks,Resin brick,ORDINARY,150,PICKAXE,resin_brick,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:resin_brick_stairs,Resin brick,ORDINARY,115,PICKAXE,resin_brick,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:resin_brick_slab,Resin brick,ORDINARY,75,PICKAXE,resin_brick,slab,POSITION,"Double slab 150, percentage preservation.",UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:resin_brick_wall,Resin brick,ORDINARY,115,PICKAXE,resin_brick,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:chiseled_resin_bricks,Resin brick,ORDINARY,150,PICKAXE,resin_brick,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:skeleton_skull,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:skeleton_wall_skull,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:wither_skeleton_skull,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:wither_skeleton_wall_skull,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:zombie_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:zombie_wall_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:player_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:player_wall_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:creeper_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:creeper_wall_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:dragon_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:dragon_wall_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:piglin_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:piglin_wall_head,Mob heads and skulls,ORDINARY,50,NEUTRAL,mob_head,standing_or_wall,POSITION,"Preserve block entity data, head skins, redstone/animation, summoning, and vanilla drops.",UNRESOLVED_DESIGN,ORDINARY,66.666664,NONE
+minecraft:petrified_oak_slab,Petrified slab,ORDINARY,50,PICKAXE,petrified_wood,slab,POSITION,Double slab 100. Not ordinary wooden tool behavior.,UNRESOLVED_DESIGN,ORDINARY,133.33333,PICKAXE
+minecraft:chorus_plant,Chorus,SPECIAL,,,,,POSITION,"Preserve growth, support, cascading destruction, loot.",UNRESOLVED_DESIGN,ORDINARY,26.666666,AXE
+minecraft:chorus_flower,Chorus,SPECIAL,,,,,POSITION,"Preserve growth, support, cascading destruction, loot.",UNRESOLVED_DESIGN,ORDINARY,26.666666,AXE
+minecraft:dirt_path,Soil,ORDINARY,100,SHOVEL,soil,full,POSITION,In-place cultivation/reversion preserves percentage only via event-safe transaction; farmland moisture same-ID change.,UNRESOLVED_DESIGN,ORDINARY,43.33333,SHOVEL
+minecraft:frosted_ice,Frosted ice,SPECIAL,,,,,POSITION,"Preserve age, melt, and Frost Walker behavior.",UNRESOLVED_DESIGN,ORDINARY,33.333332,NONE
+minecraft:structure_void,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:dried_ghast,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:sea_pickle,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:red_sandstone_wall,Sandstone walls,ORDINARY,75,PICKAXE,sandstone,wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,53.333332,PICKAXE
+minecraft:sandstone_wall,Sandstone walls,ORDINARY,75,PICKAXE,sandstone,wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,53.333332,PICKAXE
+minecraft:exposed_copper_lantern,Copper utilities,ORDINARY,75,VANILLA,copper_utility,lantern,POSITION,All oxidized/waxed forms use base Lantern value.,UNRESOLVED_DESIGN,ORDINARY,233.33333,PICKAXE
+minecraft:weathered_copper_lantern,Copper utilities,ORDINARY,75,VANILLA,copper_utility,lantern,POSITION,All oxidized/waxed forms use base Lantern value.,UNRESOLVED_DESIGN,ORDINARY,233.33333,PICKAXE
+minecraft:oxidized_copper_lantern,Copper utilities,ORDINARY,75,VANILLA,copper_utility,lantern,POSITION,All oxidized/waxed forms use base Lantern value.,UNRESOLVED_DESIGN,ORDINARY,233.33333,PICKAXE
+minecraft:waxed_copper_lantern,Copper utilities,ORDINARY,75,VANILLA,copper_utility,lantern,POSITION,All oxidized/waxed forms use base Lantern value.,UNRESOLVED_DESIGN,ORDINARY,233.33333,PICKAXE
+minecraft:waxed_exposed_copper_lantern,Copper utilities,ORDINARY,75,VANILLA,copper_utility,lantern,POSITION,All oxidized/waxed forms use base Lantern value.,UNRESOLVED_DESIGN,ORDINARY,233.33333,PICKAXE
+minecraft:waxed_weathered_copper_lantern,Copper utilities,ORDINARY,75,VANILLA,copper_utility,lantern,POSITION,All oxidized/waxed forms use base Lantern value.,UNRESOLVED_DESIGN,ORDINARY,233.33333,PICKAXE
+minecraft:waxed_oxidized_copper_lantern,Copper utilities,ORDINARY,75,VANILLA,copper_utility,lantern,POSITION,All oxidized/waxed forms use base Lantern value.,UNRESOLVED_DESIGN,ORDINARY,233.33333,PICKAXE
+minecraft:warped_stem,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:stripped_warped_stem,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:warped_hyphae,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:stripped_warped_hyphae,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_stem,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:stripped_crimson_stem,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_hyphae,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:stripped_crimson_hyphae,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_planks,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:warped_planks,Nether structural wood,ORDINARY,100,AXE,nether_wood,full,POSITION,Separate from Overworld Wood; do not change fire resistance.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_slab,Nether structural wood,ORDINARY,50,AXE,nether_wood,slab,POSITION,Double slab 100; percentage-preserving same-block state change.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:warped_slab,Nether structural wood,ORDINARY,50,AXE,nether_wood,slab,POSITION,Double slab 100; percentage-preserving same-block state change.,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_fence,Nether structural wood,ORDINARY,50,AXE,nether_wood,fence_or_trapdoor,POSITION,,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:warped_fence,Nether structural wood,ORDINARY,50,AXE,nether_wood,fence_or_trapdoor,POSITION,,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_trapdoor,Nether structural wood,ORDINARY,50,AXE,nether_wood,fence_or_trapdoor,POSITION,,UNRESOLVED_DESIGN,ORDINARY,200,AXE
+minecraft:warped_trapdoor,Nether structural wood,ORDINARY,50,AXE,nether_wood,fence_or_trapdoor,POSITION,,UNRESOLVED_DESIGN,ORDINARY,200,AXE
+minecraft:crimson_fence_gate,Nether structural wood,ORDINARY,75,AXE,nether_wood,stairs_or_gate,POSITION,,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:warped_fence_gate,Nether structural wood,ORDINARY,75,AXE,nether_wood,stairs_or_gate,POSITION,,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_stairs,Nether structural wood,ORDINARY,75,AXE,nether_wood,stairs_or_gate,POSITION,,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:warped_stairs,Nether structural wood,ORDINARY,75,AXE,nether_wood,stairs_or_gate,POSITION,,UNRESOLVED_DESIGN,ORDINARY,133.33333,AXE
+minecraft:crimson_door,Nether structural wood,ORDINARY,100,AXE,nether_wood,door,DOOR_LOWER_HALF,Shared across two door halves.,UNRESOLVED_DESIGN,ORDINARY,200,AXE
+minecraft:warped_door,Nether structural wood,ORDINARY,100,AXE,nether_wood,door,DOOR_LOWER_HALF,Shared across two door halves.,UNRESOLVED_DESIGN,ORDINARY,200,AXE
+minecraft:sulfur,Sulfur natural/polished,ORDINARY,100,PICKAXE,sulfur_natural,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:potent_sulfur,Sulfur exception,ORDINARY,100,PICKAXE,potent_sulfur,full,POSITION,Preserve block entity and states.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:sulfur_slab,Sulfur natural/polished,ORDINARY,50,PICKAXE,sulfur_natural,slab,POSITION,Double slab 100.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:sulfur_stairs,Sulfur natural/polished,ORDINARY,75,PICKAXE,sulfur_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:sulfur_wall,Sulfur natural/polished,ORDINARY,75,PICKAXE,sulfur_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_sulfur,Sulfur natural/polished,ORDINARY,100,PICKAXE,sulfur_natural,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_sulfur_slab,Sulfur natural/polished,ORDINARY,50,PICKAXE,sulfur_natural,slab,POSITION,Double slab 100.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_sulfur_stairs,Sulfur natural/polished,ORDINARY,75,PICKAXE,sulfur_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_sulfur_wall,Sulfur natural/polished,ORDINARY,75,PICKAXE,sulfur_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:sulfur_bricks,Sulfur bricks,ORDINARY,150,PICKAXE,sulfur_brick,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:sulfur_brick_slab,Sulfur bricks,ORDINARY,75,PICKAXE,sulfur_brick,slab,POSITION,Double slab 150.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:sulfur_brick_stairs,Sulfur bricks,ORDINARY,115,PICKAXE,sulfur_brick,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:sulfur_brick_wall,Sulfur bricks,ORDINARY,115,PICKAXE,sulfur_brick,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:chiseled_sulfur,Sulfur bricks,ORDINARY,150,PICKAXE,sulfur_brick,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar,Cinnabar natural/polished,ORDINARY,100,PICKAXE,cinnabar_natural,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar_slab,Cinnabar natural/polished,ORDINARY,50,PICKAXE,cinnabar_natural,slab,POSITION,Double slab 100.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar_stairs,Cinnabar natural/polished,ORDINARY,75,PICKAXE,cinnabar_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar_wall,Cinnabar natural/polished,ORDINARY,75,PICKAXE,cinnabar_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_cinnabar,Cinnabar natural/polished,ORDINARY,100,PICKAXE,cinnabar_natural,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_cinnabar_slab,Cinnabar natural/polished,ORDINARY,50,PICKAXE,cinnabar_natural,slab,POSITION,Double slab 100.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_cinnabar_stairs,Cinnabar natural/polished,ORDINARY,75,PICKAXE,cinnabar_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:polished_cinnabar_wall,Cinnabar natural/polished,ORDINARY,75,PICKAXE,cinnabar_natural,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar_bricks,Cinnabar bricks,ORDINARY,150,PICKAXE,cinnabar_brick,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar_brick_slab,Cinnabar bricks,ORDINARY,75,PICKAXE,cinnabar_brick,slab,POSITION,Double slab 150.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar_brick_stairs,Cinnabar bricks,ORDINARY,115,PICKAXE,cinnabar_brick,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:cinnabar_brick_wall,Cinnabar bricks,ORDINARY,115,PICKAXE,cinnabar_brick,stairs_or_wall,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:chiseled_cinnabar,Cinnabar bricks,ORDINARY,150,PICKAXE,cinnabar_brick,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:exposed_copper_bulb,Copper utilities,ORDINARY,150,VANILLA,copper_utility,bulb,POSITION,All oxidized/waxed forms use base Bulb value; preserve block states and copper transformations.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:weathered_copper_bulb,Copper utilities,ORDINARY,150,VANILLA,copper_utility,bulb,POSITION,All oxidized/waxed forms use base Bulb value; preserve block states and copper transformations.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:oxidized_copper_bulb,Copper utilities,ORDINARY,150,VANILLA,copper_utility,bulb,POSITION,All oxidized/waxed forms use base Bulb value; preserve block states and copper transformations.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_copper_bulb,Copper utilities,ORDINARY,150,VANILLA,copper_utility,bulb,POSITION,All oxidized/waxed forms use base Bulb value; preserve block states and copper transformations.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_exposed_copper_bulb,Copper utilities,ORDINARY,150,VANILLA,copper_utility,bulb,POSITION,All oxidized/waxed forms use base Bulb value; preserve block states and copper transformations.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_weathered_copper_bulb,Copper utilities,ORDINARY,150,VANILLA,copper_utility,bulb,POSITION,All oxidized/waxed forms use base Bulb value; preserve block states and copper transformations.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_oxidized_copper_bulb,Copper utilities,ORDINARY,150,VANILLA,copper_utility,bulb,POSITION,All oxidized/waxed forms use base Bulb value; preserve block states and copper transformations.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:exposed_copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:weathered_copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:oxidized_copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_exposed_copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_weathered_copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_oxidized_copper_chest,Copper chests,ORDINARY,150,PICKAXE,copper_chest,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve inventory and loot.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:exposed_copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:weathered_copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:oxidized_copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_exposed_copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_weathered_copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_oxidized_copper_golem_statue,Copper golem statues,ORDINARY,150,PICKAXE,copper_golem_statue,functional,POSITION,Eight wax/oxidation variants. Preserve damage through event-safe weathering/waxing/scraping. Preserve statue poses.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:exposed_lightning_rod,Copper utilities,ORDINARY,75,VANILLA,copper_utility,rod,POSITION,All oxidized/waxed forms use base Lightning Rod value.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:weathered_lightning_rod,Copper utilities,ORDINARY,75,VANILLA,copper_utility,rod,POSITION,All oxidized/waxed forms use base Lightning Rod value.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:oxidized_lightning_rod,Copper utilities,ORDINARY,75,VANILLA,copper_utility,rod,POSITION,All oxidized/waxed forms use base Lightning Rod value.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_lightning_rod,Copper utilities,ORDINARY,75,VANILLA,copper_utility,rod,POSITION,All oxidized/waxed forms use base Lightning Rod value.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_exposed_lightning_rod,Copper utilities,ORDINARY,75,VANILLA,copper_utility,rod,POSITION,All oxidized/waxed forms use base Lightning Rod value.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_weathered_lightning_rod,Copper utilities,ORDINARY,75,VANILLA,copper_utility,rod,POSITION,All oxidized/waxed forms use base Lightning Rod value.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:waxed_oxidized_lightning_rod,Copper utilities,ORDINARY,75,VANILLA,copper_utility,rod,POSITION,All oxidized/waxed forms use base Lightning Rod value.,UNRESOLVED_DESIGN,ORDINARY,200,PICKAXE
+minecraft:sulfur_spike,Sulfur exception,SPECIAL,,,,,POSITION,Preserve environmental and shape behavior.,UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:spore_blossom,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:moss_carpet,Moss carpets,SPECIAL,,,,,POSITION,Vanilla-owned thin growth; no 10-HP profile.,UNRESOLVED_DESIGN,ORDINARY,6.6666665,HOE
+minecraft:leaf_litter,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:big_dripleaf,Dripleaf,SPECIAL,,,,,POSITION,"Preserve tilt, projectiles, growth, support, waterlogging, drops.",UNRESOLVED_DESIGN,ORDINARY,6.6666665,AXE
+minecraft:big_dripleaf_stem,Dripleaf,SPECIAL,,,,,POSITION,"Preserve tilt, projectiles, growth, support, waterlogging, drops.",UNRESOLVED_DESIGN,ORDINARY,6.6666665,AXE
+minecraft:small_dripleaf,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:hanging_roots,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:rooted_dirt,Soil,ORDINARY,100,SHOVEL,soil,full,POSITION,In-place cultivation/reversion preserves percentage only via event-safe transaction; farmland moisture same-ID change.,UNRESOLVED_DESIGN,ORDINARY,33.333332,SHOVEL
+minecraft:crafter,Crafter,ORDINARY,150,PICKAXE,mechanism,full,POSITION,"Preserve inventories, disabled slots and redstone; ordinary state changes retain damage.",UNRESOLVED_DESIGN,ORDINARY,100,PICKAXE
+minecraft:heavy_core,Heavy core,ORDINARY,600,PICKAXE,heavy_core,full,POSITION,Independent; keep vanilla Mace use and loot.,UNRESOLVED_DESIGN,ORDINARY,666.6666,PICKAXE
+minecraft:pale_moss_block,Moss,ORDINARY,50,HOE,moss,full,POSITION,,UNRESOLVED_DESIGN,ORDINARY,6.6666665,HOE
+minecraft:pale_moss_carpet,Moss carpets,SPECIAL,,,,,POSITION,Vanilla-owned thin growth; no 10-HP profile.,UNRESOLVED_DESIGN,ORDINARY,6.6666665,HOE
+minecraft:pale_hanging_moss,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE
+minecraft:firefly_bush,Zero-hardness flora/technical,SPECIAL,,,,,POSITION,"Explicit special, retain vanilla timing and behavior.",UNRESOLVED_DESIGN,SPECIAL,,NONE

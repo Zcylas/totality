@@ -7,6 +7,7 @@ import net.minecraft.core.registries.Registries;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.datagen.*;
 import zcylas.totality.init.ModBlocks;
+import zcylas.totality.init.ModEnchantments;
 import zcylas.totality.worldgen.ModBiomes;
 import zcylas.totality.worldgen.ModConfiguredFeatures;
 import zcylas.totality.worldgen.ModNoises;
@@ -35,6 +36,7 @@ public class TotalityDataGenerator implements DataGeneratorEntrypoint {
 				.add(Registries.CONFIGURED_FEATURE, ModConfiguredFeatures::bootstrap)
 				.add(Registries.PLACED_FEATURE, ModPlacedFeatures::bootstrap)
 				.add(Registries.BIOME, ModBiomes::bootstrap)
-				.add(Registries.NOISE, ModNoises::bootstrap);
+				.add(Registries.NOISE, ModNoises::bootstrap)
+				.add(Registries.ENCHANTMENT, ModEnchantments::bootstrap);
 	}
 }

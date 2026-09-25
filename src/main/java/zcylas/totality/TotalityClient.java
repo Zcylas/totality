@@ -87,6 +87,12 @@ public class TotalityClient implements ClientModInitializer {
 
         // ── Tooltip API ───────────────────────────────────────────────────────
         TooltipScrollController.registerLifecycleHooks();
+        // Tooltip V2 header preview: true 3D item/block models render through the game's own
+        // picture-in-picture path. The GuiRenderer creates, pools and closes the renderer instances.
+        net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry.register(
+                context -> new zcylas.totality.client.tooltip.preview.TooltipModelPreviewRenderer());
+        net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry.register(
+                context -> new zcylas.totality.client.tooltip.preview.TooltipBlockPreviewRenderer());
 
         // ── Keybinds & tick handlers ──────────────────────────────────────────
         TotalityKeybindHandlers.register();

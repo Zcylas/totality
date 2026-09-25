@@ -6,6 +6,10 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import zcylas.totality.block.alchemy.*;
 import zcylas.totality.init.TotalityRegistry;
+import net.minecraft.world.item.Item;
+import zcylas.totality.api.core.rpgutils.rarity.ItemComponents;
+import zcylas.totality.api.core.rpgutils.rarity.ItemRarity;
+import zcylas.totality.api.core.rpgutils.rarity.RarityComponent;
 
 
 public class AlchemyBlocks {
@@ -18,7 +22,7 @@ public class AlchemyBlocks {
                     .sound(SoundType.WOOD)
                     .noOcclusion()
                     .strength(2.5f, 2.5f),
-            true
+            new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
     );
 
     /**
@@ -34,7 +38,7 @@ public class AlchemyBlocks {
                     .randomTicks()
                     .instabreak()
                     .sound(SoundType.GRASS),
-            true
+            new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
     );
 
     public static final PurpleMountainFlowerBlock PURPLE_MOUNTAIN_FLOWER_BUSH = TotalityRegistry.registerBlock(
@@ -45,7 +49,7 @@ public class AlchemyBlocks {
                     .randomTicks()
                     .instabreak()
                     .sound(SoundType.GRASS),
-            true
+            new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
     );
 
     public static final RedMountainFlowerBlock RED_MOUNTAIN_FLOWER_BUSH = TotalityRegistry.registerBlock(
@@ -56,7 +60,7 @@ public class AlchemyBlocks {
                     .randomTicks()
                     .instabreak()
                     .sound(SoundType.GRASS),
-            true
+            new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
     );
     public static final Block TRUE_WHEAT_CROP = TotalityRegistry.registerBlock(
             "true_wheat_crop",

@@ -20,12 +20,15 @@ public final class TooltipContributorRegistry {
     private static final List<TooltipContributor> ORDERED = List.of(
             new MetadataContributor(),
             new WeaponContributor(),
+            new MiningToolContributor(),
+            new BlockDurabilityContributor(),
             new EnergyContributor(),
+            new DurabilityContributor(),
             new FuelContributor(),
             new AttunementContributor(),
-            new WeightContributor(),
             new GrimoireContributor(),
             new HealingPotionContributor(),
+            new EnchantmentsContributor(),
             new LegacyExtensionAdapterContributor(),
             new ExternalContentContributor(),
             new TechnicalInfoContributor()

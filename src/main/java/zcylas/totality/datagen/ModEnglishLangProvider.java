@@ -295,5 +295,45 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
 
         //D&D standalone potions (independent of the Alchemy potion ladder above)
         translationBuilder.add("item.totality.dnd_potion_of_healing", "Potion of Healing");
+
+        // Block Breaking V2 — Impact enchantment (Mining Damage only, §5 of the balance pass)
+        translationBuilder.add("enchantment.totality.impact", "Impact");
+
+        // Tooltip V2 header — specific classification types (ClassificationTypes), shown as "CATEGORY • TYPE"
+        translationBuilder.add("classification_type.totality.axe", "Axe");
+        translationBuilder.add("classification_type.totality.pickaxe", "Pickaxe");
+        translationBuilder.add("classification_type.totality.two_handed", "Two-Handed");
+        translationBuilder.add("classification_type.totality.battery", "Battery");
+        translationBuilder.add("classification_type.totality.sword", "Sword");
+        translationBuilder.add("classification_type.totality.spear", "Spear");
+        translationBuilder.add("classification_type.totality.shovel", "Shovel");
+        translationBuilder.add("classification_type.totality.hoe", "Hoe");
+        translationBuilder.add("classification_type.totality.bow", "Bow");
+        translationBuilder.add("classification_type.totality.crossbow", "Crossbow");
+        translationBuilder.add("classification_type.totality.trident", "Trident");
+        translationBuilder.add("classification_type.totality.mace", "Mace");
+        translationBuilder.add("classification_type.totality.helmet", "Helmet");
+        translationBuilder.add("classification_type.totality.chestplate", "Chestplate");
+        translationBuilder.add("classification_type.totality.leggings", "Leggings");
+        translationBuilder.add("classification_type.totality.boots", "Boots");
+        translationBuilder.add("classification_type.totality.gem", "Gem");
+        translationBuilder.add("classification_type.totality.ingot", "Ingot");
+
+        // Tooltip V2 body — semantic group headings (TooltipGroups)
+        translationBuilder.add("tooltip_group.totality.mining", "Mining");
+        translationBuilder.add("tooltip_group.totality.combat", "Combat");
+        translationBuilder.add("tooltip_group.totality.magic", "Magic");
+        translationBuilder.add("tooltip_group.totality.energy", "Energy");
+        translationBuilder.add("tooltip_group.totality.effects", "Effects");
+        translationBuilder.add("tooltip_group.totality.properties", "Properties");
+        translationBuilder.add("tooltip_group.totality.abilities", "Abilities");
+        translationBuilder.add("tooltip_group.totality.enchantments", "Enchantments");
+        translationBuilder.add("tooltip_group.totality.requirements", "Requirements");
+        translationBuilder.add("tooltip_group.totality.durability", "Durability");
+
+        // Tooltip V2 footer — content origins (ContentOrigins)
+        translationBuilder.add("content_origin.totality.totality", "Totality");
+        translationBuilder.add("content_origin.totality.bleach", "Bleach");
+        translationBuilder.add("content_origin.totality.skyrim", "Skyrim");
     }
 }

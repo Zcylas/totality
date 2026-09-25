@@ -40,9 +40,12 @@ class TooltipContributorRegistryTest {
         assertTrue(types.contains(EnergyContributor.class));
         assertTrue(types.contains(WeaponContributor.class));
         assertTrue(types.contains(AttunementContributor.class));
-        assertTrue(types.contains(WeightContributor.class));
+        assertTrue(types.contains(DurabilityContributor.class));
+        assertTrue(types.stream().noneMatch(t -> t.getSimpleName().equals("WeightContributor")),
+                "Weight is a footer field now, never also a body row");
         assertTrue(types.contains(GrimoireContributor.class));
         assertTrue(types.contains(HealingPotionContributor.class));
+        assertTrue(types.contains(EnchantmentsContributor.class));
         assertTrue(types.contains(LegacyExtensionAdapterContributor.class));
         assertTrue(types.contains(ExternalContentContributor.class));
         assertTrue(types.contains(TechnicalInfoContributor.class));
@@ -95,11 +98,6 @@ class TooltipContributorRegistryTest {
     @Test
     void fuelContributorSectionGroupIsResources() {
         assertEquals(TooltipSectionGroup.RESOURCES, new FuelContributor().sectionGroup());
-    }
-
-    @Test
-    void weightContributorSectionGroupIsWeight() {
-        assertEquals(TooltipSectionGroup.WEIGHT, new WeightContributor().sectionGroup());
     }
 
     @Test

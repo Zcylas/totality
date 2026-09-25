@@ -4,6 +4,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.item.TotalityArmorItem;
 import zcylas.totality.api.item.TotalityItem;
+import zcylas.totality.client.tooltip.group.TooltipGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroups;
 import zcylas.totality.client.tooltip.TooltipContext;
 import zcylas.totality.client.tooltip.TooltipSectionGroup;
 import zcylas.totality.client.tooltip.TooltipVisibility;
@@ -79,5 +81,10 @@ public final class AttunementContributor implements TooltipContributor {
                 .withVisibility(TooltipVisibility.WHEN_IDENTIFIED));
 
         return sections;
+    }
+
+    @Override
+    public TooltipGroup bodyGroup(TooltipContext ctx) {
+        return TooltipGroups.REQUIREMENTS;
     }
 }

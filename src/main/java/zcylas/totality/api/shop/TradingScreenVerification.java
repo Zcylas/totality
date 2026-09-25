@@ -42,6 +42,7 @@ public final class TradingScreenVerification {
     private TradingScreenVerification() {}
 
     public static void register() {
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         ServerLifecycleEvents.SERVER_STARTED.register(TradingScreenVerification::runSelfTestIfDev);
     }
 

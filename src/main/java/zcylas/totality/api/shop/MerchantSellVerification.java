@@ -60,6 +60,7 @@ public final class MerchantSellVerification {
     private MerchantSellVerification() {}
 
     public static void register() {
+        if (!VerificationReporter.liveWorldVerificationEnabled()) return; // opt-in: runs against the live world
         ServerLifecycleEvents.SERVER_STARTED.register(MerchantSellVerification::runSelfTestIfDev);
     }
 

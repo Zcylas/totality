@@ -162,6 +162,15 @@ public interface TotalityGuiGraphics {
     GuiRenderState  guiRenderState();
     @Nullable ScreenRectangle peekScissor();
 
+    /**
+     * Defers a Totality tooltip's actual paint calls to the same topmost render stratum vanilla's
+     * own tooltip uses (JEI z-order fix, playtest-correction pass §18) — see
+     * {@code GuiGraphicsExtractorMixin#totality$flushDeferredTooltip}. Replaces one previously
+     * queued this frame, matching vanilla {@code setTooltipForNextFrame}'s own "last one wins"
+     * behavior; there is only ever one tooltip on screen at a time.
+     */
+    void totality$deferTooltip(Runnable render);
+
     // ── Internal helpers ─────────────────────────────────────────────────────
 
     private static int lerpColor(int c1, int c2, float t) {

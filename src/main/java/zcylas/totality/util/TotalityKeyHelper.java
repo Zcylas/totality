@@ -1,11 +1,15 @@
 package zcylas.totality.util;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Utility for reading modifier key states directly via GLFW.
+ * Utility for reading modifier key states directly from the window.
  * Works in GUI screens where Minecraft's own keybind API isn't available.
+ *
+ * <p>Reads through vanilla's {@link InputConstants#isKeyDown} — exactly {@code glfwGetKey(window, key) == PRESS}
+ * in normal play — so simulated input (Fabric client game tests) is observed the same way as a real keyboard.
  *
  * Ported/adapted from Traveler's Backpack KeyHelper.
  */
@@ -14,25 +18,18 @@ public final class TotalityKeyHelper {
     private TotalityKeyHelper() {}
 
     public static boolean isShiftPressed() {
-        long window = Minecraft.getInstance().getWindow().handle();
-        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_SHIFT)  == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS;
+        return isKeyDown(GLFW.GLFW_KEY_LEFT_SHIFT) || isKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
     }
 
     public static boolean isCtrlPressed() {
-        long window = Minecraft.getInstance().getWindow().handle();
-        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL)  == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
+        return isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL);
     }
 
     public static boolean isAltPressed() {
-        long window = Minecraft.getInstance().getWindow().handle();
-        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT)  == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
+        return isKeyDown(GLFW.GLFW_KEY_LEFT_ALT) || isKeyDown(GLFW.GLFW_KEY_RIGHT_ALT);
     }
 
     public static boolean isKeyDown(int glfwKey) {
-        return GLFW.glfwGetKey(Minecraft.getInstance().getWindow().handle(), glfwKey)
-                == GLFW.GLFW_PRESS;
+        return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), glfwKey);
     }
 }

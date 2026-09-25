@@ -70,7 +70,7 @@ public record TooltipKnowledgeView(IdentificationStatus identification) {
             case ALWAYS -> true;
             case WHEN_RECOGNIZED -> identification.isAtLeast(IdentificationStatus.PARTIALLY);
             case WHEN_IDENTIFIED -> identification.isAtLeast(IdentificationStatus.IDENTIFIED);
-            case TECHNICAL -> disclosure == TooltipDisclosureLevel.TECHNICAL;
+            case TECHNICAL -> disclosure.includes(TooltipDisclosureLevel.TECHNICAL);
         };
     }
 }

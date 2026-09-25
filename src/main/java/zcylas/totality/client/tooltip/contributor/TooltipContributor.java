@@ -2,7 +2,10 @@ package zcylas.totality.client.tooltip.contributor;
 
 import zcylas.totality.client.tooltip.TooltipContext;
 import zcylas.totality.client.tooltip.TooltipDisclosureLevel;
+import org.jetbrains.annotations.Nullable;
 import zcylas.totality.client.tooltip.TooltipSectionGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroup;
+import zcylas.totality.client.tooltip.group.TooltipGroups;
 import zcylas.totality.client.tooltip.section.TooltipSection;
 
 import java.util.List;
@@ -42,5 +45,17 @@ public interface TooltipContributor {
      */
     default TooltipSectionGroup sectionGroup() {
         return TooltipSectionGroup.PRIMARY;
+    }
+
+    /**
+     * The semantic body group this contributor's output belongs to on this stack — e.g.
+     * {@link TooltipGroups#MINING} — or {@code null} for content shown without a group heading (lore,
+     * preserved vanilla lines, technical info), which keeps its {@link #sectionGroup()} position after
+     * every semantic group. Every contributor naming the same group is merged under one heading, in
+     * registration order, so a stat row and its SHIFT breakdown stay together. A contributor whose
+     * content belongs to two groups is split into two contributors. Default: no group.
+     */
+    default @Nullable TooltipGroup bodyGroup(TooltipContext ctx) {
+        return null;
     }
 }

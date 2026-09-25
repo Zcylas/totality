@@ -1,0 +1,26 @@
+{
+	"schemaVersion": 1,
+	"id": "totality-gametest",
+	"version": "1.0.0",
+	"name": "Totality Game Tests",
+	"description": "Client game tests run by runClientGameTest against real Minecraft and Totality registrations.",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"zcylas.totality.gametest.GameTestExternalItems"
+		],
+		"fabric-client-gametest": [
+			"zcylas.totality.gametest.TooltipV2Pass1ClientGameTest",
+			"zcylas.totality.gametest.TooltipV2EnchantmentsClientGameTest",
+			"zcylas.totality.gametest.BlockBreakingPass2ClientGameTest",
+			"zcylas.totality.gametest.BlockBreakingPass3ClientGameTest",
+			"zcylas.totality.gametest.BlockBreakingPass4AClientGameTest",
+			"zcylas.totality.gametest.BlockBreakingPass4BClientGameTest",
+			"zcylas.totality.gametest.BlockBreakingFinalCorrectionClientGameTest"
+		]
+	},
+	"depends": {
+		"totality": "*",
+		"fabric-client-gametest-api-v1": "*"
+	}
+}
