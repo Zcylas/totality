@@ -55,6 +55,7 @@ public final class TooltipColors {
             case MATERIAL    -> 0xFFB8A36A;
             case COMPONENT   -> 0xFFD8914A;
             case INGREDIENT  -> 0xFF8FD45A;
+            case SEED        -> 0xFF6B8F3E;
             case STANDARD    -> 0xFF666666;
             case BLOCK       -> 0xFFD4C9A8;
             case DECORATIVE -> 0xFFBAAF96;

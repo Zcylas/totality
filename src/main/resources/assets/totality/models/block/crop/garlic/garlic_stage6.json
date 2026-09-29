@@ -1,0 +1,6 @@
+{
+  "parent": "totality:block/template/cross_crop",
+  "textures": {
+    "crop": "totality:block/crop/garlic/garlic_stage6"
+  }
+}

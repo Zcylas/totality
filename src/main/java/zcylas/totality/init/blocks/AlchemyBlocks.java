@@ -4,6 +4,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import zcylas.totality.block.alchemy.*;
 import zcylas.totality.init.TotalityRegistry;
 import net.minecraft.world.item.Item;
@@ -71,6 +72,32 @@ public class AlchemyBlocks {
                     .instabreak()
                     .sound(SoundType.CROP),
             false
+    );
+    /** Planted from {@code SKIngredientItems.GARLIC_CLOVE}; vanilla carrot/potato crop properties. */
+    public static final GarlicCropBlock GARLIC_CROP = TotalityRegistry.registerBlock(
+            "garlic_crop",
+            GarlicCropBlock::new,
+            BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.PLANT)
+                    .noCollision()
+                    .randomTicks()
+                    .instabreak()
+                    .sound(SoundType.CROP)
+                    .pushReaction(PushReaction.DESTROY),
+            false
+    );
+    /** Wild regrowing plant (Mountain Flower Bush pattern); right-click harvests one {@code SKIngredientItems.JUEYUN_CHILI}. */
+    public static final JueyunChiliPlantBlock JUEYUN_CHILI_PLANT = TotalityRegistry.registerBlock(
+            "jueyun_chili_plant",
+            JueyunChiliPlantBlock::new,
+            BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.PLANT)
+                    .noCollision()
+                    .randomTicks()
+                    .instabreak()
+                    .sound(SoundType.GRASS)
+                    .pushReaction(PushReaction.DESTROY),
+            new Item.Properties().component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
     );
 
     public static void register() {}

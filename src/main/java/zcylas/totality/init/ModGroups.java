@@ -11,6 +11,7 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.Totality;
 import zcylas.totality.init.blocks.AlchemyBlocks;
+import zcylas.totality.init.blocks.CookingBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.NaturalBlocks;
 import zcylas.totality.init.blocks.OreBlocks;
@@ -32,6 +33,7 @@ import zcylas.totality.init.items.RuneItems;
 import zcylas.totality.init.items.SKIngredientItems;
 import zcylas.totality.init.items.SpellComponentItems;
 import zcylas.totality.init.items.ToolItems;
+import zcylas.totality.init.items.VehicleItems;
 
 /**
  * Totality's creative-inventory tabs. Four broad, player-understandable groups chosen from the
@@ -119,6 +121,10 @@ public class ModGroups {
                             output.accept(SKIngredientItems.SALMON_ROE);
                             output.accept(SKIngredientItems.ROCK_WARBLER_EGG);
                             output.accept(SKIngredientItems.GARLIC);
+                            output.accept(SKIngredientItems.GARLIC_CLOVE);
+                            output.accept(AlchemyBlocks.JUEYUN_CHILI_PLANT);
+                            output.accept(SKIngredientItems.JUEYUN_CHILI);
+                            output.accept(CookingBlocks.CUTTING_BOARD);
                         })
                         .build());
 
@@ -144,6 +150,8 @@ public class ModGroups {
                             // Personal gadgets
                             output.accept(EnergyItems.UMBRA_VISOR);
                             output.accept(EnergyItems.BASIC_COPPER_PHONE);
+                            // Vehicles
+                            output.accept(VehicleItems.SKATEBOARD);
                             // Currency
                             output.accept(CurrencyItems.COPPER_COIN);
                             output.accept(CurrencyItems.SILVER_COIN);
@@ -184,6 +192,7 @@ public class ModGroups {
                             output.accept(MagicItems.APPRENTICE_GRIMOIRE);
                             output.accept(MagicItems.ARCHMAGE_GRIMOIRE);
                             output.accept(MagicItems.RING_OF_PROTECTION);
+                            output.accept(MagicItems.CAPE_OF_THE_MOUNTEBANK);
                             output.accept(MagicItems.ARCANE_ORB);
                             output.accept(MagicItems.BARD_GUITAR);
                             // Soul Gems
@@ -307,6 +316,7 @@ public class ModGroups {
                         .displayItems((parameters, output) -> {
                             output.accept(FoodItems.PIZZA_MARGHERITA);
                             output.accept(FoodItems.PIZZA_MARGHERITA_SLICE);
+                            output.accept(IngredientItems.RAW_MEAT);
                         })
                         .build());
     }

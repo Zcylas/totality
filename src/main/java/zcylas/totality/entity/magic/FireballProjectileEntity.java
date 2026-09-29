@@ -1,6 +1,8 @@
 package zcylas.totality.entity.magic;
 
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.level.Level;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -11,11 +13,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.combat.damage.DamageFlags;
 import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.combat.damage.TotalityDamage;
@@ -25,8 +29,10 @@ import zcylas.totality.api.dice.RollType;
 import zcylas.totality.api.rpg.combat.SavingThrow;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.init.ModEntities;
+import zcylas.totality.init.ModParticles;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Fireball projectile — travels slowly, explodes in a 6-block radius on impact.
@@ -41,13 +47,18 @@ public class FireballProjectileEntity extends Projectile {
             SynchedEntityData.defineId(FireballProjectileEntity.class, EntityDataSerializers.FLOAT);
 
     private static final float BOLT_SPEED  = 1.2f; // slower than spell bolts
-    private static final float BLAST_RADIUS = 6.0f;
+    /** Blast radius in blocks (D&D: a 20-foot-radius sphere); also the size the detonation visuals bloom out to. */
+    public static final float BLAST_RADIUS = 6.0f;
     private static final int   DICE_COUNT  = 8;
     private static final Dice  DAMAGE_DIE  = Dice.D6;
     private static final int   MAX_LIFETIME = 100; // 5 seconds
+    /** Visual only: no trail particles closer than this to the cast point (keeps the caster's own view clear). */
+    private static final double TRAIL_CLEARANCE = 2.5;
 
     private int ticksAlive = 0;
     private int spellSaveDc = 14; // computed from caster in create()
+    /** Client only: where this client first saw the fireball (the cast point), for the ignition and the renderer. */
+    @Nullable private Vec3 visualOrigin = null;
 
     public FireballProjectileEntity(EntityType<? extends FireballProjectileEntity> type, Level level) {
         super(type, level);
@@ -79,20 +90,23 @@ public class FireballProjectileEntity extends Projectile {
     public void tick() {
         super.tick();
         ticksAlive++;
-        if (ticksAlive >= MAX_LIFETIME) { this.discard(); return; }
-
-        if (level().isClientSide()) {
-            // Orange-red fireball trail
-            level().addParticle(ParticleTypes.FLAME,
-                    getX(), getY(), getZ(), 0, 0, 0);
-            level().addParticle(ParticleTypes.LARGE_SMOKE,
-                    getX(), getY(), getZ(),
-                    (Math.random()-0.5)*0.1, 0, (Math.random()-0.5)*0.1);
+        if (ticksAlive >= MAX_LIFETIME) {
+            // Expired in the air: the fireball gutters out (a small puff) instead of vanishing.
+            if (level() instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ModParticles.FIREBALL_DETONATION, getX(), getY(), getZ(), 0, -1, 0, 0, 1.0);
+            }
+            this.discard();
+            return;
         }
 
         Vec3 start    = this.position();
         Vec3 velocity = this.getDeltaMovement();
         Vec3 end      = start.add(velocity);
+
+        if (level().isClientSide() && visualOrigin == null) {
+            visualOrigin = start;
+            FireballVfx.castBurst(level(), start, travelDirection());
+        }
 
         var blockHit = level().clip(new net.minecraft.world.level.ClipContext(
                 start, end,
@@ -103,13 +117,52 @@ public class FireballProjectileEntity extends Projectile {
                 : net.minecraft.world.entity.projectile.ProjectileUtil.getHitResultOnMoveVector(
                 this, this::canHitEntity);
 
+        if (level().isClientSide()) {
+            // The trail starts 2.5 blocks out from the cast point: closer, it fills the caster's first-person view.
+            Vec3 trailEnd = hit.getType() != HitResult.Type.MISS ? hit.getLocation() : end;
+            if (trailEnd.distanceTo(visualOrigin) > TRAIL_CLEARANCE) {
+                Vec3 trailStart = start.distanceTo(visualOrigin) >= TRAIL_CLEARANCE ? start
+                        : visualOrigin.add(travelDirection().scale(TRAIL_CLEARANCE));
+                FireballVfx.trail(level(), trailStart, trailEnd, travelDirection());
+            }
+        }
+
         if (hit.getType() != HitResult.Type.MISS) {
+            // Detonate where it actually hit, not where this tick's move started (up to 1.2 blocks short).
+            Vec3 impact = impactPoint(hit, start, velocity);
+            this.setPos(impact.x, impact.y, impact.z);
             onHit(hit);
             return;
         }
 
         this.setPos(end.x, end.y, end.z);
         this.updateRotation();
+    }
+
+    /**
+     * The blast centre for a hit on this tick's move from {@code start} by {@code velocity}: on a block, the hit point
+     * backed off the surface by a quarter block (so the blast's exposure rays start in the open); on an entity, where
+     * the path enters its (projectile-inflated) box, or its centre if the path starts inside it.
+     */
+    static Vec3 impactPoint(HitResult hit, Vec3 start, Vec3 velocity) {
+        Vec3 dir = velocity.lengthSqr() < 1.0E-8 ? Vec3.ZERO : velocity.normalize();
+        if (hit instanceof EntityHitResult entityHit) {
+            AABB box = entityHit.getEntity().getBoundingBox().inflate(0.25);
+            return box.clip(start, start.add(velocity)).orElse(box.getCenter());
+        }
+        return hit.getLocation().subtract(dir.scale(0.25));
+    }
+
+    /** The direction of flight (the look direction for the first tick of a stationary fireball). */
+    private Vec3 travelDirection() {
+        Vec3 v = getDeltaMovement();
+        return v.lengthSqr() < 1.0E-8 ? Vec3.directionFromRotation(getXRot(), getYRot()) : v.normalize();
+    }
+
+    /** Client only: the point this fireball was first seen at (null before its first client tick). */
+    @Nullable
+    public Vec3 visualOrigin() {
+        return visualOrigin;
     }
 
     @Override
@@ -123,13 +176,15 @@ public class FireballProjectileEntity extends Projectile {
 
         double x = getX(), y = getY(), z = getZ();
 
-        // ── Explosion visual ─────────────────────────────────────────────────
-        // level.explode() gives us the full TNT-style ring + sound for free.
-        // ExplosionInteraction.NONE = no block destruction (Fireball ignites, not destroys).
-        serverLevel.explode(
-                null, x, y, z,
-                (float)(BLAST_RADIUS * 0.8),
-                Level.ExplosionInteraction.NONE);
+        // ── Presentation only ────────────────────────────────────────────────
+        // No vanilla explosion is created: ServerExplosion would add its own damage (turned into Force damage by
+        // VanillaDamageInterceptor), knockback, and pushes to every entity nearby, projectiles included. Only what
+        // it presents is kept: the explosion game event, and the explosion packet (the blast's sound and the Fireball
+        // detonation emitter, FireballVfx) sent to every player within 64 blocks, as vanilla sends it, but carrying
+        // no knockback. Fireball's only damage is the 8d6 Fire below.
+        Vec3 centre = new Vec3(x, y, z);
+        serverLevel.gameEvent(null, GameEvent.EXPLODE, centre);
+        sendDetonation(serverLevel, centre);
 
         // ── Block ignition ─────────────────────────────────────────────────────
         int iRad = (int) BLAST_RADIUS;
@@ -153,8 +208,9 @@ public class FireballProjectileEntity extends Projectile {
         // ── Damage entities ────────────────────────────────────────────────────
         AABB box = new AABB(x-BLAST_RADIUS, y-BLAST_RADIUS, z-BLAST_RADIUS,
                 x+BLAST_RADIUS, y+BLAST_RADIUS, z+BLAST_RADIUS);
+        // Every creature in the sphere, the caster included (D&D: "each creature in a 20-foot-radius sphere").
         List<LivingEntity> targets = serverLevel.getEntitiesOfClass(LivingEntity.class, box,
-                e -> e != caster && e.distanceTo(this) <= BLAST_RADIUS);
+                e -> e.distanceTo(this) <= BLAST_RADIUS);
 
         float dc = this.entityData.get(SPELL_SAVE_DC);
 
@@ -165,11 +221,22 @@ public class FireballProjectileEntity extends Projectile {
             RollOutcome outcome = SavingThrow.roll(target, AbilityScore.DEX, (int) dc, RollType.NORMAL);
             float damage = outcome.isSuccess() ? raw / 2f : raw;
 
-            TotalityDamage.hurt(target, caster, DamageTypes.FIRE, damage,
+            // The caster's own hit has no attacker: as an attack by themself, vanilla would gate it on PvP and shove
+            // them in a random direction. It is the same single Fire calculation, saves and resistances as everyone's.
+            TotalityDamage.hurt(target, target == caster ? null : caster, DamageTypes.FIRE, damage,
                     DamageFlags.IS_AOE, DamageFlags.NO_CONDITIONS);
         }
 
         this.discard();
+    }
+
+    /** The explosion packet a vanilla explosion sends, minus its knockback: sound and detonation emitter only. */
+    private static void sendDetonation(ServerLevel level, Vec3 centre) {
+        ClientboundExplodePacket packet = new ClientboundExplodePacket(centre, BLAST_RADIUS * 0.8f, 0, Optional.empty(),
+                ModParticles.FIREBALL_DETONATION, SoundEvents.GENERIC_EXPLODE, WeightedList.of());
+        for (ServerPlayer player : level.players()) {
+            if (player.distanceToSqr(centre) < 4096.0) player.connection.send(packet);
+        }
     }
 
     @Override protected void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput o) {}

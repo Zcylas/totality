@@ -6,6 +6,8 @@ package zcylas.totality.api.rpg.skills.core;
  */
 public class SkillData {
 
+    public static final int MAX_LEVEL = 100;
+
     private int level = 10;
     private int xp = 0;
 
@@ -29,7 +31,7 @@ public class SkillData {
     public boolean addXp(Skill skill, int amount) {
         xp += amount;
         boolean leveledUp = false;
-        while (xp >= skill.getXpRequired(level) && level < 100) {
+        while (xp >= skill.getXpRequired(level) && level < MAX_LEVEL) {
             xp -= skill.getXpRequired(level);
             level++;
             leveledUp = true;

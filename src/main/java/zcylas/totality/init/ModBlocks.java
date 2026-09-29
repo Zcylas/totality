@@ -16,6 +16,7 @@ public class ModBlocks {
         RitualBlocks.register();
         WhitestoneBlocks.register();
         NaturalBlocks.register();
+        CookingBlocks.register();
     }
 
     private ModBlocks(){}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "totality:block/plant/jueyun_chili/jueyun_chili_plant_picked"
+  }
+}

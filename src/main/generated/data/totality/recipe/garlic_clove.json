@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    "totality:garlic"
+  ],
+  "result": {
+    "count": 4,
+    "id": "totality:garlic_clove"
+  }
+}

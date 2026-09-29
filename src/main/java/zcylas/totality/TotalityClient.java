@@ -16,6 +16,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.rpg.classes.ClientClassManager;
+import zcylas.totality.client.renderer.equipment.BackEquipmentLayer;
+import zcylas.totality.client.renderer.entity.gate.SoloGateRenderer;
 import zcylas.totality.api.rpg.classes.TotalityClasses;
 import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
@@ -33,12 +35,16 @@ import zcylas.totality.client.renderer.entity.npc.ProvisionerNpcRenderer;
 import zcylas.totality.client.renderer.entity.npc.TotalityNpcRenderer;
 import zcylas.totality.client.renderer.entity.magic.SpellBoltRenderer;
 import zcylas.totality.client.renderer.entity.basicweapon.ThrownShurikenRenderer;
+import zcylas.totality.client.renderer.entity.skateboard.SkateboardRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankRenderer;
 import zcylas.totality.client.renderer.fluid.FluidTankSpecialRenderer;
 import zcylas.totality.client.renderer.hud.MobHealthBarHud;
 import zcylas.totality.client.renderer.hud.TotalityHudRenderer;
 import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.client.renderer.ritual.RitualAltarRenderer;
+import zcylas.totality.client.particle.fireball.FireballParticles;
+import zcylas.totality.client.renderer.cooking.CuttingBoardRenderer;
+import zcylas.totality.client.renderer.entity.magic.FireballProjectileRenderer;
 import zcylas.totality.client.renderer.ritual.RitualDaisRenderer;
 import zcylas.totality.init.*;
 import zcylas.totality.item.fluid.FluidTankItem;
@@ -65,6 +71,7 @@ public class TotalityClient implements ClientModInitializer {
         registerEntityRenderers();
         registerSpecialRenderers();
         zcylas.totality.client.renderer.armor.ShinigamiRobeArmorRenderer.register();
+        BackEquipmentLayer.register();
         zcylas.totality.client.renderer.entity.npc.ProvisionerRendererVerification.runIfDev();
         SidedOverlayRenderer.register();
 
@@ -103,6 +110,14 @@ public class TotalityClient implements ClientModInitializer {
         zcylas.totality.client.spell.CastBarHud.register();
         ClientTickEvents.END_CLIENT_TICK.register(client -> FluidTankScrollHandler.tick());
         ClientTickEvents.END_CLIENT_TICK.register(client -> MobHealthBarHud.tick());
+
+        // ── Voice Input (Phase 1) ─────────────────────────────────────────────
+        // Inert unless used: no model extraction, native load or microphone at startup. The WAV
+        // verification hook only runs with -Dtotality.voice.wavVerification=<file>.
+        zcylas.totality.client.operator.OperatorModeNetwork.register();
+        zcylas.totality.client.phone.PhoneCapture.registerIfRequested();
+        zcylas.totality.client.voice.VoiceRuntime.registerLifecycle();
+        zcylas.totality.client.voice.VoiceWavVerification.registerIfRequested();
 
         // A fresh join never gets an explicit "cleared" rest sync from the server (it only sends
         // one when a rest actually starts/changes), so without this a rest HUD/forced camera left
@@ -213,14 +228,29 @@ public class TotalityClient implements ClientModInitializer {
                 ModBlockEntities.RITUAL_DAIS,
                 RitualDaisRenderer::new
         );
+        BlockEntityRenderers.register(
+                ModBlockEntities.CUTTING_BOARD,
+                CuttingBoardRenderer::new
+        );
         TotalityHudRenderer.register();
         zcylas.totality.client.hud.rest.RestHud.register();
         NotificationManager.register();
         zcylas.totality.client.renderer.hud.notification.NotificationTimingVerification.runIfDev();
+        zcylas.totality.client.hologram.HologramManager.register();
+        // Development environment only: /totalityhologram samples; the screenshot run additionally
+        // needs -Dtotality.hologram.capture=true.
+        zcylas.totality.client.hologram.dev.HologramShowcase.registerIfDevelopmentEnvironment();
+        zcylas.totality.client.hologram.dev.HologramCapture.registerIfRequested();
         zcylas.totality.client.renderer.hud.PowerAttackFlash.register();
         zcylas.totality.client.renderer.hud.PowerAttackFlashVerification.runIfDev();
         zcylas.totality.client.quest.QuestTrackerHud.register();
-        MobHealthBarHud.register();
+        // Mob HUD V1 prototype: a world-space target nameplate replaces the legacy screen-space Mob HUD
+        // while TargetNameplate.PROTOTYPE_ENABLED (the legacy class is untouched; flip it to restore).
+        if (zcylas.totality.client.hologram.TargetNameplate.PROTOTYPE_ENABLED) {
+            zcylas.totality.client.hologram.TargetNameplate.register();
+        } else {
+            MobHealthBarHud.register();
+        }
         CombatTextRenderer.register();
         zcylas.totality.client.mining.ClientMiningController.register();
         HeatVisionBeamRenderer.register();
@@ -282,9 +312,16 @@ public class TotalityClient implements ClientModInitializer {
         EntityRenderers.register(
                 ModEntities.SPELL_BOLT,
                 SpellBoltRenderer::new);
+        zcylas.totality.client.particle.firebolt.FireboltParticles.register();
+        EntityRenderers.register(
+                ModEntities.VISUAL_PORTAL,
+                zcylas.totality.client.renderer.entity.portal.VisualPortalRenderer::new);
+        zcylas.totality.client.particle.portal.VisualPortalParticles.register();
+        EntityRenderers.register(ModEntities.SOLO_GATE, SoloGateRenderer::new);
         EntityRenderers.register(
                 ModEntities.FIREBALL_PROJECTILE,
-                NoopRenderer::new);
+                FireballProjectileRenderer::new);
+        FireballParticles.register();
         EntityRenderers.register(
                 ModEntities.ORBIT_PROJECTILE,
                 NoopRenderer::new);
@@ -300,6 +337,10 @@ public class TotalityClient implements ClientModInitializer {
         // skin-category axis; this is simply the Provisioner's own texture pair, not a second axis).
         EntityRenderers.register(ModEntities.PROVISIONER, ProvisionerNpcRenderer::new);
         EntityRenderers.register(ModEntities.REST_SEAT, NoopRenderer::new);
+        // Forest Boar: Astra's per-face-UV cuboids are built directly (see ForestBoarGeometry), not from a model layer.
+        EntityRenderers.register(ModEntities.FOREST_BOAR, zcylas.totality.client.entity.forestboar.ForestBoarRenderer::new);
+        // Creative Test D: the default skateboard (its rider's standing pose: AvatarRendererSkateboardMixin).
+        EntityRenderers.register(ModEntities.SKATEBOARD, SkateboardRenderer::new);
 
         //Basic Weapons
         //Shuriken

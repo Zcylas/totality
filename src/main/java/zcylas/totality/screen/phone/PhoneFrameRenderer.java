@@ -1,91 +1,125 @@
 package zcylas.totality.screen.phone;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 
 /**
- * Draws the phone-shaped body/bezel shared by {@link PhoneSetupScreen} and
- * {@link PhoneAppGridScreen}, so both look like an actual phone rather than a plain box,
- * and so a new {@link PhoneFrame} tier only needs a palette, not new drawing code.
- * TODO(visual pass): flat-color approximation of Context/phone_mockup.png — real
- * pixel-art frame texture still belongs to a later art pass.
+ * Draws the opened phone DEVICE for any {@link PhoneDeviceStyle}: its casing, hardware details and display
+ * surface, and computes where the display is so screens can lay out their content inside it. Everything
+ * is drawn at whole GUI pixels (sprites at 1 art pixel = 1 GUI pixel), so it stays crisp at every GUI scale.
+ *
+ * <p>The phone keeps the item's proportions ({@link PhoneDeviceStyle#aspect()}) and is anchored to the
+ * right of the window, vertically centred, so the world stays visible around it.
  */
 public final class PhoneFrameRenderer {
 
-    private static final int BORDER = 10;
-    private static final int TOP_BEZEL = 22;
-    private static final int BOTTOM_BEZEL = 16;
+    private static final int MARGIN = 6;
     private static final int RIGHT_MARGIN = 24;
-    private static final int EXTRA_WIDTH = 5;
+    /** Beyond this the phone would only grow emptier; larger GUIs keep it at this height. */
+    private static final int MAX_HEIGHT = 300;
+
+    private static final long SLIDE_NANOS = 170_000_000L;
+    private static final long POWER_DELAY_NANOS = 70_000_000L;
+    private static final long POWER_NANOS = 190_000_000L;
+    private static final int SLIDE_DISTANCE = 14;
+    /** A phone screen drawn this recently means the device is already in hand: no new open animation. */
+    private static final long CONTINUITY_NANOS = 250_000_000L;
+
+    private static long lastDrawnNanos;
 
     private PhoneFrameRenderer() {}
 
-    /** Anchors a phone-shaped silhouette to the right edge of the window (vertically
-     *  centered), capped at ~98% height / 78% width, so the game world stays visible
-     *  around it instead of the phone sitting over a full-screen backdrop. */
-    public static int[] bounds(int windowW, int windowH) {
-        int maxH = (int) (windowH * 0.98f);
-        int maxW = (int) (windowW * 0.78f);
-        int h = maxH;
-        int w = (int) (h * 0.62f);
-        if (w > maxW) {
-            w = maxW;
-            h = (int) (w / 0.62f);
+    /** Body {@code x, y, w, h} and display {@code dx, dy, dw, dh}, in GUI pixels. */
+    public record Layout(int x, int y, int w, int h, int dx, int dy, int dw, int dh) {
+        Layout shifted(int by) {
+            return new Layout(x + by, y, w, h, dx + by, dy, dw, dh);
         }
-        w += EXTRA_WIDTH;
-        int x = windowW - w - RIGHT_MARGIN;
-        int y = windowH / 2 - h / 2;
-        return new int[]{ x, y, w, h };
+
+        public boolean inDisplay(double mx, double my) {
+            return mx >= dx && mx < dx + dw && my >= dy && my < dy + dh;
+        }
     }
 
-    /** Pure geometry — the inner screen content bounds {x, y, w, h} for a given phone body. */
-    public static int[] screenBounds(int x, int y, int w, int h) {
-        return new int[]{ x + BORDER, y + TOP_BEZEL, w - BORDER * 2, h - TOP_BEZEL - BOTTOM_BEZEL };
+    public static Layout layout(int guiWidth, int guiHeight, PhoneDeviceStyle style) {
+        int h = Math.min(guiHeight - MARGIN * 2, MAX_HEIGHT);
+        int w = Math.round(h * style.aspect());
+        int x = Math.max(MARGIN, guiWidth - w - RIGHT_MARGIN);
+        int y = (guiHeight - h) / 2;
+        return new Layout(x, y, w, h, x + style.insetLeft(), y + style.insetTop(),
+                w - style.insetLeft() - style.insetRight(), h - style.insetTop() - style.insetBottom());
     }
 
-    /** Draws the phone body/frame. Returns the inner screen content bounds {x, y, w, h}. */
-    public static int[] draw(GuiGraphicsExtractor g, int x, int y, int w, int h, PhoneFrame frame) {
-        g.fill(x, y, x + w, y + h, 0xFF08090B);
-
-        fillBorder(g, x, y, w, h, BORDER, frame.colorDim);
-        fillBorder(g, x + 2, y + 2, w - 4, h - 4, BORDER - 3, frame.color);
-
-        drawCorner(g, x + 2, y + 2, true, true, frame.colorBright);
-        drawCorner(g, x + w - 2, y + 2, false, true, frame.colorBright);
-        drawCorner(g, x + 2, y + h - 2, true, false, frame.colorBright);
-        drawCorner(g, x + w - 2, y + h - 2, false, false, frame.colorBright);
-
-        int btnW = 3;
-        g.fill(x - btnW, y + h / 6, x, y + h / 6 + 14, frame.colorBright);
-        g.fill(x - btnW, y + h / 6 + 20, x, y + h / 6 + 34, frame.colorBright);
-        g.fill(x + w, y + h / 5, x + w + btnW, y + h / 5 + 18, frame.colorBright);
-
-        int[] screen = screenBounds(x, y, w, h);
-        int screenX = screen[0], screenY = screen[1], screenW = screen[2], screenH = screen[3];
-
-        g.fill(screenX, screenY, screenX + screenW, screenY + screenH, 0xFF03060A);
-        drawBorder(g, screenX, screenY, screenW, screenH, 1, 0xFF0A2A3A);
-
-        int notchW = Math.max(20, screenW / 3);
-        g.fill(screenX + screenW / 2 - notchW / 2, y + 5, screenX + screenW / 2 + notchW / 2, screenY - 2, 0xFF000000);
-
-        return screen;
+    /** Open transition state of one screen: the device slides in, then the display powers on. */
+    public record Transition(int slide, float power) {
+        public static final Transition NONE = new Transition(0, 1);
     }
 
-    private static void fillBorder(GuiGraphicsExtractor g, int x, int y, int w, int h, int t, int color) {
-        g.fill(x, y, x + w, y + t, color);
-        g.fill(x, y + h - t, x + w, y + h, color);
-        g.fill(x, y, x + t, y + h, color);
-        g.fill(x + w - t, y, x + w, y + h, color);
+    /**
+     * Called when a phone screen is created: the start of its open animation, or -1 when another phone
+     * screen was just on screen (navigating between the phone's own screens keeps the device in place).
+     */
+    public static long beginOpen() {
+        long now = System.nanoTime();
+        return now - lastDrawnNanos < CONTINUITY_NANOS ? -1 : now;
     }
 
-    private static void drawBorder(GuiGraphicsExtractor g, int x, int y, int w, int h, int t, int color) {
-        fillBorder(g, x, y, w, h, t, color);
+    public static Transition transition(long openedNanos) {
+        if (openedNanos < 0) return Transition.NONE;
+        long t = System.nanoTime() - openedNanos;
+        float slide = Math.min(1f, t / (float) SLIDE_NANOS);
+        float eased = 1 - (1 - slide) * (1 - slide) * (1 - slide);
+        float power = Math.max(0f, Math.min(1f, (t - POWER_DELAY_NANOS) / (float) POWER_NANOS));
+        return new Transition(Math.round(SLIDE_DISTANCE * (1 - eased)), power);
     }
 
-    private static void drawCorner(GuiGraphicsExtractor g, int x, int y, boolean left, boolean top, int color) {
-        int dx = left ? 1 : -1, dy = top ? 1 : -1;
-        int size = 6;
-        g.fill(x, y, x + dx * size, y + dy, color);
-        g.fill(x, y, x + dx, y + dy * size, color);
+    /** Draws the device and its (empty) display; returns the layout actually drawn (after the slide). */
+    public static Layout drawDevice(GuiGraphicsExtractor g, Layout base, PhoneDeviceStyle style, Transition t) {
+        Layout l = base.shifted(t.slide());
+        PhoneDeviceStyle.Display d = style.display();
+
+        // Soft contact shadow under the body.
+        g.fill(l.x() + 3, l.y() + 3, l.x() + l.w() + 2, l.y() + l.h() + 2, 0x40000000);
+        g.fill(l.x() + 2, l.y() + 2, l.x() + l.w() + 1, l.y() + l.h() + 1, 0x30000000);
+
+        // Right-edge buttons, behind the casing (they protrude 2 px, as on the item).
+        for (float[] b : style.sideButtons()) {
+            int top = l.y() + Math.round(l.h() * b[0]);
+            int bottom = l.y() + Math.round(l.h() * b[1]);
+            g.fill(l.x() + l.w() - 2, top, l.x() + l.w() + 2, bottom, style.outline());
+            g.fill(l.x() + l.w() - 2, top + 1, l.x() + l.w() + 1, bottom - 1, style.buttonFace());
+        }
+
+        // Display surface: the item's dark glass, a faint lower falloff (restrained backlight), specks.
+        g.fill(l.dx(), l.dy(), l.dx() + l.dw(), l.dy() + l.dh(), d.background());
+        g.fillGradient(l.dx(), l.dy() + l.dh() / 2, l.dx() + l.dw(), l.dy() + l.dh(), d.background(), d.backgroundLow());
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.glassSprite(), l.dx(), l.dy(), l.dw(), l.dh());
+        // Recessed glass: a 1 px shadow under the top bezel and inside the left bezel.
+        g.fill(l.dx(), l.dy(), l.dx() + l.dw(), l.dy() + 1, 0x50000000);
+        g.fill(l.dx(), l.dy() + 1, l.dx() + 1, l.dy() + l.dh(), 0x30000000);
+
+        // Casing (nine-slice, tiled edges) and speaker slot.
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.frameSprite(), l.x(), l.y(), l.w(), l.h());
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.speakerSprite(), l.x() + (l.w() - style.speakerWidth()) / 2,
+                l.y() + style.speakerY(), style.speakerWidth(), style.speakerHeight());
+        return l;
+    }
+
+    /**
+     * After the content: the display's rounded inner corners (bezel colour, as on the item) and the power-on
+     * fade (content comes up with the backlight). Also records that a phone screen was on screen.
+     */
+    public static void finishDisplay(GuiGraphicsExtractor g, Layout l, PhoneDeviceStyle style, Transition t) {
+        PhoneDeviceStyle.Display d = style.display();
+        if (t.power() < 1f) {
+            int alpha = Math.round((1 - t.power()) * 255);
+            g.fill(l.dx(), l.dy(), l.dx() + l.dw(), l.dy() + l.dh(), (alpha << 24) | 0x0B0C0B);
+        }
+        int bz = d.bezel();
+        int x0 = l.dx(), y0 = l.dy(), x1 = l.dx() + l.dw() - 1, y1 = l.dy() + l.dh() - 1;
+        for (int[] c : new int[][] {{x0, y0, 1, 1}, {x1, y0, -1, 1}, {x0, y1, 1, -1}, {x1, y1, -1, -1}}) {
+            g.fill(Math.min(c[0], c[0] + c[2] * 2), c[1], Math.max(c[0], c[0] + c[2] * 2) + 1, c[1] + 1, bz);
+            g.fill(c[0], Math.min(c[1], c[1] + c[3]), c[0] + 1, Math.max(c[1], c[1] + c[3]) + 1, bz);
+        }
+        lastDrawnNanos = System.nanoTime();
     }
 }

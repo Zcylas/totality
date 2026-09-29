@@ -20,6 +20,7 @@ import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.mixin.CraftingMenuAccessor;
 import zcylas.totality.api.equipment.PlayerEquipmentComponent;
 import zcylas.totality.api.equipment.TotalityAccessorySlot;
+import zcylas.totality.api.equipment.TotalityBackItem;
 import zcylas.totality.api.equipment.TotalityRingItem;
 import zcylas.totality.item.energy.PhoneItem;
 
@@ -38,6 +39,7 @@ import zcylas.totality.item.energy.PhoneItem;
  *   47      — ring slot 1 (component index 1)
  *   48      — ring slot 2 (component index 2)
  *   49      — pouch slot  (component index 4)
+ *   50      — back slot   (component index 6)
  */
 public class AccessoryInventoryMenu extends AbstractContainerMenu {
 
@@ -67,6 +69,9 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
     public static final int RING_1_Y     = 43;  // PHONE_Y + 18 — adjacent, no gap
     public static final int RING_2_Y     = 61;  // RING_1_Y + 18 — adjacent, no gap
     public static final int POUCH_Y      = 79;  // RING_2_Y + 18 — adjacent, no gap
+    public static final int BACK_Y       = 97;  // POUCH_Y + 18 — adjacent, no gap
+    /** Rows in the side panel (Phone, Ring 1, Ring 2, Pouch, Back); the screen draws and hit-tests this many. */
+    public static final int PANEL_ROWS   = 5;
 
     private final Player player;
     private final CraftingContainer craftMatrix = new TransientCraftingContainer(this, 2, 2);
@@ -135,6 +140,7 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
         Identifier ringIcon  = Identifier.fromNamespaceAndPath("totality", "container/slot/ring");
         Identifier pouchIcon = Identifier.fromNamespaceAndPath("totality", "container/slot/pouch");
         Identifier phoneIcon = Identifier.fromNamespaceAndPath("totality", "container/slot/phone");
+        Identifier backIcon  = Identifier.fromNamespaceAndPath("totality", "container/slot/back");
         addSlot(new TotalityAccessorySlot(ringContainer, player,
                 PlayerEquipmentComponent.IDX_PHONE, RING_SLOT_X, PHONE_Y, phoneIcon,
                 stack -> stack.getItem() instanceof PhoneItem));
@@ -145,6 +151,9 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
         addSlot(new TotalityAccessorySlot(ringContainer, player,
                 PlayerEquipmentComponent.IDX_POUCH, RING_SLOT_X, POUCH_Y, pouchIcon,
                 stack -> true));
+        addSlot(new TotalityAccessorySlot(ringContainer, player,
+                PlayerEquipmentComponent.IDX_BACK, RING_SLOT_X, BACK_Y, backIcon,
+                TotalityBackItem::isBackEquipment));
     }
 
     @Override
@@ -195,7 +204,7 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
             // Offhand → inventory
             if (!moveItemStackTo(stack, 9, 45, false)) return ItemStack.EMPTY;
         } else if (index >= 46) {
-            // Ring / pouch slot → inventory
+            // Phone / ring / pouch / back slot → inventory
             if (!moveItemStackTo(stack, 9, 45, false)) return ItemStack.EMPTY;
         } else {
             // Inventory (9–44): try to equip ring, armor, offhand, or swap halves
@@ -206,6 +215,10 @@ public class AccessoryInventoryMenu extends AbstractContainerMenu {
                 }
             } else if (stack.getItem() instanceof PhoneItem) {
                 if (!moveItemStackTo(stack, 46, 47, false)) {
+                    if (!swapInventoryHalves(stack, index)) return ItemStack.EMPTY;
+                }
+            } else if (TotalityBackItem.isBackEquipment(stack)) {
+                if (!moveItemStackTo(stack, 50, 51, false)) {
                     if (!swapInventoryHalves(stack, index)) return ItemStack.EMPTY;
                 }
             } else {

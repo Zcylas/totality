@@ -29,9 +29,11 @@ import zcylas.totality.networking.mob.MobStatsSyncPayload;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 import zcylas.totality.networking.stamina.ClientStaminaManager;
 import zcylas.totality.networking.stamina.SyncStaminaPayload;
+import zcylas.totality.networking.skills.OpenSkillsScreenPayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 import zcylas.totality.screen.alchemy.ApothecaryTableScreen;
 import zcylas.totality.screen.classes.ClassSelectionScreen;
+import zcylas.totality.screen.menu.SkillsMenuScreen;
 import zcylas.totality.screen.phone.PhoneScreens;
 
 public class TotalityClientPacketHandlers {
@@ -106,6 +108,9 @@ public class TotalityClientPacketHandlers {
                 OpenAncestrySelectionPayload.TYPE,
                 (payload, ctx) -> ctx.client().gui.setScreen(
                         new zcylas.totality.screen.ancestry.SpeciesSelectionScreen()));
+        ClientPlayNetworking.registerGlobalReceiver(
+                OpenSkillsScreenPayload.TYPE,
+                (payload, ctx) -> SkillsMenuScreen.open(null));
         ClientPlayNetworking.registerGlobalReceiver(
                 OpenClassSelectionPayload.TYPE,
                 (payload, ctx) -> ctx.client().gui.setScreen(new ClassSelectionScreen())

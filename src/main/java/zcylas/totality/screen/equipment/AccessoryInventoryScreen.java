@@ -80,7 +80,7 @@ public class AccessoryInventoryScreen extends AbstractContainerScreen<AccessoryI
         int px = guiLeft + AccessoryInventoryMenu.RING_PANEL_X;
         int py = guiTop + AccessoryInventoryMenu.RING_PANEL_Y;
         int pw = ADDON_W;
-        int ph = 4 + 18 * 4 + 4; // matches renderRingPanel's 4-row layout
+        int ph = 4 + 18 * AccessoryInventoryMenu.PANEL_ROWS + 4; // matches renderRingPanel's layout
         if (mouseX >= px && mouseX < px + pw && mouseY >= py && mouseY < py + ph) return false;
         return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop);
     }
@@ -126,7 +126,7 @@ public class AccessoryInventoryScreen extends AbstractContainerScreen<AccessoryI
     private void renderRingPanel(@NonNull GuiGraphicsExtractor gui) {
         int px = leftPos + AccessoryInventoryMenu.RING_PANEL_X;
         int pt = topPos + AccessoryInventoryMenu.RING_PANEL_Y;
-        int rows = 4;
+        int rows = AccessoryInventoryMenu.PANEL_ROWS;
         for (int j = 0; j < rows; j++) {
             gui.blit(RenderPipelines.GUI_TEXTURED, SLOT_ADDON, px + 4, pt + 4 + 18 * j, 4, 4, 18, 18, ADDON_W, ADDON_H);
         }
@@ -216,6 +216,7 @@ public class AccessoryInventoryScreen extends AbstractContainerScreen<AccessoryI
                 case 47 -> Component.literal("Left Ring");
                 case 48 -> Component.literal("Right Ring");
                 case 49 -> Component.literal("Pouch");
+                case 50 -> Component.literal("Back");
                 default -> null;
             };
             if (tip != null) {

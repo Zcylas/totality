@@ -4,10 +4,13 @@ import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricTagsProvider;
 import net.minecraft.client.color.item.Potion;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import zcylas.totality.api.equipment.TotalityBackItem;
+import zcylas.totality.api.equipment.TotalityRingItem;
 import zcylas.totality.init.ModTags;
 import zcylas.totality.init.items.BasicWeaponItems;
 import zcylas.totality.init.items.BleachItems;
@@ -15,6 +18,7 @@ import zcylas.totality.init.items.DndPotionItems;
 import zcylas.totality.init.items.MagicItems;
 import zcylas.totality.init.items.PotionItems;
 import zcylas.totality.item.base_weapons.ShurikenItem;
+import zcylas.totality.item.energy.PhoneItem;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -167,6 +171,15 @@ public class ModItemTagProvider extends FabricTagsProvider.ItemTagsProvider {
         var miningDamageTag = builder(ModTags.ENCHANTABLE_MINING_DAMAGE);
         for (Item item : zcylas.totality.api.mining.MiningSourceProfile.participatingItems()) {
             miningDamageTag.add(key(item));
+        }
+
+        // ── Soulbound enchantment applicability ─────────────────────────────────
+        // The items authored for Totality's equipment slots: rings, Back items and phones.
+        var soulboundTag = builder(ModTags.ENCHANTABLE_SOULBOUND);
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (item instanceof TotalityRingItem || item instanceof TotalityBackItem || item instanceof PhoneItem) {
+                soulboundTag.add(key(item));
+            }
         }
     }
 

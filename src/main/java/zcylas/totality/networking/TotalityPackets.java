@@ -58,6 +58,7 @@ import zcylas.totality.networking.quest.ShowQuestStatePayload;
 import zcylas.totality.networking.quest.TrackQuestPayload;
 import zcylas.totality.networking.shop.BuyItemPayload;
 import zcylas.totality.networking.shop.ShowShopStatePayload;
+import zcylas.totality.networking.skills.OpenSkillsScreenPayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 import zcylas.totality.networking.stats.SpendAttributePointPayload;
 
@@ -88,6 +89,10 @@ public class TotalityPackets {
         registry.register(PowerAttackPayload.TYPE, PowerAttackPayload.CODEC);
         registry.register(zcylas.totality.networking.mining.MiningIntentPayload.TYPE,
                 zcylas.totality.networking.mining.MiningIntentPayload.CODEC);
+        registry.register(zcylas.totality.networking.operator.OperatorAuthorizationQueryPayload.TYPE,
+                zcylas.totality.networking.operator.OperatorAuthorizationQueryPayload.CODEC);
+        registry.register(zcylas.totality.networking.operator.OperatorActionPayload.TYPE,
+                zcylas.totality.networking.operator.OperatorActionPayload.CODEC);
         registry.register(zcylas.totality.networking.combat.BlockKeyPayload.TYPE,
                 zcylas.totality.networking.combat.BlockKeyPayload.CODEC);
         registry.register(zcylas.totality.networking.combat.OffhandAttackPayload.TYPE,
@@ -141,6 +146,12 @@ public class TotalityPackets {
                 zcylas.totality.networking.mining.MiningSwingPayload.CODEC);
         registry.register(zcylas.totality.networking.mining.MiningRecoveryPayload.TYPE,
                 zcylas.totality.networking.mining.MiningRecoveryPayload.CODEC);
+        registry.register(zcylas.totality.networking.mining.PowerStrikeResultPayload.TYPE,
+                zcylas.totality.networking.mining.PowerStrikeResultPayload.CODEC);
+        registry.register(zcylas.totality.networking.operator.OperatorAuthorizationPayload.TYPE,
+                zcylas.totality.networking.operator.OperatorAuthorizationPayload.CODEC);
+        registry.register(zcylas.totality.networking.operator.OperatorActionResultPayload.TYPE,
+                zcylas.totality.networking.operator.OperatorActionResultPayload.CODEC);
         registry.register(SideModeSyncPayload.TYPE, SideModeSyncPayload.CODEC);
         registry.register(SyncStaminaPayload.TYPE, SyncStaminaPayload.CODEC);
         registry.register(SyncManaPayload.TYPE, SyncManaPayload.CODEC);
@@ -150,6 +161,7 @@ public class TotalityPackets {
         registry.register(BrewResultPayload.TYPE, BrewResultPayload.STREAM_CODEC);
         registry.register(SendNotificationPayload.TYPE, SendNotificationPayload.CODEC);
         registry.register(OpenStatusScreenPayload.TYPE, OpenStatusScreenPayload.CODEC);
+        registry.register(OpenSkillsScreenPayload.TYPE, OpenSkillsScreenPayload.CODEC);
         registry.register(OpenMainMenuPayload.TYPE, OpenMainMenuPayload.CODEC);
         registry.register(OpenAncestrySelectionPayload.TYPE, OpenAncestrySelectionPayload.STREAM_CODEC);
         registry.register(CombatTextPayload.TYPE, CombatTextPayload.CODEC);

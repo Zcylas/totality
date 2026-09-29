@@ -7,6 +7,7 @@ import zcylas.totality.api.mob.stats.MobRank;
 import zcylas.totality.api.soulgem.SoulCategory;
 import zcylas.totality.api.soulgem.SoulGemAcceptanceRule;
 import zcylas.totality.init.TotalityRegistry;
+import zcylas.totality.item.equipment.CapeOfTheMountebankItem;
 import zcylas.totality.item.equipment.RingOfProtectionItem;
 import zcylas.totality.item.magic.GrimoireItem;
 import zcylas.totality.item.soulgem.SoulGemItem;
@@ -63,6 +64,20 @@ public class MagicItems {
                     .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
                     .component(ItemComponents.getLore(), new LoreComponent(
                             "A simple band of protection. Requires attunement to grant its boon."
+                    ))
+    );
+
+// Back (capes / cloaks)
+    public static final CapeOfTheMountebankItem CAPE_OF_THE_MOUNTEBANK = TotalityRegistry.registerItem(
+            "cape_of_the_mountebank",
+            CapeOfTheMountebankItem::new,
+            new Item.Properties()
+                    .component(ItemComponents.getTooltipProfile(), TooltipProfileComponent.STANDARD)
+                    .component(ItemComponents.getRarity(),   new RarityComponent(ItemRarity.LEGENDARY))
+                    .component(ItemComponents.getItemType(), new ItemTypeComponent(ItemType.MAGICAL))
+                    .component(ItemComponents.getClassifications(), ClassificationsComponent.of(ItemType.MAGICAL))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A crimson mantle that smells faintly of brimstone."
                     ))
     );
 

@@ -69,6 +69,16 @@ public class SpellBoltEntity extends Projectile {
     private static final EntityDataAccessor<Integer> BOLT_COLOR =
             SynchedEntityData.defineId(SpellBoltEntity.class, EntityDataSerializers.INT);
 
+    /** Which visual treatment clients draw (synced with the spawn). Gameplay never reads it. */
+    private static final EntityDataAccessor<Byte> VISUAL_STYLE =
+            SynchedEntityData.defineId(SpellBoltEntity.class, EntityDataSerializers.BYTE);
+
+    /**
+     * DEFAULT: the colored dust trail every bolt spell uses. FIREBOLT: the rendered fire projectile
+     * (SpellBoltRenderer) with its own cast burst, trail and impact ({@link FireboltVfx}).
+     */
+    public enum VisualStyle { DEFAULT, FIREBOLT }
+
     // ── Constants ─────────────────────────────────────────────────────────────
 
     private static final int   MAX_LIFETIME_TICKS = 60;   // 3 seconds
@@ -90,6 +100,9 @@ public class SpellBoltEntity extends Projectile {
     @Nullable private SoundEvent impactSound       = null;
 
     private int ticksAlive = 0;
+
+    /** Client only: where this bolt was first seen (the renderer grows the flame tail from here). */
+    @Nullable private Vec3 visualOrigin = null;
 
     // ── Constructors ──────────────────────────────────────────────────────────
 
@@ -166,11 +179,29 @@ public class SpellBoltEntity extends Projectile {
         return this;
     }
 
+    /** Selects the visual treatment (visual only). Returns {@code this} for chaining. */
+    public SpellBoltEntity withVisualStyle(VisualStyle style) {
+        this.entityData.set(VISUAL_STYLE, (byte) style.ordinal());
+        return this;
+    }
+
+    public VisualStyle visualStyle() {
+        int id = this.entityData.get(VISUAL_STYLE);
+        return id == VisualStyle.FIREBOLT.ordinal() ? VisualStyle.FIREBOLT : VisualStyle.DEFAULT;
+    }
+
+    /** Client only: where the bolt was first seen, or null before its first client tick. */
+    @Nullable
+    public Vec3 visualOrigin() {
+        return visualOrigin;
+    }
+
     // ── SynchedEntityData ─────────────────────────────────────────────────────
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(BOLT_COLOR, 0xAA00FF); // default purple (Eldritch Blast)
+        builder.define(VISUAL_STYLE, (byte) VisualStyle.DEFAULT.ordinal());
     }
 
     // ── Tick ──────────────────────────────────────────────────────────────────
@@ -180,13 +211,25 @@ public class SpellBoltEntity extends Projectile {
         super.tick();
         ticksAlive++;
 
+        boolean firebolt = visualStyle() == VisualStyle.FIREBOLT;
+
         if (ticksAlive >= MAX_LIFETIME_TICKS) {
+            // Firebolt gutters out in the air instead of vanishing (visual only).
+            if (firebolt && level() instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(zcylas.totality.init.ModParticles.FIREBOLT_IMPACT, getX(), getY(), getZ(), 0, 0, 0, 0, 0);
+            }
             this.discard();
             return;
         }
 
+        // ── Client: Firebolt cast burst (first client tick) ───────────────────
+        if (firebolt && level().isClientSide() && visualOrigin == null) {
+            visualOrigin = this.position();
+            FireboltVfx.castBurst(level(), visualOrigin, travelDirection());
+        }
+
         // ── Client: colored particle trail ────────────────────────────────────
-        if (level().isClientSide()) {
+        if (level().isClientSide() && !firebolt) {
             DustParticleOptions dust = buildDust(1.0f);
 
             // Core bolt — tight center
@@ -222,6 +265,11 @@ public class SpellBoltEntity extends Projectile {
                 ? blockHit
                 : ProjectileUtil.getHitResultOnMoveVector(this, this::canHitEntity);
 
+        // ── Client: Firebolt trail along this tick's whole path (up to the hit) ─
+        if (firebolt && level().isClientSide()) {
+            FireboltVfx.trail(level(), start, hit.getType() != HitResult.Type.MISS ? hit.getLocation() : end, travelDirection());
+        }
+
         if (hit.getType() != HitResult.Type.MISS) {
             onHit(hit);
             return;
@@ -243,7 +291,7 @@ public class SpellBoltEntity extends Projectile {
         // Fire bolt ignites dropped items and item frames — per D&D rules
         if (isFireType() && hit.getEntity() instanceof ItemEntity item) {
             item.setRemainingFireTicks(300); // 15 seconds
-            spawnImpactParticles();
+            spawnImpactParticles(hit.getLocation(), travelDirection().scale(-1));
             this.discard();
             return;
         }
@@ -263,7 +311,7 @@ public class SpellBoltEntity extends Projectile {
             if (effect != null) effect.accept(target);
         }
 
-        spawnImpactParticles();
+        spawnImpactParticles(hit.getLocation(), travelDirection().scale(-1));
         this.discard();
     }
 
@@ -280,8 +328,14 @@ public class SpellBoltEntity extends Projectile {
             }
         }
 
-        spawnImpactParticles();
+        spawnImpactParticles(hit.getLocation(), Vec3.atLowerCornerOf(hit.getDirection().getUnitVec3i()));
         this.discard();
+    }
+
+    /** Unit direction of travel (visual use): the velocity, or the facing if it has none. */
+    private Vec3 travelDirection() {
+        Vec3 v = this.getDeltaMovement();
+        return v.lengthSqr() > 1.0E-8 ? v.normalize() : Vec3.directionFromRotation(this.getXRot(), this.getYRot());
     }
 
     private boolean isFireType() {
@@ -291,9 +345,19 @@ public class SpellBoltEntity extends Projectile {
 
     // ── Particles ─────────────────────────────────────────────────────────────
 
-    /** Impact burst — sent from server so all nearby clients see it. */
-    private void spawnImpactParticles() {
+    /**
+     * Impact burst — sent from server so all nearby clients see it. Firebolt sends its impact emitter at the exact
+     * hit point with the surface normal ({@code at}, {@code normal}); the other bolts keep their dust burst.
+     */
+    private void spawnImpactParticles(Vec3 at, Vec3 normal) {
         if (!(level() instanceof ServerLevel serverLevel)) return;
+        if (visualStyle() == VisualStyle.FIREBOLT) {
+            serverLevel.sendParticles(zcylas.totality.init.ModParticles.FIREBOLT_IMPACT, at.x, at.y, at.z, 0, normal.x, normal.y, normal.z, 1.0);
+            if (impactSound != null) {
+                serverLevel.playSound(null, at.x, at.y, at.z, impactSound, SoundSource.PLAYERS, 1.0f, 1.0f);
+            }
+            return;
+        }
         serverLevel.sendParticles(buildDust(2.0f),
                 getX(), getY(), getZ(), 20, 0.3, 0.3, 0.3, 0.05);
         serverLevel.sendParticles(ParticleTypes.ENCHANT,

@@ -13,6 +13,19 @@ public final class TotalityBiomeModifications {
         registerFlowers();
         registerWhitestone();
         registerNaturalBlocks();
+        registerCreatureSpawns();
+    }
+
+    /**
+     * Forest Boar: forests only (vanilla #is_forest: forest, flower forest, birch and dark forests), as a
+     * modest CREATURE entry — weight 5 in groups of 1-3 (vanilla wolves use 5 in forests; pigs 10 elsewhere).
+     */
+    private static void registerCreatureSpawns() {
+        BiomeModifications.addSpawn(
+                BiomeSelectors.tag(BiomeTags.IS_FOREST),
+                net.minecraft.world.entity.MobCategory.CREATURE,
+                zcylas.totality.init.ModEntities.FOREST_BOAR,
+                5, 1, 3);
     }
 
     private static void registerOres() {

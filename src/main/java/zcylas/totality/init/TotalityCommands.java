@@ -37,6 +37,7 @@ import zcylas.totality.networking.classes.OpenClassSelectionPayload;
 import zcylas.totality.networking.mana.SyncManaPayload;
 import zcylas.totality.networking.stamina.StaminaServerTick;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import zcylas.totality.networking.skills.OpenSkillsScreenPayload;
 import zcylas.totality.networking.stats.OpenStatusScreenPayload;
 
 import java.util.Set;
@@ -286,6 +287,13 @@ public class TotalityCommands {
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
                                         ServerPlayNetworking.send(player, new OpenStatusScreenPayload());
+                                        return 1;
+                                    })
+                            )
+                            .then(Commands.literal("skills")
+                                    .executes(ctx -> {
+                                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                                        ServerPlayNetworking.send(player, new OpenSkillsScreenPayload());
                                         return 1;
                                     })
                             )

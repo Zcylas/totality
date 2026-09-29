@@ -7,11 +7,13 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.level.Level;
 import org.lwjgl.glfw.GLFW;
 import zcylas.totality.screen.character.CharacterScreen;
 import zcylas.totality.screen.inventory.TotalityInventoryScreen;
+import zcylas.totality.screen.menu.SkillsMenuScreen;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -19,45 +21,68 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Phone app grid (post-setup). Opened via TAB (equipped Phone) or by right-clicking
- * a held, set-up Phone. Rendered inside the shared phone-shaped frame
- * ({@link PhoneFrameRenderer}), parameterized by {@link PhoneFrame} so a higher phone
- * tier is just a different enum constant, not new drawing code.
- * Apps without a backing system yet (Quests, Wallet, Settings) render as unlocked per
- * design but no-op on click — hook up once Credits/Quest APIs exist.
- * TODO(visual pass): real icon art — currently plain text-label cells.
+ * Phone app grid (post-setup). Opened via TAB (equipped Phone) or by right-clicking a held, set-up Phone.
+ * The device and its display are drawn by {@link PhoneFrameRenderer} in the phone's {@link PhoneDeviceStyle};
+ * this screen only owns the phone's content: the apps, their lock state and actions, pages and the dock.
+ * Apps without a backing system yet (Codex, Wallet, Settings) render as unlocked per design but no-op on click.
+ *
+ * <p>Input: mouse (hover, click), and keyboard — arrow keys move the selection (left/right past the edge
+ * turn the page), Enter/Space opens, ESC/TAB close.
  */
 public class PhoneAppGridScreen extends Screen {
 
-    private static final int COLOR_CELL_BG   = 0xFF101010;
-    private static final int COLOR_CELL_HOV  = 0xFF1A1A1A;
-    private static final int COLOR_LOCKED_BG = 0xFF0A0A0A;
-    private static final int COLOR_LABEL     = 0xFFCCCCCC;
-    private static final int COLOR_LOCKED    = 0xFF555555;
-    private static final int COLOR_FAV_BG    = 0xFF0A0A0A;
-    private static final int COLOR_ENERGY_FULL = 0xFF00AA00; // matches UEItem.getEnergyBarColor's "green at 100%"
-    private static final int COLOR_ENERGY_EMPTY = 0xFF222222;
+    private static final int COLUMNS = 3;
+    private static final int ROWS = 3;
+    private static final int PER_PAGE = COLUMNS * ROWS;
+    private static final int PAD = 3;
+    private static final int GAP = 3;
+    private static final long PRESS_NANOS = 110_000_000L;
+    private static final String[] DOCK = {"Character", "Skills", "Quests", "Wallet"};
 
-    private static final int STATUS_H = 14;
-    private static final int FAV_H    = 20;
-    private static final int GRID_PAD = 6;
-    private static final int CELL_GAP = 4;
+    private record App(String label, boolean unlocked, String lockReason, Runnable action, Identifier icon) {
+        App(String label, boolean unlocked, String lockReason, Runnable action) {
+            this(label, unlocked, lockReason, action, null);
+        }
+    }
 
-    private record App(String label, boolean unlocked, String lockReason, Runnable action) {}
+    /**
+     * The Codex's default icon: the same artwork on every phone tier (the device styles the tile around it, never the
+     * app's identity). 32x32, drawn at 32 GUI pixels so each texel is a whole number of screen pixels.
+     */
+    public static final Identifier CODEX_ICON = Identifier.fromNamespaceAndPath("totality", "phone/apps/codex");
+
+    /** Everything the draw and the click code both need, computed from one layout. */
+    private record Geometry(PhoneFrameRenderer.Layout device, float scale, int headerH, int gridX, int gridY,
+                            int tileW, int tileH, int pageRowY, int dockY, int dockH, int[] dockX, int[] dockW) {
+        int tileX(int col) { return gridX + col * (tileW + GAP); }
+        int tileY(int row) { return gridY + row * (tileH + GAP); }
+        int gridW() { return COLUMNS * tileW + (COLUMNS - 1) * GAP; }
+        int gridH() { return ROWS * tileH + (ROWS - 1) * GAP; }
+    }
 
     private final PhoneFrame frame;
+    private final PhoneDeviceStyle style;
     private final List<List<App>> pages = new ArrayList<>();
+    private final long openedNanos;
     private int page = 0;
+    /** Keyboard selection on the current page; shown while the keyboard was used last. */
+    private int focus = 0;
+    private boolean keyboardMode;
+    private double lastMouseX = Double.NaN, lastMouseY = Double.NaN;
+    private int pressed = -1;
+    private long pressedNanos;
 
     public PhoneAppGridScreen(PhoneFrame frame) {
         super(Component.literal("Phone"));
         this.frame = frame;
+        this.style = PhoneDeviceStyle.of(frame);
+        this.openedNanos = PhoneFrameRenderer.beginOpen();
         buildApps();
     }
 
     private void buildApps() {
         Runnable openCharacter = () -> Minecraft.getInstance().gui.setScreen(new CharacterScreen());
-        Runnable openSkills    = () -> Minecraft.getInstance().gui.setScreen(new CharacterScreen(CharacterScreen.CharacterTab.SKILLS));
+        Runnable openSkills    = () -> SkillsMenuScreen.open(this);
         Runnable openInventory = () -> Minecraft.getInstance().gui.setScreen(new TotalityInventoryScreen());
         Runnable openBank      = () -> Minecraft.getInstance().gui.setScreen(new BankScreen(frame));
         Runnable openQuests    = () -> zcylas.totality.client.quest.ClientQuestManager.openQuestApp(frame);
@@ -67,7 +92,9 @@ public class PhoneAppGridScreen extends Screen {
         all.add(new App("Character", true, null, openCharacter));
         all.add(new App("Skills",    true, null, openSkills));
         all.add(new App("Quests",    true, null, openQuests));
-        all.add(new App("Bestiary",  false, "Unlock by discovering your first creature.", null));
+        // Codex: knowledge and discoveries (the Bestiary becomes one of its categories). Visible and selectable,
+        // with the normal press feedback, but it opens nothing yet.
+        all.add(new App("Codex",     true, null, null, CODEX_ICON));
         all.add(new App("Spells",    false, "Unlocks on a higher-tier phone.", null));
         all.add(new App("Abilities", false, "Unlocks on a higher-tier phone.", null));
         all.add(new App("Wallet",    true, null, null));
@@ -79,79 +106,133 @@ public class PhoneAppGridScreen extends Screen {
         all.add(new App("Settings",  true, null, null));
         all.add(new App("Store",     false, "Requires Standard account tier.", null));
 
-        for (int i = 0; i < all.size(); i += 9) {
-            pages.add(all.subList(i, Math.min(i + 9, all.size())));
+        for (int i = 0; i < all.size(); i += PER_PAGE) {
+            pages.add(all.subList(i, Math.min(i + PER_PAGE, all.size())));
         }
     }
 
+    // ── Geometry ──────────────────────────────────────────────────────────────
+
+    private Geometry geometry() {
+        PhoneFrameRenderer.Layout l = PhoneFrameRenderer.layout(width, height, style);
+        int tileW = (l.dw() - PAD * 2 - GAP * (COLUMNS - 1)) / COLUMNS;
+        List<String> labels = new ArrayList<>();
+        for (List<App> p : pages) for (App a : p) labels.add(a.label());
+        // The device-wide display scale, reduced further (crisply) only if a label would not fit its tile.
+        float scale = Math.min(PhoneUi.displayScale(l), Math.min(
+                PhoneUi.crispScale(font, labels, tileW - 4, PhoneUi.guiScale()),
+                PhoneUi.crispScale(font, List.of(String.join("", DOCK)), l.dw() - DOCK.length * 6, PhoneUi.guiScale())));
+        int line = Math.round(9 * scale);
+        int headerH = line + 5;
+        int dockH = line + 9;
+        int dockY = l.dy() + l.dh() - dockH;
+        int pageRowY = dockY - 9;
+        int gridY = l.dy() + headerH + PAD;
+        int tileH = (pageRowY - 2 - gridY - GAP * (ROWS - 1)) / ROWS;
+        int gridW = COLUMNS * tileW + (COLUMNS - 1) * GAP;
+        int gridX = l.dx() + (l.dw() - gridW) / 2;
+        // Dock entries share the width in proportion to their labels.
+        int[] dockX = new int[DOCK.length], dockW = new int[DOCK.length];
+        int labelsW = 0;
+        for (String s : DOCK) labelsW += Math.round(font.width(s) * scale);
+        int spare = l.dw() - labelsW, x = l.dx();
+        for (int i = 0; i < DOCK.length; i++) {
+            int w = Math.round(font.width(DOCK[i]) * scale) + spare / DOCK.length + (i < spare % DOCK.length ? 1 : 0);
+            dockX[i] = x;
+            dockW[i] = w;
+            x += w;
+        }
+        return new Geometry(l, scale, headerH, gridX, gridY, tileW, tileH, pageRowY, dockY, dockH, dockX, dockW);
+    }
+
+    private int tileAt(Geometry geo, double mx, double my) {
+        List<App> apps = pages.get(page);
+        for (int i = 0; i < apps.size(); i++) {
+            int x = geo.tileX(i % COLUMNS), y = geo.tileY(i / COLUMNS);
+            if (mx >= x && mx < x + geo.tileW() && my >= y && my < y + geo.tileH()) return i;
+        }
+        return -1;
+    }
+
+    private int dockAt(Geometry geo, double mx, double my) {
+        if (my < geo.dockY() || my >= geo.dockY() + geo.dockH()) return -1;
+        for (int i = 0; i < DOCK.length; i++) if (mx >= geo.dockX()[i] && mx < geo.dockX()[i] + geo.dockW()[i]) return i;
+        return -1;
+    }
+
+    // ── Drawing ───────────────────────────────────────────────────────────────
+
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float a) {
-        // Left intentionally empty — the game world stays visible around the phone
-        // instead of a full-screen backdrop, now that the phone is anchored to the right.
+        // Left intentionally empty — the game world stays visible around the phone.
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float a) {
         super.extractRenderState(g, mx, my, a);
+        if (mx != lastMouseX || my != lastMouseY) {
+            if (!Double.isNaN(lastMouseX)) keyboardMode = false;
+            lastMouseX = mx;
+            lastMouseY = my;
+        }
+        Geometry geo = geometry();
+        PhoneFrameRenderer.Transition t = PhoneFrameRenderer.transition(openedNanos);
+        PhoneFrameRenderer.Layout l = PhoneFrameRenderer.drawDevice(g, geo.device(), style, t);
+        int shift = l.x() - geo.device().x();
+        PhoneUi ui = new PhoneUi(g, font, style, geo.scale());
+        g.pose().pushMatrix();
+        g.pose().translate(shift, 0);
+        int mxs = mx - shift;
 
-        int[] pb = PhoneFrameRenderer.bounds(width, height);
-        int[] screen = PhoneFrameRenderer.draw(g, pb[0], pb[1], pb[2], pb[3], frame);
-        int sx = screen[0], sy = screen[1], sw = screen[2], sh = screen[3];
+        ui.header(l.dx() - shift, l.dy(), l.dw(), "TOTALITY", currentTimeString());
 
-        drawStatusBar(g, sx, sy, sw);
+        List<App> apps = pages.get(page);
+        int hovered = keyboardMode ? -1 : tileAt(geo, mxs, my);
+        int active = keyboardMode ? focus : hovered;
+        boolean pressLive = pressed >= 0 && System.nanoTime() - pressedNanos < PRESS_NANOS;
+        for (int i = 0; i < apps.size(); i++) {
+            App app = apps.get(i);
+            PhoneUi.TileState state = !app.unlocked() ? PhoneUi.TileState.LOCKED
+                    : pressLive && pressed == i ? PhoneUi.TileState.PRESSED
+                    : i == active ? PhoneUi.TileState.ACTIVE : PhoneUi.TileState.NORMAL;
+            int x = geo.tileX(i % COLUMNS), y = geo.tileY(i / COLUMNS);
+            ui.tile(x, y, geo.tileW(), geo.tileH(), app.label(), state, app.icon());
+            if (!app.unlocked() && i == active) {
+                // A locked entry can still be selected: a quiet outline marks it, the tooltip gives the reason.
+                ui.outline(x - 1, y - 1, geo.tileW() + 2, geo.tileH() + 2, ui.colors().textFaint());
+                if (app.lockReason() != null) {
+                    int tx = keyboardMode ? x + shift : mx, ty = keyboardMode ? y + geo.tileH() : my;
+                    g.setTooltipForNextFrame(font, Component.literal(app.lockReason()), tx, ty);
+                }
+            }
+        }
 
-        int gridY = sy + STATUS_H + GRID_PAD;
-        int gridH = sh - STATUS_H - GRID_PAD - FAV_H - 1;
-        drawGrid(g, sx + GRID_PAD, gridY, sw - GRID_PAD * 2, gridH, mx, my);
+        // Pages: dots, and chevrons where another page exists.
+        int dotsY = geo.pageRowY() + 3;
+        int cx = l.dx() - shift + l.dw() / 2;
+        if (pages.size() > 1) {
+            ui.pageDots(cx, dotsY, pages.size(), page);
+            int half = PhoneUi.pageDotsWidth(pages.size()) / 2 + 7;
+            if (page > 0) ui.chevron(cx - half - 3, dotsY - 1, false, ui.colors().textDim());
+            if (page < pages.size() - 1) ui.chevron(cx + half, dotsY - 1, true, ui.colors().textDim());
+        }
 
-        int favY = sy + sh - FAV_H;
-        g.fill(sx, favY, sx + sw, favY + 1, frame.colorDim);
-        drawFavourites(g, sx, favY, sw, mx, my);
+        // Dock (favourites): a row of soft keys under a separator.
+        ui.separator(l.dx() - shift, geo.dockY(), l.dw());
+        int dockHover = keyboardMode ? -1 : dockAt(geo, mxs, my);
+        for (int i = 0; i < DOCK.length; i++) {
+            int x = geo.dockX()[i], w = geo.dockW()[i];
+            boolean h = i == dockHover;
+            int ty = geo.dockY() + (geo.dockH() - ui.lineHeight()) / 2 + 1;
+            ui.textCentered(DOCK[i], x + w / 2, ty, h ? ui.colors().accentBright() : ui.colors().textDim());
+            if (h) g.fill(x + 3, ty + ui.lineHeight(), x + w - 3, ty + ui.lineHeight() + 1, ui.colors().accent());
+            if (i > 0) g.fill(x, geo.dockY() + 4, x + 1, geo.dockY() + geo.dockH() - 3, ui.colors().line());
+        }
+        g.pose().popMatrix();
+        PhoneFrameRenderer.finishDisplay(g, l, style, t);
     }
 
     private static final DateTimeFormatter PC_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
-
-    private void drawStatusBar(GuiGraphicsExtractor g, int sx, int sy, int sw) {
-        g.fill(sx, sy, sx + sw, sy + STATUS_H, 0xFF0A0A0A);
-        g.fill(sx, sy + STATUS_H - 1, sx + sw, sy + STATUS_H, frame.colorDim);
-
-        g.text(font, Component.literal("TOTALITY"), sx + 3, sy + 3, frame.colorBright, false);
-
-        String time = currentTimeString();
-        drawSmallCentered(g, time, sx + sw / 2, sy + 3, COLOR_LABEL);
-
-        int batteryPercent = 100;
-        int iconW = 10, iconH = 5, nubW = 1, nubH = 2;
-        int iconX = sx + sw - 3 - iconW - nubW;
-        int iconY = sy + (STATUS_H - iconH) / 2;
-
-        drawBatteryIcon(g, iconX, iconY, iconW, iconH, nubW, nubH, batteryPercent);
-    }
-
-    private void drawSmallCentered(GuiGraphicsExtractor g, String text, int centerX, int y, int color) {
-        float scale = 0.8f;
-        g.pose().pushMatrix();
-        g.pose().scale(scale, scale);
-        int w = font.width(text);
-        g.text(font, Component.literal(text),
-                Math.round((centerX - w * scale / 2f) / scale), Math.round(y / scale), color, false);
-        g.pose().popMatrix();
-    }
-
-    private void drawBatteryIcon(GuiGraphicsExtractor g, int x, int y, int w, int h, int nubW, int nubH, int percent) {
-        drawBorder(g, x, y, w, h, COLOR_LABEL);
-        g.fill(x + w, y + (h - nubH) / 2, x + w + nubW, y + (h - nubH) / 2 + nubH, COLOR_LABEL);
-
-        int segments = 3;
-        int lit = Math.max(0, Math.min(segments, (int) Math.ceil(percent / (100.0 / segments))));
-        int segW = 2, segGap = 1;
-        int innerX = x + 1, innerY = y + 1, innerH = h - 2;
-        for (int i = 0; i < segments; i++) {
-            int sxi = innerX + i * (segW + segGap);
-            if (sxi + segW > x + w - 1) break;
-            g.fill(sxi, innerY, sxi + segW, innerY + innerH, i < lit ? COLOR_ENERGY_FULL : COLOR_ENERGY_EMPTY);
-        }
-    }
 
     private String currentTimeString() {
         Level level = Minecraft.getInstance().level;
@@ -166,112 +247,58 @@ public class PhoneAppGridScreen extends Screen {
         return gameTime + " (" + pcTime + ")";
     }
 
-    private int[] cellSize(int w, int h) {
-        int cw = (w - CELL_GAP * 2) / 3;
-        int ch = (h - CELL_GAP * 2) / 3;
-        return new int[]{ cw, ch };
-    }
+    // ── Input ─────────────────────────────────────────────────────────────────
 
-    private void drawGrid(GuiGraphicsExtractor g, int x, int y, int w, int h, int mx, int my) {
+    private void activate(int index) {
         List<App> apps = pages.get(page);
-        int[] cell = cellSize(w, h);
-        int cw = cell[0], ch = cell[1];
-
-        for (int i = 0; i < apps.size(); i++) {
-            int row = i / 3, col = i % 3;
-            int cx = x + col * (cw + CELL_GAP);
-            int cy = y + row * (ch + CELL_GAP);
-            drawCell(g, apps.get(i), cx, cy, cw, ch, mx, my);
-        }
-
-        if (pages.size() > 1) {
-            String prev = page > 0 ? "<" : "";
-            String next = page < pages.size() - 1 ? ">" : "";
-            g.text(font, Component.literal(prev), x - 8, y + h / 2 - 4, COLOR_LABEL, false);
-            g.text(font, Component.literal(next), x + w + 2, y + h / 2 - 4, COLOR_LABEL, false);
-        }
+        if (index < 0 || index >= apps.size()) return;
+        App app = apps.get(index);
+        if (!app.unlocked()) return;
+        click();
+        pressed = index;
+        pressedNanos = System.nanoTime();
+        if (app.action() != null) app.action().run();
     }
 
-    private void drawCell(GuiGraphicsExtractor g, App app, int x, int y, int w, int h, int mx, int my) {
-        boolean hovered = app.unlocked() && inB(mx, my, x, y, w, h);
-        int bg = app.unlocked() ? (hovered ? COLOR_CELL_HOV : COLOR_CELL_BG) : COLOR_LOCKED_BG;
-        int border = app.unlocked() ? (hovered ? frame.colorBright : frame.colorDim) : COLOR_LOCKED;
-        int text = app.unlocked() ? COLOR_LABEL : COLOR_LOCKED;
-
-        g.fill(x, y, x + w, y + h, bg);
-        drawBorder(g, x, y, w, h, border);
-
-        String label = app.unlocked() ? app.label() : app.label();
-        drawSmallCentered(g, label, x + w / 2, y + h - 9, text);
-        if (!app.unlocked()) drawSmallCentered(g, "🔒", x + w / 2, y + 3, COLOR_LOCKED);
-
-        if (!app.unlocked() && inB(mx, my, x, y, w, h) && app.lockReason() != null) {
-            g.setTooltipForNextFrame(font, Component.literal(app.lockReason()), mx, my);
-        }
-    }
-
-    private void drawFavourites(GuiGraphicsExtractor g, int sx, int favY, int sw, int mx, int my) {
-        g.fill(sx, favY, sx + sw, favY + FAV_H, COLOR_FAV_BG);
-
-        String[] favs = { "Character", "Skills", "Quests", "Wallet" };
-        int cw = sw / favs.length;
-        for (int i = 0; i < favs.length; i++) {
-            int x = sx + i * cw;
-            boolean hovered = inB(mx, my, x, favY, cw, FAV_H);
-            int c = hovered ? frame.colorBright : COLOR_LABEL;
-            drawSmallCentered(g, favs[i], x + cw / 2, favY + FAV_H / 2 - 3, c);
-        }
+    private void turnPage(int delta) {
+        int next = page + delta;
+        if (next < 0 || next >= pages.size()) return;
+        click();
+        page = next;
+        focus = Math.min(focus, pages.get(page).size() - 1);
     }
 
     @Override
     public boolean mouseClicked(MouseButtonEvent mouse, boolean doubleClick) {
-        int mx = (int) mouse.x(), my = (int) mouse.y();
+        double mx = mouse.x(), my = mouse.y();
+        Geometry geo = geometry();
 
-        int[] pb = PhoneFrameRenderer.bounds(width, height);
-        int[] screen = PhoneFrameRenderer.screenBounds(pb[0], pb[1], pb[2], pb[3]);
-        int sx = screen[0], sy = screen[1], sw = screen[2], sh = screen[3];
+        int tile = tileAt(geo, mx, my);
+        if (tile >= 0) {
+            focus = tile;
+            activate(tile);
+            return true;
+        }
 
-        int gridX = sx + GRID_PAD;
-        int gridY = sy + STATUS_H + GRID_PAD;
-        int gridW = sw - GRID_PAD * 2;
-        int gridH = sh - STATUS_H - GRID_PAD - FAV_H - 1;
-
-        List<App> apps = pages.get(page);
-        int[] cell = cellSize(gridW, gridH);
-        int cw = cell[0], ch = cell[1];
-
-        for (int i = 0; i < apps.size(); i++) {
-            int row = i / 3, col = i % 3;
-            int cx = gridX + col * (cw + CELL_GAP);
-            int cy = gridY + row * (ch + CELL_GAP);
-            if (inB(mx, my, cx, cy, cw, ch)) {
-                App app = apps.get(i);
-                if (app.unlocked()) {
-                    click();
-                    if (app.action() != null) app.action().run();
-                }
+        if (pages.size() > 1) {
+            boolean inGridRows = my >= geo.gridY() && my < geo.pageRowY() + 9;
+            int cx = geo.device().dx() + geo.device().dw() / 2;
+            boolean pageRow = my >= geo.pageRowY() && my < geo.pageRowY() + 9;
+            if ((inGridRows && mx < geo.gridX()) || (pageRow && mx < cx && mx >= geo.device().dx())) { turnPage(-1); return true; }
+            if ((inGridRows && mx >= geo.gridX() + geo.gridW()) || (pageRow && mx >= cx && mx < geo.device().dx() + geo.device().dw())) {
+                turnPage(1);
                 return true;
             }
         }
 
-        if (pages.size() > 1) {
-            if (mx < gridX && page > 0) { click(); page--; return true; }
-            if (mx > gridX + gridW && page < pages.size() - 1) { click(); page++; return true; }
-        }
-
-        int favY = sy + sh - FAV_H;
-        if (my >= favY && my < sy + sh) {
-            String[] favs = { "Character", "Skills", "Quests", "Wallet" };
-            int fcw = sw / favs.length;
-            int idx = (mx - sx) / fcw;
-            if (idx >= 0 && idx < favs.length) {
-                click();
-                switch (favs[idx]) {
-                    case "Character" -> Minecraft.getInstance().gui.setScreen(new CharacterScreen());
-                    case "Skills"    -> Minecraft.getInstance().gui.setScreen(new CharacterScreen(CharacterScreen.CharacterTab.SKILLS));
-                    case "Quests"    -> zcylas.totality.client.quest.ClientQuestManager.openQuestApp(frame);
-                    default -> { /* Wallet: no backing system yet */ }
-                }
+        int dock = dockAt(geo, mx, my);
+        if (dock >= 0) {
+            click();
+            switch (DOCK[dock]) {
+                case "Character" -> Minecraft.getInstance().gui.setScreen(new CharacterScreen());
+                case "Skills"    -> SkillsMenuScreen.open(this);
+                case "Quests"    -> zcylas.totality.client.quest.ClientQuestManager.openQuestApp(frame);
+                default -> { /* Wallet: no backing system yet */ }
             }
             return true;
         }
@@ -286,23 +313,68 @@ public class PhoneAppGridScreen extends Screen {
             Minecraft.getInstance().gui.setScreen(null);
             return true;
         }
+        int count = pages.get(page).size();
+        int col = focus % COLUMNS, row = focus / COLUMNS;
+        switch (key) {
+            case GLFW.GLFW_KEY_LEFT -> {
+                keyboardMode = true;
+                if (col > 0) focus--;
+                else if (page > 0) { turnPage(-1); focus = Math.min(row * COLUMNS + COLUMNS - 1, pages.get(page).size() - 1); }
+                return true;
+            }
+            case GLFW.GLFW_KEY_RIGHT -> {
+                keyboardMode = true;
+                if (col < COLUMNS - 1 && focus + 1 < count) focus++;
+                else if (page < pages.size() - 1) { turnPage(1); focus = Math.min(row * COLUMNS, pages.get(page).size() - 1); }
+                return true;
+            }
+            case GLFW.GLFW_KEY_UP -> {
+                keyboardMode = true;
+                if (row > 0) focus -= COLUMNS;
+                return true;
+            }
+            case GLFW.GLFW_KEY_DOWN -> {
+                keyboardMode = true;
+                if (focus + COLUMNS < count) focus += COLUMNS;
+                return true;
+            }
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER, GLFW.GLFW_KEY_SPACE -> {
+                keyboardMode = true;
+                activate(focus);
+                return true;
+            }
+            default -> { }
+        }
         return super.keyPressed(event);
-    }
-
-    private void drawBorder(GuiGraphicsExtractor g, int x, int y, int w, int h, int color) {
-        g.fill(x, y, x + w, y + 1, color);
-        g.fill(x, y + h - 1, x + w, y + h, color);
-        g.fill(x, y, x + 1, y + h, color);
-        g.fill(x + w - 1, y, x + w, y + h, color);
-    }
-
-    private boolean inB(int mx, int my, int x, int y, int w, int h) {
-        return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
     private void click() {
         Minecraft.getInstance().getSoundManager().play(
                 SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+    }
+
+    // ── Capture diagnostics (development) ─────────────────────────────────────
+
+    /** Centre of tile {@code index} on the current page, GUI pixels (for the dev capture run). */
+    public double[] tileCentre(int index) {
+        Geometry geo = geometry();
+        return new double[] {geo.tileX(index % COLUMNS) + geo.tileW() / 2.0, geo.tileY(index / COLUMNS) + geo.tileH() / 2.0};
+    }
+
+    /** Centre of dock entry {@code index}, GUI pixels (for the dev capture run). */
+    public double[] dockCentre(int index) {
+        Geometry geo = geometry();
+        return new double[] {geo.dockX()[index] + geo.dockW()[index] / 2.0, geo.dockY() + geo.dockH() / 2.0};
+    }
+
+    public int page() {
+        return page;
+    }
+
+    /** Label of app {@code index} on the current page (for the dev capture run). */
+    public String appLabel(int index) {
+        List<App> apps = pages.get(page);
+        return index >= 0 && index < apps.size() ? apps.get(index).label() : null;
     }
 
     @Override public boolean shouldCloseOnEsc() { return false; }

@@ -72,7 +72,8 @@ public class FireboltSpell extends Spell {
                 getSpellcastingAbility(player),
                 BOLT_COLOR,
                 null
-        ).withSounds(SoundEvents.FIRECHARGE_USE, SoundEvents.BLAZE_SHOOT);
+        ).withSounds(SoundEvents.FIRECHARGE_USE, SoundEvents.BLAZE_SHOOT)
+                .withVisualStyle(SpellBoltEntity.VisualStyle.FIREBOLT);     // the fire projectile, burst and trail (visual only)
         player.level().addFreshEntity(bolt);
     }
 }

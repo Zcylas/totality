@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cross",
+  "textures": {
+    "cross": "totality:block/plant/jueyun_chili/jueyun_chili_plant_picked"
+  }
+}

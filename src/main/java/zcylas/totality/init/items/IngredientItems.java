@@ -51,6 +51,22 @@ public class IngredientItems {
                     .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.MATERIAL))
                     .component(ItemComponents.getLore(), new LoreComponent("A raw chunk of limestone, useful for processing into building materials."))
     );
+    // Meat
+    /**
+     * A raw cut of meat: a mob-drop / cooking ingredient. Deliberately not edible yet — Totality's foods
+     * restore authored Food values (see {@code FoodItems}), and raw meat gets its own once a cooking pass
+     * exists. Texture (48x48, the Minecraft-style reference's native grid):
+     * {@code Totality-Research/raw-meat/tools/extract_raw_meat_from_reference.py}.
+     */
+    public static final Item RAW_MEAT = TotalityRegistry.registerItem(
+            "raw_meat", Item::new,
+            new Item.Properties().stacksTo(64)
+                    .component(ItemComponents.RARITY, new RarityComponent(ItemRarity.COMMON))
+                    .component(ItemComponents.ITEM_TYPE, new ItemTypeComponent(ItemType.INGREDIENT))
+                    .component(ItemComponents.getLore(), new LoreComponent(
+                            "A hearty cut of raw meat, marbled with fat. A staple for any cook."))
+    );
+
     public static void register() {}
 
     private IngredientItems() {}

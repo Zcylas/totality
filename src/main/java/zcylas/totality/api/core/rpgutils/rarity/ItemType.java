@@ -14,6 +14,7 @@ public enum ItemType implements StringRepresentable {
     FUEL,
     FOOD,
     INGREDIENT,
+    SEED,
     CURRENCY,
 
     // Combat

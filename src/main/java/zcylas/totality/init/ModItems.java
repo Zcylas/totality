@@ -22,6 +22,8 @@ public class ModItems {
         RitualItems.register();
         RuneItems.register();
         FoodItems.register();
+        CreatureItems.register();
+        VehicleItems.register();
     }
 
 

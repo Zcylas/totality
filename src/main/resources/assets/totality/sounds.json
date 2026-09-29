@@ -7,5 +7,50 @@
         "pitch": 1.0
       }
     ]
+  },
+  "hologram.open": {
+    "sounds": [
+      {
+        "name": "totality:hologram/open",
+        "volume": 0.55,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "hologram.ready": {
+    "sounds": [
+      {
+        "name": "totality:hologram/ready",
+        "volume": 0.6,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "hologram.warning": {
+    "sounds": [
+      {
+        "name": "totality:hologram/warning",
+        "volume": 0.6,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "hologram.close": {
+    "sounds": [
+      {
+        "name": "totality:hologram/close",
+        "volume": 0.45,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "hologram.select": {
+    "sounds": [
+      {
+        "name": "totality:hologram/select",
+        "volume": 0.5,
+        "pitch": 1.0
+      }
+    ]
   }
 }

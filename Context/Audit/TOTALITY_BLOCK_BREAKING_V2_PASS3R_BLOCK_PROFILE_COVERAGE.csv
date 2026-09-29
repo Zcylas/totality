@@ -1200,6 +1200,8 @@ totality:blue_mountain_flower_bush,totality,BlueMountainFlowerBlock,true,0,false
 totality:purple_mountain_flower_bush,totality,PurpleMountainFlowerBlock,true,0,false,2,COMPAT_FALLBACK,SPECIAL,FALLBACK,,,,,,NONE,FALLBACK,0,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
 totality:red_mountain_flower_bush,totality,RedMountainFlowerBlock,true,0,false,2,COMPAT_FALLBACK,SPECIAL,FALLBACK,,,,,,NONE,FALLBACK,0,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
 totality:true_wheat_crop,totality,TrueWheatCropBlock,true,0,false,8,COMPAT_FALLBACK,SPECIAL,FALLBACK,,,,,,NONE,FALLBACK,0,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
+totality:garlic_crop,totality,GarlicCropBlock,true,0,false,8,SPECIAL,SPECIAL,MATERIAL,totality:special/crops,full_block,,,,NONE,FALLBACK,0,POSITION,,
+totality:jueyun_chili_plant,totality,JueyunChiliPlantBlock,true,0,false,2,COMPAT_FALLBACK,SPECIAL,FALLBACK,,,,,,NONE,FALLBACK,0,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
 totality:copper_tank,totality,FluidTankBlock,true,2,false,1,COMPAT_FALLBACK,ORDINARY,FALLBACK,,,133.33333,FALLBACK,133.33333,PICKAXE,FALLBACK,0,POSITION,BLOCK_ENTITY,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
 totality:tin_ore,totality,Block,true,3,true,1,COMPAT_FALLBACK,ORDINARY,FALLBACK,,,200,FALLBACK,200,PICKAXE,FALLBACK,1,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
 totality:deepslate_tin_ore,totality,Block,true,4.5,true,1,COMPAT_FALLBACK,ORDINARY,FALLBACK,,,300,FALLBACK,300,PICKAXE,FALLBACK,1,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
@@ -1225,3 +1227,4 @@ totality:flecked_whitestone,totality,Block,true,1.5,true,1,COMPAT_FALLBACK,ORDIN
 totality:polished_whitestone,totality,Block,true,1.5,true,1,COMPAT_FALLBACK,ORDINARY,FALLBACK,,,100,FALLBACK,100,PICKAXE,FALLBACK,1,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
 totality:polished_whitestone_bricks,totality,Block,true,1.5,true,1,COMPAT_FALLBACK,ORDINARY,FALLBACK,,,100,FALLBACK,100,PICKAXE,FALLBACK,1,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
 totality:limestone,totality,Block,true,1.5,true,1,COMPAT_FALLBACK,ORDINARY,FALLBACK,,,100,FALLBACK,100,PICKAXE,FALLBACK,1,POSITION,,"non-vanilla; deferred to Totality Core; compatibility fallback kept"
+totality:cutting_board,totality,CuttingBoardBlock,true,0.8,false,4,COMPAT_FALLBACK,ORDINARY,FALLBACK,,,53.333332,FALLBACK,53.333332,AXE,FALLBACK,0,POSITION,BLOCK_ENTITY,"non-vanilla; deferred to Totality Core; compatibility fallback kept"

@@ -62,9 +62,18 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
 
         builder(BlockTags.MINEABLE_WITH_AXE)
                 .add(key(AlchemyBlocks.APOTHECARY_TABLE))
+                .add(key(CookingBlocks.CUTTING_BOARD))
         ;
 
         builder(ModTags.HARVESTABLE)
+        ;
+
+        // Vanilla crop behaviour: dry farmland under the crop is not turned back to dirt, bees can grow it.
+        builder(BlockTags.CROPS)
+                .add(key(AlchemyBlocks.GARLIC_CROP))
+        ;
+        builder(BlockTags.MAINTAINS_FARMLAND)
+                .add(key(AlchemyBlocks.GARLIC_CROP))
         ;
     }
 

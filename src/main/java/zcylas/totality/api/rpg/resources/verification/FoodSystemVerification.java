@@ -2,6 +2,7 @@ package zcylas.totality.api.rpg.resources.verification;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -100,9 +101,71 @@ public final class FoodSystemVerification {
         return field.getFloat(player.getFoodData());
     }
 
+    /** How far {@link #findSafeAirScratchPosition} searches horizontally around its preferred position. */
+    private static final int SCRATCH_SEARCH_RADIUS = 4;
+
+    /**
+     * {@code pos} itself and its 6 face-adjacent neighbors must all be air — never merely "whatever
+     * happens to be there gets overwritten and restored." This check runs against the REAL,
+     * persistent overworld (the Cake check needs a real {@code CakeBlock#eat} call to fire
+     * {@code CakeBlockEatAuthorityMixin}'s redirect, and no isolated/nonpersistent test level exists
+     * in this codebase — see the Cake check's own Javadoc), so it must never overwrite real content,
+     * including a block entity or anything a neighbor-aware effect might read.
+     */
+    private static boolean isSafeAirScratch(ServerLevel level, BlockPos pos) {
+        if (!level.getBlockState(pos).isAir()) return false;
+        for (Direction dir : Direction.values()) {
+            if (!level.getBlockState(pos.relative(dir)).isAir()) return false;
+        }
+        return true;
+    }
+
+    /**
+     * {@code preferred} if it (and its immediate neighbors) are already air, else the first air
+     * position found in a small bounded horizontal search around it, else {@code null} — meaning no
+     * safe position was found nearby and the caller must skip its world-touching check entirely
+     * rather than overwrite real content. Never searches vertically or expands beyond
+     * {@link #SCRATCH_SEARCH_RADIUS}: a small, bounded, predictable search, not an unbounded scan.
+     */
+    private static BlockPos findSafeAirScratchPosition(ServerLevel level, BlockPos preferred) {
+        if (isSafeAirScratch(level, preferred)) return preferred;
+        for (int dx = -SCRATCH_SEARCH_RADIUS; dx <= SCRATCH_SEARCH_RADIUS; dx++) {
+            for (int dz = -SCRATCH_SEARCH_RADIUS; dz <= SCRATCH_SEARCH_RADIUS; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                BlockPos candidate = preferred.offset(dx, 0, dz);
+                if (isSafeAirScratch(level, candidate)) return candidate;
+            }
+        }
+        return null;
+    }
+
     private static void runSelfTest(MinecraftServer server) {
         VerificationReporter r = new VerificationReporter(Totality.LOGGER, "FoodSystemVerification");
         ServerLevel level = server.overworld();
+
+        // Diagnostic-only (2026-09-22 Cake/world-mutation bugfix, corrected 2026-09-22 review
+        // pass): an OLDER, pre-fix run of the Cake check below used to invoke CakeBlock#eat at a
+        // TotalityFakePlayer's default, never-explicitly-set position — vanilla's own default
+        // entity position, exactly BlockPos.ZERO (0,0,0), the WORLD ORIGIN, not necessarily the
+        // configured world spawn point — which really did write a permanent Cake block into the
+        // world there. The Cake check itself is now fixed to use a dedicated, validated-air
+        // scratch position instead (see below), so this cannot happen again.
+        //
+        // This deliberately does NOT automatically delete/replace anything at BlockPos.ZERO: there
+        // is no persistent migration marker distinguishing "a pre-fix run's leftover Cake" from "a
+        // real Cake a player has since legitimately placed at that exact position" — an automatic
+        // deletion here would be unsafe and would run on every single dev-server start forever
+        // (never truly "one-time"), silently destroying legitimate future content. The one dev
+        // world found contaminated during the original bugfix's validation was already cleaned up
+        // by hand at that time; no ongoing automatic remediation is needed or performed. This is a
+        // read-only diagnostic only — it logs, and touches nothing.
+        if (level.getBlockState(BlockPos.ZERO).is(Blocks.CAKE)) {
+            Totality.LOGGER.warn("[FoodSystemVerification] A Cake block is present at BlockPos.ZERO "
+                    + "(0,0,0), the world origin. This is a harmless diagnostic, not an error: it may "
+                    + "be real, legitimate player content, or — if this world was used before the "
+                    + "2026-09-22 Cake/world-mutation bugfix — a leftover from that now-fixed bug. "
+                    + "Nothing was changed; if it needs cleaning up, do so manually.");
+        }
 
         // ── MIGRATION ────────────────────────────────────────────────────────────────────────
         ServerPlayer migration = TotalityFakePlayer.create(level, "[FoodSystemVerification-migration]");
@@ -655,6 +718,39 @@ public final class FoodSystemVerification {
             sprint.discard();
         }
 
+        // Playtest-reported bug fix (2026-09-22), hardened in the 2026-09-22 review-correction
+        // pass: this check used to invoke the REAL static CakeBlock#eat(LevelAccessor, BlockPos,
+        // BlockState, Player) via reflection against the REAL, persistent overworld ServerLevel,
+        // at cake.blockPosition() — a TotalityFakePlayer's position, which is never explicitly set
+        // and therefore stays at vanilla's own default entity position, exactly BlockPos.ZERO
+        // (0,0,0) — the WORLD ORIGIN, not necessarily the configured world spawn point (Entity's
+        // constructor: "this.setPos(0.0, 0.0, 0.0)", confirmed against the real decompiled 26.2
+        // source — never merely assumed). Vanilla's real eat() unconditionally calls
+        // level.setBlock(pos, state.setValue(BITES, bites+1), 3) for a fresh (bites=0) cake state
+        // — a genuine, permanent world mutation, not a simulation — which is exactly why a real
+        // Cake block was appearing at the world origin.
+        //
+        // This still needs to invoke the REAL CakeBlock#eat (proving CakeBlockEatAuthorityMixin's
+        // redirect actually fires in the woven bytecode, not merely that the bridge function it
+        // calls works in isolation), against a real ServerLevel (this codebase has no
+        // isolated/nonpersistent test-level facility — e.g. GameTest — to run it against instead;
+        // building one is out of scope for this fix). Real-world scratch testing therefore still
+        // dirties one real, persistent chunk even when fully successful (a mutation is written,
+        // then reverted, in the same tick — the chunk is still marked dirty and will be re-saved).
+        // This is disclosed honestly, not claimed to be zero-side-effect.
+        //
+        // Restoring the position's prior BlockState is NOT enough on its own if that position ever
+        // turns out to hold something a plain BlockState-equality restore can't fully account for
+        // (a block entity's own NBT, for one). So instead: the scratch position (and its 6
+        // face-adjacent neighbors) must independently be verified as AIR before this check ever
+        // runs; if the preferred position isn't safe, a small bounded search
+        // (findSafeAirScratchPosition) looks for an alternative; if none is found nearby, this
+        // check is skipped/reported as a clear failure rather than ever overwriting real content.
+        // Cleanup always restores AIR (never a captured "original" BlockState — the precondition
+        // above already guarantees the original was air), in a try/finally, so no observable
+        // mutation survives this self-test regardless of outcome, including an exception.
+        BlockPos preferredCakeScratchPos = new BlockPos(16, level.getMaxY() - 5, 16);
+        BlockPos cakeScratchPos = findSafeAirScratchPosition(level, preferredCakeScratchPos);
         ServerPlayer cake = TotalityFakePlayer.create(level, "[FoodSystemVerification-cake]");
         try {
             BaselineResourceLifecycleEvents.migrateLegacyIfAbsent(cake);
@@ -662,19 +758,40 @@ public final class FoodSystemVerification {
             adminSet(cake, 40);
             cake.getFoodData().setFoodLevel(FoodVanillaCompatibilityBridge.mirrorOf(40, 100)); // 8 — needsFood() must be true for eat() to proceed
 
-            safe(r, "VANILLA PATH (Cake): CakeBlockEatAuthorityMixin closes the known Cake authority "
-                    + "hole — eating a cake slice (2 nutrition) restores exactly 10 true Food (2 x 5) "
-                    + "and refreshes the mirror inline, the same as ordinary FoodProperties eating", () -> {
-                BlockState cakeState = Blocks.CAKE.defaultBlockState();
-                Method eatMethod = CakeBlock.class.getDeclaredMethod(
-                        "eat", LevelAccessor.class, BlockPos.class, BlockState.class, Player.class);
-                eatMethod.setAccessible(true);
-                eatMethod.invoke(null, level, cake.blockPosition(), cakeState, cake);
-                long food = queryFood(cake);
-                int mirrorValue = cake.getFoodData().getFoodLevel();
-                boolean pass = food == 50 && mirrorValue == 10;
-                return result(pass, "food=" + food + " (expected 50), mirror=" + mirrorValue + " (expected 10)");
-            });
+            if (cakeScratchPos == null) {
+                r.check("VANILLA PATH (Cake): a safe, validated-AIR scratch position exists near "
+                                + preferredCakeScratchPos + " to run this check without touching real content",
+                        false, "no safe AIR position (itself and all 6 neighbors air) found within "
+                                + SCRATCH_SEARCH_RADIUS + " blocks — skipped the Cake behavior check "
+                                + "rather than overwrite real content");
+            } else {
+                safe(r, "VANILLA PATH (Cake): CakeBlockEatAuthorityMixin closes the known Cake authority "
+                        + "hole — eating a cake slice (2 nutrition) restores exactly 10 true Food (2 x 5) "
+                        + "and refreshes the mirror inline, the same as ordinary FoodProperties eating", () -> {
+                    try {
+                        BlockState cakeState = Blocks.CAKE.defaultBlockState();
+                        Method eatMethod = CakeBlock.class.getDeclaredMethod(
+                                "eat", LevelAccessor.class, BlockPos.class, BlockState.class, Player.class);
+                        eatMethod.setAccessible(true);
+                        eatMethod.invoke(null, level, cakeScratchPos, cakeState, cake);
+                        long food = queryFood(cake);
+                        int mirrorValue = cake.getFoodData().getFoodLevel();
+                        boolean pass = food == 50 && mirrorValue == 10;
+                        return result(pass, "food=" + food + " (expected 50), mirror=" + mirrorValue + " (expected 10)");
+                    } finally {
+                        level.setBlock(cakeScratchPos, Blocks.AIR.defaultBlockState(), 3);
+                    }
+                });
+
+                safe(r, "VANILLA PATH (Cake): the scratch position is restored to AIR afterward, and "
+                        + "BlockPos.ZERO (0,0,0), the world origin — a TotalityFakePlayer's default, "
+                        + "never-explicitly-set position — was never touched by this check at all", () -> {
+                    boolean scratchRestored = level.getBlockState(cakeScratchPos).isAir();
+                    boolean originUntouched = !level.getBlockState(BlockPos.ZERO).is(Blocks.CAKE);
+                    return result(scratchRestored && originUntouched,
+                            "scratchRestored=" + scratchRestored + ", originUntouched=" + originUntouched);
+                });
+            }
         } finally {
             cake.discard();
         }

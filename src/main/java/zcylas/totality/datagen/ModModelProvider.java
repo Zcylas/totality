@@ -8,11 +8,15 @@ import net.minecraft.client.data.models.blockstates.MultiPartGenerator;
 import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
 import net.minecraft.client.data.models.blockstates.PropertyDispatch;
 import net.minecraft.client.data.models.model.ItemModelUtils;
+import net.minecraft.client.data.models.model.ModelLocationUtils;
 import net.minecraft.client.data.models.model.ModelTemplates;
 import net.minecraft.client.data.models.model.TextureMapping;
 import net.minecraft.client.renderer.item.properties.conditional.HasComponent;
+import net.minecraft.client.renderer.item.properties.select.DisplayContext;
+import net.minecraft.client.resources.model.sprite.Material;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.NonNull;
@@ -140,6 +144,20 @@ public class ModModelProvider extends FabricModelProvider {
                                         Identifier.fromNamespaceAndPath("totality", "block/ritual_dais_active")).with(BlockModelGenerators.Y_ROT_270))
                         )
         );
+        // Cutting Board (model authored facing north; FACING is the direction the placing player looked)
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(CookingBlocks.CUTTING_BOARD)
+                        .with(PropertyDispatch.initial(BlockStateProperties.HORIZONTAL_FACING)
+                                .select(Direction.NORTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/cutting_board")))
+                                .select(Direction.EAST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/cutting_board")).with(BlockModelGenerators.Y_ROT_90))
+                                .select(Direction.SOUTH, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/cutting_board")).with(BlockModelGenerators.Y_ROT_180))
+                                .select(Direction.WEST, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/cutting_board")).with(BlockModelGenerators.Y_ROT_270))
+                        )
+        );
 
         Identifier cableCore = Identifier.fromNamespaceAndPath("totality", "block/copper_cable_core");
         Identifier cableSide = Identifier.fromNamespaceAndPath("totality", "block/copper_cable_side");
@@ -212,6 +230,16 @@ public class ModModelProvider extends FabricModelProvider {
                                         Identifier.fromNamespaceAndPath("totality", "block/bush/mountain_flower_bush_bare")))
                         )
         );
+        // Jueyun Chili Plant (bush pattern: harvested=false fruiting, harvested=true picked)
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(AlchemyBlocks.JUEYUN_CHILI_PLANT)
+                        .with(PropertyDispatch.initial(MountainFlowerBushBlock.HARVESTED)
+                                .select(false, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/plant/jueyun_chili/jueyun_chili_plant_fruiting")))
+                                .select(true, BlockModelGenerators.plainVariant(
+                                        Identifier.fromNamespaceAndPath("totality", "block/plant/jueyun_chili/jueyun_chili_plant_picked")))
+                        )
+        );
             //Crops
         generators.blockStateOutput.accept(
                 MultiVariantGenerator.dispatch(AlchemyBlocks.TRUE_WHEAT_CROP)
@@ -234,6 +262,12 @@ public class ModModelProvider extends FabricModelProvider {
                                         Identifier.fromNamespaceAndPath("totality", "block/crop/true_wheat/true_wheat_stage7")))
                         )
 
+        );
+        generators.blockStateOutput.accept(
+                MultiVariantGenerator.dispatch(AlchemyBlocks.GARLIC_CROP)
+                        .with(PropertyDispatch.initial(CropBlock.AGE)
+                                .generate(age -> BlockModelGenerators.plainVariant(Identifier.fromNamespaceAndPath(
+                                        "totality", "block/crop/garlic/garlic_stage" + age))))
         );
         generators.blockStateOutput.accept(
                 MultiVariantGenerator.dispatch(RitualBlocks.CHALK)
@@ -372,6 +406,11 @@ public class ModModelProvider extends FabricModelProvider {
         );
         generators.generateFlatItem(EnergyItems.BASIC_COPPER_PHONE, ModelTemplates.FLAT_ITEM);
         generators.itemModelOutput.accept(
+                CookingBlocks.CUTTING_BOARD.asItem(),
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "block/cutting_board"))
+        );
+        generators.itemModelOutput.accept(
                 RitualBlocks.RITUAL_ALTAR.asItem(),
                 ItemModelUtils.plainModel(
                         Identifier.fromNamespaceAndPath("totality", "block/ritual_altar"))
@@ -384,6 +423,8 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(MagicItems.NOVICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.APPRENTICE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(MagicItems.ARCHMAGE_GRIMOIRE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(MagicItems.CAPE_OF_THE_MOUNTEBANK, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(VehicleItems.SKATEBOARD, ModelTemplates.FLAT_ITEM);
         // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/petty_soul_gem.json
         generators.itemModelOutput.accept(
                 MagicItems.PETTY_SOUL_GEM,
@@ -408,6 +449,17 @@ public class ModModelProvider extends FabricModelProvider {
                 BasicWeaponItems.IRON_SWORD,
                 ItemModelUtils.plainModel(
                         Identifier.fromNamespaceAndPath("totality", "item/iron_sword")));
+        // Custom 3D model (generated, not datagen-owned): assets/totality/models/item/steel_sword.json, source
+        // Totality-Research/steel-sword/tools/steel_sword_asset.py. Inventory slots show a flat 32x32 icon instead
+        // (a sword this slender is a hairline as 3D geometry in a 16-pixel slot), like vanilla's bundle does.
+        generators.itemModelOutput.accept(
+                BasicWeaponItems.STEEL_SWORD,
+                ItemModelUtils.select(new DisplayContext(),
+                        ItemModelUtils.plainModel(Identifier.fromNamespaceAndPath("totality", "item/steel_sword")),
+                        ItemModelUtils.when(ItemDisplayContext.GUI, ItemModelUtils.plainModel(ModelTemplates.FLAT_ITEM.create(
+                                ModelLocationUtils.getModelLocation(BasicWeaponItems.STEEL_SWORD, "_icon"),
+                                TextureMapping.layer0(TextureMapping.getItemTexture(BasicWeaponItems.STEEL_SWORD, "_icon")),
+                                generators.modelOutput)))));
         //Ingredients
             //Gears
         generators.generateFlatItem(IngredientItems.COPPER_GEAR, ModelTemplates.FLAT_ITEM);
@@ -460,6 +512,7 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(SKIngredientItems.ROCK_WARBLER_EGG, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.TRUE_WHEAT, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.GARLIC, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(SKIngredientItems.GARLIC_CLOVE, ModelTemplates.FLAT_ITEM);
         generators.itemModelOutput.accept(
                 AlchemyBlocks.RED_MOUNTAIN_FLOWER_BUSH.asItem(),
                 ItemModelUtils.plainModel(
@@ -478,9 +531,21 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(SKIngredientItems.BLUE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.PURPLE_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(SKIngredientItems.RED_MOUNTAIN_FLOWER, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(SKIngredientItems.JUEYUN_CHILI, ModelTemplates.FLAT_ITEM);
+        // Flat icon of the placed (picked) plant, like a sapling; the bushes' 3D models read poorly as a plain cross
+        ModelTemplates.FLAT_ITEM.create(
+                ModelLocationUtils.getModelLocation(AlchemyBlocks.JUEYUN_CHILI_PLANT.asItem()),
+                TextureMapping.layer0(new Material(
+                        Identifier.fromNamespaceAndPath("totality", "block/plant/jueyun_chili/jueyun_chili_plant_picked"))),
+                generators.modelOutput);
+        generators.itemModelOutput.accept(
+                AlchemyBlocks.JUEYUN_CHILI_PLANT.asItem(),
+                ItemModelUtils.plainModel(ModelLocationUtils.getModelLocation(AlchemyBlocks.JUEYUN_CHILI_PLANT.asItem())));
         //Food Items
         generators.generateFlatItem(FoodItems.PIZZA_MARGHERITA, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(FoodItems.PIZZA_MARGHERITA_SLICE, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(IngredientItems.RAW_MEAT, ModelTemplates.FLAT_ITEM);
+        generators.generateFlatItem(zcylas.totality.init.items.CreatureItems.FOREST_BOAR_SPAWN_EGG, ModelTemplates.FLAT_ITEM);
         //Fuels
         generators.generateFlatItem(FuelItems.TINY_COAL, ModelTemplates.FLAT_ITEM);
         //Ritual Items

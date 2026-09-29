@@ -10,9 +10,20 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.dice.DiceRollVerification;
+import zcylas.totality.api.equipment.BackEquipmentAppearance;
+import zcylas.totality.api.equipment.BackSlotVerification;
+import zcylas.totality.block.alchemy.GarlicCropVerification;
+import zcylas.totality.block.alchemy.JueyunChiliVerification;
+import zcylas.totality.blockentity.cooking.CuttingBoardVerification;
+import zcylas.totality.entity.gate.SoloGateCommands;
+import zcylas.totality.entity.gate.SoloGateVerification;
+import zcylas.totality.entity.magic.FireballVerification;
+import zcylas.totality.api.item.Soulbound;
 import zcylas.totality.api.shop.ShopRegistry;
 import zcylas.totality.entity.npc.BankerNpcEntity;
 import zcylas.totality.entity.npc.TotalityNpcEntity;
+import zcylas.totality.entity.vehicle.SkateboardVerification;
 import zcylas.totality.api.ability.AbilityServerTick;
 import zcylas.totality.api.combat.condition.ConditionServerTick;
 import zcylas.totality.api.combat.condition.Conditions;
@@ -68,6 +79,7 @@ public class Totality implements ModInitializer {
 
 		// ── Networking ────────────────────────────────────────────────────────
 		TotalityPackets.register();
+		zcylas.totality.server.operator.OperatorModeServer.register();   // receivers need the payload types above
 		TotalityServerPacketHandlers.register();
 
 		// ── APIs ──────────────────────────────────────────────────────────────
@@ -93,6 +105,9 @@ public class Totality implements ModInitializer {
 
 	private void registerInits(){
 		ModComponents.register();
+		BackEquipmentAppearance.register();
+		Soulbound.register();
+		zcylas.totality.init.ModParticles.register();
 		ModItems.register();
 		ModBlocks.register();
 		VanillaItemPresentation.register();
@@ -106,6 +121,8 @@ public class Totality implements ModInitializer {
 		ModSounds.register();
 		ModLootTables.register();
 		TotalityCommands.register();
+		zcylas.totality.entity.portal.VisualPortalCommands.register();
+		SoloGateCommands.register();
 		RitualRecipeRegistry.register();
 		zcylas.totality.api.dialogue.DialogueComponents.register();
 		zcylas.totality.api.quest.QuestComponents.register();
@@ -127,6 +144,15 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.shop.TradingScreenVerification.register();
 		zcylas.totality.api.rpg.combat.PowerAttackVerification.register();
 		zcylas.totality.networking.combat.OffhandAttackVerification.register();
+		zcylas.totality.server.operator.OperatorModeVerification.register();
+		BackSlotVerification.register();
+		SkateboardVerification.register();
+		GarlicCropVerification.register();
+		JueyunChiliVerification.register();
+		DiceRollVerification.register();
+		SoloGateVerification.register();
+		CuttingBoardVerification.register();
+		FireballVerification.register();
 		zcylas.totality.api.mining.DurabilityRegressionVerification.register();
 		zcylas.totality.api.rpg.resources.verification.ResourceFoundationVerification.register();
 		zcylas.totality.api.rpg.resources.verification.BaselineResourceMigrationVerification.register();
@@ -136,6 +162,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.rpg.resources.verification.HealthRecoveryDiceResourceVerification.register();
 		zcylas.totality.api.rpg.resources.verification.FoodSystemVerification.register();
 		zcylas.totality.api.soulgem.verification.SoulGemSystemVerification.register();
+		zcylas.totality.entity.animal.ForestBoarVerification.register();
 		ModEvents.register();
 	}
 
@@ -279,6 +306,12 @@ public class Totality implements ModInitializer {
 		FabricDefaultAttributeRegistry.register(ModEntities.SUMMON_SKELETON, Skeleton.createAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.TOTALITY_NPC, TotalityNpcEntity.createAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.BANKER, BankerNpcEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(ModEntities.FOREST_BOAR,
+				zcylas.totality.entity.animal.ForestBoarEntity.createAttributes());
+		net.minecraft.world.entity.SpawnPlacements.register(ModEntities.FOREST_BOAR,
+				net.minecraft.world.entity.SpawnPlacementTypes.ON_GROUND,
+				net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+				zcylas.totality.entity.animal.ForestBoarEntity::checkForestBoarSpawnRules);
 		FabricDefaultAttributeRegistry.register(ModEntities.PROVISIONER,
 				zcylas.totality.entity.npc.ProvisionerNpcEntity.createAttributes());
 	}

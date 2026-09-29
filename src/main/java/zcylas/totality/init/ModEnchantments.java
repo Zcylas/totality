@@ -22,6 +22,11 @@ import zcylas.totality.Totality;
  * <p>Cost/weight mirror vanilla Efficiency's (weight 10, min cost 1+10/level, max cost 51+10/level,
  * anvil cost 1) — no cost/weight balance was specified for Impact, so these are inherited defaults,
  * not a chosen final balance.
+ *
+ * <p>Soulbound (single level): the enchanted ItemStack is kept on death instead of dropping (see
+ * {@link zcylas.totality.api.item.Soulbound}). It has no effect components, is independent of Attunement and of
+ * any equipment slot, and is in no enchanting-table, loot or trade tag: how it is obtained is future design.
+ * Cost/weight mirror vanilla Mending's (weight 2, min 25+25/level, max 75+25/level, anvil cost 4) as placeholders.
  */
 public final class ModEnchantments {
 
@@ -29,6 +34,9 @@ public final class ModEnchantments {
 
     public static final ResourceKey<Enchantment> IMPACT =
             ResourceKey.create(Registries.ENCHANTMENT, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "impact"));
+
+    public static final ResourceKey<Enchantment> SOULBOUND =
+            ResourceKey.create(Registries.ENCHANTMENT, Identifier.fromNamespaceAndPath(Totality.MOD_ID, "soulbound"));
 
     public static void bootstrap(BootstrapContext<Enchantment> context) {
         HolderGetter<Item> items = context.lookup(Registries.ITEM);
@@ -42,5 +50,15 @@ public final class ModEnchantments {
                         1,
                         EquipmentSlotGroup.MAINHAND
                 )).build(IMPACT.identifier()));
+        context.register(SOULBOUND, Enchantment.enchantment(
+                Enchantment.definition(
+                        items.getOrThrow(ModTags.ENCHANTABLE_SOULBOUND),
+                        2,
+                        1,
+                        Enchantment.dynamicCost(25, 25),
+                        Enchantment.dynamicCost(75, 25),
+                        4,
+                        EquipmentSlotGroup.ANY
+                )).build(SOULBOUND.identifier()));
     }
 }

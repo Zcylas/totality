@@ -63,3 +63,23 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## **Java Code Style — Imports**
+
+**Use ordinary Java imports instead of fully qualified class names within executable code.**
+
+Import classes at the top of the file and reference them by their simple names.
+
+Do not write zcylas.totality...ClassName or net.minecraft...ClassName inline when a normal import can be used.
+
+Do not introduce wildcard imports.
+
+Do not add unnecessary imports for classes in the same package or java.lang.
+
+Fully qualified names are permitted only when necessary to resolve genuine naming conflicts or satisfy a specific technical requirement.
+
+Remove unused imports and preserve consistent import ordering.
+
+Apply this convention to all future Java implementation work, not just the current task.
+
+Before handing off a task, review newly created and modified Java files for unnecessary fully qualified names.

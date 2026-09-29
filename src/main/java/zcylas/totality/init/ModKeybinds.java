@@ -93,6 +93,32 @@ public class ModKeybinds {
     );
 
     /**
+     * Voice Input push-to-talk: hold during ordinary gameplay (no screen open) to speak; release to
+     * transcribe. Default B — G was the requested default but is vanilla 26.2's Quick Actions key
+     * ({@code key.quickActions}). Read through {@link #isPhysicallyDown}; it never acts while a
+     * screen (including chat) is open, so it cannot type into chat or steal a text field's key.
+     */
+    public static final KeyMapping VOICE_PUSH_TO_TALK = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.voice_push_to_talk",
+                    GLFW.GLFW_KEY_B,
+                    TOTALITY_CATEGORY
+            )
+    );
+
+    /**
+     * Opens vanilla chat with the latest local voice transcript for the player to review, edit and
+     * send with Enter. Never sends anything itself and never replaces an unsent chat draft.
+     */
+    public static final KeyMapping VOICE_EDIT_TRANSCRIPT = KeyMappingHelper.registerKeyMapping(
+            new KeyMapping(
+                    "key.totality.voice_edit_transcript",
+                    GLFW.GLFW_KEY_N,
+                    TOTALITY_CATEGORY
+            )
+    );
+
+    /**
      * True if the CURRENT physical input bound to {@code mapping} is being held right now — reads
      * real hardware/GLFW state directly, NEVER {@link KeyMapping#isDown()} (radial correction pass
      * follow-up).
@@ -114,7 +140,23 @@ public class ModKeybinds {
      * round-trip vanilla's own options serialization already uses — so a rebind is honored
      * immediately, without any cached "which key opened this" state to go stale.
      */
+    /** Development capture run only: mappings reported as physically held. Always empty in normal play. */
+    private static final java.util.Set<KeyMapping> SIMULATED_DOWN = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Development capture run only ({@code -Dtotality.hologram.capture=true} in a dev environment): reports
+     * {@code mapping} as physically held, so the REAL chord/edge code paths can be exercised without a
+     * keyboard. Ignored in normal play.
+     */
+    public static void simulatePhysicalPress(KeyMapping mapping, boolean down) {
+        if (!zcylas.totality.api.core.util.VerificationReporter.isDevEnvironment()
+                || !Boolean.getBoolean("totality.hologram.capture")) return;
+        if (down) SIMULATED_DOWN.add(mapping);
+        else SIMULATED_DOWN.remove(mapping);
+    }
+
     public static boolean isPhysicallyDown(KeyMapping mapping) {
+        if (!SIMULATED_DOWN.isEmpty() && SIMULATED_DOWN.contains(mapping)) return true;
         Window window = Minecraft.getInstance().getWindow();
         InputConstants.Key key = InputConstants.getKey(mapping.saveString());
         return switch (key.getType()) {

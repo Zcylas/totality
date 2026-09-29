@@ -3044,16 +3044,16 @@ public final class MiningVerification {
                 if (!row.csv().equals(accepted.get(id))) changed.add(id);
                 if (expectedChanged.contains(id)) fourSpecial &= row.category() == BlockCoverageReport.Category.SPECIAL;
             }
-            r.check("final correction: every other registry row (incl. the 28 Totality Core deferrals) is field-for-field identical to the "
+            r.check("final correction: every other registry row (incl. the 30 Totality Core deferrals) is field-for-field identical to the "
                     + "accepted Pass 3R coverage; only the four changed, now SPECIAL",
                     changed.equals(expectedChanged) && fourSpecial && rows.size() == accepted.size() - 1 && rows.size() == BuiltInRegistries.BLOCK.size(),
                     "changed=" + changed + " rows=" + rows.size() + " csv=" + (accepted.size() - 1));
-            r.check("final correction: coverage counts 840 ACCEPTED_AUTHORED / 337 SPECIAL / 15 UNBREAKABLE / 6 NA / 28 COMPAT_FALLBACK / 0 UNRESOLVED",
+            r.check("final correction: coverage counts 840 ACCEPTED_AUTHORED / 338 SPECIAL / 15 UNBREAKABLE / 6 NA / 30 COMPAT_FALLBACK / 0 UNRESOLVED",
                     counts.getOrDefault(BlockCoverageReport.Category.ACCEPTED_AUTHORED, 0) == 840
-                            && counts.getOrDefault(BlockCoverageReport.Category.SPECIAL, 0) == 337
+                            && counts.getOrDefault(BlockCoverageReport.Category.SPECIAL, 0) == 338
                             && counts.getOrDefault(BlockCoverageReport.Category.UNBREAKABLE, 0) == 15
                             && counts.getOrDefault(BlockCoverageReport.Category.NA, 0) == 6
-                            && counts.getOrDefault(BlockCoverageReport.Category.COMPAT_FALLBACK, 0) == 28
+                            && counts.getOrDefault(BlockCoverageReport.Category.COMPAT_FALLBACK, 0) == 30
                             && counts.getOrDefault(BlockCoverageReport.Category.UNRESOLVED_DESIGN, 0) == 0, "" + counts);
         }
 

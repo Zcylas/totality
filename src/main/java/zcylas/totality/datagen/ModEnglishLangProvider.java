@@ -42,6 +42,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.archmage_grimoire", "Archmage Grimoire");
             //Rings
         translationBuilder.add("item.totality.ring_of_protection", "Ring of Protection");
+        translationBuilder.add("item.totality.cape_of_the_mountebank", "Cape of the Mountebank");
             //Arcane Foci
         translationBuilder.add("item.totality.arcane_orb", "Arcane Orb");
         translationBuilder.add("item.totality.bard_guitar", "Bard's Guitar");
@@ -168,9 +169,21 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("block.totality.true_wheat_crop","True Wheat");
         translationBuilder.add("item.totality.rock_warbler_egg","Rock Warbler Egg");
         translationBuilder.add("item.totality.garlic","Garlic");
+        translationBuilder.add("item.totality.garlic_clove","Garlic Clove");
+        translationBuilder.add("block.totality.garlic_crop","Garlic");
+        translationBuilder.add("block.totality.cutting_board","Cutting Board");
+        translationBuilder.add("item.totality.jueyun_chili","Jueyun Chili");
+        translationBuilder.add("block.totality.jueyun_chili_plant","Jueyun Chili Plant");
         //Food Items
         translationBuilder.add("item.totality.pizza_margherita", "Pizza Margherita");
         translationBuilder.add("item.totality.pizza_margherita_slice", "Pizza Margherita Slice");
+        translationBuilder.add("item.totality.raw_meat", "Raw Meat");
+        translationBuilder.add("entity.totality.forest_boar", "Forest Boar");
+        translationBuilder.add("item.totality.forest_boar_spawn_egg", "Forest Boar Spawn Egg");
+        translationBuilder.add("entity.totality.skateboard", "Skateboard");
+        translationBuilder.add("item.totality.skateboard", "Skateboard");
+        translationBuilder.add("entity.totality.visual_portal", "Visual Portal (Test)");
+        translationBuilder.add("entity.totality.solo_gate", "Normal Gate (Test)");
         //Spell Materials
         translationBuilder.add("item.totality.bat_guano", "Bat Guano");
         translationBuilder.add("item.totality.sulphur_dust", "Sulphur Dust");
@@ -218,6 +231,8 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("key.totality.radial_modifier", "Radial Modifier");
         translationBuilder.add("key.totality.movement_power", "Movement Power");
         translationBuilder.add("key.totality.attune_item", "Attune Item");
+        translationBuilder.add("key.totality.voice_push_to_talk", "Voice Push-to-Talk");
+        translationBuilder.add("key.totality.voice_edit_transcript", "Voice: Edit & Send Transcript");
         //Effects
         translationBuilder.add("effect.totality.glide", "Glide");
         translationBuilder.add("effect.totality.hex", "Hex");
@@ -298,6 +313,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
 
         // Block Breaking V2 — Impact enchantment (Mining Damage only, §5 of the balance pass)
         translationBuilder.add("enchantment.totality.impact", "Impact");
+        translationBuilder.add("enchantment.totality.soulbound", "Soulbound");
 
         // Tooltip V2 header — specific classification types (ClassificationTypes), shown as "CATEGORY • TYPE"
         translationBuilder.add("classification_type.totality.axe", "Axe");

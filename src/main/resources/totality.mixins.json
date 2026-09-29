@@ -28,6 +28,8 @@
 		"SaturationMobEffectEatAuthorityMixin",
 		"PlayerFoodSprintGateAuthorityMixin",
 		"InventoryCreditsMergeMixin",
+		"InventorySoulboundMixin",
+		"PlayerEquipmentDeathDropMixin",
 		"MultiNoiseBiomeSourceParameterListMixin",
 		"client.LivingEntityMixin",
 		"item.TridentItemMixin",
@@ -48,7 +50,8 @@
 		"mining.CauldronFillingMixin",
 		"mining.LayeredCauldronEmptyingMixin",
 		"mining.EnvironmentalTransformationMixin",
-		"mining.GrassSpreadTransformationMixin"
+		"mining.GrassSpreadTransformationMixin",
+		"ProjectileUtilForestBoarPickMixin"
 	],
 	"client": [
 		"EntityDimensionsMixin",
@@ -62,10 +65,15 @@
 		"client.MinecraftAttackMixin",
 		"client.GuiGraphicsExtractorMixin",
 		"client.AvatarRendererMixin",
+		"client.AvatarRendererBackEquipmentMixin",
+		"client.AvatarRendererSkateboardMixin",
 		"client.GuiExtractRenderStateMixin",
 		"client.HumanoidModelMixin",
+		"client.HumanoidModelSkateboardMixin",
 		"client.ItemInHandRendererMixin",
 		"client.MultiPlayerGameModeMixin",
+		"client.GameRendererHologramMixin",
+		"client.LivingEntityRendererNameTagMixin",
 		"client.MinecraftMiningMixin",
 		"client.MiningHandRenderMixin",
 		"client.FontAccessor",
@@ -73,7 +81,8 @@
 		"client.chat.ChatScreenInputBackgroundMixin",
 		"client.chat.ChatScreenInputPositionMixin",
 		"client.chat.CommandSuggestionsListPositionMixin",
-		"client.chat.CommandSuggestionsUsagePositionMixin"
+		"client.chat.CommandSuggestionsUsagePositionMixin",
+		"client.EntityHitboxDebugRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

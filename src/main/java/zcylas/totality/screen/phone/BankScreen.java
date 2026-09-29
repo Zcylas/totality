@@ -10,7 +10,8 @@ import zcylas.totality.networking.currency.ClientWalletManager;
 
 /**
  * Basic Bank app screen — shows the account (Wallet) balance, distinct from the
- * inventory screen's physical-Credits-on-hand readout. Opened from {@link PhoneAppGridScreen}'s
+ * inventory screen's physical-Credits-on-hand readout. Drawn on the phone device
+ * ({@link PhoneFrameRenderer}, {@link PhoneDeviceStyle}). Opened from {@link PhoneAppGridScreen}'s
  * Bank tile; ESC/TAB return to the app grid (not a full close), per the "BACK returns to
  * phone app grid" convention for phone apps.
  * TODO: gate the Bank tile behind an actual account-ownership check once has_account
@@ -19,61 +20,48 @@ import zcylas.totality.networking.currency.ClientWalletManager;
  */
 public class BankScreen extends Screen {
 
-    private static final int COLOR_PANEL_BG  = 0xFF0A0A0A;
-    private static final int COLOR_VALUE     = 0xFF00CCFF;
-    private static final int COLOR_LABEL     = 0xFFCCCCCC;
-
-    private static final int STATUS_H = 14;
-    private static final int PANEL_W  = 140;
-    private static final int PANEL_H  = 60;
+    private static final String LABEL = "ACCOUNT BALANCE";
+    private static final String BACK = "[ESC] Back";
 
     private final PhoneFrame frame;
+    private final PhoneDeviceStyle style;
+    private final long openedNanos;
 
     public BankScreen(PhoneFrame frame) {
         super(Component.literal("Bank"));
         this.frame = frame;
+        this.style = PhoneDeviceStyle.of(frame);
+        this.openedNanos = PhoneFrameRenderer.beginOpen();
     }
 
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float a) {
-        // Left intentionally empty — the game world stays visible around the phone
-        // instead of a full-screen backdrop, now that the phone is anchored to the right.
+        // Left intentionally empty — the game world stays visible around the phone.
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float a) {
         super.extractRenderState(g, mx, my, a);
+        PhoneFrameRenderer.Layout base = PhoneFrameRenderer.layout(width, height, style);
+        PhoneFrameRenderer.Transition t = PhoneFrameRenderer.transition(openedNanos);
+        PhoneFrameRenderer.Layout l = PhoneFrameRenderer.drawDevice(g, base, style, t);
+        String balance = "\u20b5 " + ClientWalletManager.getValue();
+        float scale = Math.min(PhoneUi.displayScale(l),
+                PhoneUi.crispScale(font, java.util.List.of("BANK" + BACK + "  ", LABEL, balance), l.dw() - 12, PhoneUi.guiScale()));
+        PhoneUi ui = new PhoneUi(g, font, style, scale);
+        PhoneDeviceStyle.Display d = ui.colors();
 
-        int[] pb = PhoneFrameRenderer.bounds(width, height);
-        int[] screen = PhoneFrameRenderer.draw(g, pb[0], pb[1], pb[2], pb[3], frame);
-        int sx = screen[0], sy = screen[1], sw = screen[2], sh = screen[3];
-
-        g.fill(sx, sy, sx + sw, sy + STATUS_H, 0xFF0A0A0A);
-        g.fill(sx, sy + STATUS_H - 1, sx + sw, sy + STATUS_H, frame.colorDim);
-        g.text(font, Component.literal("BANK"), sx + 3, sy + 3, frame.colorBright, false);
-
-        String hint = "[ESC] Back";
-        g.text(font, Component.literal(hint), sx + sw - 3 - font.width(hint), sy + 3, COLOR_LABEL, false);
-
-        int px = sx + sw / 2 - PANEL_W / 2;
-        int py = sy + sh / 2 - PANEL_H / 2;
-        g.fill(px, py, px + PANEL_W, py + PANEL_H, COLOR_PANEL_BG);
-        drawFrame(g, px, py, PANEL_W, PANEL_H, 1, frame.colorDim);
-
-        String label = "ACCOUNT BALANCE";
-        g.text(font, Component.literal(label),
-                sx + sw / 2 - font.width(label) / 2, py + 12, COLOR_LABEL, false);
-
-        String balance = "₵ " + ClientWalletManager.getValue();
-        g.text(font, Component.literal(balance),
-                sx + sw / 2 - font.width(balance) / 2, py + 28, COLOR_VALUE, true);
-    }
-
-    private void drawFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int t, int color) {
-        g.fill(x, y, x + w, y + t, color);
-        g.fill(x, y + h - t, x + w, y + h, color);
-        g.fill(x, y, x + t, y + h, color);
-        g.fill(x + w - t, y, x + w, y + h, color);
+        ui.header(l.dx(), l.dy(), l.dw(), "BANK", BACK);
+        int cx = l.dx() + l.dw() / 2;
+        int line = ui.lineHeight();
+        int top = l.dy() + l.dh() * 2 / 5 - line;
+        ui.textCentered(LABEL, cx, top, d.textDim());
+        ui.separator(cx - ui.width(LABEL) / 2, top + line + 2, ui.width(LABEL));
+        // The balance at twice the display scale: still whole screen pixels per font pixel.
+        PhoneUi big = new PhoneUi(g, font, style, scale * 2);
+        if (big.width(balance) > l.dw() - 12) big = ui;
+        big.textCentered(balance, cx, top + line + 7, d.text());
+        PhoneFrameRenderer.finishDisplay(g, l, style, t);
     }
 
     @Override

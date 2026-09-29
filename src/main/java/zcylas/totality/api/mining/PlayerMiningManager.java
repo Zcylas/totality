@@ -214,7 +214,10 @@ public final class PlayerMiningManager {
         BlockHitResult target = pickBlock(player);
         s.startRequested = false;
         if (target == null || !ownsMining(player, (ServerLevel) player.level(), target.getBlockPos())) {
-            if (power) s.queuedForce = -1f;          // nothing to swing at: drop the request
+            if (power) {                             // nothing to swing at: drop the request
+                s.queuedForce = -1f;
+                reportPowerStrike(player, null);
+            }
             return;
         }
         ItemStack heldTool = player.getMainHandItem();
@@ -276,8 +279,9 @@ public final class PlayerMiningManager {
 
     /** The contact frame: fresh raycast, then exactly one impact if (and only if) a block is really hit. */
     private static void contact(ServerPlayer player, Session s) {
-        contactNow(player, s.swingIsPower, s.swingForce, s.swingSource,
+        MiningResult result = contactNow(player, s.swingIsPower, s.swingForce, s.swingSource,
                 s.swingIsPower ? null : actual -> correctRecovery(player, s, actual));
+        if (s.swingIsPower) reportPowerStrike(player, result);
         if (contactFrameObserver != null) contactFrameObserver.run();
     }
 
@@ -302,6 +306,16 @@ public final class PlayerMiningManager {
         if (recovery == s.recoveryTicks) return;
         s.recoveryTicks = recovery;
         ServerPlayNetworking.send(player, new zcylas.totality.networking.mining.MiningRecoveryPayload(recovery));
+    }
+
+    /**
+     * Tells the player's client what its released Power swing did (Power Mining HUD impact feedback).
+     * Presentation only; skipped for connections that cannot receive it (e.g. verification fake players).
+     */
+    private static void reportPowerStrike(ServerPlayer player, @Nullable MiningResult result) {
+        var payload = new zcylas.totality.networking.mining.PowerStrikeResultPayload(
+                zcylas.totality.networking.mining.PowerStrikeResultPayload.Outcome.of(result));
+        if (ServerPlayNetworking.canSend(player, payload.type())) ServerPlayNetworking.send(player, payload);
     }
 
     /** Is {@code current} still the source that began the swing? See {@link MiningSourceIdentity}. */

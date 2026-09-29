@@ -15,6 +15,7 @@ import net.minecraft.world.level.ItemLike;
 import org.jspecify.annotations.NonNull;
 import zcylas.totality.init.blocks.WhitestoneBlocks;
 import zcylas.totality.init.items.IngredientItems;
+import zcylas.totality.init.items.SKIngredientItems;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -48,6 +49,12 @@ public class ModRecipeProvider extends FabricRecipeProvider {
                 twoByTwoRecipe(WhitestoneBlocks.WHITESTONE, IngredientItems.WHITESTONE_CHUNK, 1);
                 twoByTwoRecipe(WhitestoneBlocks.POLISHED_WHITESTONE, WhitestoneBlocks.WHITESTONE, 4);
                 twoByTwoRecipe(WhitestoneBlocks.POLISHED_WHITESTONE_BRICKS, WhitestoneBlocks.POLISHED_WHITESTONE, 4);
+                //Farming
+                    //Garlic: one bulb splits into four plantable cloves (no reverse recipe)
+                ShapelessRecipeBuilder.shapeless(items, RecipeCategory.FOOD, SKIngredientItems.GARLIC_CLOVE, 4)
+                        .requires(SKIngredientItems.GARLIC)
+                        .unlockedBy(getHasName(SKIngredientItems.GARLIC), has(SKIngredientItems.GARLIC))
+                        .save(output);
             }
 
 

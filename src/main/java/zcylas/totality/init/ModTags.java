@@ -26,6 +26,7 @@ public class ModTags {
      *  {@code MiningSourceProfile.participatingItems()}, never a hand-maintained list, so an item can
      *  never be Impact-enchantable without also having an authored Mining Damage (V2 balance pass). */
     public static final TagKey<Item> ENCHANTABLE_MINING_DAMAGE = item("enchantable/mining_damage");
+    public static final TagKey<Item> ENCHANTABLE_SOULBOUND = item("enchantable/soulbound");
     //Block Tags
     public static final TagKey<Block> HARVESTABLE = block("harvestable");
     public static final TagKey<Block> VEINMINABLE = block("veinminable");

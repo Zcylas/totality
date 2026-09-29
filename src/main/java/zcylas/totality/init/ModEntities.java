@@ -8,6 +8,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import zcylas.totality.Totality;
 import zcylas.totality.entity.base_weapon.ThrownShurikenEntity;
+import zcylas.totality.entity.gate.SoloGateEntity;
 import zcylas.totality.entity.magic.GrimoireProjectileEntity;
 import zcylas.totality.entity.magic.FireballProjectileEntity;
 import zcylas.totality.entity.magic.LingerEntity;
@@ -18,6 +19,7 @@ import zcylas.totality.entity.npc.BankerNpcEntity;
 import zcylas.totality.entity.npc.ProvisionerNpcEntity;
 import zcylas.totality.entity.npc.TotalityNpcEntity;
 import zcylas.totality.entity.rest.RestSeatEntity;
+import zcylas.totality.entity.vehicle.SkateboardEntity;
 
 public class ModEntities {
 
@@ -202,6 +204,84 @@ public class ModEntities {
                             .sized(0.0001f, 0.0001f)
                             .clientTrackingRange(64)
                             .build(REST_SEAT_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> FOREST_BOAR_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "forest_boar"));
+
+    /**
+     * Forest Boar (Astra's model). The box matches the model as rendered (render scale 1.819, derived from the
+     * .bbmodel by bbmodel_to_java.py): 0.91 blocks wide across the body, 1.30 blocks to the ear tips (1.24 to the
+     * back); the painted eyes are 0.68 blocks up. The square box covers the body; the snout and rump overhang it,
+     * as on vanilla quadrupeds, so it still fits one-block gaps.
+     */
+    public static final EntityType<zcylas.totality.entity.animal.ForestBoarEntity> FOREST_BOAR =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "forest_boar"),
+                    EntityType.Builder.<zcylas.totality.entity.animal.ForestBoarEntity>of(
+                                    zcylas.totality.entity.animal.ForestBoarEntity::new,
+                                    MobCategory.CREATURE)
+                            .sized(0.9f, 1.3f)
+                            .eyeHeight(0.68f)
+                            .clientTrackingRange(10)
+                            .build(FOREST_BOAR_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> VISUAL_PORTAL_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "visual_portal"));
+
+    /** Creative Capability Test C: the nonfunctional, visual-only green portal (its position is the oval's centre). */
+    public static final EntityType<zcylas.totality.entity.portal.VisualPortalEntity> VISUAL_PORTAL =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "visual_portal"),
+                    EntityType.Builder.<zcylas.totality.entity.portal.VisualPortalEntity>of(
+                                    zcylas.totality.entity.portal.VisualPortalEntity::new,
+                                    MobCategory.MISC)
+                            .sized(1.6f, 2.4f)
+                            .clientTrackingRange(8)
+                            .build(VISUAL_PORTAL_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> SOLO_GATE_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "solo_gate"));
+
+    /** Creative Test K: the visual-only Solo Leveling Normal Gate (its position is the vortex centre; ~3 blocks tall). */
+    public static final EntityType<SoloGateEntity> SOLO_GATE =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "solo_gate"),
+                    EntityType.Builder.<SoloGateEntity>of(SoloGateEntity::new, MobCategory.MISC)
+                            .sized(3.0f, 3.0f)
+                            .clientTrackingRange(8)
+                            .build(SOLO_GATE_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> SKATEBOARD_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "skateboard"));
+
+    /**
+     * Creative Test D: the default skateboard. The box is the deck's width (it grows to a standing rider's height while
+     * ridden, see SkateboardEntity); tracked like vanilla boats.
+     */
+    public static final EntityType<SkateboardEntity> SKATEBOARD =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "skateboard"),
+                    EntityType.Builder.<SkateboardEntity>of(SkateboardEntity::new, MobCategory.MISC)
+                            .noLootTable()
+                            .sized(0.9f, 0.35f)
+                            .clientTrackingRange(10)
+                            .build(SKATEBOARD_KEY)
             );
 
     private ModEntities() {}

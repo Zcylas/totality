@@ -2,6 +2,7 @@ package zcylas.totality.datagen;
 
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricBlockLootSubProvider;
+import net.minecraft.advancements.predicates.StatePropertiesPredicate;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.Item;
@@ -9,10 +10,13 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.entries.AlternativesEntry;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
+import net.minecraft.world.level.storage.loot.predicates.LootItemBlockStatePropertyCondition;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 import zcylas.totality.init.ModBlocks;
 import zcylas.totality.init.blocks.*;
@@ -64,6 +68,8 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         //Natural Blocks
             //Limestone
         this.add(NaturalBlocks.LIMESTONE, multipleOreDrops(NaturalBlocks.LIMESTONE, IngredientItems.LIMESTONE_CHUNK, 1, 2));
+        //Cooking
+        dropSelf(CookingBlocks.CUTTING_BOARD);
         //Crops
             //True Wheat
         this.add(AlchemyBlocks.TRUE_WHEAT_CROP, this.createCropDrops(
@@ -75,6 +81,16 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
                         .setProperties(net.minecraft.advancements.predicates.StatePropertiesPredicate.Builder
                                 .properties().hasProperty(CropBlock.AGE, 7))
         ));
+            //Garlic: one Garlic Clove before maturity; at age 7, Garlic = 1 + Binomial(Fortune level, 4/7)
+        HolderLookup.RegistryLookup<Enchantment> enchantments = this.registries.lookupOrThrow(Registries.ENCHANTMENT);
+        this.add(AlchemyBlocks.GARLIC_CROP, this.applyExplosionDecay(AlchemyBlocks.GARLIC_CROP, LootTable.lootTable()
+                .withPool(LootPool.lootPool().add(AlternativesEntry.alternatives(
+                        LootItem.lootTableItem(SKIngredientItems.GARLIC)
+                                .when(LootItemBlockStatePropertyCondition.hasBlockStateProperties(AlchemyBlocks.GARLIC_CROP)
+                                        .setProperties(StatePropertiesPredicate.Builder.properties().hasProperty(CropBlock.AGE, 7)))
+                                .apply(ApplyBonusCount.addBonusBinomialDistributionCount(
+                                        enchantments.getOrThrow(Enchantments.FORTUNE), 0.5714286F, 0)),
+                        LootItem.lootTableItem(SKIngredientItems.GARLIC_CLOVE))))));
     }
 
 

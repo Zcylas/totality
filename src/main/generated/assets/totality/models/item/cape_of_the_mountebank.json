@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "totality:item/cape_of_the_mountebank"
+  }
+}

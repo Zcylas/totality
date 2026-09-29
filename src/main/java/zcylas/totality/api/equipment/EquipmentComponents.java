@@ -1,5 +1,6 @@
 package zcylas.totality.api.equipment;
 
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.core.component.ComponentKey;
@@ -26,6 +27,10 @@ public final class EquipmentComponents {
                 EQUIPMENT,
                 () -> new PlayerEquipmentComponent(null)
         );
+        // The respawn copy replaces the component: tell the owner's client what was carried over (after death,
+        // only Soulbound items remain unless keepInventory is on).
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) ->
+                EQUIPMENT.sync((ComponentProvider) newPlayer));
     }
 
     public static PlayerEquipmentComponent get(ServerPlayer player) {

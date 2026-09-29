@@ -17,6 +17,7 @@ import zcylas.totality.init.ModKeybinds;
 import zcylas.totality.networking.mining.MiningIntentPayload;
 import zcylas.totality.networking.mining.MiningRecoveryPayload;
 import zcylas.totality.networking.mining.MiningSwingPayload;
+import zcylas.totality.networking.mining.PowerStrikeResultPayload;
 
 /**
  * Client half of Totality mining. It only expresses INTENT (hold / stop / power-swing force) and
@@ -40,6 +41,14 @@ public final class ClientMiningController {
     private static boolean holdSent;
     private static boolean meterActive;
     private static int meterTicks;
+    /** Presentation only (Power Mining HUD): Alt held long enough, nothing pressed, Power available. */
+    private static boolean idleArmed;
+    private static long altHeldSince = -1;
+    private static long releaseNanos = -1, cancelNanos = -1, strikeNanos = -1;
+    private static float releaseForce;
+    private static PowerStrikeResultPayload.Outcome strikeOutcome = PowerStrikeResultPayload.Outcome.MISS;
+    /** Alt must be held this long before the idle reticle appears, so the Alt+B chord never flashes it. */
+    static final long IDLE_DELAY_NANOS = 150_000_000L;
 
     private ClientMiningController() {}
 
@@ -51,8 +60,20 @@ public final class ClientMiningController {
         // ...and, when the actual target at contact changed the swing's cadence, its corrected recovery.
         ClientPlayNetworking.registerGlobalReceiver(MiningRecoveryPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> ANIM.correctRecovery(payload.recoveryTicks())));
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { reset(); ANIM.reset(); });
+        // What a released Power swing actually did (impact feedback only for a real hit).
+        ClientPlayNetworking.registerGlobalReceiver(PowerStrikeResultPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> {
+                    strikeOutcome = payload.outcome();
+                    strikeNanos = System.nanoTime();
+                }));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            reset();
+            ANIM.reset();
+            idleArmed = false;
+            releaseNanos = cancelNanos = strikeNanos = -1;
+        });
         PowerMiningMeterHud.register();
+        PowerMiningCapture.registerIfRequested();
     }
 
     /** True when Totality mining, not vanilla, handles the block under the crosshair right now. */
@@ -76,6 +97,34 @@ public final class ClientMiningController {
     }
 
     public static boolean isMeterActive() { return meterActive; }
+
+    /** Ticks of the current power hold (the value {@link #meterValue()} is derived from). */
+    public static int meterTicks() { return meterTicks; }
+
+    /** Alt held (and Power Mining available), no mining input yet: the HUD's compact idle reticle. */
+    public static boolean isIdleArmed() { return idleArmed; }
+
+    /** {@link System#nanoTime()} of the last POWER_RELEASE sent, or -1. */
+    public static long lastReleaseNanos() { return releaseNanos; }
+
+    /** The meter value at that release (the server derives the real force from its own clock). */
+    public static float lastReleaseForce() { return releaseForce; }
+
+    /** {@link System#nanoTime()} of the last cancelled power hold, or -1. */
+    public static long lastCancelNanos() { return cancelNanos; }
+
+    /** {@link System#nanoTime()} of the last strike result from the server, or -1. */
+    public static long lastStrikeNanos() { return strikeNanos; }
+
+    public static PowerStrikeResultPayload.Outcome lastStrikeOutcome() { return strikeOutcome; }
+
+    /**
+     * The Alt+B voice chord (push-to-talk held with the modifier) belongs to Voice Dictation: while it is
+     * down Power Mining never starts, shows no idle reticle, and an ongoing charge is cancelled.
+     */
+    static boolean voiceChordDown() {
+        return ModKeybinds.isPhysicallyDown(ModKeybinds.VOICE_PUSH_TO_TALK);
+    }
 
     /** Broad visual class from the item's own tags; anything that is not a tool source animates the arm itself. */
     static MiningHandAnimation.Style styleOf(ItemStack stack) {
@@ -105,18 +154,22 @@ public final class ClientMiningController {
 
     private static void tick(Minecraft mc) {
         ANIM.tick();
+        updateIdle(mc);
         if (ANIM.isActive() && animationInvalid(mc)) {
             ANIM.cancel();
             if (meterActive) {                       // an in-progress power hold is void: tell the server, stay cancelled
                 send(MiningIntentPayload.Action.POWER_CANCEL);
                 meterActive = false;
                 cancelledUntilRelease = true;
+                cancelNanos = System.nanoTime();
             }
         }
         boolean down = mc.options.keyAttack.isDown() && mc.gui.screen() == null && survivalMining(mc);
         if (!down) {
             if (meterActive && !cancelledUntilRelease) {
                 send(MiningIntentPayload.Action.POWER_RELEASE);
+                releaseNanos = System.nanoTime();
+                releaseForce = meterValue();
                 if (mc.player != null) {
                     int duration = mc.player.getMainHandItem().getSwingAnimation().duration();
                     // Power timings are deterministic (cadence never applies), so the strike is predicted locally at once.
@@ -131,17 +184,33 @@ public final class ClientMiningController {
         // Swords/Shears are excluded from Power Mining: Alt does nothing special with them (ordinary hold instead).
         boolean alt = ModKeybinds.isPhysicallyDown(ModKeybinds.RADIAL_MODIFIER)
                 && !MiningTier.excludedFromPowerMining(mc.player.getMainHandItem());
+        boolean chord = alt && voiceChordDown();
         if (!prevDown) {
             pressedWithAlt = alt;
-            cancelledUntilRelease = false;
+            // A click during the Alt+B dictation chord is not a mining input at all.
+            cancelledUntilRelease = chord;
         }
         prevDown = true;
         if (cancelledUntilRelease) return;
+        if (pressedWithAlt && chord) {        // Alt+B pressed during a charge: the chord wins, the charge is cancelled
+            if (meterActive) {
+                send(MiningIntentPayload.Action.POWER_CANCEL);
+                ANIM.cancel();
+                cancelNanos = System.nanoTime();
+            }
+            meterActive = false;
+            cancelledUntilRelease = true;
+            return;
+        }
 
         boolean onBlock = ownsCrosshairBlock(mc);
         if (pressedWithAlt) {
             if (!alt) {                       // Alt released first: cancel, no swing
-                if (meterActive) { send(MiningIntentPayload.Action.POWER_CANCEL); ANIM.cancel(); }
+                if (meterActive) {
+                    send(MiningIntentPayload.Action.POWER_CANCEL);
+                    ANIM.cancel();
+                    cancelNanos = System.nanoTime();
+                }
                 meterActive = false;
                 cancelledUntilRelease = true;
                 return;
@@ -158,6 +227,17 @@ public final class ClientMiningController {
             send(MiningIntentPayload.Action.HOLD_START);
             holdSent = true;
         }
+    }
+
+    /** Presentation state for the idle reticle; changes no mining input. */
+    private static void updateIdle(Minecraft mc) {
+        boolean alt = mc.gui.screen() == null && ModKeybinds.isPhysicallyDown(ModKeybinds.RADIAL_MODIFIER);
+        long now = System.nanoTime();
+        if (!alt) altHeldSince = -1;
+        else if (altHeldSince < 0) altHeldSince = now;
+        idleArmed = alt && now - altHeldSince >= IDLE_DELAY_NANOS && !voiceChordDown() && !meterActive
+                && !mc.options.keyAttack.isDown() && survivalMining(mc)
+                && !MiningTier.excludedFromPowerMining(mc.player.getMainHandItem());
     }
 
     private static void send(MiningIntentPayload.Action action) {

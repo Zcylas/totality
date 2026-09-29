@@ -8,6 +8,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import zcylas.totality.Totality;
 import zcylas.totality.block.energy.EnergyCellBlock;
 import zcylas.totality.block.fluid.FluidTankBlock;
+import zcylas.totality.blockentity.cooking.CuttingBoardBlockEntity;
 import zcylas.totality.blockentity.energy.CableBlockEntity;
 import zcylas.totality.blockentity.energy.ElectricFurnaceBlockEntity;
 import zcylas.totality.blockentity.energy.EnergyCellBlockEntity;
@@ -15,6 +16,7 @@ import zcylas.totality.blockentity.fluid.FluidTankBlockEntity;
 import zcylas.totality.blockentity.generator.GeneratorBlockEntity;
 import zcylas.totality.blockentity.ritual.RitualAltarBlockEntity;
 import zcylas.totality.blockentity.ritual.RitualDaisBlockEntity;
+import zcylas.totality.init.blocks.CookingBlocks;
 import zcylas.totality.init.blocks.EnergyBlocks;
 import zcylas.totality.init.blocks.RitualBlocks;
 
@@ -75,6 +77,13 @@ public class ModBlockEntities {
             FabricBlockEntityTypeBuilder.create(
                     RitualDaisBlockEntity::new,
                     RitualBlocks.RITUAL_DAIS  // we'll add this to RitualBlocks next
+            ).build()
+    );
+    public static final BlockEntityType<CuttingBoardBlockEntity> CUTTING_BOARD = register(
+            "cutting_board",
+            FabricBlockEntityTypeBuilder.create(
+                    CuttingBoardBlockEntity::new,
+                    CookingBlocks.CUTTING_BOARD
             ).build()
     );
 

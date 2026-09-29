@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "harvested=false": {
+      "model": "totality:block/plant/jueyun_chili/jueyun_chili_plant_fruiting"
+    },
+    "harvested=true": {
+      "model": "totality:block/plant/jueyun_chili/jueyun_chili_plant_picked"
+    }
+  }
+}

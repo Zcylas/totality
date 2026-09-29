@@ -61,6 +61,14 @@ public class NotificationManager {
     // Gap between notifications
     private static final int LINE_HEIGHT = 11;
 
+    // Notification V2 feed card (presentation only; timing, wrapping and the 5-item cap are unchanged).
+    private static final int CARD_RGB = 0x07101C;
+    private static final int CARD_ALPHA = 0xB0;
+    private static final int CARD_TEXT_INSET = 6;
+    private static final int CARD_PAD_X = 4;
+    private static final int CARD_PAD_Y = 2;
+    private static final int CARD_GAP = 4;
+
     // ── Part C: automatic rendered-width wrapping ──────────────────────────────
     // Preferred wrap width for a notification's rendered text, in scaled GUI pixels. Deliberately
     // conservative and independent of MobHealthBarHud (which can reach ~320 scaled pixels near
@@ -139,12 +147,23 @@ public class NotificationManager {
             float alpha = computeAlpha(n.ticksLeft);
             int finalColor = ((int) (alpha * 255) << 24) | (n.color & 0x00FFFFFF);
 
+            List<FormattedCharSequence> lines = new ArrayList<>();
             for (String paragraph : splitIntoParagraphs(n.message)) {
-                for (FormattedCharSequence visualLine : wrapParagraph(client.font, paragraph, width)) {
-                    graphics.text(client.font, visualLine, PADDING_X, y, finalColor, true);
-                    y += LINE_HEIGHT;
-                }
+                lines.addAll(wrapParagraph(client.font, paragraph, width));
             }
+            // Notification V2 feed card: dark translucent plate + accent bar in the message colour.
+            int textWidth = 0;
+            for (FormattedCharSequence line : lines) textWidth = Math.max(textWidth, client.font.width(line));
+            int top = y - CARD_PAD_Y, bottom = y + lines.size() * LINE_HEIGHT - 2 + CARD_PAD_Y;
+            graphics.fill(PADDING_X, top, PADDING_X + CARD_TEXT_INSET + textWidth + CARD_PAD_X, bottom,
+                    ((int) (alpha * CARD_ALPHA) << 24) | CARD_RGB);
+            graphics.fill(PADDING_X, top, PADDING_X + 2, bottom, finalColor);
+
+            for (FormattedCharSequence visualLine : lines) {
+                graphics.text(client.font, visualLine, PADDING_X + CARD_TEXT_INSET, y, finalColor, true);
+                y += LINE_HEIGHT;
+            }
+            y += CARD_GAP;
         }
     }
 
