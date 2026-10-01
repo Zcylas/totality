@@ -8,6 +8,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.entitlement.ProgressionContext;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.ClassLevelUpRegistry;
 import zcylas.totality.api.rpg.stats.PlayerStats;
@@ -37,6 +38,8 @@ public class PlayerSkillsComponent implements SyncedComponent, CopyableComponent
      * Returns true if a level-up occurred.
      */
     public boolean addSkillXp(Skill skill, int xpAmount) {
+        // Gameplay performed only through debug access never awards progression (ProgressionContext contract).
+        if (player != null && ProgressionContext.inNonProgressionScope(player)) return false;
         int levelBefore = skills.getLevel(skill);
         int newLevel = skills.addXp(skill, xpAmount);
         if (newLevel > 0) {

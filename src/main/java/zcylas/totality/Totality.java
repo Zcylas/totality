@@ -10,6 +10,10 @@ import net.minecraft.world.entity.monster.skeleton.Skeleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zcylas.totality.api.ability.AbilityRegistry;
+import zcylas.totality.api.entitlement.ProgressionContext;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
+import zcylas.totality.api.entitlement.integration.EntitlementLiveVerification;
+import zcylas.totality.api.entitlement.integration.TotalityEntitlements;
 import zcylas.totality.api.dice.DiceRollVerification;
 import zcylas.totality.api.equipment.BackEquipmentAppearance;
 import zcylas.totality.api.equipment.BackSlotVerification;
@@ -163,6 +167,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.rpg.resources.verification.FoodSystemVerification.register();
 		zcylas.totality.api.soulgem.verification.SoulGemSystemVerification.register();
 		zcylas.totality.entity.animal.ForestBoarVerification.register();
+		EntitlementLiveVerification.register();
 		ModEvents.register();
 	}
 
@@ -209,6 +214,7 @@ public class Totality implements ModInitializer {
 		zcylas.totality.api.item.TotalityItemComponents.register();
 		zcylas.totality.api.soulgem.CapturedSoulComponent.register();
 		zcylas.totality.api.rpg.resources.ProductionResourceDefinitions.register();
+		TotalityEntitlements.register();
 	}
 
 	private void registerCombatApi(){
@@ -281,10 +287,11 @@ public class Totality implements ModInitializer {
 				zcylas.totality.api.ability.AbilityComponent comp =
 						zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
 								(zcylas.totality.api.core.component.ComponentProvider) player);
-				for (net.minecraft.resources.Identifier id : comp.getUnlocked()) {
+				for (net.minecraft.resources.Identifier id : comp.getAccessibleAbilities()) {
 					zcylas.totality.api.ability.Ability ability = AbilityRegistry.get(id);
 					if (ability != null && ability.getType() == zcylas.totality.api.ability.Ability.Type.PASSIVE) {
-						ability.onPassiveTick(player);
+						ProgressionContext.run(player, AbilityEntitlements.isDebugOnly(player, id),
+								() -> ability.onPassiveTick(player));
 					}
 				}
 			}

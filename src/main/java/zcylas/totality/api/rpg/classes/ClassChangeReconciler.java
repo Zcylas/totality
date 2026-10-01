@@ -3,6 +3,7 @@ package zcylas.totality.api.rpg.classes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
+import zcylas.totality.api.entitlement.integration.TotalityEntitlements;
 import zcylas.totality.api.rpg.resources.MaximumChangePolicy;
 import zcylas.totality.api.rpg.resources.PlayerResourceDefinition;
 import zcylas.totality.api.rpg.resources.PlayerResourceRegistry;
@@ -113,6 +114,8 @@ public final class ClassChangeReconciler {
     public static void reconcile(ServerPlayer player, Map<Identifier, ResourceMaximum> resolvedMaximumsBeforeMutation) {
         ResourceGrantReconciliation.reconcileAndSync(player);
         reconcileResourcesAgainstResolvedMaximum(player, resolvedMaximumsBeforeMutation);
+        // Class-derived entitlement grants (e.g. Barbarian's Rage) are re-projected from the same state.
+        TotalityEntitlements.onClassChanged(player);
     }
 
     /**

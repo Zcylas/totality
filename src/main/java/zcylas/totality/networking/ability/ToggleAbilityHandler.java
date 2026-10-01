@@ -8,6 +8,9 @@ import zcylas.totality.api.ability.AbilityComponent;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.EntitlementActions;
+import zcylas.totality.api.entitlement.ProgressionContext;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 
 public final class ToggleAbilityHandler {
 
@@ -27,6 +30,8 @@ public final class ToggleAbilityHandler {
         Ability ability = AbilityRegistry.get(payload.abilityId());
         if (ability == null) return;
         if (ability.getType() != Ability.Type.CHANNELED) return;
+        // Starting a channel is a protected action; stopping one never needs authorization.
+        if (payload.active() && !AbilityEntitlements.canUse(player, payload.abilityId(), EntitlementActions.ACTIVATE)) return;
         if (!ability.canActivate(player, null)) return;
 
         AbilityComponent comp = AbilityComponents.ABILITIES.get(
@@ -35,7 +40,8 @@ public final class ToggleAbilityHandler {
         if (payload.active()) {
             if (comp.isChanneling()) return; // already channeling something
             comp.startChanneling(payload.abilityId());
-            ability.onChannelStart(player, null);
+            ProgressionContext.run(player, AbilityEntitlements.isDebugOnly(player, payload.abilityId()),
+                    () -> ability.onChannelStart(player, null));
         } else {
             if (!comp.isChanneling(payload.abilityId())) return;
             comp.stopChanneling();

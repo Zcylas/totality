@@ -70,7 +70,7 @@ public class StaminaServerTick {
                     movement.setPowerSprinting(false);
                 }
 
-                if (movement.isActivelyFlying() && !player.isCreative()) {
+                if (drainsForBiologicalFlight(player, movement)) {
                     boolean onGround = player.onGround();
 
                     if (onGround && !player.isFallFlying()) {
@@ -152,7 +152,7 @@ public class StaminaServerTick {
                     boolean regenBlocked = (player.isSprinting() && currentStamina > 0)
                             || powerSprinting
                             || BowStaminaHandler.isBowDrawn(player)
-                            || movement.isActivelyFlying();
+                            || blocksRegenForBiologicalFlight(player, movement);
 
                     if (!regenBlocked) {
                         int current = PlayerStaminaManager.getStamina(player);
@@ -190,6 +190,18 @@ public class StaminaServerTick {
                 && movement.isPowerSprinting()
                 && MovementStaminaHandler.hasMovementMode(player, MovementMode.POWER_SPRINT)
                 && PlayerStaminaManager.getStamina(player) > 0;
+    }
+
+    /** Whether biological flight drains this player's stamina this tick. Creative and Spectator never pay for
+     *  flight — and draining a Spectator to zero would end flight through setActivelyFlying(false), clearing the
+     *  game mode's own flight permissions. */
+    public static boolean drainsForBiologicalFlight(ServerPlayer player, PlayerMovementComponent movement) {
+        return movement.isActivelyFlying() && !player.isCreative() && !player.isSpectator();
+    }
+
+    /** Whether biological flight blocks this player's stamina regeneration. */
+    public static boolean blocksRegenForBiologicalFlight(ServerPlayer player, PlayerMovementComponent movement) {
+        return movement.isActivelyFlying();
     }
 
     private StaminaServerTick() {}

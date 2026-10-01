@@ -11,6 +11,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.level.Level;
 import org.lwjgl.glfw.GLFW;
+import zcylas.totality.api.entitlement.client.ClientEntitlementView;
+import zcylas.totality.api.entitlement.integration.PhoneAppEntitlements;
 import zcylas.totality.screen.character.CharacterScreen;
 import zcylas.totality.screen.inventory.TotalityInventoryScreen;
 import zcylas.totality.screen.menu.SkillsMenuScreen;
@@ -86,7 +88,8 @@ public class PhoneAppGridScreen extends Screen {
         Runnable openInventory = () -> Minecraft.getInstance().gui.setScreen(new TotalityInventoryScreen());
         Runnable openBank      = () -> Minecraft.getInstance().gui.setScreen(new BankScreen(frame));
         Runnable openQuests    = () -> zcylas.totality.client.quest.ClientQuestManager.openQuestApp(frame);
-        boolean bankUnlocked   = zcylas.totality.client.dialogue.ClientNarrativeFlagsManager.hasFlag("bank_app_unlocked");
+        // Advisory server-provided entitlement view; the Bank app is visible-but-locked until unlocked.
+        boolean bankUnlocked   = ClientEntitlementView.isSelectable(PhoneAppEntitlements.BANK_APP);
 
         List<App> all = new ArrayList<>();
         all.add(new App("Character", true, null, openCharacter));

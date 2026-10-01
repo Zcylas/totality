@@ -3,6 +3,7 @@ package zcylas.totality.api.rpg.skills.core;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.entitlement.ProgressionContext;
 import zcylas.totality.api.rpg.combat.weapon.VanillaWeaponTypes;
 import zcylas.totality.api.rpg.combat.weapon.WeaponType;
 
@@ -18,6 +19,8 @@ public class OneHandedSkillHandler {
                 (entity, source, baseDamageTaken, damageTaken, killed) -> {
                     if (!(source.getEntity() instanceof ServerPlayer serverPlayer)) return;
                     if (serverPlayer.isCreative()) return;
+                    // Damage from a debug-only action (or an entity it spawned) earns no progression.
+                    if (ProgressionContext.suppresses(serverPlayer, source)) return;
 
                     ItemStack mainHand = serverPlayer.getMainHandItem();
                     WeaponType type = VanillaWeaponTypes.getType(mainHand.getItem());

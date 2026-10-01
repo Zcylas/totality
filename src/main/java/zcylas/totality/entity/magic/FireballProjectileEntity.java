@@ -26,6 +26,7 @@ import zcylas.totality.api.combat.damage.TotalityDamage;
 import zcylas.totality.api.dice.Dice;
 import zcylas.totality.api.dice.RollOutcome;
 import zcylas.totality.api.dice.RollType;
+import zcylas.totality.api.entitlement.ProgressionContext;
 import zcylas.totality.api.rpg.combat.SavingThrow;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.init.ModEntities;
@@ -214,18 +215,21 @@ public class FireballProjectileEntity extends Projectile {
 
         float dc = this.entityData.get(SPELL_SAVE_DC);
 
-        for (LivingEntity target : targets) {
-            int raw = 0;
-            for (int i = 0; i < DICE_COUNT; i++) raw += DAMAGE_DIE.roll(target.getRandom());
+        // A fireball cast through debug-only access carries its caster's non-progression context to the blast.
+        ProgressionContext.runForEntity(this, () -> {
+            for (LivingEntity target : targets) {
+                int raw = 0;
+                for (int i = 0; i < DICE_COUNT; i++) raw += DAMAGE_DIE.roll(target.getRandom());
 
-            RollOutcome outcome = SavingThrow.roll(target, AbilityScore.DEX, (int) dc, RollType.NORMAL);
-            float damage = outcome.isSuccess() ? raw / 2f : raw;
+                RollOutcome outcome = SavingThrow.roll(target, AbilityScore.DEX, (int) dc, RollType.NORMAL);
+                float damage = outcome.isSuccess() ? raw / 2f : raw;
 
-            // The caster's own hit has no attacker: as an attack by themself, vanilla would gate it on PvP and shove
-            // them in a random direction. It is the same single Fire calculation, saves and resistances as everyone's.
-            TotalityDamage.hurt(target, target == caster ? null : caster, DamageTypes.FIRE, damage,
-                    DamageFlags.IS_AOE, DamageFlags.NO_CONDITIONS);
-        }
+                // The caster's own hit has no attacker: as an attack by themself, vanilla would gate it on PvP and shove
+                // them in a random direction. It is the same single Fire calculation, saves and resistances as everyone's.
+                TotalityDamage.hurt(target, target == caster ? null : caster, DamageTypes.FIRE, damage,
+                        DamageFlags.IS_AOE, DamageFlags.NO_CONDITIONS);
+            }
+        });
 
         this.discard();
     }

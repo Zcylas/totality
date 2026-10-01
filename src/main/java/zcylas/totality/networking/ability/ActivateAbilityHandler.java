@@ -10,6 +10,10 @@ import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.EntitlementActions;
+import zcylas.totality.api.entitlement.EntitlementDecision;
+import zcylas.totality.api.entitlement.ProgressionContext;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 import zcylas.totality.api.magic.spell.Spell;
 import zcylas.totality.api.rpg.combat.CastingRestrictionRegistry;
 import zcylas.totality.api.rpg.resources.PartitionSelectionPolicy;
@@ -44,7 +48,9 @@ public class ActivateAbilityHandler {
         AbilityComponent comp = AbilityComponents.ABILITIES.get(
                 (ComponentProvider) player);
 
-        if (!comp.hasAbility(payload.abilityId())) return;
+        // Revalidated at execution time: client-side availability is only advisory.
+        EntitlementDecision access = AbilityEntitlements.check(player, payload.abilityId(), EntitlementActions.ACTIVATE);
+        if (!access.allowed()) return;
         if (comp.isOnCooldown(payload.abilityId())) return;
 
         Ability ability = AbilityRegistry.get(payload.abilityId());
@@ -104,7 +110,9 @@ public class ActivateAbilityHandler {
         }
 
         if (ability instanceof Spell) Spell.resetCastResult();
-        ability.onActivate(player, context);
+        // Debug-only access never awards progression: run the effect in a non-progression scope.
+        AbilityContext castContext = context;
+        ProgressionContext.run(player, access.snapshot().debugOnly(), () -> ability.onActivate(player, castContext));
         boolean castSucceeded = !(ability instanceof Spell) || Spell.didCastSucceed();
 
         if (castSucceeded && ability.getCooldownTicks() > 0) {

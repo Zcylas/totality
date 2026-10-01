@@ -9,14 +9,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import zcylas.totality.api.ability.Ability;
-import zcylas.totality.api.ability.AbilityComponents;
-import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.economy.currency.CreditPaymentHelper;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
+import zcylas.totality.api.entitlement.integration.EntitlementCommands;
+import zcylas.totality.api.entitlement.integration.TotalityEntitlements;
 import zcylas.totality.api.rpg.ancestry.AncestryComponents;
-import zcylas.totality.api.rpg.ancestry.OriginData;
 import zcylas.totality.api.rpg.classes.ClassChangeReconciler;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.api.rpg.classes.PlayerClassComponent;
@@ -52,6 +51,9 @@ public class TotalityCommands {
                                 ServerPlayer p = source.getPlayer();
                                 return p != null && source.getServer().getPlayerList().isOp(p.nameAndId());
                             })
+
+                            // ── /totality entitlement ... (audit, explain, debug and admin tooling) ──
+                            .then(EntitlementCommands.build())
 
                             // ── /totality resetskills ─────────────────────────────────
                             .then(Commands.literal("resetskills")
@@ -160,18 +162,11 @@ public class TotalityCommands {
                                     .executes(ctx -> {
                                         ServerPlayer player = ctx.getSource().getPlayerOrException();
 
-                                        // Only forget abilities from the previous origin
+                                        // Clearing ancestry ends its Species/Origin source: reconciling removes
+                                        // exactly that source's grants and nothing else.
                                         var ancestryComp = AncestryComponents.get(player);
-                                        OriginData previousOrigin = ancestryComp.getOriginData();
-                                        if (previousOrigin != null && !previousOrigin.getStartingAbilities().isEmpty()) {
-                                            var abilityComp = AbilityComponents.ABILITIES.get((ComponentProvider) player);
-                                            for (Identifier id : previousOrigin.getStartingAbilities()) {
-                                                abilityComp.forget(id);
-                                            }
-                                        }
-
-                                        // Then clear ancestry
                                         ancestryComp.clearAncestry();
+                                        TotalityEntitlements.onAncestryChanged(player);
 
                                         ServerPlayNetworking.send(player, new OpenAncestrySelectionPayload());
                                         ctx.getSource().sendSuccess(() ->
@@ -469,20 +464,15 @@ public class TotalityCommands {
                             .then(Commands.literal("unlockability")
                                     .then(Commands.argument("id", StringArgumentType.word())
                                             .executes(ctx -> {
-                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
                                                 String idStr = StringArgumentType.getString(ctx, "id");
                                                 Identifier abilityId = Identifier.tryParse("totality:" + idStr);
                                                 if (abilityId == null) {
                                                     ctx.getSource().sendFailure(Component.literal("Invalid ability id: " + idStr));
                                                     return 0;
                                                 }
-                                                zcylas.totality.api.ability.AbilityComponent comp =
-                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
-                                                                (ComponentProvider) player);
-                                                comp.unlock(abilityId);
-                                                ctx.getSource().sendSuccess(() ->
-                                                        Component.literal("Unlocked ability: " + abilityId), false);
-                                                return 1;
+                                                // Explicit, audited admin unlock (non-progression). Spells are
+                                                // rejected: spell knowledge is owned by the future Spells system.
+                                                return EntitlementCommands.adminUnlock(ctx, AbilityEntitlements.keyFor(abilityId));
                                             })
                                     )
                             )
@@ -491,20 +481,15 @@ public class TotalityCommands {
                             .then(Commands.literal("forgetability")
                                     .then(Commands.argument("id", StringArgumentType.word())
                                             .executes(ctx -> {
-                                                ServerPlayer player = ctx.getSource().getPlayerOrException();
                                                 String idStr = StringArgumentType.getString(ctx, "id");
                                                 Identifier abilityId = Identifier.tryParse("totality:" + idStr);
                                                 if (abilityId == null) {
                                                     ctx.getSource().sendFailure(Component.literal("Invalid ability id: " + idStr));
                                                     return 0;
                                                 }
-                                                zcylas.totality.api.ability.AbilityComponent comp =
-                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
-                                                                (ComponentProvider) player);
-                                                comp.forget(abilityId);
-                                                ctx.getSource().sendSuccess(() ->
-                                                        Component.literal("Forgot ability: " + abilityId), false);
-                                                return 1;
+                                                // Revokes admin/legacy permanent facts and debug grants only;
+                                                // Class/Origin/Mastery grants stay with their sources.
+                                                return EntitlementCommands.adminRevoke(ctx, AbilityEntitlements.keyFor(abilityId));
                                             })
                                     )
                             )
@@ -561,15 +546,8 @@ public class TotalityCommands {
                                                     masteryComp.getMasteries().setRankDirectly(masteryId, rank);
                                                 }
                                                 masteryComp.sync();
-
-                                                // Unlock associated ability if any
-                                                if (mastery.getAbilityId() != null) {
-                                                    Identifier abilityId = Identifier.tryParse(mastery.getAbilityId());
-                                                    if (abilityId != null) {
-                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
-                                                                (ComponentProvider) player).unlock(abilityId);
-                                                    }
-                                                }
+                                                // The mastery's ability (if any) is granted by the mastery source.
+                                                TotalityEntitlements.onMasteriesChanged(player);
 
                                                 ctx.getSource().sendSuccess(() ->
                                                         Component.literal("Learned mastery: " + masteryId), false);
@@ -587,20 +565,8 @@ public class TotalityCommands {
                                                 var masteryComp = MasteriesComponents.get(player);
                                                 masteryComp.getMasteries().setRankDirectly(masteryId, 0);
                                                 masteryComp.sync();
-
-                                                // Also forget associated ability if any
-                                                Mastery mastery = null;
-                                                for (Skill skill : Skill.values()) {
-                                                    var found = MasteryRegistry.get(skill, masteryId);
-                                                    if (found.isPresent()) { mastery = found.get(); break; }
-                                                }
-                                                if (mastery != null && mastery.getAbilityId() != null) {
-                                                    Identifier abilityId = Identifier.tryParse(mastery.getAbilityId());
-                                                    if (abilityId != null) {
-                                                        zcylas.totality.api.ability.AbilityComponents.ABILITIES.get(
-                                                                (ComponentProvider) player).forget(abilityId);
-                                                    }
-                                                }
+                                                // Losing the mastery source removes only that source's grant.
+                                                TotalityEntitlements.onMasteriesChanged(player);
 
                                                 ctx.getSource().sendSuccess(() ->
                                                         Component.literal("Forgot mastery: " + masteryId), false);
@@ -649,15 +615,11 @@ public class TotalityCommands {
                                                 masteryComp.getMasteries().setMasteryPointsDirectly(0);
                                                 masteryComp.sync();
 
-                                                // Reset all abilities — keep only defaults
-                                                var abilityComp = AbilityComponents.ABILITIES.get(
-                                                        (ComponentProvider) player);
-                                                for (Identifier id : new java.util.HashSet<>(abilityComp.getUnlocked())) {
-                                                    Ability ability = AbilityRegistry.get(id);
-                                                    if (ability != null && !ability.isDefault()) {
-                                                        abilityComp.forget(id);
-                                                    }
-                                                }
+                                                // Reset abilities: masteries were reset above, so their grants end;
+                                                // admin/legacy permanent ability facts are revoked (audited).
+                                                // Baseline, Class and Origin grants follow their sources.
+                                                TotalityEntitlements.onMasteriesChanged(player);
+                                                TotalityEntitlements.revokePermanentAbilityFacts(player);
 
                                                 // Reset stamina and mana to new max
                                                 int newMaxStamina = PlayerStaminaManager.getMaxStamina(player);

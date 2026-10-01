@@ -4,6 +4,8 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.ProgressionContext;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 
 import java.util.Set;
 
@@ -17,11 +19,12 @@ public class AbilityServerTick {
                 comp.tickCooldowns();
 
                 // Tick passives
-                for (Identifier id : comp.getUnlocked()) {
+                for (Identifier id : comp.getAccessibleAbilities()) {
                     Ability ability = AbilityRegistry.get(id);
                     if (ability == null) continue;
                     if (ability.getType() == Ability.Type.PASSIVE) {
-                        ability.onPassiveTick(player);
+                        ProgressionContext.run(player, AbilityEntitlements.isDebugOnly(player, id),
+                                () -> ability.onPassiveTick(player));
                     }
                 }
 
@@ -47,7 +50,8 @@ public class AbilityServerTick {
                         continue;
                     }
 
-                    ability.onToggleTick(player);
+                    ProgressionContext.run(player, AbilityEntitlements.isDebugOnly(player, id),
+                            () -> ability.onToggleTick(player));
                 }
 
                 // Tick active channel — only the currently channeling ability
@@ -55,7 +59,8 @@ public class AbilityServerTick {
                 if (channelingId != null) {
                     Ability channeled = AbilityRegistry.get(channelingId);
                     if (channeled != null) {
-                        channeled.onChannel(player, null);
+                        ProgressionContext.run(player, AbilityEntitlements.isDebugOnly(player, channelingId),
+                                () -> channeled.onChannel(player, null));
                     } else {
                         // Ability no longer exists — stop channeling
                         comp.stopChanneling();

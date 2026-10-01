@@ -4,10 +4,6 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
-import zcylas.totality.api.ability.AbilityComponents;
-import zcylas.totality.api.ability.AbilityRegistry;
-import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
-import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.rpg.classes.*;
 
 public final class SelectClassHandler {
@@ -46,14 +42,8 @@ public final class SelectClassHandler {
         if (covenantId != null) comp.selectCovenant(covenantId);
 
         comp.sync();
+        // Also reconciles class entitlement grants (Barbarian's Rage / Unarmored Defense come from BarbarianClass).
         ClassChangeReconciler.reconcile(player);
-        if (classId.equals(TotalityClasses.BARBARIAN_ID)) {
-            AbilityComponents.ABILITIES.get((ComponentProvider) player)
-                    .unlock(BarbarianRageAbility.ID);
-            AbilityComponents.ABILITIES.get((ComponentProvider) player)
-                    .unlock(AbilityRegistry.BARBARIAN_UNARMORED_DEFENSE.getId()); // ← add this
-            AbilityComponents.ABILITIES.sync((ComponentProvider) player);
-        }
         Totality.LOGGER.info("Class selected: {} sub={} cov={} for {}",
                 classId, subclassId, covenantId, player.getName().getString());
     }

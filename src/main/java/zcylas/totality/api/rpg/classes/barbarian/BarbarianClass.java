@@ -1,8 +1,11 @@
 package zcylas.totality.api.rpg.classes.barbarian;
 
 import net.minecraft.resources.Identifier;
+import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
 import zcylas.totality.api.dice.Dice;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
+import zcylas.totality.api.entitlement.integration.ClassEntitlementGrantProvider;
 import zcylas.totality.api.rpg.classes.*;
 import zcylas.totality.api.rpg.classes.feature.ClassFeatureRegistry;import zcylas.totality.api.rpg.combat.armor.ArmorProficiency;
 import zcylas.totality.api.rpg.combat.weapon.WeaponCategory;
@@ -65,6 +68,14 @@ public final class BarbarianClass {
         ClassRegistry.register(DATA);
         SubclassRegistry.register(BERSERKER);
         SubclassRegistry.register(WILD_HEART);
+
+        // BarbarianClass is the authoritative source of its own grants: Rage and Unarmored Defense for as
+        // long as the character holds the class (the same condition that grants the Rage resource).
+        ClassEntitlementGrantProvider.registerClassRule(TotalityClasses.BARBARIAN_ID, (classLevel, subclassId, grants) -> {
+            if (classLevel < 1) return;
+            grants.fromClass(AbilityEntitlements.keyFor(BarbarianRageAbility.ID));
+            grants.fromClass(AbilityEntitlements.keyFor(AbilityRegistry.BARBARIAN_UNARMORED_DEFENSE));
+        });
 
         ClassLevelUpRegistry.register(TotalityClasses.BARBARIAN_ID,
                 (player, playerLevel, classLevel) -> {

@@ -46,6 +46,20 @@ public class PlayerMovementComponent implements SyncedComponent, CopyableCompone
         player.onUpdateAbilities();
         sync();
     }
+    /**
+     * Ends biological flight after its last authorizing source is lost. In Creative/Spectator only the biological
+     * state is cleared — the game mode's own flight permissions are left untouched; otherwise this is
+     * {@code setActivelyFlying(false)}.
+     */
+    public void endBiologicalFlight() {
+        if (player.isCreative() || player.isSpectator()) {
+            this.activelyFlying = false;
+            sync();
+        } else {
+            setActivelyFlying(false);
+        }
+    }
+
     public boolean isPowerSprinting() {
         return powerSprinting;
     }

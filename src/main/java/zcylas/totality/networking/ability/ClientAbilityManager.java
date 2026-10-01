@@ -26,6 +26,11 @@ public final class ClientAbilityManager {
         channelingAbility = null;
     }
 
+    /** Forgets the previous session's server-provided ability view (on disconnect). */
+    public static void clear() {
+        sync(Set.of(), Map.of(), null, List.of());
+    }
+
     public static boolean hasAbility(Identifier id)    { return unlocked.contains(id); }
     public static boolean isOnCooldown(Identifier id)  { return cooldowns.getOrDefault(id, 0) > 0; }
     public static int getCooldown(Identifier id)        { return cooldowns.getOrDefault(id, 0); }

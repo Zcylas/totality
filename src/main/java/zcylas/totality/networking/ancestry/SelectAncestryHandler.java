@@ -5,14 +5,11 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
-import zcylas.totality.api.ability.AbilityComponent;
-import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.integration.TotalityEntitlements;
 import zcylas.totality.api.rpg.ancestry.*;
 import zcylas.totality.api.rpg.classes.ClassComponents;
 import zcylas.totality.networking.classes.OpenClassSelectionPayload;
-
-import java.util.List;
 
 public final class SelectAncestryHandler {
 
@@ -43,30 +40,14 @@ public final class SelectAncestryHandler {
             return;
         }
 
-        AbilityComponent abilities = AbilityComponents.ABILITIES.get((ComponentProvider) player);
-
-        // Remove all origin-granted abilities that the new origin doesn't grant
-        OriginData newOrigin = originId != null ? OriginRegistry.get(originId) : null;
-        List<Identifier> newAbilities = newOrigin != null
-                ? newOrigin.getStartingAbilities() : List.of();
-
-        OriginRegistry.all().stream()
-                .flatMap(o -> o.getStartingAbilities().stream())
-                .filter(id -> !newAbilities.contains(id))
-                .forEach(abilities::forget);
-
         PlayerAncestryComponent ancestry = AncestryComponents.PLAYER_ANCESTRY.get(
                 (ComponentProvider) player);
         ancestry.clearAncestry();
         ancestry.selectAncestry(speciesId, originId);
 
-        // Unlock new origin's starting abilities
-        if (newOrigin != null && !newOrigin.getStartingAbilities().isEmpty()) {
-            for (Identifier id : newOrigin.getStartingAbilities()) {
-                abilities.unlock(id);
-            }
-            AbilityComponents.ABILITIES.sync((ComponentProvider) player);
-        }
+        // Species/Origin grants are source-bound: reconciling the ancestry provider removes every grant of
+        // the previous ancestry and adds the new one's, without touching any other source's grants.
+        TotalityEntitlements.onAncestryChanged(player);
 
         // Auto-open disabled for now (class selection flow is being redesigned) —
         // re-enable once the new approach is decided.

@@ -29,6 +29,7 @@ import zcylas.totality.api.combat.damage.DamageTypes;
 import zcylas.totality.api.combat.damage.TotalityDamageType;
 import zcylas.totality.api.dice.Dice;
 import zcylas.totality.api.dice.RollType;
+import zcylas.totality.api.entitlement.ProgressionContext;
 import zcylas.totality.api.magic.spell.SpellBoltOnHitRegistry;
 import zcylas.totality.api.rpg.combat.CombatResolver;
 import zcylas.totality.api.rpg.combat.CombatResolver.SpellAttackType;
@@ -300,16 +301,19 @@ public class SpellBoltEntity extends Projectile {
 
         // Spell attack roll + damage. NO_CONDITIONS: bolt spells manage conditions
         // themselves via SpellBoltOnHitRegistry, not via applyFromDamageType.
-        CombatResolver.resolveSpellAttack(
-                caster, target, spellName,
-                spellcastingAbility, attackType, rollType,
-                diceCount, damageDie, damageType,
-                DamageFlags.NO_CONDITIONS);
+        // A bolt launched by debug-only access carries its caster's non-progression context to the hit.
+        ProgressionContext.runForEntity(this, () -> {
+            CombatResolver.resolveSpellAttack(
+                    caster, target, spellName,
+                    spellcastingAbility, attackType, rollType,
+                    diceCount, damageDie, damageType,
+                    DamageFlags.NO_CONDITIONS);
 
-        if (onHitEffectId != null) {
-            Consumer<LivingEntity> effect = SpellBoltOnHitRegistry.get(onHitEffectId);
-            if (effect != null) effect.accept(target);
-        }
+            if (onHitEffectId != null) {
+                Consumer<LivingEntity> effect = SpellBoltOnHitRegistry.get(onHitEffectId);
+                if (effect != null) effect.accept(target);
+            }
+        });
 
         spawnImpactParticles(hit.getLocation(), travelDirection().scale(-1));
         this.discard();

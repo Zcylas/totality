@@ -5,6 +5,8 @@ import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.ability.AbilityComponent;
 import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.EntitlementActions;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 import zcylas.totality.api.magic.spell.SpellRegistry;
 
 public class SelectSpellHandler {
@@ -28,8 +30,8 @@ public class SelectSpellHandler {
             return;
         }
 
-        // Validate — must be unlocked and actually be a spell
-        if (!comp.hasAbility(payload.spellId())) return;
+        // Validate — must be selectable per the Entitlement API and actually be a spell
+        if (!AbilityEntitlements.canUse(player, payload.spellId(), EntitlementActions.SELECT)) return;
         if (SpellRegistry.get(payload.spellId()) == null) return;
 
         comp.setSelectedSpell(payload.spellId());

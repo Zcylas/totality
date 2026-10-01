@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.special.SpecialModelRenderers;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.entitlement.client.ClientEntitlementView;
 import zcylas.totality.api.rpg.classes.ClientClassManager;
 import zcylas.totality.client.renderer.equipment.BackEquipmentLayer;
 import zcylas.totality.client.renderer.entity.gate.SoloGateRenderer;
@@ -52,6 +53,7 @@ import zcylas.totality.menu.energy.ElectricFurnaceMenu;
 import zcylas.totality.menu.energy.EnergyCellMenu;
 import zcylas.totality.menu.generator.GeneratorMenu;
 import zcylas.totality.networking.TotalityClientPacketHandlers;
+import zcylas.totality.networking.ability.ClientAbilityManager;
 import zcylas.totality.networking.fluid.FluidTankModePayload;
 import zcylas.totality.screen.energy.ElectricFurnaceScreen;
 import zcylas.totality.screen.energy.EnergyCellScreen;
@@ -124,6 +126,14 @@ public class TotalityClient implements ClientModInitializer {
         // over from a previous world/session would otherwise be stuck forever.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
                 zcylas.totality.client.rest.ClientRestManager.reset());
+
+        // Entitlement display state belongs to one server session: never show a previous server's (or world's)
+        // access. The new server sends its own view during its join sequence.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> ClientEntitlementView.clear());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            ClientEntitlementView.clear();
+            ClientAbilityManager.clear();
+        });
 
         // Phase 3A generic Resource sync state must never leak between sessions/worlds — clear on
         // both ends of the connection lifecycle (a fresh JOIN never gets an explicit "cleared"

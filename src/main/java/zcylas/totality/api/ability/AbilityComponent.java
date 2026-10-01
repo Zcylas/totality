@@ -9,6 +9,9 @@ import net.minecraft.world.level.storage.ValueOutput;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.core.component.CopyableComponent;
 import zcylas.totality.api.core.component.SyncedComponent;
+import zcylas.totality.api.entitlement.EntitlementActions;
+import zcylas.totality.api.entitlement.EntitlementService;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 import zcylas.totality.api.rpg.rest.RestListener;
 import zcylas.totality.api.rpg.rest.RestType;
 import zcylas.totality.screen.character.tabs.AbilitiesTab;
@@ -17,8 +20,10 @@ import java.util.*;
 
 public class AbilityComponent implements SyncedComponent, CopyableComponent<AbilityComponent>, RestListener {
 
-    /** Ability IDs the player has unlocked. */
-    private final Set<Identifier> unlocked = new HashSet<>();
+    /** Pre-Entitlement flat unlock set, read from older saves and written back unchanged for one transition
+     *  release. No longer authoritative — access comes from the Entitlement API — and consumed once per id
+     *  by {@code LegacyAbilityMigration}. */
+    private final Set<Identifier> legacyUnlocked = new LinkedHashSet<>();
     /** Remaining cooldown ticks per ability. */
     private final Map<Identifier, Integer> cooldowns = new HashMap<>();
     private final List<Identifier> favorites = new ArrayList<>(); // ordered list for radial
@@ -39,8 +44,6 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     public AbilityComponent(ServerPlayer player) {
         this.player = player;
-        // Grant all default abilities immediately
-        ensureDefaultAbilitiesUnlocked();
     }
 
     public @Nullable Identifier getChannelingAbility() {
@@ -76,6 +79,7 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     public void setEquippedAbility(@Nullable Identifier id) {
         this.equippedAbility = id;
+        invalidateSelection();
         sync();
     }
 
@@ -85,24 +89,34 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     public void setSelectedSpell(@Nullable Identifier id) {
         this.selectedSpell = id;
+        invalidateSelection();
         sync();
     }
 
+    /** Selection is exposed to entitlement snapshots; tell the cache it changed. */
+    private void invalidateSelection() {
+        if (player != null) EntitlementService.INSTANCE.invalidate(player, AbilityEntitlements.SELECTION);
+    }
+
     // -------------------------------------------------------------------------
-    // Unlock
+    // Access (Entitlement API)
     // -------------------------------------------------------------------------
 
+    /** @deprecated compatibility adapter: whether the Entitlement API currently allows <em>using</em> this
+     *  ability. Prefer an operation-specific {@link AbilityEntitlements#check}. */
+    @Deprecated
     public boolean hasAbility(Identifier id) {
-        return unlocked.contains(id);
+        return player != null && AbilityEntitlements.canUse(player, id, EntitlementActions.USE);
     }
 
-    public void unlock(Identifier id) {
-        unlocked.add(id);
-        sync();
+    /** Abilities and spells the Entitlement API currently allows this player to use, in registry order. */
+    public Set<Identifier> getAccessibleAbilities() {
+        return player != null ? AbilityEntitlements.accessibleAbilityIds(player) : Set.of();
     }
 
-    public Set<Identifier> getUnlocked() {
-        return Set.copyOf(unlocked);
+    /** The frozen pre-Entitlement unlock set (migration input and diagnostics only). */
+    public Set<Identifier> getLegacyUnlocked() {
+        return Collections.unmodifiableSet(legacyUnlocked);
     }
 
     // -------------------------------------------------------------------------
@@ -191,9 +205,12 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     @Override
     public void writeSyncPacket(RegistryFriendlyByteBuf buf, ServerPlayer recipient) {
-        // Write unlocked set
-        buf.writeInt(unlocked.size());
-        for (Identifier id : unlocked) {
+        // The client receives only what the server currently authorizes — a display view, never the
+        // legacy set or hidden content. Stored selections are kept even while inaccessible (a lost source
+        // may return), but only accessible ones are shown.
+        Set<Identifier> accessible = getAccessibleAbilities();
+        buf.writeInt(accessible.size());
+        for (Identifier id : accessible) {
             buf.writeIdentifier(id);
         }
         // Write cooldowns
@@ -202,25 +219,35 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
             buf.writeIdentifier(entry.getKey());
             buf.writeInt(entry.getValue());
         }
-        buf.writeBoolean(equippedAbility != null);
-        if (equippedAbility != null) buf.writeIdentifier(equippedAbility);
+        Identifier shownEquipped = equippedAbility != null && accessible.contains(equippedAbility) ? equippedAbility : null;
+        buf.writeBoolean(shownEquipped != null);
+        if (shownEquipped != null) buf.writeIdentifier(shownEquipped);
 
-        buf.writeInt(favorites.size());
-        for (Identifier id : favorites) buf.writeIdentifier(id);
+        List<Identifier> shownFavorites = favorites.stream().filter(accessible::contains).toList();
+        buf.writeInt(shownFavorites.size());
+        for (Identifier id : shownFavorites) buf.writeIdentifier(id);
 
         buf.writeInt(activeToggles.size());
         for (Identifier id : activeToggles) buf.writeIdentifier(id);
 
-        buf.writeBoolean(selectedSpell != null);
-        if (selectedSpell != null) buf.writeIdentifier(selectedSpell);
+        Identifier shownSpell = selectedSpell != null && accessible.contains(selectedSpell) ? selectedSpell : null;
+        buf.writeBoolean(shownSpell != null);
+        if (shownSpell != null) buf.writeIdentifier(shownSpell);
+    }
+
+    /** Owner only: the payload carries no entity id, so a tracking player's client would otherwise apply
+     *  another player's (entitlement-derived) ability view as its own. */
+    @Override
+    public boolean shouldSyncWith(ServerPlayer recipient) {
+        return recipient == player;
     }
 
     @Override
     public void applySyncPacket(RegistryFriendlyByteBuf buf) {
-        unlocked.clear();
-        int unlockedCount = buf.readInt();
-        for (int i = 0; i < unlockedCount; i++) {
-            unlocked.add(buf.readIdentifier());
+        // Client mirror: the accessible set is consumed by ClientAbilityManager; skip it here.
+        int accessibleCount = buf.readInt();
+        for (int i = 0; i < accessibleCount; i++) {
+            buf.readIdentifier();
         }
         cooldowns.clear();
         int cooldownCount = buf.readInt();
@@ -243,44 +270,35 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
 
     @Override
     public void readData(ValueInput input) {
-        unlocked.clear();
+        legacyUnlocked.clear();
 
         input.listOrEmpty("unlocked", Codec.STRING).stream().forEach(raw -> {
             Identifier id = Identifier.tryParse(raw);
-            if (id != null) unlocked.add(id);
+            if (id != null) legacyUnlocked.add(id);
         });
 
-        ensureDefaultAbilitiesUnlocked();
-
+        // Selections are kept as saved. Access is decided by the Entitlement API once the player's grant
+        // sources have been reconciled on join; inaccessible selections are simply not shown or usable.
         favorites.clear();
         input.listOrEmpty("favorites", Codec.STRING).stream().forEach(raw -> {
             Identifier id = Identifier.tryParse(raw);
             if (id != null) favorites.add(id);
         });
 
-        favorites.removeIf(id -> !unlocked.contains(id));
-
         equippedAbility = input.getString("equippedAbility")
                 .map(Identifier::tryParse)
                 .orElse(null);
 
-        if (equippedAbility != null && !unlocked.contains(equippedAbility)) {
-            equippedAbility = null;
-        }
-
         selectedSpell = input.getString("selectedSpell")
                 .map(Identifier::tryParse)
                 .orElse(null);
-        if (selectedSpell != null && !unlocked.contains(selectedSpell)) {
-            selectedSpell = null;
-        }
     }
 
     @Override
     public void writeData(ValueOutput output) {
-        // Write unlocked
+        // Legacy set, written back unchanged for one transition release
         var list = output.list("unlocked", Codec.STRING);
-        for (Identifier id : unlocked) list.add(id.toString());
+        for (Identifier id : legacyUnlocked) list.add(id.toString());
 
         // Write favorites
         var favList = output.list("favorites", Codec.STRING);
@@ -294,8 +312,8 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
     @Override
     public void copyFrom(AbilityComponent other,
                          net.minecraft.core.HolderLookup.Provider registries) {
-        this.unlocked.clear();
-        this.unlocked.addAll(other.unlocked);
+        this.legacyUnlocked.clear();
+        this.legacyUnlocked.addAll(other.legacyUnlocked);
         this.cooldowns.clear();
         this.cooldowns.putAll(other.cooldowns);
         this.equippedAbility = other.equippedAbility;
@@ -304,15 +322,6 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         this.favorites.addAll(other.favorites);
 
     }
-    public void forget(Identifier id) {
-        unlocked.remove(id);
-        cooldowns.remove(id);
-        if (id.equals(equippedAbility)) equippedAbility = null;
-        if (id.equals(channelingAbility)) channelingAbility = null; // ← add this
-        if (id.equals(selectedSpell)) selectedSpell = null;
-        sync();
-    }
-
     public List<Identifier> getFavorites() { return List.copyOf(favorites); }
 
     public boolean isFavorite(Identifier id) { return favorites.contains(id); }
@@ -321,12 +330,6 @@ public class AbilityComponent implements SyncedComponent, CopyableComponent<Abil
         if (favorites.contains(id)) favorites.remove(id);
         else if (favorites.size() < AbilitiesTab.MAX_FAVORITES) favorites.add(id);
         sync();
-    }
-
-    private void ensureDefaultAbilitiesUnlocked() {
-        for (Ability ability : AbilityRegistry.defaults()) {
-            unlocked.add(ability.getId());
-        }
     }
 
 }

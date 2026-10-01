@@ -105,12 +105,6 @@ public class AbilityRegistry {
         return ABILITIES.values();
     }
 
-    public static Collection<Ability> defaults() {
-        return ABILITIES.values().stream()
-                .filter(Ability::isDefault)
-                .toList();
-    }
-
     public static void register() {
         VEINMINER.registerEvents();
     }

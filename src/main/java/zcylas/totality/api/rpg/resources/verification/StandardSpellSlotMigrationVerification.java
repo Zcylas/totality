@@ -1,18 +1,19 @@
 package zcylas.totality.api.rpg.resources.verification;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
 import zcylas.totality.api.ability.Ability;
-import zcylas.totality.api.ability.AbilityComponent;
-import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
-import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.util.ServerScheduler;
 import zcylas.totality.api.core.util.VerificationReporter;
+import zcylas.totality.api.entitlement.EntitlementGrant;
+import zcylas.totality.api.entitlement.EntitlementService;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 import zcylas.totality.api.magic.spell.Spell;
 import zcylas.totality.api.magic.spell.SpellSchool;
 import zcylas.totality.api.magic.spell.SpellSlotComponent;
@@ -60,6 +61,7 @@ import zcylas.totality.server.TotalityFakePlayer;
 public final class StandardSpellSlotMigrationVerification {
 
     private static final int SUITE_DELAY_TICKS = 5;
+    private static final Identifier VERIFICATION_SOURCE = Identifier.fromNamespaceAndPath("totality", "verification");
 
     private StandardSpellSlotMigrationVerification() {}
 
@@ -114,8 +116,8 @@ public final class StandardSpellSlotMigrationVerification {
                     + "Spell.markNoEffect() consumes NO slot, proving the handler's successful-cast-only ordering "
                     + "end-to-end (pre-check -> onActivate -> didCastSucceed() -> spend-only-if-true), not merely "
                     + "that the resource layer is inert when nothing calls it", () -> {
-                AbilityComponent abilities = AbilityComponents.ABILITIES.get((ComponentProvider) wizard);
-                abilities.unlock(NoEffectTestSpell.ID);
+                EntitlementService.INSTANCE.addGrant(wizard, EntitlementGrant.debugSession(
+                        AbilityEntitlements.keyFor(NoEffectTestSpell.ID), VERIFICATION_SOURCE));
                 ResourceQueryResult before = PlayerResourceService.INSTANCE.query(wizard, PlayerResourceIds.SPELL_SLOTS);
                 long beforeRemaining = before instanceof ResourceQueryResult.PartitionedSuccess s
                         ? s.snapshot().partition(1).orElseThrow().currentUnits() : -1;
@@ -132,8 +134,8 @@ public final class StandardSpellSlotMigrationVerification {
             safe(r, "the same real ActivateAbilityHandler.handle entry point, given a spell whose onActivate "
                     + "does NOT call markNoEffect(), DOES consume exactly one slot — proving the no-effect check "
                     + "above is discriminating real cast-result branching, not merely a handler that never spends", () -> {
-                AbilityComponent abilities = AbilityComponents.ABILITIES.get((ComponentProvider) wizard);
-                abilities.unlock(AlwaysSucceedsTestSpell.ID);
+                EntitlementService.INSTANCE.addGrant(wizard, EntitlementGrant.debugSession(
+                        AbilityEntitlements.keyFor(AlwaysSucceedsTestSpell.ID), VERIFICATION_SOURCE));
                 ResourceQueryResult before = PlayerResourceService.INSTANCE.query(wizard, PlayerResourceIds.SPELL_SLOTS);
                 long beforeRemaining = before instanceof ResourceQueryResult.PartitionedSuccess s
                         ? s.snapshot().partition(1).orElseThrow().currentUnits() : -1;

@@ -7,6 +7,8 @@ import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.EntitlementActions;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 
 public class EquipAbilityHandler {
 
@@ -29,8 +31,8 @@ public class EquipAbilityHandler {
             return;
         }
 
-        // Validate — must be unlocked and not passive
-        if (!comp.hasAbility(payload.abilityId())) return;
+        // Validate — must be equippable per the Entitlement API and not passive
+        if (!AbilityEntitlements.canUse(player, payload.abilityId(), EntitlementActions.EQUIP)) return;
         Ability ability = AbilityRegistry.get(payload.abilityId());
         if (ability == null) return;
         if (ability.getType() == Ability.Type.PASSIVE) return;

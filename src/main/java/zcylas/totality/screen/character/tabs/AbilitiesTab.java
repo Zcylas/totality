@@ -687,7 +687,7 @@ public class AbilitiesTab extends CharacterScreenTab {
 
     protected List<Ability> getFiltered(Filter filter) {
         return AbilityRegistry.all().stream()
-                .filter(a -> a.isDefault() || ClientAbilityManager.hasAbility(a.getId()))
+                .filter(a -> ClientAbilityManager.hasAbility(a.getId()))
                 .filter(a -> zcylas.totality.api.magic.spell.SpellRegistry.get(a.getId()) == null)
                 .filter(a -> switch (filter) {
                     case ALL       -> true;

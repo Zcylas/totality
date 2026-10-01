@@ -1,18 +1,19 @@
 package zcylas.totality.api.rpg.resources.verification;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.Totality;
 import zcylas.totality.api.ability.Ability;
-import zcylas.totality.api.ability.AbilityComponent;
-import zcylas.totality.api.ability.AbilityComponents;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.AbilityRegistry;
-import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.util.ServerScheduler;
 import zcylas.totality.api.core.util.VerificationReporter;
+import zcylas.totality.api.entitlement.EntitlementGrant;
+import zcylas.totality.api.entitlement.EntitlementService;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 import zcylas.totality.api.magic.spell.Spell;
 import zcylas.totality.api.magic.spell.SpellRegistry;
 import zcylas.totality.api.magic.spell.SpellSchool;
@@ -50,6 +51,7 @@ import java.util.UUID;
 public final class CrownOfStarsActiveInstanceActionVerification {
 
     private static final int SUITE_DELAY_TICKS = 5;
+    private static final Identifier VERIFICATION_SOURCE = Identifier.fromNamespaceAndPath("totality", "verification");
 
     private CrownOfStarsActiveInstanceActionVerification() {}
 
@@ -78,9 +80,11 @@ public final class CrownOfStarsActiveInstanceActionVerification {
             // slot, the "last available slot" scenario the historical bug report described.
             ClassComponents.get(wizard).selectClass(TotalityClasses.WIZARD_ID, 13);
             ClassChangeReconciler.reconcile(wizard); // fresh grant — AtMaximum
-            AbilityComponent abilities = AbilityComponents.ABILITIES.get((ComponentProvider) wizard);
-            abilities.unlock(SpellRegistry.CROWN_OF_STARS.getId());
-            abilities.unlock(OrdinaryTestSpell.ID);
+            // Session-only debug grants: spell access for this suite, never progression.
+            EntitlementService.INSTANCE.addGrant(wizard, EntitlementGrant.debugSession(
+                    AbilityEntitlements.keyFor(SpellRegistry.CROWN_OF_STARS.getId()), VERIFICATION_SOURCE));
+            EntitlementService.INSTANCE.addGrant(wizard, EntitlementGrant.debugSession(
+                    AbilityEntitlements.keyFor(OrdinaryTestSpell.ID), VERIFICATION_SOURCE));
 
             safe(r, "setup: a level-13 Wizard has exactly one 7th-level Standard Spell Slot before "
                     + "casting Crown of Stars", () -> {

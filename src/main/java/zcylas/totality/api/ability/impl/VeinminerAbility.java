@@ -19,6 +19,8 @@ import net.minecraft.tags.BlockTags;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.ability.*;
 import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.ProgressionContext;
+import zcylas.totality.api.entitlement.integration.AbilityEntitlements;
 import zcylas.totality.api.rpg.skills.core.Skill;
 import zcylas.totality.api.rpg.skills.core.SkillsComponents;
 import zcylas.totality.api.rpg.skills.mining.MiningXpTable;
@@ -96,7 +98,9 @@ public class VeinminerAbility extends Ability implements ClientAbilityContext {
             // Handle first block ourselves — drops go to inventory
             List<ItemStack> firstDrops = Block.getDrops(state, serverLevel, pos, blockEntity, serverPlayer, tool);
             level.removeBlock(pos, false);
-            awardMiningXp(serverPlayer, state);
+            // Debug-only Veinminer access never awards Mining XP (ProgressionContext contract).
+            ProgressionContext.run(serverPlayer, AbilityEntitlements.isDebugOnly(serverPlayer, getId()),
+                    () -> awardMiningXp(serverPlayer, state));
             serverLevel.playSound(null, pos,
                     SoundEvents.STONE_BREAK, SoundSource.BLOCKS,
                     0.8f, 0.9f + serverLevel.getRandom().nextFloat() * 0.2f);

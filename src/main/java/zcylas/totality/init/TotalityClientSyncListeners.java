@@ -3,6 +3,7 @@ package zcylas.totality.init;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import zcylas.totality.api.entitlement.client.ClientEntitlementView;
 import zcylas.totality.api.equipment.PlayerEquipmentComponent;
 import zcylas.totality.client.dialogue.ClientNarrativeFlagsManager;
 import zcylas.totality.client.equipment.ClientEquipmentManager;
@@ -65,6 +66,11 @@ public final class TotalityClientSyncListeners {
                         ClientSelectedSpellManager.clear();
                     }
                 }
+        );
+        // Entitlements: the server sends only the display view (never the raw ledger)
+        ClientComponentSyncListeners.register(
+                Identifier.fromNamespaceAndPath("totality", "entitlements"),
+                ClientEntitlementView::apply
         );
         ClientComponentSyncListeners.register(
                 Identifier.fromNamespaceAndPath("totality", "movement"),

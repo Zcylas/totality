@@ -6,8 +6,11 @@ import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.ability.Ability;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.ability.trait.Trait;
+import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.core.movement.MovementMode;
+import zcylas.totality.api.core.movement.MovementComponents;
 import zcylas.totality.api.core.movement.MovementModeProvider;
+import zcylas.totality.networking.movement.MovementStaminaHandler;
 
 import java.util.List;
 import java.util.Set;
@@ -78,10 +81,19 @@ public class PhysiologyPassive extends Ability implements MovementModeProvider {
         for (Trait trait : traits) {
             trait.remove(player);
         }
-        // Ground the player if they were flying via this passive
-        player.getAbilities().flying  = false;
-        player.getAbilities().mayfly  = false;
-        player.onUpdateAbilities();
+        // End biological flight when nothing else still authorizes it — in every game mode, so no stale flight
+        // state (which gates flight stamina drain and blocks regen) survives into a later return to Survival.
+        // Flight from another still-accessible source is kept; Creative/Spectator flight permissions are left to
+        // the game mode (see PlayerMovementComponent#endBiologicalFlight).
+        if (shouldEndBiologicalFlight(grantedModes.contains(MovementMode.FLIGHT),
+                MovementStaminaHandler.hasMovementMode(player, MovementMode.FLIGHT))) {
+            MovementComponents.MOVEMENT.get((ComponentProvider) player).endBiologicalFlight();
+        }
+    }
+
+    /** @param otherFlightSource whether another currently accessible ability still grants flight */
+    static boolean shouldEndBiologicalFlight(boolean grantedFlight, boolean otherFlightSource) {
+        return grantedFlight && !otherFlightSource;
     }
 
     // ── Not used for passives ─────────────────────────────────────────────────

@@ -10,6 +10,8 @@ import zcylas.totality.Totality;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.dialogue.DialogueComponents;
 import zcylas.totality.api.dialogue.NarrativeFlagsComponent;
+import zcylas.totality.api.entitlement.ProgressionContext;
+import zcylas.totality.api.entitlement.integration.PhoneAppEntitlements;
 import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.api.equipment.PlayerEquipmentComponent;
 import zcylas.totality.api.item.TotalityItemComponents;
@@ -85,6 +87,11 @@ public final class QuestManager {
      *  re-checks whatever real-world state condition backs the next objective, so the
      *  player isn't forced to physically redo the action. */
     public static void completeObjective(ServerPlayer player, Identifier questId, int index) {
+        if (ProgressionContext.inNonProgressionScope(player)) {
+            LOGGER.info("[Quest] completeObjective({}, {}) for {} — skipped, debug-only action (no progression)",
+                    questId, index, player.getName().getString());
+            return;
+        }
         QuestTemplate template = QuestRegistry.INSTANCE.get(questId);
         if (template == null) return;
         QuestProgressComponent progress = QuestComponents.PROGRESS.get((ComponentProvider) player);
@@ -164,6 +171,8 @@ public final class QuestManager {
         if (template != null) {
             NarrativeFlagsComponent flags = DialogueComponents.FLAGS.get((ComponentProvider) player);
             for (String flag : template.resetFlags()) flags.clearFlag(flag);
+            // Testing/admin full reset: explicitly revoke (audited) the entitlements that replaced pure access flags.
+            PhoneAppEntitlements.onQuestFullReset(player, questId, template.resetFlags());
         }
         pushUpdate(player);
     }
@@ -250,7 +259,9 @@ public final class QuestManager {
      *  shouldn't wait behind an unrelated menu click, even though the XP reward still does. */
     public static void onPhoneLinkedWithBanker(ServerPlayer player) {
         completeObjective(player, MOBILE_BANKING, OBJ_LINK_PHONE);
-        DialogueComponents.FLAGS.get((ComponentProvider) player).setFlag("bank_app_unlocked", 1);
+        // A permanent Bank app unlock with Quest provenance (Entitlement API), replacing the old
+        // bank_app_unlocked access flag. Idempotent if the hand-off is repeated.
+        PhoneAppEntitlements.unlockBankApp(player, MOBILE_BANKING);
         pushUpdate(player);
     }
 

@@ -46,7 +46,7 @@ public final class MovementStaminaHandler {
         AbilityComponent abilities = AbilityComponents.ABILITIES.get(
                 (ComponentProvider) player);
 
-        return abilities.getUnlocked().stream()
+        return abilities.getAccessibleAbilities().stream()
                 .anyMatch(id -> {
                     Ability ability = AbilityRegistry.get(id);
                     return ability instanceof MovementModeProvider provider

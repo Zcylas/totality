@@ -6,12 +6,12 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import zcylas.totality.api.ability.AbilityComponents;
-import zcylas.totality.api.ability.AbilityRegistry;
 import zcylas.totality.api.ability.impl.barbarian.BarbarianRageAbility;
 import zcylas.totality.api.combat.damage.DamageResistanceRecalculator;
 import zcylas.totality.api.core.component.ComponentProvider;
 import zcylas.totality.api.dialogue.DialogueComponents;
 import zcylas.totality.api.economy.currency.CurrencyComponents;
+import zcylas.totality.api.entitlement.integration.TotalityEntitlements;
 import zcylas.totality.api.equipment.EquipmentComponents;
 import zcylas.totality.api.magic.grimoire.rune.RuneComponents;
 import zcylas.totality.api.magic.spell.SpellSlotComponents;
@@ -48,6 +48,10 @@ public class PlayerConnectionEvents {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayer player = handler.getPlayer();
 
+            // Entitlements first: rebuild every source-bound grant and run the legacy migrations, so every
+            // sync below (abilities included) already reflects the reconciled access state.
+            TotalityEntitlements.onJoin(player);
+
             // Sync all components that have client-side managers
             AbilityComponents.ABILITIES.sync((ComponentProvider) player);
             RuneComponents.KNOWLEDGE.sync((ComponentProvider) player);
@@ -74,14 +78,8 @@ public class PlayerConnectionEvents {
             // by the getStamina() read inside syncStamina() above) — without this, a player
             // rejoining at zero/low Stamina gets a spurious transition notification on the next tick.
             StaminaDepletionManager.onPlayerJoin(player);
-            if (ClassComponents.get(player).hasClass(TotalityClasses.BARBARIAN_ID)) {
-                var abilities = AbilityComponents.ABILITIES.get((ComponentProvider) player);
-                if (!abilities.getUnlocked().contains(
-                        AbilityRegistry.BARBARIAN_UNARMORED_DEFENSE.getId())) {
-                    abilities.unlock(AbilityRegistry.BARBARIAN_UNARMORED_DEFENSE.getId());
-                    AbilityComponents.ABILITIES.sync((ComponentProvider) player);
-                }
-            }
+            // Barbarian's Unarmored Defense is no longer patched in here: BarbarianClass grants it through
+            // the Entitlement API for as long as the character holds the class.
 
             // Phase 5 Rage migration (2026-09-15): the legacy ChargeComponents.PLAYER_CHARGES
             // .onRest registration that used to live here was removed — totality:rage is now
@@ -169,7 +167,7 @@ public class PlayerConnectionEvents {
 
             server.execute(() -> {
                 for (net.minecraft.resources.Identifier id :
-                        AbilityComponents.ABILITIES.get((ComponentProvider) player).getUnlocked()) {
+                        AbilityComponents.ABILITIES.get((ComponentProvider) player).getAccessibleAbilities()) {
                     zcylas.totality.api.ability.Ability ability =
                             zcylas.totality.api.ability.AbilityRegistry.get(id);
                     if (ability != null && ability.getType() ==
@@ -194,6 +192,7 @@ public class PlayerConnectionEvents {
 
 
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            TotalityEntitlements.onRespawn(newPlayer);
             DamageResistanceRecalculator.recalculate(newPlayer);
             RestEventBus.clearPlayer(newPlayer.getUUID()); // ← clear first
             // Phase 5 Rage / Phase 6 Standard Spell Slot migrations: the legacy ChargeComponents

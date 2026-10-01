@@ -1,11 +1,8 @@
 package zcylas.totality.networking.skills;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
-import zcylas.totality.api.ability.AbilityComponent;
-import zcylas.totality.api.ability.AbilityComponents;
-import zcylas.totality.api.core.component.ComponentProvider;
+import zcylas.totality.api.entitlement.integration.TotalityEntitlements;
 import zcylas.totality.api.rpg.skills.core.*;
 import zcylas.totality.networking.notification.SendNotificationPayload;
 
@@ -33,15 +30,8 @@ public class UnlockMasteryHandler {
             int newRank = masteryComp.getMasteries().getUnlockedRank(masteryId);
             masteryComp.sync();
 
-            // Unlock associated ability if this mastery grants one (on first rank only)
-            if (newRank == 1 && mastery.getAbilityId() != null) {
-                Identifier abilityId = Identifier.tryParse(mastery.getAbilityId());
-                if (abilityId != null) {
-                    AbilityComponent abilityComp = AbilityComponents.ABILITIES.get(
-                            (ComponentProvider) player);
-                    abilityComp.unlock(abilityId);
-                }
-            }
+            // A mastery's ability is a source-bound grant from the mastery itself (rank 1+).
+            TotalityEntitlements.onMasteriesChanged(player);
 
             SendNotificationPayload.send(player,
                     "✦ " + mastery.getName() + " rank " + newRank + " unlocked!",

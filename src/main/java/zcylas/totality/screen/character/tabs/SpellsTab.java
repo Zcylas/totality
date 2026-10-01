@@ -178,7 +178,8 @@ public class SpellsTab extends CharacterScreenTab {
 
     private List<Spell> getSpells() {
         return SpellRegistry.all().stream()
-                .filter(s -> s.isDefault() || ClientAbilityManager.hasAbility(s.getId()))
+                // Only what the server says is accessible (dev universal access is an explicit debug grant)
+                .filter(s -> ClientAbilityManager.hasAbility(s.getId()))
                 .sorted(Comparator
                         .comparingInt(Spell::getSpellLevel)
                         .thenComparing(s -> s.getSchool().name())
