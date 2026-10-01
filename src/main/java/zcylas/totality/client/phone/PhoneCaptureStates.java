@@ -108,8 +108,8 @@ final class PhoneCaptureStates {
 
     static List<Step> states() {
         List<Step> s = new ArrayList<>();
-        s.add(HologramCapture.check("normal play: one home page, no page indicator",
-                () -> grid() != null && grid().pageCount() == 1));
+        s.add(HologramCapture.check("normal play: the main page and the secondary (Gallery) page",
+                () -> grid() != null && grid().pageCount() == 2 && grid().page() == 0));
         s.add(HologramCapture.check("favourites dock: Character, Skills, Quests, Camera",
                 () -> grid() != null && "Character".equals(grid().dockLabel(0)) && "Skills".equals(grid().dockLabel(1))
                         && "Quests".equals(grid().dockLabel(2)) && "Camera".equals(grid().dockLabel(3)) && grid().dockLabel(4) == null));
@@ -128,8 +128,11 @@ final class PhoneCaptureStates {
         s.add(PhoneCapture.key("Down", GLFW.GLFW_KEY_DOWN));
         s.add(HologramCapture.waitTicks(3));
         s.add(HologramCapture.screenshot("95_phone_keyboard_focus"));
-        s.add(PhoneCapture.key("Right past the edge (single page: stays)", GLFW.GLFW_KEY_RIGHT));
-        s.add(HologramCapture.check("keyboard: Right past the last column stays on the only page", () -> grid() != null && grid().page() == 0));
+        s.add(PhoneCapture.key("Right past the edge (turns to the secondary page)", GLFW.GLFW_KEY_RIGHT));
+        s.add(HologramCapture.check("keyboard: Right past the last column turns to the secondary page", () -> grid() != null && grid().page() == 1));
+        s.add(PhoneCapture.key("Left (back to the main page)", GLFW.GLFW_KEY_LEFT));
+        s.add(HologramCapture.waitTicks(8));
+        s.add(HologramCapture.check("keyboard: Left returns to the main page", () -> grid() != null && grid().page() == 0));
         // Press feedback on an entry with no action yet (Settings, index 11).
         s.add(PhoneCapture.mouse("Settings", () -> tile(11)));
         s.add(HologramCapture.waitTicks(2));

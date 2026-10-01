@@ -36,8 +36,8 @@ import java.util.function.Supplier;
 /**
  * Opt-in, development-only screenshot run for Notification V2: {@code -Dtotality.hologram.capture=true}
  * in a Fabric development environment. It creates (or reopens) a disposable creative world called
- * {@value #WORLD} in the CURRENT game directory — launch it with a throwaway {@code --gameDir}, never
- * the everyday {@code run/} — stages each scene with ordinary commands on the integrated server
+ * {@code HologramCapture} (or the name in {@code -Dtotality.hologram.capture.world}) in the CURRENT game directory —
+ * launch it with a throwaway {@code --gameDir}, never the everyday {@code run/} — stages each scene with ordinary commands on the integrated server
  * (time, weather, a dark stone room, a test block), shows real holograms, drives the real input path
  * (a left click counted exactly like a mouse press) and saves screenshots with Minecraft's own screenshot function into
  * {@code <gameDir>/screenshots}. A line-per-step log goes to {@code <gameDir>/hologram-capture.log};
@@ -46,7 +46,8 @@ import java.util.function.Supplier;
 public final class HologramCapture {
 
     public static final String PROPERTY = "totality.hologram.capture";
-    static final String WORLD = "HologramCapture";
+    /** The capture world's name; {@code -Dtotality.hologram.capture.world=<name>} picks another (world-isolation runs). */
+    static final String WORLD = System.getProperty(PROPERTY + ".world", "HologramCapture");
 
     private static final TreeMap<Integer, List<Step>> SCENES = new TreeMap<>();
     private static final Deque<Step> PENDING = new ArrayDeque<>();

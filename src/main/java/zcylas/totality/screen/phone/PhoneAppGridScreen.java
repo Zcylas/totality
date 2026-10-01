@@ -13,6 +13,7 @@ import net.minecraft.world.level.Level;
 import org.lwjgl.glfw.GLFW;
 import zcylas.totality.api.entitlement.client.ClientEntitlementView;
 import zcylas.totality.api.entitlement.integration.PhoneAppEntitlements;
+import zcylas.totality.client.camera.CameraSession;
 import zcylas.totality.client.quest.ClientQuestManager;
 import zcylas.totality.screen.character.CharacterScreen;
 import zcylas.totality.screen.inventory.TotalityInventoryScreen;
@@ -30,10 +31,11 @@ import java.util.List;
  * apps on the main page, page indicator and sliding pages, the favourites dock, and the notification shade
  * ({@link PhoneNotificationShade}, a Phase 1 visual prototype).
  *
- * <p>Apps without a backing system yet (Codex, System, Settings, Camera) are unlocked per design but no-op on click;
+ * <p>Apps without a backing system yet (Codex, System, Settings) are unlocked per design but no-op on click;
  * Technology is visible but unavailable until it exists. Icons are provisional abbreviations, except the Codex's own
- * icon. The main page is always the one shown when the phone opens; development pages on either side exist only
- * with {@link PhonePrototype}.
+ * icon. The Camera (favourites dock) opens the full-screen viewfinder; the Gallery lives on the secondary page, to the
+ * right of the main page. The main page is shown when the phone opens, unless an app returns to the page it was opened
+ * from; development pages on either side exist only with {@link PhonePrototype}.
  *
  * <p>Every app's interactive area is its visible bounds — the icon's hover frame plus its label
  * ({@link PhoneHomeGeometry}) — so empty space between apps never activates one; hover, press and click all use
@@ -110,14 +112,19 @@ public class PhoneAppGridScreen extends Screen {
     private PhoneNotificationShade.Entry swipeEntry;
 
     public PhoneAppGridScreen(PhoneFrame frame) {
+        this(frame, -1);
+    }
+
+    /** Opens on home page {@code startPage} (an app returning to the page it was opened from); -1 = the main page. */
+    public PhoneAppGridScreen(PhoneFrame frame, int startPage) {
         super(Component.literal("Phone"));
         this.frame = frame;
         this.style = PhoneDeviceStyle.of(frame);
         this.openedNanos = PhoneFrameRenderer.beginOpen();
         buildApps();
         this.mainPage = PhonePrototype.enabled ? 1 : 0;
-        this.page = mainPage;
-        this.viewFrom = mainPage;
+        this.page = startPage >= 0 && startPage < pages.size() ? startPage : mainPage;
+        this.viewFrom = page;
     }
 
     private void buildApps() {
@@ -126,6 +133,9 @@ public class PhoneAppGridScreen extends Screen {
         Runnable openInventory = () -> Minecraft.getInstance().gui.setScreen(new TotalityInventoryScreen());
         Runnable openBank      = () -> Minecraft.getInstance().gui.setScreen(new BankScreen(frame));
         Runnable openQuests    = () -> ClientQuestManager.openQuestApp(frame);
+        // Camera and Gallery remember the page they were opened from, and return to it.
+        Runnable openCamera    = () -> CameraSession.open(frame, page);
+        Runnable openGallery   = () -> Minecraft.getInstance().gui.setScreen(new GalleryScreen(PhoneOrigin.home(frame, page)));
         // Advisory server-provided entitlement view; the Bank app is visible-but-locked until unlocked.
         boolean bankUnlocked   = ClientEntitlementView.isSelectable(PhoneAppEntitlements.BANK_APP);
         String higherTier      = "Unlocks on a higher-tier phone.";
@@ -152,13 +162,19 @@ public class PhoneAppGridScreen extends Screen {
         dock.add(new App("Character", "Ch", true, null, openCharacter));
         dock.add(new App("Skills",    "Sk", true, null, openSkills));
         dock.add(new App("Quests",    "Qu", true, null, openQuests));
-        dock.add(new App("Camera",    "Ca", true, null, null));
+        dock.add(new App("Camera",    "Ca", true, null, openCamera));
+
+        // The secondary page (to the right of the main page).
+        List<App> secondary = new ArrayList<>();
+        secondary.add(new App("Gallery",  "Ga", true, null, openGallery));
 
         mainApps.addAll(all);
+        mainApps.addAll(secondary);
         if (PhonePrototype.enabled) pages.add(new Page(List.of(), "Development page (left)"));
         for (int i = 0; i < all.size(); i += PER_PAGE) {
             pages.add(new Page(all.subList(i, Math.min(i + PER_PAGE, all.size())), null));
         }
+        pages.add(new Page(secondary, null));
         if (PhonePrototype.enabled) {
             List<App> stress = new ArrayList<>();
             if (PhonePrototype.labelStress) {

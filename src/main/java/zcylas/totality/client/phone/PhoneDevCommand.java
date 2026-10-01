@@ -11,10 +11,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import zcylas.totality.api.core.util.VerificationReporter;
 import zcylas.totality.api.equipment.PlayerEquipmentComponent;
+import zcylas.totality.client.camera.CameraSession;
 import zcylas.totality.client.equipment.ClientEquipmentManager;
+import zcylas.totality.client.photo.PhotoCapture;
+import zcylas.totality.screen.phone.GalleryScreen;
 import zcylas.totality.screen.phone.PhoneAppGridScreen;
 import zcylas.totality.screen.phone.PhoneFrame;
 import zcylas.totality.screen.phone.PhoneNotificationShade;
+import zcylas.totality.screen.phone.PhoneOrigin;
 import zcylas.totality.screen.phone.PhonePrototype;
 
 import java.util.function.Consumer;
@@ -46,6 +50,9 @@ public final class PhoneDevCommand {
             {"bounds", "Toggle the interactive-bounds overlay, open home."},
             {"reset", "Restore the initial test state (test data on, full set), open home."},
             {"off", "Turn test data off: the ordinary Phone presentation."},
+            {"camera", "Open the Camera viewfinder (returns to the main page)."},
+            {"gallery", "Open the Gallery app (returns to the main page)."},
+            {"camera-fullscreen", "Toggle development full-screen captures (HUD and overlays included)."},
     };
 
     /** The screen opens on the next client tick: the chat screen closes itself after the command runs. */
@@ -83,6 +90,15 @@ public final class PhoneDevCommand {
             option(root, "bounds", "Interactive-bounds overlay toggled.", () -> PhonePrototype.showBounds = !PhonePrototype.showBounds, s -> { });
             option(root, "reset", "Test state reset.", PhonePrototype::reset, s -> { });
             option(root, "off", "Test data off: ordinary Phone presentation.", PhonePrototype::off, s -> { });
+            // Camera and Gallery: the real apps, opened as from the main page (they hold only local photographs).
+            app(root, "camera", "Camera.", () -> CameraSession.open(frame(), 0));
+            app(root, "gallery", "Gallery.", () -> Minecraft.getInstance().gui.setScreen(new GalleryScreen(PhoneOrigin.home(frame(), 0))));
+            root.then(ClientCommands.literal("camera-fullscreen").executes(ctx -> {
+                PhotoCapture.setFullScreen(!PhotoCapture.fullScreen());
+                ctx.getSource().sendFeedback(Component.literal("[Phone test] Camera captures: "
+                        + (PhotoCapture.fullScreen() ? "FULL SCREEN (HUD and overlays, development only)." : "clean photographs.")));
+                return 1;
+            }));
             dispatcher.register(root);
         });
     }
@@ -97,6 +113,14 @@ public final class PhoneDevCommand {
                 after.accept(screen);
             };
             ctx.getSource().sendFeedback(Component.literal("[Phone test] " + done + " Synthetic data only; nothing was granted."));
+            return 1;
+        }));
+    }
+
+    private static void app(LiteralArgumentBuilder<FabricClientCommandSource> root, String name, String done, Runnable open) {
+        root.then(ClientCommands.literal(name).executes(ctx -> {
+            pending = open;
+            ctx.getSource().sendFeedback(Component.literal("[Phone test] " + done));
             return 1;
         }));
     }

@@ -121,15 +121,15 @@ final class PhonePrototypeCapture {
         s.add(open());
         frames(s, "p1_00_open", 4);
         s.add(HologramCapture.waitTicks(15));
-        s.add(HologramCapture.check("prototype: three pages, the phone opens on the main (centre) page",
-                () -> grid() != null && grid().pageCount() == 3 && grid().page() == 1 && grid().mainPage() == 1));
+        s.add(HologramCapture.check("prototype: dev page, main page, Gallery page, dev page; the phone opens on the main page",
+                () -> grid() != null && grid().pageCount() == 4 && grid().page() == 1 && grid().mainPage() == 1));
         s.add(HologramCapture.screenshot("p1_01_home_main"));
 
         // Pages: click the right dot, then the left one (slides two pages), frames of each slide.
-        s.add(PhoneCaptureStates.clickAt("right page dot", () -> grid().pageMarkerCentre(2)));
+        s.add(PhoneCaptureStates.clickAt("right page dot", () -> grid().pageMarkerCentre(3)));
         frames(s, "p1_02_slide_to_right", 5);
         s.add(HologramCapture.waitTicks(6));
-        s.add(HologramCapture.check("right development page", () -> grid().page() == 2));
+        s.add(HologramCapture.check("right development page", () -> grid().page() == 3));
         s.add(HologramCapture.screenshot("p1_03_dev_page_right"));
         s.add(PhoneCaptureStates.clickAt("left page dot", () -> grid().pageMarkerCentre(0)));
         frames(s, "p1_04_slide_to_left", 5);
@@ -147,7 +147,7 @@ final class PhonePrototypeCapture {
         s.add(PhoneCaptureStates.dragHold("grid swipe left", () -> grid().displayCentre(), -45, 0, 6));
         s.add(PhoneCaptureStates.release("swipe"));
         s.add(HologramCapture.waitTicks(8));
-        s.add(HologramCapture.check("a long swipe turns to the right page", () -> grid().page() == 2));
+        s.add(HologramCapture.check("a long swipe turns to the next page (the Gallery page)", () -> grid().page() == 2));
         s.add(PhoneCapture.key("Left (back to main)", GLFW.GLFW_KEY_LEFT));
         s.add(HologramCapture.waitTicks(8));
         s.add(HologramCapture.check("keyboard Left returns to the main page", () -> grid().page() == 1));
@@ -244,7 +244,7 @@ final class PhonePrototypeCapture {
         s.add(HologramCapture.run("label stress on", () -> PhonePrototype.labelStress = true));
         s.add(open());
         s.add(HologramCapture.waitTicks(15));
-        s.add(PhoneCaptureStates.clickAt("right page dot", () -> grid().pageMarkerCentre(2)));
+        s.add(PhoneCaptureStates.clickAt("right page dot", () -> grid().pageMarkerCentre(3)));
         s.add(HologramCapture.waitTicks(8));
         s.add(HologramCapture.screenshot("p1_22_label_stress"));
         s.add(close());

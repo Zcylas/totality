@@ -33,6 +33,7 @@ public final class PhoneCapture {
         if (!HologramCapture.requested()) return;
         HologramCapture.addScene(45, scenes());
         HologramCapture.addScene(64, PhonePrototypeCapture.scenes());
+        HologramCapture.addScene(65, CameraGalleryCapture.scenes());
     }
 
     static Step key(String label, int key) {

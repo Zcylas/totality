@@ -82,7 +82,12 @@
 		"client.chat.ChatScreenInputPositionMixin",
 		"client.chat.CommandSuggestionsListPositionMixin",
 		"client.chat.CommandSuggestionsUsagePositionMixin",
-		"client.EntityHitboxDebugRendererMixin"
+		"client.EntityHitboxDebugRendererMixin",
+		"client.camera.CameraCaptureMixin",
+		"client.camera.CameraFovMixin",
+		"client.camera.CameraHudMixin",
+		"client.camera.CameraKeyboardMixin",
+		"client.camera.CameraMouseMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

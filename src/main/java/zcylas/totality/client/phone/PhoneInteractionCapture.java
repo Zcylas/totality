@@ -297,10 +297,10 @@ final class PhoneInteractionCapture {
         s.add(HologramCapture.check("/totalityphone help runs", () -> COMMAND_RESULT[0] == 1));
         s.add(command("nonsense"));
         s.add(HologramCapture.check("an unknown option is rejected (no screen opened)", () -> COMMAND_RESULT[0] == -1));
-        option(s, "off", "p1_60_cmd_off", "ordinary presentation (one page, no notifications, no badges)",
-                () -> !PhonePrototype.enabled && grid().pageCount() == 1 && shade().count() == 0 && PhonePrototype.badge("Mail") == 0);
+        option(s, "off", "p1_60_cmd_off", "ordinary presentation (main + Gallery page, no notifications, no badges)",
+                () -> !PhonePrototype.enabled && grid().pageCount() == 2 && shade().count() == 0 && PhonePrototype.badge("Mail") == 0);
         option(s, "pages", "p1_61_cmd_pages", "development pages around the main page",
-                () -> grid().pageCount() == 3 && grid().page() == grid().mainPage());
+                () -> grid().pageCount() == 4 && grid().page() == grid().mainPage());
         option(s, "normal", "p1_62_cmd_normal", "green, normal only",
                 () -> shade().highest() == PhoneNotificationShade.Severity.NORMAL && shade().count() == 6);
         option(s, "important", "p1_63_cmd_important", "orange",
@@ -318,7 +318,7 @@ final class PhoneInteractionCapture {
                 () -> PhonePrototype.enabled && !PhonePrototype.labelStress && shade().count() == 9 && grid().page() == grid().mainPage());
         option(s, "home", null, "home screen", () -> grid().page() == grid().mainPage());
         option(s, "off", "p1_71_cmd_off_again", "ordinary presentation restored",
-                () -> !PhonePrototype.enabled && grid().pageCount() == 1 && shade().count() == 0 && shade().highest() == null);
+                () -> !PhonePrototype.enabled && grid().pageCount() == 2 && shade().count() == 0 && shade().highest() == null);
         s.add(HologramCapture.check("the command changed no wallet balance and no Bank entitlement",
                 () -> Objects.equals(before[0], ClientWalletManager.getValue())
                         && Objects.equals(before[1], ClientEntitlementView.isSelectable(PhoneAppEntitlements.BANK_APP))));
