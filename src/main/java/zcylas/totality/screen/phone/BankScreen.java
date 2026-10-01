@@ -8,6 +8,8 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 import zcylas.totality.networking.currency.ClientWalletManager;
 
+import java.util.List;
+
 /**
  * Basic Bank app screen — shows the account (Wallet) balance, distinct from the
  * inventory screen's physical-Credits-on-hand readout. Drawn on the phone device
@@ -47,9 +49,9 @@ public class BankScreen extends Screen {
         PhoneFrameRenderer.Layout l = PhoneFrameRenderer.drawDevice(g, base, style, t);
         String balance = "\u20b5 " + ClientWalletManager.getValue();
         float scale = Math.min(PhoneUi.displayScale(l),
-                PhoneUi.crispScale(font, java.util.List.of("BANK" + BACK + "  ", LABEL, balance), l.dw() - 12, PhoneUi.guiScale()));
-        PhoneUi ui = new PhoneUi(g, font, style, scale);
-        PhoneDeviceStyle.Display d = ui.colors();
+                PhoneUi.crispScale(font, List.of("BANK" + BACK + "  ", LABEL, balance), l.dw() - 12, PhoneUi.guiScale()));
+        PhoneUi ui = new PhoneUi(g, font, scale);
+        PhoneTheme d = ui.colors();
 
         ui.header(l.dx(), l.dy(), l.dw(), "BANK", BACK);
         int cx = l.dx() + l.dw() / 2;
@@ -58,7 +60,7 @@ public class BankScreen extends Screen {
         ui.textCentered(LABEL, cx, top, d.textDim());
         ui.separator(cx - ui.width(LABEL) / 2, top + line + 2, ui.width(LABEL));
         // The balance at twice the display scale: still whole screen pixels per font pixel.
-        PhoneUi big = new PhoneUi(g, font, style, scale * 2);
+        PhoneUi big = new PhoneUi(g, font, scale * 2);
         if (big.width(balance) > l.dw() - 12) big = ui;
         big.textCentered(balance, cx, top + line + 7, d.text());
         PhoneFrameRenderer.finishDisplay(g, l, style, t);

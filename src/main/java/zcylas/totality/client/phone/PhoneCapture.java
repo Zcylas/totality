@@ -2,7 +2,9 @@ package zcylas.totality.client.phone;
 
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -10,6 +12,7 @@ import org.lwjgl.glfw.GLFW;
 import zcylas.totality.client.hologram.dev.HologramCapture;
 import zcylas.totality.client.hologram.dev.HologramCapture.Step;
 import zcylas.totality.screen.phone.BankScreen;
+import zcylas.totality.screen.phone.PhoneAppGridScreen;
 import zcylas.totality.screen.phone.PhoneFrame;
 import zcylas.totality.screen.phone.PhoneScreens;
 import zcylas.totality.screen.phone.PhoneSource;
@@ -29,6 +32,7 @@ public final class PhoneCapture {
     public static void registerIfRequested() {
         if (!HologramCapture.requested()) return;
         HologramCapture.addScene(45, scenes());
+        HologramCapture.addScene(64, PhonePrototypeCapture.scenes());
     }
 
     static Step key(String label, int key) {
@@ -52,8 +56,8 @@ public final class PhoneCapture {
             double[] p = guiPoint.get();
             double scale = mc.getWindow().getGuiScale();
             try {
-                var fx = net.minecraft.client.MouseHandler.class.getDeclaredField("xpos");
-                var fy = net.minecraft.client.MouseHandler.class.getDeclaredField("ypos");
+                var fx = MouseHandler.class.getDeclaredField("xpos");
+                var fy = MouseHandler.class.getDeclaredField("ypos");
                 fx.setAccessible(true);
                 fy.setAccessible(true);
                 fx.setDouble(mc.mouseHandler, p[0] * scale);
@@ -78,7 +82,7 @@ public final class PhoneCapture {
         s.add(HologramCapture.run("first person", () -> Minecraft.getInstance().options.setCameraType(CameraType.FIRST_PERSON)));
         s.add(HologramCapture.run("allow screens", () -> HologramCapture.allowScreens = true));
         s.add(HologramCapture.run("inventory", () -> Minecraft.getInstance().gui.setScreen(
-                new net.minecraft.client.gui.screens.inventory.InventoryScreen(Minecraft.getInstance().player))));
+                new InventoryScreen(Minecraft.getInstance().player))));
         s.add(HologramCapture.waitTicks(10));
         s.add(HologramCapture.screenshot("91_phone_inventory"));
         s.add(HologramCapture.run("close", () -> Minecraft.getInstance().gui.setScreen(null)));
@@ -94,7 +98,7 @@ public final class PhoneCapture {
         s.add(key("Enter (Begin)", GLFW.GLFW_KEY_ENTER));
         s.add(HologramCapture.waitTicks(20));
         s.add(HologramCapture.check("setup completed: the app grid is open",
-                () -> Minecraft.getInstance().gui.screen() instanceof zcylas.totality.screen.phone.PhoneAppGridScreen));
+                () -> Minecraft.getInstance().gui.screen() instanceof PhoneAppGridScreen));
         s.add(HologramCapture.screenshot("93_phone_grid"));
         s.addAll(PhoneCaptureStates.states());
         s.add(key("Tab (close)", GLFW.GLFW_KEY_TAB));
@@ -108,7 +112,7 @@ public final class PhoneCapture {
         s.add(key("Esc (back)", GLFW.GLFW_KEY_ESCAPE));
         s.add(HologramCapture.waitTicks(15));
         s.add(HologramCapture.check("Esc from Bank returns to the app grid",
-                () -> Minecraft.getInstance().gui.screen() instanceof zcylas.totality.screen.phone.PhoneAppGridScreen));
+                () -> Minecraft.getInstance().gui.screen() instanceof PhoneAppGridScreen));
         s.add(key("Tab (close)", GLFW.GLFW_KEY_TAB));
 
         // Dark environment.

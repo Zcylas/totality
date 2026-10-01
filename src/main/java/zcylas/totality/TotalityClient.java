@@ -25,6 +25,7 @@ import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePrese
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.combat.CombatTextRenderer;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
+import zcylas.totality.client.phone.PhoneDevCommand;
 import zcylas.totality.client.tooltip.TooltipScrollController;
 import zcylas.totality.client.hud.resource.ISecondaryResource;
 import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
@@ -250,6 +251,8 @@ public class TotalityClient implements ClientModInitializer {
         // Development environment only: /totalityhologram samples; the screenshot run additionally
         // needs -Dtotality.hologram.capture=true.
         zcylas.totality.client.hologram.dev.HologramShowcase.registerIfDevelopmentEnvironment();
+        // Development environment only: /totalityphone (Phone prototype testing, synthetic data).
+        PhoneDevCommand.registerIfDevelopmentEnvironment();
         zcylas.totality.client.hologram.dev.HologramCapture.registerIfRequested();
         zcylas.totality.client.renderer.hud.PowerAttackFlash.register();
         zcylas.totality.client.renderer.hud.PowerAttackFlashVerification.runIfDev();

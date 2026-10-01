@@ -10,8 +10,8 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Codex replaces the Bestiary placeholder in the launcher (same slot), with one universal default icon, and does
- * nothing yet beyond the normal press feedback.
+ * Codex replaced the Bestiary placeholder in the launcher and leads the Phase 1 home screen, with one universal
+ * default icon, and does nothing yet beyond the normal press feedback.
  */
 class PhoneCodexAppTest {
 
@@ -22,10 +22,11 @@ class PhoneCodexAppTest {
     void codexTakesTheBestiarySlotAndOpensNothing() throws Exception {
         String src = Files.readString(GRID);
         assertFalse(src.contains("new App(\"Bestiary\""), "no separate Bestiary app: it becomes a Codex category");
-        assertTrue(src.contains("all.add(new App(\"Codex\",     true, null, null, CODEX_ICON));"), "unlocked, no action, the icon");
-        int character = src.indexOf("new App(\"Character\""), quests = src.indexOf("new App(\"Quests\""),
-                codex = src.indexOf("new App(\"Codex\""), spells = src.indexOf("new App(\"Spells\"");
-        assertTrue(character < quests && quests < codex && codex < spells, "the fourth app, as the Bestiary was");
+        assertTrue(src.contains("all.add(new App(\"Codex\",      null, null, true, null, null, CODEX_ICON));"),
+                "unlocked, no action, its own icon (no provisional abbreviation)");
+        int codex = src.indexOf("new App(\"Codex\""), map = src.indexOf("new App(\"Map\""),
+                inventory = src.indexOf("new App(\"Inventory\""), spells = src.indexOf("new App(\"Spells\"");
+        assertTrue(codex < map && map < inventory && inventory < spells, "first app of the Phase 1 home screen (row 1: Codex, Map, Inventory)");
     }
 
     @Test

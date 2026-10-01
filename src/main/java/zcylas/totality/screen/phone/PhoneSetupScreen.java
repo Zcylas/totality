@@ -9,10 +9,13 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 import zcylas.totality.api.item.TotalityItemComponents;
 import zcylas.totality.networking.item.PhoneSetupPayload;
+
+import java.util.List;
 
 /**
  * Phone first-time setup screen. Opened by right-clicking a Phone whose
@@ -50,7 +53,7 @@ public class PhoneSetupScreen extends Screen {
 
     private float scale(PhoneFrameRenderer.Layout l) {
         return Math.min(PhoneUi.displayScale(l),
-                PhoneUi.crispScale(font, java.util.List.of(TITLE, LINE_1, LINE_2), l.dw() - 12, PhoneUi.guiScale()));
+                PhoneUi.crispScale(font, List.of(TITLE, LINE_1, LINE_2), l.dw() - 12, PhoneUi.guiScale()));
     }
 
     @Override
@@ -59,8 +62,8 @@ public class PhoneSetupScreen extends Screen {
         PhoneFrameRenderer.Layout base = PhoneFrameRenderer.layout(width, height, style);
         PhoneFrameRenderer.Transition t = PhoneFrameRenderer.transition(openedNanos);
         PhoneFrameRenderer.Layout l = PhoneFrameRenderer.drawDevice(g, base, style, t);
-        PhoneUi ui = new PhoneUi(g, font, style, scale(base));
-        PhoneDeviceStyle.Display d = ui.colors();
+        PhoneUi ui = new PhoneUi(g, font, scale(base));
+        PhoneTheme d = ui.colors();
         int cx = l.dx() + l.dw() / 2;
 
         // First boot: no status bar yet, just the network greeting centred on the glass.
@@ -118,7 +121,7 @@ public class PhoneSetupScreen extends Screen {
             stack.set(TotalityItemComponents.PHONE_SETUP_COMPLETE, true);
         }
         ClientPlayNetworking.send(new PhoneSetupPayload(source.equipped(),
-                source.hand() == net.minecraft.world.InteractionHand.OFF_HAND));
+                source.hand() == InteractionHand.OFF_HAND));
         Minecraft.getInstance().gui.setScreen(new PhoneAppGridScreen(frame));
     }
 

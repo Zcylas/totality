@@ -8,15 +8,18 @@ import net.minecraft.client.renderer.RenderPipelines;
  * surface, and computes where the display is so screens can lay out their content inside it. Everything
  * is drawn at whole GUI pixels (sprites at 1 art pixel = 1 GUI pixel), so it stays crisp at every GUI scale.
  *
- * <p>The phone keeps the item's proportions ({@link PhoneDeviceStyle#aspect()}) and is anchored to the
+ * <p>The phone keeps its device proportions ({@link PhoneDeviceStyle#aspect()}) and is anchored to the
  * right of the window, vertically centred, so the world stays visible around it.
  */
 public final class PhoneFrameRenderer {
 
     private static final int MARGIN = 6;
     private static final int RIGHT_MARGIN = 24;
-    /** Beyond this the phone would only grow emptier; larger GUIs keep it at this height. */
-    private static final int MAX_HEIGHT = 300;
+    /**
+     * Beyond this the phone would only grow emptier; larger GUIs keep it at this height. High enough that at GUI
+     * scale 2 the phone still fills most of a 1080p window and every app label fits at full size.
+     */
+    private static final int MAX_HEIGHT = 400;
 
     private static final long SLIDE_NANOS = 170_000_000L;
     private static final long POWER_DELAY_NANOS = 70_000_000L;
@@ -72,10 +75,10 @@ public final class PhoneFrameRenderer {
         return new Transition(Math.round(SLIDE_DISTANCE * (1 - eased)), power);
     }
 
-    /** Draws the device and its (empty) display; returns the layout actually drawn (after the slide). */
+    /** Draws the device and its display's wallpaper; returns the layout actually drawn (after the slide). */
     public static Layout drawDevice(GuiGraphicsExtractor g, Layout base, PhoneDeviceStyle style, Transition t) {
         Layout l = base.shifted(t.slide());
-        PhoneDeviceStyle.Display d = style.display();
+        PhoneTheme os = PhoneTheme.DEFAULT;
 
         // Soft contact shadow under the body.
         g.fill(l.x() + 3, l.y() + 3, l.x() + l.w() + 2, l.y() + l.h() + 2, 0x40000000);
@@ -89,18 +92,23 @@ public final class PhoneFrameRenderer {
             g.fill(l.x() + l.w() - 2, top + 1, l.x() + l.w() + 1, bottom - 1, style.buttonFace());
         }
 
-        // Display surface: the item's dark glass, a faint lower falloff (restrained backlight), specks.
-        g.fill(l.dx(), l.dy(), l.dx() + l.dw(), l.dy() + l.dh(), d.background());
-        g.fillGradient(l.dx(), l.dy() + l.dh() / 2, l.dx() + l.dw(), l.dy() + l.dh(), d.background(), d.backgroundLow());
-        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.glassSprite(), l.dx(), l.dy(), l.dw(), l.dh());
+        // Display surface: the OS wallpaper, dark navy with a subtle cyan-blue rise toward the bottom.
+        int x0 = l.dx(), y0 = l.dy(), x1 = l.dx() + l.dw(), y1 = l.dy() + l.dh();
+        g.fillGradient(x0, y0, x1, y1, os.wallpaperTop(), os.wallpaperBottom());
+        g.fillGradient(x0, y0 + l.dh() * 3 / 5, x1, y1, 0x00000000, os.wallpaperGlow());
         // Recessed glass: a 1 px shadow under the top bezel and inside the left bezel.
-        g.fill(l.dx(), l.dy(), l.dx() + l.dw(), l.dy() + 1, 0x50000000);
-        g.fill(l.dx(), l.dy() + 1, l.dx() + 1, l.dy() + l.dh(), 0x30000000);
+        g.fill(x0, y0, x1, y0 + 1, 0x50000000);
+        g.fill(x0, y0 + 1, x0 + 1, y1, 0x30000000);
 
-        // Casing (nine-slice, tiled edges) and speaker slot.
+        // Casing (nine-slice, tiled edges), speaker slot with the front camera, chin grille.
         g.blitSprite(RenderPipelines.GUI_TEXTURED, style.frameSprite(), l.x(), l.y(), l.w(), l.h());
-        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.speakerSprite(), l.x() + (l.w() - style.speakerWidth()) / 2,
-                l.y() + style.speakerY(), style.speakerWidth(), style.speakerHeight());
+        int speakerX = l.x() + (l.w() - style.speakerWidth()) / 2;
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.speakerSprite(), speakerX, l.y() + style.speakerY(),
+                style.speakerWidth(), style.speakerHeight());
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.cameraSprite(), speakerX - style.cameraGap() - style.cameraSize(),
+                l.y() + style.speakerY() + (style.speakerHeight() - style.cameraSize()) / 2, style.cameraSize(), style.cameraSize());
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, style.grilleSprite(), l.x() + (l.w() - style.grilleWidth()) / 2,
+                l.y() + l.h() - style.grilleY() - style.grilleHeight(), style.grilleWidth(), style.grilleHeight());
         return l;
     }
 
@@ -109,12 +117,11 @@ public final class PhoneFrameRenderer {
      * fade (content comes up with the backlight). Also records that a phone screen was on screen.
      */
     public static void finishDisplay(GuiGraphicsExtractor g, Layout l, PhoneDeviceStyle style, Transition t) {
-        PhoneDeviceStyle.Display d = style.display();
         if (t.power() < 1f) {
             int alpha = Math.round((1 - t.power()) * 255);
             g.fill(l.dx(), l.dy(), l.dx() + l.dw(), l.dy() + l.dh(), (alpha << 24) | 0x0B0C0B);
         }
-        int bz = d.bezel();
+        int bz = style.bezel();
         int x0 = l.dx(), y0 = l.dy(), x1 = l.dx() + l.dw() - 1, y1 = l.dy() + l.dh() - 1;
         for (int[] c : new int[][] {{x0, y0, 1, 1}, {x1, y0, -1, 1}, {x0, y1, 1, -1}, {x1, y1, -1, -1}}) {
             g.fill(Math.min(c[0], c[0] + c[2] * 2), c[1], Math.max(c[0], c[0] + c[2] * 2) + 1, c[1] + 1, bz);

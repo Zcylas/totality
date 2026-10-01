@@ -11,17 +11,18 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** The opened phone keeps the item's proportions, stays on screen, and its sprites match its style. */
+/** The opened phone keeps its smartphone proportions, stays on screen, and its sprites match its style. */
 class PhoneDeviceLayoutTest {
 
     private static final Path SPRITES = Path.of("src/main/resources/assets/totality/textures/gui/sprites/phone/crude");
 
     @Test
-    void keepsTheItemProportionsAndStaysOnScreen() {
+    void keepsItsProportionsAndStaysOnScreen() {
         PhoneDeviceStyle style = PhoneDeviceStyle.CRUDE;
         for (int[] gui : new int[][] {{480, 253}, {480, 270}, {640, 360}, {854, 480}, {320, 240}}) {
             PhoneFrameRenderer.Layout l = PhoneFrameRenderer.layout(gui[0], gui[1], style);
-            assertEquals(36f / 52f, l.w() / (float) l.h(), 0.01f, "item aspect at " + gui[0] + "x" + gui[1]);
+            assertEquals(style.aspect(), l.w() / (float) l.h(), 0.01f, "device aspect at " + gui[0] + "x" + gui[1]);
+            assertTrue(l.h() > l.w() * 1.9f, "a tall, narrow smartphone (not a tablet) at " + gui[0] + "x" + gui[1]);
             assertTrue(l.x() >= 0 && l.y() >= 0 && l.x() + l.w() + 2 <= gui[0] && l.y() + l.h() <= gui[1],
                     "the body (and its side buttons) stay on screen at " + gui[0] + "x" + gui[1]);
             assertEquals(l.x() + style.insetLeft(), l.dx());
@@ -51,9 +52,15 @@ class PhoneDeviceLayoutTest {
         assertEquals(s.insetTop(), border.get("top").getAsInt());
         assertEquals(s.insetRight(), border.get("right").getAsInt());
         assertEquals(s.insetBottom(), border.get("bottom").getAsInt());
-        BufferedImage speaker = ImageIO.read(SPRITES.resolve("speaker.png").toFile());
-        assertEquals(s.speakerWidth(), speaker.getWidth());
-        assertEquals(s.speakerHeight(), speaker.getHeight());
-        assertTrue(Files.exists(SPRITES.resolve("glass.png")) && Files.exists(SPRITES.resolve("lock.png")));
+        assertSize("speaker.png", s.speakerWidth(), s.speakerHeight());
+        assertSize("camera.png", s.cameraSize(), s.cameraSize());
+        assertSize("grille.png", s.grilleWidth(), s.grilleHeight());
+        assertTrue(Files.exists(SPRITES.resolve("../os/lock.png")), "the padlock is an OS glyph, not casing art");
+    }
+
+    private static void assertSize(String sprite, int w, int h) throws Exception {
+        BufferedImage im = ImageIO.read(SPRITES.resolve(sprite).toFile());
+        assertEquals(w, im.getWidth(), sprite);
+        assertEquals(h, im.getHeight(), sprite);
     }
 }
