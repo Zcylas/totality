@@ -16,8 +16,8 @@ import java.util.List;
  * frame all sources draw their emissive part into one Totality-only buffer, which is blurred and added to the image.
  * Only registered sources glow: vanilla surfaces (snow, lava, light sources) never enter the buffer.
  *
- * <p>Client only. Settings: {@code config/totality-vfx.properties} ({@link EmissiveGlowSettings}). No production
- * effect uses the layer yet; in a development environment {@code /totalityvfx} adds test sources.
+ * <p>Client only. Settings: {@code config/totality-vfx.properties} ({@link EmissiveGlowSettings}). Heat Vision V2 is
+ * the first production source; in a development environment {@code /totalityvfx} adds test sources.
  */
 public final class EmissiveGlow {
 

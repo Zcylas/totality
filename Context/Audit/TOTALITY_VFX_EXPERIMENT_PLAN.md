@@ -1,7 +1,7 @@
 # Totality VFX Experiments — Plan and Roadmap
 
-Date: 2026-10-01 (updated 2026-10-02, finalization) · Status: **Experiment 1 completed and approved**,
-committed locally. Heat Vision V2 (Experiment 2) and the revised roadmap follow in the next commit.
+Date: 2026-10-01 (updated 2026-10-02, finalization) · Status: **Experiments 1 and 2 completed and approved**,
+committed locally. The roadmap below (Experiments 3+) is planning only.
 Source of the ideas: `Context/Audit/TOTALITY_SHOOTING_STAR_VFX_AUDIT.md` (§7.3, §8, §10).
 
 ## Purpose of this prototype phase
@@ -65,3 +65,96 @@ implementation, the OpenGL and Vulkan compatibility, and the prototype class nam
 3. Graphics quality tiers and settings-screen integration.
 4. Optional reduction of glow bleeding around occluding geometry (depth-aware upsample).
 5. Additional compatibility testing (Fabulous graphics, integrated GPUs, other vendors, Sodium/Iris if supported).
+
+## Experiment 2 — Heat Vision V2 — completed, approved
+
+Report: `TOTALITY_VFX_HEAT_VISION_V2_EXPERIMENT_REPORT.md`.
+
+**Goal.** Make an existing ability significantly more impressive on the new foundation while staying performant and
+maintainable.
+
+**Outcome.** Eye-based twin beams with a white-hot core, orange body and red edge, animated energy flow, ignition and
+fade, an impact hotspot with particles, near-camera fading and screen-space width limits, and a glow from the
+Emissive Rendering Layer. Verified on OpenGL and Vulkan; ≈ 0.003 / 0.011 ms for one player's beams plus the shared
+layer pass. The server-side ability is unchanged. The investigation confirmed that the pre-V2 beam's
+`LESS_THAN_OR_EQUAL` depth test was inverted under reversed-Z.
+
+**Decision (2026-10-02): approved as a successful prototype.** Kept as is: the corrected reversed-Z depth handling,
+eye-based origins, the colour structure, energy flow, ignition/fade, impact hotspot and particles, near-camera fade and
+width limits, the Emissive Rendering Layer integration, and the server-side gameplay. No further renderer rewrite or
+new visual design.
+
+`HeatVisionClassicRenderer` stays **for now, exclusively as a development-only comparison and debugging tool**. It
+is reachable only from `/totalityvfx heatvision classic` and capture scene 67 (both registered only in a Fabric
+development environment), and `HeatVisionBeamRenderer.setClassic` ignores the switch outside a development
+environment. A source-level test enforces both.
+
+**Deferred (recorded, not implemented):**
+
+1. **Multiplayer visibility (ability synchronisation).** Other players cannot see Heat Vision: no beam state reaches
+   other clients. Future task: a small "channelling Heat Vision" sync so watchers render the beams with the same V2
+   code (it already draws any number of beams per frame).
+2. **Optimistic client activation.** The client sets its channelling flag when the key is pressed, so it may display
+   Heat Vision before (or even though) the server accepts activation (not Kryptonian, no mana). Future task, together
+   with item 1: drive the presentation from server-confirmed ability state.
+3. **Global emissive brightness budget** — part of the future VFX API (see Experiment 1, item 2).
+
+---
+
+## Permanent technical lessons (for all future VFX work)
+
+1. **Reversed-Z.** Minecraft 26.2 clears depth to 0 and nearer means larger (default test `GREATER_THAN_OR_EQUAL`).
+   Custom rendering must account for this. Verify the intended occlusion (for example with a side-on probe behind an
+   occluder) instead of reusing an existing depth test blindly: the pre-V2 Heat Vision test was silently inverted.
+2. **Supported, backend-agnostic APIs only.** Custom render passes use Blaze3D (`RenderPipeline`, `RenderPass`,
+   `CommandEncoder`, `GpuTexture`, `TimerQuery`) and Fabric events. No raw OpenGL (`org.lwjgl.opengl`, `GlTexture`,
+   `glId()`).
+3. **Test on both backends.** Every custom render path is run on OpenGL and on Vulkan (force Vulkan with the launch
+   argument `--graphicsBackend vulkan`; the `options.txt` value alone was not reliable on a fresh game directory).
+4. **Share expensive post-processing.** Prefer one shared pass (such as the Emissive Rendering Layer's bloom) over
+   duplicating expensive passes per ability. Effects contribute; the shared pass runs once per frame.
+5. **Reusable techniques, distinct identities.** Techniques and primitives are shared, but every spell and ability
+   keeps its own visual identity (shape, colour, timing, motion).
+6. **Measured vs estimated.** Performance claims must distinguish actual measurements (GPU timestamps, logged buffer
+   sizes, with hardware and resolution) from estimates and extrapolations.
+
+## Candidate components of the future VFX API (planning only)
+
+These are candidates distilled from Experiments 1 and 2 and the audit. The full VFX API is **not** being built yet.
+
+| component | from | role |
+|---|---|---|
+| **Emissive Rendering Layer** | Experiment 1 (exists) | Shared emissive contribution buffer with bloom as its first feature; future lifecycle ownership, brightness budget, quality tiers |
+| **Beam primitive** | Experiment 2 | Camera-facing segmented ribbon with min/max angular width, near-camera fade, UV along the length, shader-driven energy flow; colour parameter for reuse |
+| **Impact primitive** | Experiment 2 | Camera-facing hotspot pulled towards the camera, optional particles, emissive contribution |
+| **Animation envelope** | Experiment 2 | Time-based ignite/sustain/fade envelopes (never frame-count based) |
+| **Shared Screen FX** | Audit §8; planned in Experiment 3 | Camera shake, flashes, impact frames with explicit stacking (max-merge, distance falloff, priorities) and accessibility limits |
+| **Terrain decals** | Audit §8 | Projected, depth-reading decals for ritual circles, markers, scorch marks and targeting indicators |
+
+---
+
+## Roadmap (revised 2026-10-02 — planning notes, not implementation instructions)
+
+The next experiments improve **actual Totality content** while each introduces reusable VFX techniques.
+
+1. **Experiment 3 — Fireball V2.** Research its D&D rules, redesign its projectile and explosion, and develop the
+   **Shared Screen FX Service** (the first Screen FX consumer).
+2. **Experiment 4 — Magic Missile V2.** Guided magical projectiles: trajectories, trails and impact effects.
+3. **Experiment 5 — Eldritch Blast V2.** Improve the existing spell, potentially using a Baldur's Gate 3 video
+   reference (for study, not for copying).
+4. **Experiment 6 — Lightning Bolt V2.** Improve the existing spell's lightning rendering and impacts.
+5. **Further candidates:** Ground Slam; Portals and Gates; Globe of Invulnerability; Dark Star; **Plane Shift V1**.
+   * Plane Shift V1 is intended to support Overworld → Nether travel and travel back from the Nether. Its broader
+     functionality is deferred. It may serve as the introduction of a minimal **Player Animation API** for casting
+     animations.
+
+The exact order after Fireball V2 can still change.
+
+**Meteor Swarm** remains the eventual large-scale integration experiment (timelines, seed-deterministic paths,
+batched rendering, impacts, Screen FX, decals). It has no fixed experiment number.
+
+### Order and gates
+
+1. Each experiment stops for review; it is committed locally only after approval.
+2. **Finish the planned VFX experiments before migrating Totality to Minecraft 26.3.**
+3. After the migration, return to other major development work, including **Codex, Scan and Technology**.

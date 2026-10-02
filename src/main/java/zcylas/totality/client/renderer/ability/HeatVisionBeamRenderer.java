@@ -4,35 +4,64 @@ package zcylas.totality.client.renderer.ability;
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.DepthStencilState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.systems.TimerQuery;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.ByteBufferBuilder;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.MappableRingBuffer;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
-import org.joml.Matrix4fc;
-import org.joml.Vector3f;
-import org.joml.Vector4f;
 import org.lwjgl.system.MemoryUtil;
+import zcylas.totality.api.core.util.VerificationReporter;
 import zcylas.totality.networking.ability.ClientAbilityManager;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.OptionalDouble;
+
+/**
+ * Heat Vision beam, V2 (VFX Experiment 2). Client presentation only: the server-side ability (mana, damage, block
+ * scorching) is unchanged.
+ *
+ * <ul>
+ *   <li>The beams leave the player's eyes (first person: slightly below and beside the view, so they read as two
+ *       converging beams instead of a dot at the crosshair; third person: from the face).</li>
+ *   <li>Each beam is a camera-facing ribbon shaded by {@code core/heat_vision_beam} (white-hot core, orange body, red
+ *       rim, energy flowing outwards); width never drops below {@link #MIN_HALF_ANGLE} on screen.</li>
+ *   <li>An impact hotspot ({@code core/heat_vision_hotspot}) marks a hit, with a little smoke and flame.</li>
+ *   <li>The hot core and the hotspot are contributed to the Totality Emissive Rendering Layer
+ *       ({@link HeatVisionEmissive}), which gives the glow.</li>
+ *   <li>The beam ignites (grows from the eyes over {@link #IGNITE_SECONDS}) and fades out ({@link #FADE_SECONDS}).</li>
+ * </ul>
+ *
+ * Depth: reversed-Z {@code GREATER_THAN_OR_EQUAL}, no depth writes (additive light), so terrain and entities in front
+ * hide the beam. All beams of a frame are drawn with one ribbon draw and one hotspot draw.
+ */
 public final class HeatVisionBeamRenderer {
 
     private static final Identifier HEAT_VISION_ID =
@@ -40,164 +69,162 @@ public final class HeatVisionBeamRenderer {
 
     private static final float RANGE = 20.0f;
 
-    // ── Beam box sizes (half-width of square cross-section) ───────────────────
-    private static final float CORE_SIZE  = 0.006f;
-    private static final float MID_SIZE   = 0.015f;
-    private static final float OUTER_SIZE = 0.030f;
+    // ── Shape ─────────────────────────────────────────────────────────────────
+    static final int SEGMENTS = 24;
+    /** Half-width of the ribbon in blocks (the shader's visible core is about a third of it). */
+    static final double BASE_HALF_WIDTH = 0.05;
+    /** Minimum half-width on screen, in radians (about 1.5 px at 1080p and a 70 degree field of view). */
+    static final double MIN_HALF_ANGLE = 0.0018;
+    static final double HOTSPOT_HALF_SIZE = 0.32;
+    private static final double FIRST_PERSON_FORWARD = 0.30;
+    private static final double FIRST_PERSON_SIDE = 0.11;
+    private static final double FIRST_PERSON_DOWN = 0.09;
+    private static final double THIRD_PERSON_FORWARD = 0.26;
+    private static final double THIRD_PERSON_SIDE = 0.065;
 
-    // ── Colors ────────────────────────────────────────────────────────────────
-    private static final float CORE_R  = 1.0f, CORE_G  = 0.9f, CORE_B  = 0.8f, CORE_A  = 1.0f;
-    private static final float MID_R   = 1.0f, MID_G   = 0.2f, MID_B   = 0.0f, MID_A   = 0.5f;
-    private static final float OUTER_R = 0.6f, OUTER_G = 0.0f, OUTER_B = 0.0f, OUTER_A = 0.2f;
+    // ── Timing ────────────────────────────────────────────────────────────────
+    static final float IGNITE_SECONDS = 0.18f;
+    static final float FADE_SECONDS = 0.12f;
 
-    // ── Pipeline ──────────────────────────────────────────────────────────────
-    private static final RenderPipeline PIPELINE = RenderPipelines.register(
-            RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
-                    .withLocation(Identifier.fromNamespaceAndPath("totality", "pipeline/heat_vision_beam"))
-                    .withCull(false)
-                    .withDepthStencilState(new DepthStencilState(
-                            CompareOp.LESS_THAN_OR_EQUAL, false, -4.0f, -100.0f))
-                    .build()
-    );
+    // ── Pipelines ─────────────────────────────────────────────────────────────
+    private static final RenderPipeline BEAM_PIPELINE = RenderPipelines.register(pipeline("heat_vision_v2_beam", "heat_vision_beam"));
+    private static final RenderPipeline HOTSPOT_PIPELINE = RenderPipelines.register(pipeline("heat_vision_v2_hotspot", "heat_vision_hotspot"));
 
-    private static final ByteBufferBuilder ALLOCATOR =
-            new ByteBufferBuilder(RenderType.SMALL_BUFFER_SIZE);
-    private static final Vector4f COLOR_MODULATOR = new Vector4f(1f, 1f, 1f, 1f);
-    private static final Vector3f MODEL_OFFSET    = new Vector3f();
-    private static final Matrix4f  TEXTURE_MATRIX = new Matrix4f();
-    private static MappableRingBuffer vertexBuffer;
+    private static final ByteBufferBuilder BEAM_ALLOCATOR = new ByteBufferBuilder(RenderType.SMALL_BUFFER_SIZE);
+    private static final ByteBufferBuilder HOTSPOT_ALLOCATOR = new ByteBufferBuilder(RenderType.SMALL_BUFFER_SIZE);
+    private static MappableRingBuffer beamVertices;
+    private static MappableRingBuffer hotspotVertices;
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    private static float level;
+    private static boolean igniting;
+    private static long lastNanos = -1;
+    private static Vec3 lastBlockHit;
+
+    /** Development only: extra client-side beams (measurements, depth probe). Empty in normal play. */
+    private static final List<HeatVisionBeam> TEST_BEAMS = new ArrayList<>();
+    /** Development only: draw with the pre-V2 renderer for A/B comparison. */
+    private static boolean classic;
+
+    // ── Development measurement ───────────────────────────────────────────────
+    private static TimerQuery timer;
+    private static boolean timing;
+    private static boolean awaitingTimer;
+    private static long lastGpuNanos = -1;
+    private static int lastDrawCalls;
+    private static int lastBeamCount;
 
     private HeatVisionBeamRenderer() {}
+
+    private static RenderPipeline pipeline(String name, String fragment) {
+        return RenderPipeline.builder(RenderPipelines.GLOBALS_SNIPPET)
+                .withLocation(Identifier.fromNamespaceAndPath("totality", "pipeline/" + name))
+                .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+                .withVertexShader(Identifier.fromNamespaceAndPath("totality", "core/heat_vision"))
+                .withFragmentShader(Identifier.fromNamespaceAndPath("totality", "core/" + fragment))
+                .withColorTargetState(new ColorTargetState(BlendFunction.ADDITIVE))
+                .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
+                .withPrimitiveTopology(PrimitiveTopology.QUADS)
+                .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+                .withCull(false)
+                .build();
+    }
 
     // ── Registration ──────────────────────────────────────────────────────────
 
     public static void register() {
-        LevelRenderEvents.BEFORE_TRANSLUCENT_TERRAIN.register(context -> {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null || mc.level == null) return;
-            if (!ClientAbilityManager.isChanneling(HEAT_VISION_ID)) return;
-
-            float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-
-            Vec3 eyePos  = mc.player.getEyePosition(partialTick);
-            Vec3 lookDir = mc.player.getViewVector(partialTick);
-            Vec3 endPos  = eyePos.add(lookDir.scale(RANGE));
-            Vec3 hitPos  = clientRaycast(mc, eyePos, endPos);
-            Vec3 camera  = context.levelState().cameraRenderState.pos;
-
-            // ── Key fix: use viewRotationMatrix instead of RenderSystem.getModelViewMatrix() ──
-            // viewRotationMatrix is the pure camera rotation WITHOUT head bob.
-            // RenderSystem.getModelViewMatrix() includes the head bob rotation,
-            // which causes the beam to swing when walking.
-            Matrix4f viewMatrix = context.levelState().cameraRenderState.viewRotationMatrix;
-
-            // Right vector from player rotation — stable, not affected by camera bob
-            Vec3 worldUp = new Vec3(0, 1, 0);
-            Vec3 right = lookDir.cross(worldUp).normalize();
-            if (right.lengthSqr() < 1e-6) {
-                right = new Vec3(1, 0, 0);
-            }
-
-            // Up vector — perpendicular to beam and right
-            Vec3 beamDir = hitPos.subtract(eyePos).normalize();
-            Vec3 up = right.cross(beamDir).normalize();
-
-            // Push render start forward so beam is visible in first person
-            float eyeSep = 0.06f;
-            Vec3 renderStart = camera.add(lookDir.scale(0.5));
-            Vec3 leftStart   = renderStart.subtract(right.scale(eyeSep));
-            Vec3 rightStart  = renderStart.add(right.scale(eyeSep));
-
-            PoseStack matrices = context.poseStack();
-
-            // Batched into a single BufferBuilder/draw call for the whole frame (both eyes, all
-            // three glow layers — 6 boxes total): MappableRingBuffer only has 3 slots, and each
-            // slot's fence is created by rotate() and awaited by the next currentBuffer() call on
-            // that same slot. Drawing more than 3 times per frame wraps back to a slot whose fence
-            // was created moments earlier in this same not-yet-submitted frame, and MC 26.2's GL
-            // fence throws IllegalStateException("Cannot wait on a fence for the current submit")
-            // instead of the older backend's lenient wait. One draw per frame sidesteps this
-            // entirely and matches how vanilla's own single-call-per-frame renderers use this class.
-            BufferBuilder buffer = new BufferBuilder(
-                    ALLOCATOR, PIPELINE.getPrimitiveTopology(), PIPELINE.getVertexFormatBinding(0));
-            renderBeamLayers(buffer, matrices, camera, leftStart,  hitPos, right, up);
-            renderBeamLayers(buffer, matrices, camera, rightStart, hitPos, right, up);
-
-            MeshData built = buffer.build();
-            if (built != null) draw(mc, built, viewMatrix);
-        });
+        LevelRenderEvents.BEFORE_TRANSLUCENT_TERRAIN.register(context -> render(context.levelState().cameraRenderState));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> impactParticles());
     }
 
-    // ── Beam layers ───────────────────────────────────────────────────────────
+    private static void render(CameraRenderState camera) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) {
+            level = 0;
+            HeatVisionEmissive.INSTANCE.submit(List.of(), SEGMENTS, BASE_HALF_WIDTH, MIN_HALF_ANGLE);
+            return;
+        }
+        if (timer != null && awaitingTimer && timer.getStatus() == TimerQuery.Status.NOT_RECORDING) {
+            lastGpuNanos = timer.get();
+            awaitingTimer = false;
+        }
+        float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+        boolean channeling = ClientAbilityManager.isChanneling(HEAT_VISION_ID);
+        advance(channeling);
 
-    private static void renderBeamLayers(BufferBuilder buffer, PoseStack matrices, Vec3 camera,
-                                         Vec3 start, Vec3 end,
-                                         Vec3 right, Vec3 up) {
-        renderBox(buffer, matrices, camera, start, end, right, up,
-                OUTER_SIZE, OUTER_R, OUTER_G, OUTER_B, OUTER_A);
-        renderBox(buffer, matrices, camera, start, end, right, up,
-                MID_SIZE,   MID_R,   MID_G,   MID_B,   MID_A);
-        renderBox(buffer, matrices, camera, start, end, right, up,
-                CORE_SIZE,  CORE_R,  CORE_G,  CORE_B,  CORE_A);
+        List<HeatVisionBeam> beams = new ArrayList<>(TEST_BEAMS);
+        lastBlockHit = null;
+        if (level > 0.001f) addPlayerBeams(mc, mc.player, partialTick, beams);
+        lastBeamCount = beams.size();
+        lastDrawCalls = 0;
+        if (beams.isEmpty() && !(classic && channeling)) {
+            HeatVisionEmissive.INSTANCE.submit(List.of(), SEGMENTS, BASE_HALF_WIDTH, MIN_HALF_ANGLE);
+            return;
+        }
+        boolean timed = timing && timer != null && !awaitingTimer && timer.getStatus() == TimerQuery.Status.NOT_RECORDING;
+        if (timed) timer.beginProfile();
+        if (classic) {
+            lastDrawCalls = HeatVisionClassicRenderer.draw(mc, TEST_BEAMS, camera, channeling);
+            HeatVisionEmissive.INSTANCE.submit(List.of(), SEGMENTS, BASE_HALF_WIDTH, MIN_HALF_ANGLE);
+        } else {
+            drawBeams(mc, beams, camera);
+            HeatVisionEmissive.INSTANCE.submit(beams, SEGMENTS, BASE_HALF_WIDTH, MIN_HALF_ANGLE);
+        }
+        if (timed) {
+            timer.endProfile();
+            awaitingTimer = true;
+        }
     }
 
-    // ── Box renderer ──────────────────────────────────────────────────────────
-
-    private static void renderBox(BufferBuilder buffer, PoseStack matrices, Vec3 camera,
-                                  Vec3 start, Vec3 end,
-                                  Vec3 right, Vec3 up,
-                                  float half,
-                                  float r, float g, float b, float a) {
-        matrices.pushPose();
-        Matrix4fc pose = new Matrix4f(); // identity — no bob
-
-        // Camera-relative positions
-        float sx = (float)(start.x - camera.x);
-        float sy = (float)(start.y - camera.y);
-        float sz = (float)(start.z - camera.z);
-        float ex = (float)(end.x - camera.x);
-        float ey = (float)(end.y - camera.y);
-        float ez = (float)(end.z - camera.z);
-
-        float rx = (float)(right.x * half), ry = (float)(right.y * half), rz = (float)(right.z * half);
-        float ux = (float)(up.x    * half), uy = (float)(up.y    * half), uz = (float)(up.z    * half);
-
-        // 8 corners of the box prism
-        float s_tr_x = sx+rx+ux, s_tr_y = sy+ry+uy, s_tr_z = sz+rz+uz;
-        float s_tl_x = sx-rx+ux, s_tl_y = sy-ry+uy, s_tl_z = sz-rz+uz;
-        float s_bl_x = sx-rx-ux, s_bl_y = sy-ry-uy, s_bl_z = sz-rz-uz;
-        float s_br_x = sx+rx-ux, s_br_y = sy+ry-uy, s_br_z = sz+rz-uz;
-        float e_tr_x = ex+rx+ux, e_tr_y = ey+ry+uy, e_tr_z = ez+rz+uz;
-        float e_tl_x = ex-rx+ux, e_tl_y = ey-ry+uy, e_tl_z = ez-rz+uz;
-        float e_bl_x = ex-rx-ux, e_bl_y = ey-ry-uy, e_bl_z = ez-rz-uz;
-        float e_br_x = ex+rx-ux, e_br_y = ey+ry-uy, e_br_z = ez+rz-uz;
-
-        // 6 faces
-        quad(buffer, pose, s_tr_x,s_tr_y,s_tr_z, s_tl_x,s_tl_y,s_tl_z, e_tl_x,e_tl_y,e_tl_z, e_tr_x,e_tr_y,e_tr_z, r,g,b,a);
-        quad(buffer, pose, s_br_x,s_br_y,s_br_z, e_br_x,e_br_y,e_br_z, e_bl_x,e_bl_y,e_bl_z, s_bl_x,s_bl_y,s_bl_z, r,g,b,a);
-        quad(buffer, pose, s_tr_x,s_tr_y,s_tr_z, e_tr_x,e_tr_y,e_tr_z, e_br_x,e_br_y,e_br_z, s_br_x,s_br_y,s_br_z, r,g,b,a);
-        quad(buffer, pose, s_tl_x,s_tl_y,s_tl_z, s_bl_x,s_bl_y,s_bl_z, e_bl_x,e_bl_y,e_bl_z, e_tl_x,e_tl_y,e_tl_z, r,g,b,a);
-        quad(buffer, pose, s_tl_x,s_tl_y,s_tl_z, s_tr_x,s_tr_y,s_tr_z, s_br_x,s_br_y,s_br_z, s_bl_x,s_bl_y,s_bl_z, r,g,b,a);
-        quad(buffer, pose, e_tr_x,e_tr_y,e_tr_z, e_tl_x,e_tl_y,e_tl_z, e_bl_x,e_bl_y,e_bl_z, e_br_x,e_br_y,e_br_z, r,g,b,a);
-
-        matrices.popPose();
+    /** Ignition / fade envelope, time-based. */
+    private static void advance(boolean channeling) {
+        long now = System.nanoTime();
+        float dt = lastNanos < 0 ? 0 : Math.min((now - lastNanos) / 1.0e9f, 0.1f);
+        lastNanos = now;
+        if (channeling) {
+            if (level <= 0.001f) igniting = true;
+            level = Math.min(1.0f, level + dt / IGNITE_SECONDS);
+            if (level >= 1.0f) igniting = false;
+        } else {
+            igniting = false;
+            level = Math.max(0.0f, level - dt / FADE_SECONDS);
+        }
     }
 
-    private static void quad(BufferBuilder buf, Matrix4fc pose,
-                             float x0, float y0, float z0,
-                             float x1, float y1, float z1,
-                             float x2, float y2, float z2,
-                             float x3, float y3, float z3,
-                             float r, float g, float b, float a) {
-        buf.addVertex(pose, x0, y0, z0).setColor(r, g, b, a);
-        buf.addVertex(pose, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(pose, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(pose, x3, y3, z3).setColor(r, g, b, a);
+    private static void addPlayerBeams(Minecraft mc, Player player, float partialTick, List<HeatVisionBeam> beams) {
+        Vec3 eye = player.getEyePosition(partialTick);
+        Vec3 look = player.getViewVector(partialTick);
+        Vec3 hitPos = clientRaycast(mc, eye, eye.add(look.scale(RANGE)));
+        boolean hit = hitPos != null;
+        Vec3 end = hit ? hitPos : eye.add(look.scale(RANGE));
+
+        Vec3 right = look.cross(new Vec3(0, 1, 0));
+        right = right.lengthSqr() < 1e-6 ? new Vec3(1, 0, 0) : right.normalize();
+        Vec3 up = right.cross(look).normalize();
+        boolean firstPerson = mc.options.getCameraType().isFirstPerson();
+        double forward = firstPerson ? FIRST_PERSON_FORWARD : THIRD_PERSON_FORWARD;
+        double side = firstPerson ? FIRST_PERSON_SIDE : THIRD_PERSON_SIDE;
+        double down = firstPerson ? FIRST_PERSON_DOWN : 0.0;
+        Vec3 centre = eye.add(look.scale(forward)).subtract(up.scale(down));
+
+        float strength = smooth(level);
+        float length = igniting ? smooth(level) : 1.0f;
+        beams.add(new HeatVisionBeam(centre.subtract(right.scale(side)), end, hit, strength, length));
+        beams.add(new HeatVisionBeam(centre.add(right.scale(side)), end, hit, strength, length));
+        if (hit && lastHitIsBlock) lastBlockHit = end;
+    }
+
+    private static float smooth(float x) {
+        return x * x * (3.0f - 2.0f * x);
     }
 
     // ── Client raycast ────────────────────────────────────────────────────────
 
+    private static boolean lastHitIsBlock;
+
+    /** The first entity or block hit along the eye line, or null when nothing is within range. */
     private static Vec3 clientRaycast(Minecraft mc, Vec3 start, Vec3 end) {
+        lastHitIsBlock = false;
         AABB searchBox = mc.player.getBoundingBox()
                 .expandTowards(mc.player.getLookAngle().scale(RANGE))
                 .inflate(1.0);
@@ -228,74 +255,164 @@ public final class HeatVisionBeamRenderer {
         ));
 
         if (blockHit.getType() != HitResult.Type.MISS) {
+            lastHitIsBlock = true;
             return blockHit.getLocation();
         }
 
-        return end;
+        return null;
+    }
+
+    /** The hit point along the eye line, or {@code end} when nothing is within range (the pre-V2 behaviour). */
+    static Vec3 raycastOrEnd(Minecraft mc, Vec3 start, Vec3 end) {
+        Vec3 hit = clientRaycast(mc, start, end);
+        return hit == null ? end : hit;
+    }
+
+    // ── Impact particles (local player's beam on a block) ─────────────────────
+
+    private static int particleTick;
+
+    private static void impactParticles() {
+        Minecraft mc = Minecraft.getInstance();
+        Vec3 at = lastBlockHit;
+        if (at == null || mc.level == null || level < 0.5f) return;
+        particleTick++;
+        if (particleTick % 2 == 0) {
+            mc.level.addParticle(ParticleTypes.SMOKE, at.x, at.y + 0.05, at.z, 0.0, 0.03, 0.0);
+        }
+        if (particleTick % 5 == 0) {
+            mc.level.addParticle(ParticleTypes.SMALL_FLAME, at.x, at.y + 0.05, at.z,
+                    (mc.level.getRandom().nextDouble() - 0.5) * 0.04, 0.02, (mc.level.getRandom().nextDouble() - 0.5) * 0.04);
+        }
     }
 
     // ── GPU draw ──────────────────────────────────────────────────────────────
 
+    private static void drawBeams(Minecraft mc, List<HeatVisionBeam> beams, CameraRenderState camera) {
+        BufferBuilder beamBuffer = new BufferBuilder(BEAM_ALLOCATOR, BEAM_PIPELINE.getPrimitiveTopology(),
+                BEAM_PIPELINE.getVertexFormatBinding(0));
+        BufferBuilder hotspotBuffer = new BufferBuilder(HOTSPOT_ALLOCATOR, HOTSPOT_PIPELINE.getPrimitiveTopology(),
+                HOTSPOT_PIPELINE.getVertexFormatBinding(0));
+        HeatVisionGeometry.VertexSink beamSink = (x, y, z, u, v, r, g, b, a) -> beamBuffer.addVertex(x, y, z).setUv(u, v).setColor(r, g, b, a);
+        HeatVisionGeometry.VertexSink hotspotSink = (x, y, z, u, v, r, g, b, a) -> hotspotBuffer.addVertex(x, y, z).setUv(u, v).setColor(r, g, b, a);
+        for (HeatVisionBeam beam : beams) {
+            HeatVisionGeometry.ribbon(beam, camera.pos, SEGMENTS, BASE_HALF_WIDTH, MIN_HALF_ANGLE, 1.0, 1.0f, 1.0f, 1.0f, beamSink);
+            HeatVisionGeometry.hotspot(beam, camera.pos, HOTSPOT_HALF_SIZE, MIN_HALF_ANGLE * 4.0, 1.0f, 1.0f, 1.0f, hotspotSink);
+        }
+        MeshData beamMesh = beamBuffer.build();
+        if (beamMesh != null) {
+            beamVertices = draw(mc, BEAM_PIPELINE, beamMesh, beamVertices, "beam", camera.viewRotationMatrix);
+            lastDrawCalls++;
+        }
+        MeshData hotspotMesh = hotspotBuffer.build();
+        if (hotspotMesh != null) {
+            hotspotVertices = draw(mc, HOTSPOT_PIPELINE, hotspotMesh, hotspotVertices, "hotspot", camera.viewRotationMatrix);
+            lastDrawCalls++;
+        }
+    }
+
     /**
-     * Draws the mesh using the provided transform matrix.
-     *
-     * Using viewRotationMatrix (no head bob) instead of RenderSystem.getModelViewMatrix()
-     * (which includes head bob) fixes the beam swinging when walking.
+     * Uploads {@code mesh} and draws it once. Each pipeline has its own ring buffer and draws once per frame: a
+     * {@link MappableRingBuffer} slot must not be reused within one frame (26.2's fences reject that).
      */
     @SuppressWarnings("resource")
-    private static void draw(Minecraft mc, MeshData built, Matrix4f viewMatrix) {
-        MeshData.DrawState drawState = built.drawState();
+    static MappableRingBuffer draw(Minecraft mc, RenderPipeline pipeline, MeshData mesh, MappableRingBuffer ring,
+                                   String label, Matrix4f viewMatrix) {
+        MeshData.DrawState drawState = mesh.drawState();
         VertexFormat format = drawState.format();
-
         int size = drawState.vertexCount() * format.getVertexSize();
-        if (vertexBuffer == null || vertexBuffer.size() < size) {
-            if (vertexBuffer != null) vertexBuffer.close();
-            vertexBuffer = new MappableRingBuffer(
-                    () -> "totality heat vision beam",
-                    GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE,
-                    size);
+        if (ring == null || ring.size() < size) {
+            if (ring != null) ring.close();
+            ring = new MappableRingBuffer(() -> "totality heat vision " + label,
+                    GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_MAP_WRITE, Math.max(size, 8192));
         }
-
-        try (GpuBufferSlice.MappedView view = vertexBuffer.currentBuffer()
-                .slice(0, built.vertexBuffer().remaining())
+        try (GpuBufferSlice.MappedView view = ring.currentBuffer()
+                .slice(0, mesh.vertexBuffer().remaining())
                 .map(false, true)) {
-            MemoryUtil.memCopy(built.vertexBuffer(), view.data());
+            MemoryUtil.memCopy(mesh.vertexBuffer(), view.data());
         }
-
-        GpuBuffer vertices = vertexBuffer.currentBuffer();
-        RenderSystem.AutoStorageIndexBuffer indexBuffer =
-                RenderSystem.getSequentialBuffer(PIPELINE.getPrimitiveTopology());
+        RenderSystem.AutoStorageIndexBuffer indexBuffer = RenderSystem.getSequentialBuffer(pipeline.getPrimitiveTopology());
         GpuBuffer indices = indexBuffer.getBuffer(drawState.indexCount());
-
-        // Use viewRotationMatrix — pure camera rotation without head bob
-        GpuBufferSlice dynamicTransforms = RenderSystem.getDynamicUniforms()
-                .writeTransform(viewMatrix, COLOR_MODULATOR, MODEL_OFFSET, TEXTURE_MATRIX);
-
+        GpuBufferSlice dynamicTransforms = RenderSystem.getDynamicUniforms().writeTransform(viewMatrix);
         try (RenderPass pass = RenderSystem.getDevice()
                 .createCommandEncoder()
                 .createRenderPass(
-                        () -> "totality heat vision beam rendering",
+                        () -> "totality heat vision " + label,
                         mc.gameRenderer.mainRenderTarget().getColorTextureView(),
-                        java.util.Optional.empty(),
+                        Optional.empty(),
                         mc.gameRenderer.mainRenderTarget().getDepthTextureView(),
-                        java.util.OptionalDouble.empty())) {
-            pass.setPipeline(PIPELINE);
+                        OptionalDouble.empty())) {
+            pass.setPipeline(pipeline);
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("DynamicTransforms", dynamicTransforms);
-            pass.setVertexBuffer(0, vertices.slice());
+            pass.setVertexBuffer(0, ring.currentBuffer().slice());
             pass.setIndexBuffer(indices, indexBuffer.type());
             pass.drawIndexed(drawState.indexCount(), 1, 0, 0, 0);
         }
+        mesh.close();
+        ring.rotate();
+        return ring;
+    }
 
-        built.close();
-        vertexBuffer.rotate();
+    // ── Development hooks ─────────────────────────────────────────────────────
+
+    /** Development only: replaces the extra client-side test beams (empty list = none). */
+    public static void setTestBeams(List<HeatVisionBeam> beams) {
+        TEST_BEAMS.clear();
+        TEST_BEAMS.addAll(beams);
+    }
+
+    /** Development only: draw with the pre-V2 renderer (A/B comparison). Ignored outside a development environment. */
+    public static void setClassic(boolean on) {
+        classic = on && VerificationReporter.isDevEnvironment();
+    }
+
+    public static boolean classic() {
+        return classic;
+    }
+
+    public static void setTiming(boolean on) {
+        timing = on;
+        if (on && timer == null) timer = new TimerQuery();
+        lastGpuNanos = -1;
+    }
+
+    /** GPU time of the beam draws (average of the last measured frames), or -1 when not measured. */
+    public static long lastGpuNanos() {
+        return lastGpuNanos;
+    }
+
+    public static int lastDrawCalls() {
+        return lastDrawCalls;
+    }
+
+    public static int lastBeamCount() {
+        return lastBeamCount;
+    }
+
+    /** Bytes of the vertex ring buffers currently allocated (3 slots each). */
+    public static long vertexBufferBytes() {
+        long total = 0;
+        if (beamVertices != null) total += 3L * beamVertices.size();
+        if (hotspotVertices != null) total += 3L * hotspotVertices.size();
+        return total + HeatVisionClassicRenderer.vertexBufferBytes();
     }
 
     public static void close() {
-        ALLOCATOR.close();
-        if (vertexBuffer != null) {
-            vertexBuffer.close();
-            vertexBuffer = null;
+        BEAM_ALLOCATOR.close();
+        HOTSPOT_ALLOCATOR.close();
+        if (beamVertices != null) {
+            beamVertices.close();
+            beamVertices = null;
+        }
+        if (hotspotVertices != null) {
+            hotspotVertices.close();
+            hotspotVertices = null;
+        }
+        HeatVisionClassicRenderer.close();
+        if (timer != null) {
+            timer.close();
+            timer = null;
         }
     }
 }

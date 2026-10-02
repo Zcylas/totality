@@ -14,6 +14,8 @@ import zcylas.totality.api.core.util.VerificationReporter;
 import zcylas.totality.client.hologram.dev.HologramCapture;
 import zcylas.totality.client.vfx.glow.EmissiveGlow;
 import zcylas.totality.client.vfx.glow.EmissiveGlowSettings;
+import zcylas.totality.client.vfx.heatvision.dev.HeatVisionCapture;
+import zcylas.totality.client.vfx.heatvision.dev.HeatVisionDev;
 
 import java.util.Locale;
 
@@ -25,7 +27,8 @@ import java.util.Locale;
  *   <li>{@code glow}: status; {@code glow on|off}; {@code glow intensity <0-4>}; {@code glow levels <2-6>} (saved to
  *       {@code config/totality-vfx.properties});</li>
  *   <li>{@code test <count>}: client-only test objects in front of the player; {@code test clear} removes them;</li>
- *   <li>{@code timing on|off}: GPU timing of the glow passes; {@code timing} prints the latest value.</li>
+ *   <li>{@code timing on|off}: GPU timing of the glow passes; {@code timing} prints the latest value;</li>
+ *   <li>{@code heatvision ...}: Heat Vision V2 test beams, classic A/B renderer, timing ({@link HeatVisionDev}).</li>
  * </ul>
  */
 public final class EmissiveGlowDevCommand {
@@ -37,7 +40,10 @@ public final class EmissiveGlowDevCommand {
     public static void registerIfDevelopmentEnvironment() {
         if (!VerificationReporter.isDevEnvironment()) return;
         EmissiveTestScene.register();
-        if (HologramCapture.requested()) HologramCapture.addScene(66, EmissiveGlowCapture.scenes());
+        if (HologramCapture.requested()) {
+            HologramCapture.addScene(66, EmissiveGlowCapture.scenes());
+            HologramCapture.addScene(67, HeatVisionCapture.scenes());
+        }
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             LiteralArgumentBuilder<FabricClientCommandSource> root = ClientCommands.literal(ROOT).executes(EmissiveGlowDevCommand::status);
             root.then(ClientCommands.literal("glow").executes(EmissiveGlowDevCommand::status)
@@ -79,6 +85,7 @@ public final class EmissiveGlowDevCommand {
                         EmissiveGlow.setTiming(false);
                         return timing(ctx);
                     })));
+            root.then(HeatVisionDev.command());
             dispatcher.register(root);
         });
     }
