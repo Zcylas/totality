@@ -66,7 +66,7 @@ final class EmissiveBloomRenderer {
 
     /** Runs the layer for this frame (render thread). */
     void render(RenderTarget main, CameraRenderState camera, float partialTick, List<EmissiveSource> sources,
-                EmissiveGlowSettings settings) {
+                EmissiveGlowSettings settings, EmissiveBudget budget) {
         pollTimer();
         if (!settings.active() || sources.isEmpty() || main.getDepthTextureView() == null) {
             idle();
@@ -75,7 +75,9 @@ final class EmissiveBloomRenderer {
         BufferBuilder builder = new BufferBuilder(allocator, EmissiveGlowPipelines.EMISSIVE.getPrimitiveTopology(),
                 EmissiveGlowPipelines.EMISSIVE.getVertexFormatBinding(0));
         EmissiveBuffer buffer = new EmissiveBuffer(builder);
+        budget.resolve(sources, settings.globalLimit());
         for (EmissiveSource source : sources) {
+            buffer.setScale(budget.scale(source));
             source.emit(buffer, camera.pos, partialTick);
         }
         lastQuads = buffer.quadCount();

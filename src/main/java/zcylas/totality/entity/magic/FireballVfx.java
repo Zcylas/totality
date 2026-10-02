@@ -3,9 +3,14 @@ package zcylas.totality.entity.magic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import zcylas.totality.api.core.util.VerificationReporter;
 import zcylas.totality.init.ModParticles;
+
+import java.util.function.Predicate;
 
 /**
  * Fireball's particle recipes, after Context/References/Other/fireball.png and the D&D spell ("a bright streak flashes
@@ -14,19 +19,73 @@ import zcylas.totality.init.ModParticles;
  * shock ring, and its lingering embers and smoke. Reuses Firebolt's ember / wisp / spark / streak / flash particles
  * and adds the blast sphere, smoke puffs and charred fragments. Only ever called on clients (the projectile's client
  * tick and the detonation emitter); it only adds particles, so it is safe in common code.
+ *
+ * <p>Fireball V2 (VFX Experiment 3, B3-B4) uses its own sparks, embers and heat streaks (near-camera size limit) under
+ * {@link FireballParticleBudget}: a restrained cast flash, an ember trail behind the projectile's streak (the streak
+ * itself is drawn by the projectile renderer), debris that flies out past the fire front, and a cooling aftermath of
+ * smoke and embers that starts as the fire cools and is gone by four seconds. The V1 recipes stay for the
+ * development-only A/B comparison ({@link #setLegacyProjectile}, {@code FireballDetonationParticle.setLegacyExplosion}).
  */
 public final class FireballVfx {
 
     /** How long the detonation emitter keeps adding lingering embers and smoke. */
     public static final int LINGER_TICKS = 40;
+    /** Fireball V2: the emitter's aftermath (smoke until tick 30, embers until 56; every particle gone by tick 80). */
+    public static final int V2_LINGER_TICKS = 56;
+    static final int V2_SMOKE_FROM = 14;
+    static final int V2_SMOKE_UNTIL = 30;
+    static final int V2_EMBERS_FROM = 18;
+    /** No aftermath smoke puff closer than this to the viewer (with the camera inside the blast, puffs would fill it). */
+    static final double V2_SMOKE_CLEARANCE = 3.5;
+    /** A client that first sees a fireball this close to its caster's eyes saw the cast (about three ticks of flight). */
+    static final double CAST_SEEN_DISTANCE = 4.5;
+
+    /** Development only: the V1 projectile (renderer, cast burst and trail) for A/B comparison. */
+    private static boolean legacyProjectile;
+    /** Cast bursts played on this client (development capture: a fireball first seen mid-flight plays none). */
+    private static int castBursts;
 
     private FireballVfx() {}
+
+    /** Development only: use the V1 projectile look (ignored outside a development environment). */
+    public static void setLegacyProjectile(boolean on) {
+        legacyProjectile = on && VerificationReporter.isDevEnvironment();
+    }
+
+    public static boolean legacyProjectile() {
+        return legacyProjectile;
+    }
+
+    public static int castBursts() {
+        return castBursts;
+    }
+
+    /**
+     * True when {@code fireball}, first seen at {@code at}, is a fresh cast: its caster is known to this client and the
+     * fireball is still within {@link #CAST_SEEN_DISTANCE} of the caster's eyes. A fireball that comes into tracking
+     * range mid-flight (or whose caster this client does not know) is not, and plays no cast ignition.
+     */
+    public static boolean sawCast(FireballProjectileEntity fireball, Vec3 at) {
+        Entity owner = fireball.getOwner();
+        return owner != null && owner.getEyePosition().distanceTo(at) <= CAST_SEEN_DISTANCE;
+    }
+
+    /** Distance from {@code at} to the nearest player (the camera, on a client; spectators count), for the particle budget. */
+    static double viewDistance(Level level, Vec3 at) {
+        Player p = level.getNearestPlayer(at.x, at.y, at.z, -1.0, (Predicate<Entity>) null);
+        return p == null ? Double.MAX_VALUE : p.getEyePosition().distanceTo(at);
+    }
 
     /**
      * Ignition where the orb first shows, 2.5 blocks in front of the caster's eyes (closer, it fills a first-person
      * view): a flash and a fountain of flame, sparks and embers leaning forward and up, all moving away from the caster.
      */
     public static void castBurst(Level level, Vec3 at, Vec3 dir) {
+        castBursts++;
+        if (!legacyProjectile) {
+            castBurstV2(level, at, dir);
+            return;
+        }
         RandomSource r = level.getRandom();
         Vec3 p0 = at.add(dir.scale(2.5));
         level.addParticle(ModParticles.FIREBOLT_FLASH, p0.x, p0.y, p0.z, 0.55, 0, 0);
@@ -46,10 +105,32 @@ public final class FireballVfx {
     }
 
     /**
+     * Fireball V2's cast ignition: a few sparks thrown forwards and a couple of embers where the bead emerges (2.5 blocks
+     * out, clear of a first-person view); no smoke, no flame wisps. The white-gold flash itself is the bead flaring as
+     * it emerges (the projectile renderer); a flash particle there read as a large flat square in first person.
+     */
+    private static void castBurstV2(Level level, Vec3 at, Vec3 dir) {
+        RandomSource r = level.getRandom();
+        Vec3 p0 = at.add(dir.scale(2.5));
+        for (int i = 0; i < 7; i++) {
+            Vec3 v = cone(r, dir.add(0, 0.35, 0).normalize(), 0.5).scale(0.25 + r.nextDouble() * 0.2);
+            level.addParticle(ModParticles.FIREBALL_SPARK, p0.x, p0.y, p0.z, v.x, v.y, v.z);
+        }
+        for (int i = 0; i < 3; i++) {
+            Vec3 v = dir.scale(0.06).add(jitter(r, 0.04)).add(0, 0.03, 0);
+            level.addParticle(ModParticles.FIREBALL_EMBER, p0.x, p0.y, p0.z, v.x, v.y, v.z);
+        }
+    }
+
+    /**
      * One tick of flight from {@code from} to {@code to} (1.2 blocks): a restrained trail behind the bead — ember motes,
      * flame wisps, sparks, heat streaks along the path, and now and then a burnt fragment (no smoke in flight).
      */
     public static void trail(Level level, Vec3 from, Vec3 to, Vec3 dir) {
+        if (!legacyProjectile) {
+            trailV2(level, from, to, dir);
+            return;
+        }
         RandomSource r = level.getRandom();
         for (int i = 0; i < 3; i++) {
             Vec3 p = lerp(from, to, r.nextDouble()).add(jitter(r, 0.2));
@@ -75,6 +156,27 @@ public final class FireballVfx {
             Vec3 p = lerp(from, to, r.nextDouble());
             Vec3 v = cone(r, dir.scale(-1), 1.0).scale(0.08);
             level.addParticle(ModParticles.FIREBALL_FRAGMENT, p.x, p.y, p.z, v.x, v.y, v.z);
+        }
+    }
+
+    /**
+     * Fireball V2's trail for one tick of flight: two or three embers shed behind the streak (cooling gold to red,
+     * drifting up, about a second) and now and then a spark; no wisps, streaks or fragments (the projectile renderer
+     * draws the streak). Budgeted by distance and load.
+     */
+    private static void trailV2(Level level, Vec3 from, Vec3 to, Vec3 dir) {
+        RandomSource r = level.getRandom();
+        double distance = viewDistance(level, to);
+        int embers = FireballParticleBudget.allow(2 + r.nextInt(2), distance);
+        for (int i = 0; i < embers; i++) {
+            Vec3 p = lerp(from, to, r.nextDouble()).subtract(dir.scale(0.5)).add(jitter(r, 0.12));
+            Vec3 v = dir.scale(-0.03 - r.nextDouble() * 0.03).add(jitter(r, 0.02)).add(0, 0.02, 0);
+            level.addParticle(ModParticles.FIREBALL_EMBER, p.x, p.y, p.z, v.x, v.y, v.z);
+        }
+        if (r.nextDouble() < FireballParticleBudget.scaleChance(0.25, distance)) {
+            Vec3 p = lerp(from, to, r.nextDouble());
+            Vec3 v = cone(r, dir.scale(-1), 1.0).scale(0.08 + r.nextDouble() * 0.08);
+            level.addParticle(ModParticles.FIREBALL_SPARK, p.x, p.y, p.z, v.x, v.y, v.z);
         }
     }
 
@@ -107,6 +209,56 @@ public final class FireballVfx {
             // friction 0.86 over ~9 ticks carries a wisp ~7x its start speed: these reach the sphere's edge
             Vec3 v = sphere(r).scale(radius * 0.8 / 7.0 * (0.7 + r.nextDouble() * 0.5));
             level.addParticle(ModParticles.FIREBOLT_WISP, c.x, c.y, c.z, v.x, v.y, v.z);
+        }
+    }
+
+    /**
+     * Fireball V2's debris (the fire itself is the layered explosion drawn on the client): bright sparks and heat streaks
+     * fast enough to fly out past the flame front within about 0.15 s, biased away from the surface hit, so they read
+     * as debris thrown out of the blast rather than specks laid over it. No dark fragments (over the fire they read as
+     * black squares) and no flash particle. Budgeted by distance and load.
+     */
+    public static void detonateDebris(Level level, Vec3 at, Vec3 normal) {
+        RandomSource r = level.getRandom();
+        double distance = viewDistance(level, at);
+        Vec3 bias = normal.scale(0.35);
+        int sparks = FireballParticleBudget.allow(22, distance);
+        for (int i = 0; i < sparks; i++) {
+            Vec3 v = sphere(r).add(bias).normalize().scale(0.9 + r.nextDouble() * 0.5);
+            level.addParticle(ModParticles.FIREBALL_SPARK, at.x, at.y, at.z, v.x, v.y, v.z);
+        }
+        int streaks = FireballParticleBudget.allow(10, distance);
+        for (int i = 0; i < streaks; i++) {
+            Vec3 v = sphere(r).add(bias).normalize().scale(1.1 + r.nextDouble() * 0.4);
+            level.addParticle(ModParticles.FIREBALL_STREAK, at.x, at.y, at.z, v.x, v.y, v.z);
+        }
+    }
+
+    /**
+     * Fireball V2's aftermath on emitter tick {@code age} (the fire itself is gone by about 1.45 s): smoke rises from the
+     * upper, cooling part of the blast between ticks {@link #V2_SMOKE_FROM} and {@link #V2_SMOKE_UNTIL} (about 16 puffs,
+     * never in front of the hot fire's early peak), then a thinning scatter of small, dim embers drifting up from the
+     * burnt area until {@link #V2_LINGER_TICKS}. No flame wisps after the fire (they would read as burning ground, which
+     * only the real fire blocks are). Every particle has ended by tick 80 (4 s).
+     */
+    public static void aftermathV2(Level level, Vec3 at, double radius, int age, double groundY) {
+        RandomSource r = level.getRandom();
+        double distance = viewDistance(level, at);
+        if (age >= V2_SMOKE_FROM && age <= V2_SMOKE_UNTIL && FireballParticleBudget.allow(1, distance) > 0 && r.nextFloat() < 0.95F) {
+            Vec3 d = sphere(r);
+            if (d.y < 0) d = new Vec3(d.x, -d.y, d.z);
+            Vec3 p = at.add(d.add(0, 0.6, 0).normalize().scale(radius * (0.35 + 0.45 * r.nextDouble())));
+            if (viewDistance(level, p) >= V2_SMOKE_CLEARANCE) level.addParticle(ModParticles.FIREBALL_SMOKE, p.x, p.y, p.z, d.x * 0.01, 0.035 + r.nextDouble() * 0.025, d.z * 0.01);
+        }
+        if (age >= V2_EMBERS_FROM) {
+            float left = 1.0F - (float) (age - V2_EMBERS_FROM) / (V2_LINGER_TICKS - V2_EMBERS_FROM);
+            int embers = FireballParticleBudget.allow(Math.round(3 * left * left + r.nextFloat() * left), distance);
+            for (int i = 0; i < embers; i++) {
+                Vec3 p = at.add(flat(r).scale(radius * 0.8 * Math.sqrt(r.nextDouble())));
+                double y = Double.isNaN(groundY) ? p.y + (r.nextDouble() - 0.5) * radius : groundY + 0.3 + r.nextDouble() * 1.5;
+                level.addParticle(ModParticles.FIREBALL_EMBER, p.x, y, p.z, (r.nextDouble() - 0.5) * 0.02, 0.025 + r.nextDouble() * 0.03,
+                        (r.nextDouble() - 0.5) * 0.02);
+            }
         }
     }
 

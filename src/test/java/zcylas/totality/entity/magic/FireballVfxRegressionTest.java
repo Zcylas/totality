@@ -65,7 +65,7 @@ class FireballVfxRegressionTest {
 
     @Test
     void everyParticleDefinitionPointsAtRealSprites() throws Exception {
-        for (String name : new String[]{"blast", "smoke", "fragment"}) {
+        for (String name : new String[]{"blast", "smoke", "fragment", "spark", "ember", "streak"}) {
             JsonArray textures = JsonParser.parseString(Files.readString(ASSETS.resolve("particles/fireball_" + name + ".json")))
                     .getAsJsonObject().getAsJsonArray("textures");
             assertTrue(textures.size() >= 4, name);

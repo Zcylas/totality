@@ -17,6 +17,12 @@ public final class FireballParticles {
                 new FireballParticle(level, x, y, z, xd, yd, zd, sprites, FireballParticle.Kind.SMOKE, random));
         r.register(ModParticles.FIREBALL_FRAGMENT, sprites -> (options, level, x, y, z, xd, yd, zd, random) ->
                 new FireballParticle(level, x, y, z, xd, yd, zd, sprites, FireballParticle.Kind.FRAGMENT, random));
+        r.register(ModParticles.FIREBALL_SPARK, sprites -> (options, level, x, y, z, xd, yd, zd, random) ->
+                new FireballParticle(level, x, y, z, xd, yd, zd, sprites, FireballParticle.Kind.SPARK, random));
+        r.register(ModParticles.FIREBALL_EMBER, sprites -> (options, level, x, y, z, xd, yd, zd, random) ->
+                new FireballParticle(level, x, y, z, xd, yd, zd, sprites, FireballParticle.Kind.EMBER, random));
+        r.register(ModParticles.FIREBALL_STREAK, sprites -> (options, level, x, y, z, xd, yd, zd, random) ->
+                new FireballParticle(level, x, y, z, xd, yd, zd, sprites, FireballParticle.Kind.STREAK, random));
         r.register(ModParticles.FIREBALL_DETONATION, sprites -> (options, level, x, y, z, xd, yd, zd, random) ->
                 new FireballDetonationParticle(level, x, y, z, xd < 0));
     }

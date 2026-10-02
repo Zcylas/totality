@@ -60,6 +60,8 @@ public class FireballProjectileEntity extends Projectile {
     private int spellSaveDc = 14; // computed from caster in create()
     /** Client only: where this client first saw the fireball (the cast point), for the ignition and the renderer. */
     @Nullable private Vec3 visualOrigin = null;
+    /** Client only: this client saw the cast itself (not a fireball that came into tracking range mid-flight). */
+    private boolean castSeen;
 
     public FireballProjectileEntity(EntityType<? extends FireballProjectileEntity> type, Level level) {
         super(type, level);
@@ -106,7 +108,9 @@ public class FireballProjectileEntity extends Projectile {
 
         if (level().isClientSide() && visualOrigin == null) {
             visualOrigin = start;
-            FireballVfx.castBurst(level(), start, travelDirection());
+            // Only a client that saw the cast plays the ignition (not one that starts tracking it mid-flight).
+            castSeen = FireballVfx.sawCast(this, start);
+            if (castSeen) FireballVfx.castBurst(level(), start, travelDirection());
         }
 
         var blockHit = level().clip(new net.minecraft.world.level.ClipContext(
@@ -121,9 +125,10 @@ public class FireballProjectileEntity extends Projectile {
         if (level().isClientSide()) {
             // The trail starts 2.5 blocks out from the cast point: closer, it fills the caster's first-person view.
             Vec3 trailEnd = hit.getType() != HitResult.Type.MISS ? hit.getLocation() : end;
-            if (trailEnd.distanceTo(visualOrigin) > TRAIL_CLEARANCE) {
-                Vec3 trailStart = start.distanceTo(visualOrigin) >= TRAIL_CLEARANCE ? start
-                        : visualOrigin.add(travelDirection().scale(TRAIL_CLEARANCE));
+            double clearance = castSeen ? TRAIL_CLEARANCE : 0.0;
+            if (trailEnd.distanceTo(visualOrigin) > clearance) {
+                Vec3 trailStart = start.distanceTo(visualOrigin) >= clearance ? start
+                        : visualOrigin.add(travelDirection().scale(clearance));
                 FireballVfx.trail(level(), trailStart, trailEnd, travelDirection());
             }
         }
@@ -164,6 +169,11 @@ public class FireballProjectileEntity extends Projectile {
     @Nullable
     public Vec3 visualOrigin() {
         return visualOrigin;
+    }
+
+    /** Client only: true when this client saw the cast (the projectile grows from the cast point and plays its ignition). */
+    public boolean castSeen() {
+        return castSeen;
     }
 
     @Override

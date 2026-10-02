@@ -47,6 +47,19 @@ final class HeatVisionEmissive implements EmissiveSource {
         }
     }
 
+    /** Each beam at full strength counts as half an effect toward the layer's brightness budget (no group limit). */
+    @Override
+    public float emissiveDemand() {
+        float d = 0.0f;
+        for (HeatVisionBeam beam : frameBeams) d += 0.5f * beam.strength();
+        return d;
+    }
+
+    @Override
+    public String budgetGroup() {
+        return "heat_vision";
+    }
+
     @Override
     public void emit(EmissiveBuffer buffer, Vec3 camera, float partialTick) {
         QuadCollector quads = new QuadCollector(buffer);

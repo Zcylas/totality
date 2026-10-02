@@ -22,6 +22,7 @@ import java.util.List;
 public final class EmissiveGlow {
 
     private static final List<EmissiveSource> SOURCES = new ArrayList<>();
+    private static final EmissiveBudget BUDGET = new EmissiveBudget();
     private static EmissiveGlowSettings settings = new EmissiveGlowSettings(
             FabricLoader.getInstance().getConfigDir().resolve("totality-vfx.properties"));
     private static EmissiveBloomRenderer renderer;
@@ -51,6 +52,16 @@ public final class EmissiveGlow {
         return SOURCES.size();
     }
 
+    /** Limits the summed emissive demand of a budget group (e.g. every Fireball together); see {@link EmissiveBudget}. */
+    public static void setGroupLimit(String group, float limit) {
+        BUDGET.setGroupLimit(group, limit);
+    }
+
+    /** The brightness budget as resolved for the last rendered frame (diagnostics and tests). */
+    public static EmissiveBudget budget() {
+        return BUDGET;
+    }
+
     public static EmissiveGlowSettings settings() {
         return settings;
     }
@@ -71,7 +82,7 @@ public final class EmissiveGlow {
         }
         float partialTick = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         renderer.render(gameRenderer.mainRenderTarget(), gameRenderer.gameRenderState().levelRenderState.cameraRenderState,
-                partialTick, SOURCES, settings);
+                partialTick, SOURCES, settings, BUDGET);
     }
 
     // ── Development measurement (used by the dev command and capture scene) ─

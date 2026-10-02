@@ -18,6 +18,8 @@ import java.util.Properties;
  *   <li>{@code glow.intensity} (default 1.0, clamped to [0, 4]): strength of the glow added to the image.</li>
  *   <li>{@code glow.levels} (default 5, clamped to [2, 6]): length of the blur chain; more levels give a wider glow
  *       at a small extra cost.</li>
+ *   <li>{@code glow.globalLimit} (default 6, clamped to [1, 64]): the final cap on the summed emissive demand of all
+ *       sources, in "full effects" ({@link EmissiveBudget}).</li>
  * </ul>
  */
 public final class EmissiveGlowSettings {
@@ -27,11 +29,15 @@ public final class EmissiveGlowSettings {
     public static final int MAX_LEVELS = 6;
     static final float DEFAULT_INTENSITY = 1.0f;
     static final int DEFAULT_LEVELS = 5;
+    public static final float MIN_GLOBAL_LIMIT = 1.0f;
+    public static final float MAX_GLOBAL_LIMIT = 64.0f;
+    static final float DEFAULT_GLOBAL_LIMIT = 6.0f;
 
     private final Path file;
     private volatile boolean enabled = true;
     private volatile float intensity = DEFAULT_INTENSITY;
     private volatile int levels = DEFAULT_LEVELS;
+    private volatile float globalLimit = DEFAULT_GLOBAL_LIMIT;
 
     public EmissiveGlowSettings(Path file) {
         this.file = file;
@@ -49,6 +55,7 @@ public final class EmissiveGlowSettings {
         s.enabled = !"false".equalsIgnoreCase(p.getProperty("glow.enabled", "true").trim());
         s.setIntensity(parseFloat(p.getProperty("glow.intensity"), DEFAULT_INTENSITY));
         s.setLevels(parseInt(p.getProperty("glow.levels"), DEFAULT_LEVELS));
+        s.setGlobalLimit(parseFloat(p.getProperty("glow.globalLimit"), DEFAULT_GLOBAL_LIMIT));
         return s;
     }
 
@@ -57,6 +64,7 @@ public final class EmissiveGlowSettings {
         p.setProperty("glow.enabled", Boolean.toString(enabled));
         p.setProperty("glow.intensity", Float.toString(intensity));
         p.setProperty("glow.levels", Integer.toString(levels));
+        p.setProperty("glow.globalLimit", Float.toString(globalLimit));
         Files.createDirectories(file.getParent());
         Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
         try (Writer w = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
@@ -87,6 +95,14 @@ public final class EmissiveGlowSettings {
 
     public void setLevels(int levels) {
         this.levels = Math.clamp(levels, MIN_LEVELS, MAX_LEVELS);
+    }
+
+    public float globalLimit() {
+        return globalLimit;
+    }
+
+    public void setGlobalLimit(float limit) {
+        this.globalLimit = Float.isFinite(limit) ? Math.clamp(limit, MIN_GLOBAL_LIMIT, MAX_GLOBAL_LIMIT) : DEFAULT_GLOBAL_LIMIT;
     }
 
     /** True when the glow passes should run: enabled and a visible intensity. */

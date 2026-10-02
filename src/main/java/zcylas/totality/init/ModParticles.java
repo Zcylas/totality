@@ -12,7 +12,8 @@ import zcylas.totality.Totality;
  * <p>Firebolt: embers, flame wisps, cross sparks, directional streaks, a burst flash, and the impact emitter the server
  * sends at the exact hit point (its velocity carries the surface normal; zero = a fizzle on expiry).
  * <p>Fireball: the detonation sphere, smoke puffs, charred fragments, and the detonation emitter delivered as the blast's
- * own explosion particle (x velocity 1 = detonation, -1 = the fizzle of an expired fireball).
+ * own explosion particle (x velocity 1 = detonation, -1 = the fizzle of an expired fireball). Fireball V2 adds its own
+ * sparks, embers and heat streaks (Firebolt's sprites, with a near-camera size limit and a shared particle budget).
  * <p>Visual portal test: floating pixel cubes (ambient), converging (opening) and scattering (collapse).
  */
 public final class ModParticles {
@@ -27,6 +28,9 @@ public final class ModParticles {
     public static final SimpleParticleType FIREBALL_SMOKE = register("fireball_smoke", false);
     public static final SimpleParticleType FIREBALL_FRAGMENT = register("fireball_fragment", false);
     public static final SimpleParticleType FIREBALL_DETONATION = register("fireball_detonation", true);
+    public static final SimpleParticleType FIREBALL_SPARK = register("fireball_spark", false);
+    public static final SimpleParticleType FIREBALL_EMBER = register("fireball_ember", false);
+    public static final SimpleParticleType FIREBALL_STREAK = register("fireball_streak", false);
     public static final SimpleParticleType VISUAL_PORTAL_MOTE = register("visual_portal_mote", false);
     public static final SimpleParticleType VISUAL_PORTAL_CONVERGE = register("visual_portal_converge", true);
     public static final SimpleParticleType VISUAL_PORTAL_SCATTER = register("visual_portal_scatter", true);

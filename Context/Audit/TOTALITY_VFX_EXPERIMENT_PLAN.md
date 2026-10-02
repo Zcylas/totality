@@ -1,7 +1,10 @@
 # Totality VFX Experiments — Plan and Roadmap
 
-Date: 2026-10-01 (updated 2026-10-02, finalization) · Status: **Experiments 1 and 2 completed and approved**,
-committed locally. The roadmap below (Experiments 3+) is planning only.
+Date: 2026-10-01 (updated 2026-10-02: finalization; Fireball V2 Phase A to B5) · Status: **Experiments 1 and 2
+completed and approved**, committed locally. **Experiment 3 (Fireball V2): implemented (B1-B5), approved and committed
+locally (not pushed)** (`TOTALITY_VFX_FIREBALL_V2_FINAL_REPORT.md`; earlier phases:
+`TOTALITY_VFX_FIREBALL_V2_DESIGN_REPORT.md`, `TOTALITY_VFX_FIREBALL_V2_B1_B2_REPORT.md`,
+`TOTALITY_VFX_FIREBALL_V2_B2_REFINEMENT_REPORT.md`). The rest of the roadmap is planning only.
 Source of the ideas: `Context/Audit/TOTALITY_SHOOTING_STAR_VFX_AUDIT.md` (§7.3, §8, §10).
 
 ## Purpose of this prototype phase
@@ -117,6 +120,15 @@ environment. A source-level test enforces both.
    keeps its own visual identity (shape, colour, timing, motion).
 6. **Measured vs estimated.** Performance claims must distinguish actual measurements (GPU timestamps, logged buffer
    sizes, with hardware and resolution) from estimates and extrapolations.
+7. **Atmosphere is cosmetic.** Visual effects must never change Minecraft's actual world time, weather or global
+   gameplay conditions purely for cinematic atmosphere. Sky darkening, flashes, colour grading and similar effects are
+   cosmetic, properly scoped and reversible; real gameplay effects belong to the authoritative gameplay systems. This
+   applies to every spell, especially Dark Star and Meteor Swarm (decision 2026-10-02).
+8. **Bake procedural noise when it dominates.** Fireball's explosion cost 0.29 ms (1) / 2.6 ms (20) almost entirely in
+   per-pixel value-noise octaves; baking the same fbm into a tileable texture (three fetches instead of 16 octaves)
+   cut it to about 0.05 / 0.54 ms with no visible change (Fireball V2 B5). Measure first, then bake.
+9. **Bound everything on screen near the camera.** Particles, emissive quads and billboards need an angular size
+   limit and a near-camera fade: without one, a spark or glow quad a block from the eye becomes a large flat square.
 
 ## Candidate components of the future VFX API (planning only)
 
@@ -125,30 +137,42 @@ These are candidates distilled from Experiments 1 and 2 and the audit. The full 
 | component | from | role |
 |---|---|---|
 | **Emissive Rendering Layer** | Experiment 1 (exists) | Shared emissive contribution buffer with bloom as its first feature; future lifecycle ownership, brightness budget, quality tiers |
-| **Beam primitive** | Experiment 2 | Camera-facing segmented ribbon with min/max angular width, near-camera fade, UV along the length, shader-driven energy flow; colour parameter for reuse |
+| **Beam primitive** | Experiment 2; generalised in Experiment 3 | Camera-facing segmented ribbon with min/max angular width, near-camera fade, UV along the length, shader-driven energy flow; now a shared `client/vfx/ribbon/RibbonGeometry` with a width profile (Heat Vision's beams, Fireball's tapering streak) |
 | **Impact primitive** | Experiment 2 | Camera-facing hotspot pulled towards the camera, optional particles, emissive contribution |
 | **Animation envelope** | Experiment 2 | Time-based ignite/sustain/fade envelopes (never frame-count based) |
-| **Shared Screen FX** | Audit §8; planned in Experiment 3 | Camera shake, flashes, impact frames with explicit stacking (max-merge, distance falloff, priorities) and accessibility limits |
+| **Shared Screen FX** | Audit §8; implemented in Experiment 3 (B1) | Camera shake, flashes, impact frames with explicit stacking (max-merge, distance falloff, priorities) and accessibility limits |
+| **Emissive brightness budget** | Experiment 3 (B4) | Per-effect budget groups plus one final global cap in the Emissive Rendering Layer (`EmissiveBudget`) |
+| **Layered fire volumes** | Experiment 3 (B2-B5) | `FireExplosion`: many procedurally shaded, independently animated volumes in one draw, turbulence from a precomputed noise texture |
+| **Particle budget** | Experiment 3 (B4) | Shared live-particle budget with distance quality and a near-camera size limit (Fireball's own today; candidate for all spells) |
 | **Terrain decals** | Audit §8 | Projected, depth-reading decals for ritual circles, markers, scorch marks and targeting indicators |
 
 ---
 
-## Roadmap (revised 2026-10-02 — planning notes, not implementation instructions)
+## Roadmap (revised 2026-10-02, order corrected at Fireball V2 Phase A — planning notes, not implementation instructions)
 
 The next experiments improve **actual Totality content** while each introduces reusable VFX techniques.
 
 1. **Experiment 3 — Fireball V2.** Research its D&D rules, redesign its projectile and explosion, and develop the
-   **Shared Screen FX Service** (the first Screen FX consumer).
-2. **Experiment 4 — Magic Missile V2.** Guided magical projectiles: trajectories, trails and impact effects.
-3. **Experiment 5 — Eldritch Blast V2.** Improve the existing spell, potentially using a Baldur's Gate 3 video
-   reference (for study, not for copying).
+   **Shared Screen FX Service** (the first Screen FX consumer). Phase A (research and design), B1 (Screen FX), B2 and
+   B2.1 (explosion, approved), B3 (projectile), B4 (emissive integration, particles, aftermath) and B5 (optimisation,
+   final testing) delivered 2026-10-02. **Approved and committed locally (2026-10-02).** The next development task
+   is undecided (decision F5).
+2. **Experiment 4 — Eldritch Blast V2 (planned).** Improve the existing spell, with the video references in
+   `Context/References/Videos/` (`eldritch_blast_youtube`, `eldritch_blast_tiktok`; for study, not for copying).
+   Not started; whether it comes next is undecided.
+3. **Experiment 5 — Magic Missile V2.** Guided magical projectiles: trajectories, trails and impact effects.
 4. **Experiment 6 — Lightning Bolt V2.** Improve the existing spell's lightning rendering and impacts.
 5. **Further candidates:** Ground Slam; Portals and Gates; Globe of Invulnerability; Dark Star; **Plane Shift V1**.
    * Plane Shift V1 is intended to support Overworld → Nether travel and travel back from the Nether. Its broader
      functionality is deferred. It may serve as the introduction of a minimal **Player Animation API** for casting
      animations.
 
-The exact order after Fireball V2 can still change.
+These plans remain flexible; the exact order after Fireball V2 can still change.
+
+**Separate future feature — Targeting Preview API V1** (not part of any experiment above until scheduled): a
+BG3-inspired preview of a spell's projected area and affected creatures, computed with the same common code as the
+server-authoritative mechanics and drawn with Terrain decals and other shared VFX techniques. Recorded in the Fireball
+V2 design report §11; when to implement it is a separate decision.
 
 **Meteor Swarm** remains the eventual large-scale integration experiment (timelines, seed-deterministic paths,
 batched rendering, impacts, Screen FX, decals). It has no fixed experiment number.

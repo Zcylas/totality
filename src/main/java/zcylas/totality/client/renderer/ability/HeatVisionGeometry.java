@@ -1,14 +1,16 @@
 package zcylas.totality.client.renderer.ability;
 
 import net.minecraft.world.phys.Vec3;
+import zcylas.totality.client.vfx.ribbon.RibbonGeometry;
 
 /**
  * Pure geometry of Heat Vision V2 (no rendering state, unit-testable). Positions are emitted camera-relative
  * ({@code world - camera}), four vertices per quad.
  *
  * <ul>
- *   <li><b>Ribbon</b>: the beam is a strip of quads that always faces the camera (it turns around its own axis), split
- *       into segments so the width can follow the distance: never thinner than {@code minHalfAngle} radians on screen,
+ *   <li><b>Ribbon</b> (the shared {@link RibbonGeometry}, constant width): the beam is a strip of quads that always
+ *       faces the camera (it turns around its own axis), split into segments so the width can follow the distance:
+ *       never thinner than {@code minHalfAngle} radians on screen,
  *       so a far beam stays readable instead of shrinking to a sub-pixel line, and never wider than
  *       {@link #MAX_HALF_ANGLE}, so the part next to the camera cannot fill the screen. Vertices closer to the camera
  *       than {@link #NEAR_FADE_END} blocks fade out (alpha), so beams emerge softly from the eyes and a beam passing
@@ -20,9 +22,7 @@ import net.minecraft.world.phys.Vec3;
 public final class HeatVisionGeometry {
 
     /** Receives one vertex: camera-relative position, UV and colour (rgb tint, a strength). */
-    public interface VertexSink {
-        void vertex(float x, float y, float z, float u, float v, float r, float g, float b, float a);
-    }
+    public interface VertexSink extends RibbonGeometry.VertexSink {}
 
     static final double HOTSPOT_PULL = 0.2;
     /** Maximum on-screen half-width of a ribbon, in radians (about 13 px at 1080p and a 70 degree field of view). */
@@ -39,36 +39,9 @@ public final class HeatVisionGeometry {
      */
     public static void ribbon(HeatVisionBeam beam, Vec3 camera, int segments, double baseHalfWidth, double minHalfAngle,
                               double widthScale, float r, float g, float b, VertexSink sink) {
-        Vec3 start = beam.start();
-        Vec3 end = beam.visibleEnd();
-        Vec3 axis = end.subtract(start);
-        double length = axis.length();
-        if (length < 1e-4 || segments < 1) return;
-        Vec3 dir = axis.scale(1.0 / length);
-        float[] prev = null;
-        for (int i = 0; i <= segments; i++) {
-            double t = i / (double) segments;
-            Vec3 rel = start.add(axis.scale(t)).subtract(camera);
-            double dist = Math.max(rel.length(), 1e-4);
-            Vec3 toCamera = rel.scale(-1.0 / dist);
-            Vec3 side = dir.cross(toCamera);
-            if (side.lengthSqr() < 1e-10) side = perpendicular(dir);
-            side = side.normalize();
-            double half = Math.min(Math.max(baseHalfWidth, dist * minHalfAngle), dist * MAX_HALF_ANGLE) * widthScale;
-            float v = (float) (t * length);
-            float alpha = beam.strength() * nearFade(dist);
-            float[] cur = {
-                    (float) (rel.x + side.x * half), (float) (rel.y + side.y * half), (float) (rel.z + side.z * half),
-                    (float) (rel.x - side.x * half), (float) (rel.y - side.y * half), (float) (rel.z - side.z * half),
-                    v, alpha};
-            if (prev != null) {
-                sink.vertex(prev[0], prev[1], prev[2], -1, prev[6], r, g, b, prev[7]);
-                sink.vertex(prev[3], prev[4], prev[5], 1, prev[6], r, g, b, prev[7]);
-                sink.vertex(cur[3], cur[4], cur[5], 1, cur[6], r, g, b, cur[7]);
-                sink.vertex(cur[0], cur[1], cur[2], -1, cur[6], r, g, b, cur[7]);
-            }
-            prev = cur;
-        }
+        RibbonGeometry.ribbon(beam.start(), beam.visibleEnd(), camera, segments, RibbonGeometry.constant(baseHalfWidth),
+                new RibbonGeometry.Limits(minHalfAngle, MAX_HALF_ANGLE, NEAR_FADE_START, NEAR_FADE_END), widthScale,
+                r, g, b, beam.strength(), sink);
     }
 
     /** Emits the impact hotspot quad (UV -1..1 in both directions) if the beam reaches its impact point. */
@@ -99,12 +72,6 @@ public final class HeatVisionGeometry {
 
     /** 0 at {@link #NEAR_FADE_START} blocks from the camera, 1 from {@link #NEAR_FADE_END} on (smoothstep). */
     static float nearFade(double dist) {
-        double x = Math.clamp((dist - NEAR_FADE_START) / (NEAR_FADE_END - NEAR_FADE_START), 0.0, 1.0);
-        return (float) (x * x * (3.0 - 2.0 * x));
-    }
-
-    static Vec3 perpendicular(Vec3 dir) {
-        Vec3 p = dir.cross(new Vec3(0, 1, 0));
-        return p.lengthSqr() < 1e-10 ? dir.cross(new Vec3(1, 0, 0)) : p;
+        return RibbonGeometry.nearFade(dist, new RibbonGeometry.Limits(0, MAX_HALF_ANGLE, NEAR_FADE_START, NEAR_FADE_END));
     }
 }

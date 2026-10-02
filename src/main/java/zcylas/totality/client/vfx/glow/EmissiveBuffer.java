@@ -14,6 +14,7 @@ public final class EmissiveBuffer {
 
     private final BufferBuilder builder;
     private int quads;
+    private float scale = 1.0f;
 
     EmissiveBuffer(BufferBuilder builder) {
         this.builder = builder;
@@ -22,6 +23,9 @@ public final class EmissiveBuffer {
     public void quad(float x0, float y0, float z0, float x1, float y1, float z1,
                      float x2, float y2, float z2, float x3, float y3, float z3,
                      float r, float g, float b, float a) {
+        r *= scale;
+        g *= scale;
+        b *= scale;
         builder.addVertex(IDENTITY, x0, y0, z0).setColor(r, g, b, a);
         builder.addVertex(IDENTITY, x1, y1, z1).setColor(r, g, b, a);
         builder.addVertex(IDENTITY, x2, y2, z2).setColor(r, g, b, a);
@@ -42,5 +46,10 @@ public final class EmissiveBuffer {
 
     int quadCount() {
         return quads;
+    }
+
+    /** The brightness budget's scale for the source about to emit ({@link EmissiveBudget}); multiplies every colour. */
+    void setScale(float scale) {
+        this.scale = scale;
     }
 }

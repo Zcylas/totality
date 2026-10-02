@@ -65,4 +65,20 @@ class EmissiveGlowSettingsTest {
         assertTrue(s.enabled());
         assertFalse(s.active());
     }
+
+    @Test
+    void theGlobalBrightnessLimitRoundTripsAndIsClamped() throws IOException {
+        Path file = dir.resolve("limit.properties");
+        EmissiveGlowSettings s = new EmissiveGlowSettings(file);
+        assertEquals(EmissiveGlowSettings.DEFAULT_GLOBAL_LIMIT, s.globalLimit());
+        s.setGlobalLimit(9.5f);
+        s.save();
+        assertEquals(9.5f, EmissiveGlowSettings.load(file).globalLimit());
+        Files.writeString(file, "glow.globalLimit=0\n");
+        assertEquals(EmissiveGlowSettings.MIN_GLOBAL_LIMIT, EmissiveGlowSettings.load(file).globalLimit());
+        Files.writeString(file, "glow.globalLimit=lots\n");
+        assertEquals(EmissiveGlowSettings.DEFAULT_GLOBAL_LIMIT, EmissiveGlowSettings.load(file).globalLimit());
+        s.setGlobalLimit(1000f);
+        assertEquals(EmissiveGlowSettings.MAX_GLOBAL_LIMIT, s.globalLimit());
+    }
 }
