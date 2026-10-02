@@ -182,6 +182,7 @@ public class ModEnglishLangProvider extends FabricLanguageProvider {
         translationBuilder.add("item.totality.forest_boar_spawn_egg", "Forest Boar Spawn Egg");
         translationBuilder.add("entity.totality.skateboard", "Skateboard");
         translationBuilder.add("item.totality.skateboard", "Skateboard");
+        translationBuilder.add("entity.totality.slime_test", "Small Slime (Dev Test)");
         translationBuilder.add("entity.totality.visual_portal", "Visual Portal (Test)");
         translationBuilder.add("entity.totality.solo_gate", "Normal Gate (Test)");
         //Spell Materials

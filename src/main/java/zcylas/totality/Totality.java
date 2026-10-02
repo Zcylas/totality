@@ -20,6 +20,7 @@ import zcylas.totality.api.equipment.BackSlotVerification;
 import zcylas.totality.block.alchemy.GarlicCropVerification;
 import zcylas.totality.block.alchemy.JueyunChiliVerification;
 import zcylas.totality.blockentity.cooking.CuttingBoardVerification;
+import zcylas.totality.entity.dev.SlimeTestEntity;
 import zcylas.totality.entity.gate.SoloGateCommands;
 import zcylas.totality.entity.gate.SoloGateVerification;
 import zcylas.totality.entity.magic.FireballVerification;
@@ -321,6 +322,7 @@ public class Totality implements ModInitializer {
 				zcylas.totality.entity.animal.ForestBoarEntity::checkForestBoarSpawnRules);
 		FabricDefaultAttributeRegistry.register(ModEntities.PROVISIONER,
 				zcylas.totality.entity.npc.ProvisionerNpcEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(ModEntities.SLIME_TEST, SlimeTestEntity.createAttributes());
 	}
 	private void registerSkillEvents(){
 		MiningSkillEvents.register();

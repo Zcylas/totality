@@ -24,6 +24,7 @@ import zcylas.totality.api.rpg.resources.PlayerResourceIds;
 import zcylas.totality.api.rpg.resources.client.presentation.ClientResourcePresentationResolver;
 import zcylas.totality.client.color.PotionTintSource;
 import zcylas.totality.client.combat.CombatTextRenderer;
+import zcylas.totality.client.entity.slime.SlimeTestRenderer;
 import zcylas.totality.client.handler.FluidTankScrollHandler;
 import zcylas.totality.client.camera.CameraClient;
 import zcylas.totality.client.phone.PhoneDevCommand;
@@ -365,6 +366,8 @@ public class TotalityClient implements ClientModInitializer {
         EntityRenderers.register(ModEntities.FOREST_BOAR, zcylas.totality.client.entity.forestboar.ForestBoarRenderer::new);
         // Creative Test D: the default skateboard (its rider's standing pose: AvatarRendererSkateboardMixin).
         EntityRenderers.register(ModEntities.SKATEBOARD, SkateboardRenderer::new);
+        // DEVELOPMENT TEST: the V1 Small Slime model (see SlimeTestEntity).
+        EntityRenderers.register(ModEntities.SLIME_TEST, SlimeTestRenderer::new);
 
         //Basic Weapons
         //Shuriken

@@ -8,6 +8,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import zcylas.totality.Totality;
 import zcylas.totality.entity.base_weapon.ThrownShurikenEntity;
+import zcylas.totality.entity.dev.SlimeTestEntity;
 import zcylas.totality.entity.gate.SoloGateEntity;
 import zcylas.totality.entity.magic.GrimoireProjectileEntity;
 import zcylas.totality.entity.magic.FireballProjectileEntity;
@@ -282,6 +283,28 @@ public class ModEntities {
                             .sized(0.9f, 0.35f)
                             .clientTrackingRange(10)
                             .build(SKATEBOARD_KEY)
+            );
+
+    private static final ResourceKey<EntityType<?>> SLIME_TEST_KEY =
+            ResourceKey.create(
+                    BuiltInRegistries.ENTITY_TYPE.key(),
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "slime_test"));
+
+    /**
+     * DEVELOPMENT TEST: the V1 Small Slime model for in-game visual review, not the production Slime. The box matches
+     * the model as rendered (20 x 15 x 18 units at render scale 0.64 = 0.80 x 0.60 x 0.72 blocks); the eyes' centre is
+     * 0.24 blocks up.
+     */
+    public static final EntityType<SlimeTestEntity> SLIME_TEST =
+            Registry.register(
+                    BuiltInRegistries.ENTITY_TYPE,
+                    Identifier.fromNamespaceAndPath(Totality.MOD_ID, "slime_test"),
+                    EntityType.Builder.<SlimeTestEntity>of(SlimeTestEntity::new, MobCategory.MISC)
+                            .noLootTable()
+                            .sized(0.8f, 0.6f)
+                            .eyeHeight(0.24f)
+                            .clientTrackingRange(10)
+                            .build(SLIME_TEST_KEY)
             );
 
     private ModEntities() {}
