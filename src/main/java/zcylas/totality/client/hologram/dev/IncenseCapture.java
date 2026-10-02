@@ -72,6 +72,33 @@ final class IncenseCapture {
         s.add(HologramCapture.screenshot("99_blessed_incense_held_third_person"));
         s.add(HologramCapture.run("first person", () -> Minecraft.getInstance().options.setCameraType(CameraType.FIRST_PERSON)));
 
+        // Left hand (off hand) and both hands at once: Minecraft mirrors the model's left-hand display, so the two
+        // hands must show mirror images of each other.
+        s.add(HologramCapture.command("item replace entity @s weapon.offhand with totality:incense"));
+        s.add(slot(8));
+        s.add(HologramCapture.waitTicks(20));
+        s.add(HologramCapture.screenshot("99_incense_held_first_person_left"));
+        s.add(slot(0));
+        s.add(HologramCapture.waitTicks(20));
+        s.add(HologramCapture.screenshot("99_incense_held_first_person_both"));
+        s.add(HologramCapture.run("third person (back)", () -> Minecraft.getInstance().options.setCameraType(CameraType.THIRD_PERSON_BACK)));
+        s.add(HologramCapture.waitTicks(20));
+        s.add(HologramCapture.screenshot("99_incense_held_third_person_back_both"));
+        s.add(slot(8));
+        s.add(HologramCapture.waitTicks(20));
+        s.add(HologramCapture.screenshot("99_incense_held_third_person_back_left"));
+        s.add(HologramCapture.command("item replace entity @s weapon.offhand with minecraft:air"));
+        s.add(slot(0));
+        s.add(HologramCapture.waitTicks(20));
+        s.add(HologramCapture.screenshot("99_incense_held_third_person_back_right"));
+        s.add(HologramCapture.command("item replace entity @s weapon.offhand with totality:incense"));
+        s.add(slot(8));
+        s.add(HologramCapture.run("third person (front)", () -> Minecraft.getInstance().options.setCameraType(CameraType.THIRD_PERSON_FRONT)));
+        s.add(HologramCapture.waitTicks(20));
+        s.add(HologramCapture.screenshot("99_incense_held_third_person_front_left"));
+        s.add(HologramCapture.command("item replace entity @s weapon.offhand with minecraft:air"));
+        s.add(HologramCapture.run("first person", () -> Minecraft.getInstance().options.setCameraType(CameraType.FIRST_PERSON)));
+
         // Night.
         s.add(HologramCapture.command("time set 18000"));
         s.add(HologramCapture.look(0, 18));

@@ -555,7 +555,11 @@ public class ModModelProvider extends FabricModelProvider {
         generators.generateFlatItem(RitualItems.PURPLE_CHALK, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(RitualItems.RED_CHALK, ModelTemplates.FLAT_ITEM);
         generators.generateFlatItem(RitualItems.RESIDUUM_CHALK, ModelTemplates.FLAT_ITEM);
-        generators.generateFlatItem(RitualItems.INCENSE, ModelTemplates.FLAT_ITEM);
+        // Custom Blockbench model (hand-authored, not datagen-owned): assets/totality/models/item/incense.json
+        generators.itemModelOutput.accept(
+                RitualItems.INCENSE,
+                ItemModelUtils.plainModel(
+                        Identifier.fromNamespaceAndPath("totality", "item/incense")));
         generators.generateFlatItem(ReligiousItems.BLESSED_INCENSE, ModelTemplates.FLAT_ITEM);
         //Rune Items - Blanks
         generateRuneItem(generators, RuneItems.BLANK_FORM, "blank_form");
