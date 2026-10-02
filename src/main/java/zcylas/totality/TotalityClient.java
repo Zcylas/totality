@@ -31,6 +31,7 @@ import zcylas.totality.client.tooltip.TooltipScrollController;
 import zcylas.totality.client.hud.resource.ISecondaryResource;
 import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
 import zcylas.totality.client.renderer.ability.HeatVisionBeamRenderer;
+import zcylas.totality.client.vfx.glow.EmissiveGlow;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
 import zcylas.totality.client.renderer.entity.GrimoireProjectileRenderer;
 import zcylas.totality.client.renderer.entity.npc.BankerNpcRenderer;
@@ -270,6 +271,8 @@ public class TotalityClient implements ClientModInitializer {
         CombatTextRenderer.register();
         zcylas.totality.client.mining.ClientMiningController.register();
         HeatVisionBeamRenderer.register();
+        // VFX Experiment 1: shared emissive glow layer (inert until a source registers; /totalityvfx in development).
+        EmissiveGlow.register();
 
         SecondaryResourceRegistry.register(new ISecondaryResource() {
             @Override public String getName() { return "Rage"; }

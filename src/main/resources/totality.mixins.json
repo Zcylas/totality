@@ -87,7 +87,8 @@
 		"client.camera.CameraFovMixin",
 		"client.camera.CameraHudMixin",
 		"client.camera.CameraKeyboardMixin",
-		"client.camera.CameraMouseMixin"
+		"client.camera.CameraMouseMixin",
+		"client.vfx.GameRendererEmissiveGlowMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
