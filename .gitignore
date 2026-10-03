@@ -47,3 +47,6 @@ src/main/generated/.cache/
 .claude/settings.local.json
 Context/Audit/Review Bundles/
 Context/Audit/Review/*.zip
+
+# Eldritch Blast V2: built-in pack with audio extracted from a third-party clip - PRIVATE comparison material, never commit or publish
+src/main/resources/resourcepacks/eldritch_reference_private/

@@ -2,10 +2,11 @@ package zcylas.totality.api.magic.spell.destruction;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import org.jetbrains.annotations.Nullable;
 import zcylas.totality.api.ability.AbilityContext;
 import zcylas.totality.api.combat.damage.DamageTypes;
+import zcylas.totality.api.core.util.ServerScheduler;
+import zcylas.totality.api.core.util.VerificationReporter;
 import zcylas.totality.api.dice.Dice;
 import zcylas.totality.api.magic.spell.Spell;
 import zcylas.totality.api.magic.spell.SpellSchool;
@@ -22,8 +23,9 @@ import zcylas.totality.entity.magic.SpellBoltEntity;
  *   Level 11 → 3 beams
  *   Level 17 → 4 beams
  *
- * Each beam is a separate {@link SpellBoltEntity} fired in the look direction.
- * Multi-beam versions will spread slightly (future).
+ * Each beam is a separate {@link SpellBoltEntity} fired in the look direction. A multi-beam cast fires its beams one
+ * after another, {@link #BEAM_INTERVAL_TICKS} apart, each aimed where the caster looks at that moment (Eldritch Blast V2;
+ * only the development override uses it until the scaling is wired).
  */
 public class EldritchBlast extends Spell {
 
@@ -66,6 +68,40 @@ public class EldritchBlast extends Spell {
 
     @Override
     public void onActivate(ServerPlayer player, @Nullable AbilityContext context) {
+        fireBeam(player);
+        // Further beams follow one by one, each aimed where the caster is looking when it fires.
+        int beams = beamCount();
+        for (int i = 1; i < beams; i++) {
+            ServerScheduler.getInstance().queue(server -> {
+                if (player.isAlive() && !player.isRemoved()) fireBeam(player);
+            }, i * BEAM_INTERVAL_TICKS);
+        }
+    }
+
+    // ── Beams (Eldritch Blast V2) ─────────────────────────────────────────────
+
+    /** Ticks between the beams of one multi-beam cast (0.2 s: separate, readable pulses). */
+    static final int BEAM_INTERVAL_TICKS = 4;
+
+    /** Development only: beams per cast to preview the future Warlock-level scaling (0 = the normal count). */
+    private static volatile int devBeamOverride;
+
+    /** Beams per cast: 1 until Warlock-level scaling is wired (see the class comment), or the development override. */
+    public static int beamCount() {
+        return devBeamOverride > 0 ? devBeamOverride : 1;
+    }
+
+    /** Development environment only (ignored elsewhere): beams per cast, 1..4, or 0 for the normal count. */
+    public static void setDevBeamOverride(int beams) {
+        if (!VerificationReporter.isDevEnvironment()) return;
+        devBeamOverride = Math.clamp(beams, 0, 4);
+    }
+
+    /**
+     * One beam: the unchanged bolt (speed, lifetime, collision, attack roll, 1d10 Force), drawn by the V2 client
+     * presentation, which also plays the cast and impact sounds (so they stay in step with what is drawn).
+     */
+    private void fireBeam(ServerPlayer player) {
         SpellBoltEntity bolt = SpellBoltEntity.create(
                 player.level(),
                 player,
@@ -76,7 +112,7 @@ public class EldritchBlast extends Spell {
                 getSpellcastingAbility(player),
                 BOLT_COLOR,
                 null
-        ).withSounds(SoundEvents.EVOKER_CAST_SPELL, SoundEvents.EVOKER_FANGS_ATTACK);
+        ).withVisualStyle(SpellBoltEntity.VisualStyle.ELDRITCH);
         player.level().addFreshEntity(bolt);
     }
 }

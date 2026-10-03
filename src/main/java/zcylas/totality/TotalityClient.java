@@ -32,6 +32,8 @@ import zcylas.totality.client.tooltip.TooltipScrollController;
 import zcylas.totality.client.hud.resource.ISecondaryResource;
 import zcylas.totality.client.hud.resource.SecondaryResourceRegistry;
 import zcylas.totality.client.renderer.ability.HeatVisionBeamRenderer;
+import zcylas.totality.client.vfx.eldritch.EldritchBlastVfx;
+import zcylas.totality.client.vfx.eldritch.dev.EldritchBlastDev;
 import zcylas.totality.client.vfx.glow.EmissiveGlow;
 import zcylas.totality.client.vfx.screen.ScreenFx;
 import zcylas.totality.client.renderer.energy.SidedOverlayRenderer;
@@ -48,6 +50,7 @@ import zcylas.totality.client.renderer.hud.MobHealthBarHud;
 import zcylas.totality.client.renderer.hud.TotalityHudRenderer;
 import zcylas.totality.client.renderer.hud.notification.NotificationManager;
 import zcylas.totality.client.renderer.ritual.RitualAltarRenderer;
+import zcylas.totality.client.particle.eldritch.EldritchImpactParticle;
 import zcylas.totality.client.particle.fireball.FireballParticles;
 import zcylas.totality.client.particle.fireball.FireballV2;
 import zcylas.totality.client.renderer.cooking.CuttingBoardRenderer;
@@ -279,6 +282,10 @@ public class TotalityClient implements ClientModInitializer {
         // VFX Experiment 3 (Fireball V2): Shared Screen FX Service, the projectile and the layered fire explosion.
         ScreenFx.register();
         FireballV2.register();
+        // Eldritch Blast V2: beam, impact, residue, sounds (+ development tooling and capture scene 70 in development).
+        EldritchBlastVfx.register();
+        EldritchImpactParticle.register();
+        EldritchBlastDev.registerIfDevelopmentEnvironment();
 
         SecondaryResourceRegistry.register(new ISecondaryResource() {
             @Override public String getName() { return "Rage"; }

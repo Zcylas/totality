@@ -52,5 +52,43 @@
         "pitch": 1.0
       }
     ]
+  },
+  "spell.eldritch_blast.cast": {
+    "sounds": [
+      {
+        "name": "totality:spell/eldritch_blast/cast1",
+        "volume": 0.9,
+        "pitch": 1.0
+      },
+      {
+        "name": "totality:spell/eldritch_blast/cast2",
+        "volume": 0.9,
+        "pitch": 1.0
+      },
+      {
+        "name": "totality:spell/eldritch_blast/cast3",
+        "volume": 0.9,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "spell.eldritch_blast.impact": {
+    "sounds": [
+      {
+        "name": "totality:spell/eldritch_blast/impact1",
+        "volume": 1.0,
+        "pitch": 1.0
+      },
+      {
+        "name": "totality:spell/eldritch_blast/impact2",
+        "volume": 1.0,
+        "pitch": 1.0
+      },
+      {
+        "name": "totality:spell/eldritch_blast/impact3",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
   }
 }

@@ -35,6 +35,7 @@ import zcylas.totality.api.rpg.combat.CombatResolver;
 import zcylas.totality.api.rpg.combat.CombatResolver.SpellAttackType;
 import zcylas.totality.api.rpg.stats.AbilityScore;
 import zcylas.totality.init.ModEntities;
+import zcylas.totality.init.ModParticles;
 
 import java.util.function.Consumer;
 
@@ -76,9 +77,11 @@ public class SpellBoltEntity extends Projectile {
 
     /**
      * DEFAULT: the colored dust trail every bolt spell uses. FIREBOLT: the rendered fire projectile
-     * (SpellBoltRenderer) with its own cast burst, trail and impact ({@link FireboltVfx}).
+     * (SpellBoltRenderer) with its own cast burst, trail and impact ({@link FireboltVfx}). ELDRITCH: Eldritch Blast V2,
+     * drawn and voiced entirely by the client presentation (client/vfx/eldritch), which the server only tells where the
+     * bolt hit ({@link ModParticles#ELDRITCH_IMPACT}).
      */
-    public enum VisualStyle { DEFAULT, FIREBOLT }
+    public enum VisualStyle { DEFAULT, FIREBOLT, ELDRITCH }
 
     // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -188,7 +191,7 @@ public class SpellBoltEntity extends Projectile {
 
     public VisualStyle visualStyle() {
         int id = this.entityData.get(VISUAL_STYLE);
-        return id == VisualStyle.FIREBOLT.ordinal() ? VisualStyle.FIREBOLT : VisualStyle.DEFAULT;
+        return id > 0 && id < VisualStyle.values().length ? VisualStyle.values()[id] : VisualStyle.DEFAULT;
     }
 
     /** Client only: where the bolt was first seen, or null before its first client tick. */
@@ -213,11 +216,16 @@ public class SpellBoltEntity extends Projectile {
         ticksAlive++;
 
         boolean firebolt = visualStyle() == VisualStyle.FIREBOLT;
+        boolean eldritch = visualStyle() == VisualStyle.ELDRITCH;
 
         if (ticksAlive >= MAX_LIFETIME_TICKS) {
             // Firebolt gutters out in the air instead of vanishing (visual only).
             if (firebolt && level() instanceof ServerLevel serverLevel) {
                 serverLevel.sendParticles(zcylas.totality.init.ModParticles.FIREBOLT_IMPACT, getX(), getY(), getZ(), 0, 0, 0, 0, 0);
+            }
+            // Eldritch Blast fades out where it expired (a zero normal = no impact burst).
+            if (eldritch && level() instanceof ServerLevel serverLevel) {
+                serverLevel.sendParticles(ModParticles.ELDRITCH_IMPACT, getX(), getY(), getZ(), 0, 0, 0, 0, 0);
             }
             this.discard();
             return;
@@ -230,7 +238,7 @@ public class SpellBoltEntity extends Projectile {
         }
 
         // ── Client: colored particle trail ────────────────────────────────────
-        if (level().isClientSide() && !firebolt) {
+        if (level().isClientSide() && !firebolt && !eldritch) {
             DustParticleOptions dust = buildDust(1.0f);
 
             // Core bolt — tight center
@@ -360,6 +368,11 @@ public class SpellBoltEntity extends Projectile {
             if (impactSound != null) {
                 serverLevel.playSound(null, at.x, at.y, at.z, impactSound, SoundSource.PLAYERS, 1.0f, 1.0f);
             }
+            return;
+        }
+        if (visualStyle() == VisualStyle.ELDRITCH) {
+            // The exact hit point (not the bolt's position at the start of this tick, up to 2.5 blocks short).
+            serverLevel.sendParticles(ModParticles.ELDRITCH_IMPACT, at.x, at.y, at.z, 0, normal.x, normal.y, normal.z, 1.0);
             return;
         }
         serverLevel.sendParticles(buildDust(2.0f),

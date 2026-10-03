@@ -15,6 +15,8 @@ import zcylas.totality.Totality;
  * own explosion particle (x velocity 1 = detonation, -1 = the fizzle of an expired fireball). Fireball V2 adds its own
  * sparks, embers and heat streaks (Firebolt's sprites, with a near-camera size limit and a shared particle budget).
  * <p>Visual portal test: floating pixel cubes (ambient), converging (opening) and scattering (collapse).
+ * <p>Eldritch Blast V2: the impact event the server sends at the exact hit point (velocity = surface normal; zero = the
+ * bolt expired in the air). It draws nothing itself; the client's Eldritch Blast presentation reacts to it.
  */
 public final class ModParticles {
 
@@ -34,6 +36,7 @@ public final class ModParticles {
     public static final SimpleParticleType VISUAL_PORTAL_MOTE = register("visual_portal_mote", false);
     public static final SimpleParticleType VISUAL_PORTAL_CONVERGE = register("visual_portal_converge", true);
     public static final SimpleParticleType VISUAL_PORTAL_SCATTER = register("visual_portal_scatter", true);
+    public static final SimpleParticleType ELDRITCH_IMPACT = register("eldritch_impact", true);
 
     private ModParticles() {}
 
